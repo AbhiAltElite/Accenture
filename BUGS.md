@@ -23,12 +23,29 @@ Two sections. **Traps** are failure modes identified in advance — read before 
 | T-13 | Tuning on the held-out set | bench | Calibration is fitted on a held-out split and never re-fitted after seeing test results |
 | T-14 | Fixing a failure by weakening its test | everywhere | If a test fails, fix the code or record the limitation. Never relax the assertion |
 | T-15 | Naive datetimes in freshness arithmetic | ingest, evidence | All timestamps are timezone-aware UTC. `Freshness` rejects naive input, and ruff `DTZ` enforces it at the source. Sources sit in different zones; a naive/aware mix raises mid-diagnosis |
+| T-16 | Writing a version, path or command from memory | everywhere | Read it from the environment. Pins come from `pip freeze`, not recollection — see B-001 |
+| T-17 | A verification command that passes on empty output | scripts, CI | `cmd \| tail && echo OK` reports success when `cmd` never ran. Check the exit status of the command itself, and confirm the check can actually fail |
 
 ---
 
 ## Defects
 
-None recorded yet.
+### B-001 · Dependency pins invented rather than read from the environment
+**Found:** 2026-08-28 · **Severity:** P2 · **Status:** fixed
+
+**Symptom:** `requirements.txt` pinned `pytest-cov==8.0.0`, `ruff==0.15.5`,
+`uvicorn==0.41.0`. None of those versions was what the working venv actually had.
+`make setup` would have failed on a fresh machine.
+
+**Root cause:** pins were written from memory instead of from `pip freeze`.
+
+**Fix:** regenerated from the working environment, then verified by installing
+into a throwaway venv and running the suite there.
+
+**Regression test:** the CI matrix installs from `requirements.txt` on a clean
+runner, so a bad pin now fails the build.
+
+**Lesson — promoted to a trap below (T-16).**
 
 ### Template
 

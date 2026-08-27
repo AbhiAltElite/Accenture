@@ -1,19 +1,25 @@
-# Core analytics — deterministic layer
+# Pinned from a verified working environment (Python 3.14.6).
+# Regenerate with: .venv/bin/pip freeze | grep -f <(cut -d= -f1 requirements.txt)
+
+# Deterministic analytics layer
 numpy==2.5.2
 pandas==3.0.5
 scipy==1.18.1
 statsmodels==0.15.0          # MSTL seasonal decomposition
-scikit-learn==1.9.0          # ridge/lasso ranking, isotonic calibration
-duckdb==1.5.5                # analytics + document store (no external service)
+scikit-learn==1.9.0          # ridge/lasso ranking, isotonic calibration, TF-IDF/SVD
+duckdb==1.5.5                # analytics + document store; no server required
 
 # Service
 fastapi==0.141.1
-uvicorn==0.41.0
+uvicorn==0.52.4
 pydantic==2.13.4
-pyyaml==6.0.3
+PyYAML==6.0.3
 httpx==0.28.1                # external signal feeds (Open-Meteo)
 
-# Dev
+# Development
 pytest==9.1.1
-pytest-cov==8.0.0
-ruff==0.15.5
+pytest-cov==7.1.0
+ruff==0.16.5
+
+# Optional — only needed for the pgvector retrieval backend (see D-002).
+# psycopg[binary]==3.2.3

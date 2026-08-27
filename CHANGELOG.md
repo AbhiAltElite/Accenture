@@ -12,6 +12,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
   and `PgVectorRetriever`; offline deterministic `TfidfSvdEmbedder`; sentence-level
   span citation
 - 30 tests, 6 marked `invariant`
+- GitHub Actions CI: lint, tests on Python 3.12 and 3.14, invariants as a
+  separate check, and a job that fails the build on AI attribution in history
+- Pull request template
 - Repository scaffolding: one package per pipeline stage, Makefile, pinned requirements, `.env.example`
 - Specifications: prototype design, product outline, design checklist, security & logic checklist, concepts reference
 - Collaboration docs: context, handoff, decisions, bugs & traps, contributing
@@ -23,6 +26,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 ### Decided
 - DuckDB replaces Postgres + pgvector; no external service required (D-002)
 - Two-track hypothesis ranking; GBM and SHAP dropped (D-003)
+
+### Fixed
+- Three dependency pins were wrong (`pytest-cov`, `ruff`, `uvicorn`) — written
+  from memory rather than from the working environment, which would have broken
+  `make setup` on a teammate's machine. Now taken from `pip freeze` and verified
+  by a clean install in a throwaway venv
 
 ### Changed
 - D-002 revised: retrieval is pluggable rather than DuckDB-only. The original

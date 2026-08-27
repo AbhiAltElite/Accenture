@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.14 matches the pinned environment; 3.12 is the floor declared in
+        # pyproject, tested so that claim stays true.
+        python-version: ["3.12", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest -q
+
+      - name: Correctness invariants
+        # Called out separately so a break here is obvious in the checks list.
+        # These must never be skipped or relaxed to pass — see CONTRIBUTING.
+        run: pytest -m invariant -q
+
+  attribution:
+    # The submission must read as the team's own work. This fails the build
+    # rather than leaving it to be noticed the day the repo goes public.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: No AI attribution in commit history
+        run: |
+          if git log --format='%an%n%ae%n%B' | grep -iE 'claude|anthropic|copilot|generated with|co-authored-by'; then
+            echo "::error::AI attribution found in commit history"
+            exit 1
+          fi
+          echo "Commit history clean."
