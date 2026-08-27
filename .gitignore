@@ -1,0 +1,36 @@
+# Internal — never publish
+_internal/
+docs/STRATEGY.md
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Data artefacts
+data/warehouse/*.duckdb
+data/raw/*.parquet
+data/raw/*.csv
+!data/raw/.gitkeep
+
+# GROUND TRUTH — engine must never read this; kept out of the package entirely
+data/ground_truth/*.json
+!data/ground_truth/.gitkeep
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Frontend
+ui/node_modules/
+ui/dist/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
