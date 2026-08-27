@@ -11,3 +11,16 @@ markers = ["invariant: hard correctness invariants that must never regress"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",   # pycodestyle, pyflakes
+    "I",             # import order
+    "UP",            # pyupgrade
+    "B",             # bugbear
+    "C4",            # comprehensions
+    "DTZ",           # timezone-aware datetimes — freshness arithmetic depends on it
+    "SIM",           # simplification
+    "RUF",
+]
+ignore = ["E501"]    # line length is formatted, not linted

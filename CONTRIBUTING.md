@@ -45,6 +45,21 @@ Small and single-purpose. In the description: what changed, why, how it was veri
 ## The interface contract
 `whychain/evidence/` defines the `Evidence` type. **It is frozen once the first stage consumes it.** Changing its shape breaks all three workstreams at once — raise it as a decision, don't just edit it.
 
+## Comments and docs
+
+Write for a teammate who knows Python but not this decision.
+
+- **Comment the why, never the what.** `# window first: corroboration is only
+  meaningful inside the anomaly period` earns its place. `# loop over documents`
+  does not.
+- **Docstrings say what a thing is for and what it guarantees**, not a
+  restatement of the signature.
+- **Reference the decision** when code exists because of one — `see D-006`,
+  `BUGS.md T-03`. That is how a reader finds out why the obvious simplification
+  is wrong.
+- **No filler.** If a comment could sit above any function in any project,
+  delete it.
+
 ## Testing
 ```bash
 make test                    # all

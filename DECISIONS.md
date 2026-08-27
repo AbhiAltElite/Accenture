@@ -17,14 +17,36 @@ The model reads unstructured text (call 1) and writes the narrative (call 2). It
 
 ---
 
-### D-002 · DuckDB for everything; no Postgres, no pgvector, no Docker
-**Status:** accepted · 2026-08-28 · *supersedes the Postgres+pgvector design in the original spec*
+### D-002 · DuckDB by default; retrieval backend is pluggable
+**Status:** accepted · 2026-08-28 · *revised same day — the first version of this entry was justified badly*
 
-**Why:** pgvector was not installed and would need building; Docker is unavailable on the dev machine. At demo corpus size (a few thousand documents) brute-force cosine similarity in numpy is instant, and DuckDB is embedded.
+DuckDB is the analytics and document store. Retrieval sits behind a `Retriever`
+protocol with two real implementations: `NumpyRetriever` (default) and
+`PgVectorRetriever`.
 
-**Consequence:** `git clone && make setup && make demo` works with no external service. That claim is load-bearing for the demo, and a service dependency failing 20 minutes before a pitch is an avoidable risk. Revisit only if the corpus exceeds ~100k documents.
+**The first version of this decision gave three reasons, two of which were wrong.**
+pgvector is bottled in Homebrew and installs in about thirty seconds, so "would
+need building" was false. Docker being unavailable was irrelevant, since Postgres
+16.14 already runs natively. Recorded here so the reasoning is not trusted on the
+strength of its confidence.
 
----
+**The reason that holds:** the README promises `git clone && make setup && make demo`.
+A Postgres path turns that into install, extension, createdb, migrate, configure,
+*then* demo — a real failure surface on a teammate's or judge's machine.
+
+**The technical threshold:** at demo corpus size brute force is not merely adequate,
+it wins. Twenty thousand documents at 128 dimensions is a single matmul in well
+under a millisecond, exact, with no round trip and no recall trade-off. pgvector
+becomes correct somewhere around a million vectors, or when several processes need
+shared indexed access.
+
+**Why both, rather than one:** it lets the README say retrieval is pluggable —
+brute force locally where it is genuinely faster, pgvector at deployment scale.
+That is more credible than either alone, because it shows we know where the
+threshold sits. It also mirrors the semantic contract carrying `dialect_targets`.
+
+**Consequence:** the default path needs no database driver. `psycopg` is imported
+lazily inside `PgVectorRetriever`, so it is only required if that backend is used.
 
 ### D-003 · No GBM, no SHAP; two-track hypothesis ranking
 **Status:** accepted · 2026-08-28
