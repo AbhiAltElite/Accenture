@@ -104,6 +104,20 @@ PLACEBO_WINDOWS = 6
 # merely has to be the largest; above that it has to stand clearly apart.
 PLACEBO_MARGIN = 1.25
 
+# Every gate that must have actually run and passed before a candidate becomes a
+# claim. Exposure consistency is deliberately absent: it is only meaningful where
+# a cause was present in more than one place, and a single-region event is a
+# normal case rather than an untestable one. The other three always apply where
+# there is history and a comparison group, so an UNAVAILABLE among them means the
+# candidate could not be tested, not that it passed.
+#
+# SECURITY-LOGIC-CHECKLIST §1.1 specifies all of these. Requiring only
+# difference-in-differences let a candidate reach VERIFIED with its placebo never
+# run, which is the failure T-11 and D-006 exist to prevent.
+MANDATORY_GATES = frozenset(
+    {"event_time_isolation", "difference_in_differences", "placebo"}
+)
+
 
 def _daily_by_region(panel: pd.DataFrame) -> pd.DataFrame:
     """Collapse the panel to one row per day and region, once.
@@ -322,9 +336,8 @@ def _decide(
             per_region,
         )
 
-    mandatory = {"difference_in_differences"}
     ran = {r.name for r in results if r.outcome is Outcome.PASS}
-    missing = mandatory - ran
+    missing = MANDATORY_GATES - ran
     if missing:
         return Verification(
             candidate, results, effect, ClaimState.CANNOT_VERIFY,
