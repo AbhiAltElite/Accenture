@@ -6,24 +6,24 @@
 <title>WhyChain</title>
 <style>
 :root{
-  --bg:#fbfbfa; --surface:#fff; --raised:#f4f4f2;
-  --ink:#16181d; --ink-2:#5a6069; --ink-3:#8b9199;
-  --line:#e2e3e0; --line-strong:#c9cbc7;
-  --accent:#1f4e5f;
+  --bg:#faf9f6; --surface:#fffefc; --raised:#f3f1ec;
+  --ink:#232019; --ink-2:#635e54; --ink-3:#928c80;
+  --line:#e8e5dd; --line-strong:#d3cfc4;
+  --accent:#2c5545;
   --drop:#9b2c2c; --spike:#1f6f4a; --warn:#8a6116; --ok:#2f6b46;
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#16181b; --surface:#1c1f23; --raised:#23262b;
-  --ink:#e8e9e6; --ink-2:#a4aab2; --ink-3:#767d86;
-  --line:#2c3036; --line-strong:#3d434b;
-  --accent:#7fb3c4; --drop:#e08585; --spike:#7fc4a0; --warn:#d4b06a; --ok:#7fc4a0;
+  --bg:#191815; --surface:#201f1b; --raised:#282622;
+  --ink:#eceae4; --ink-2:#a8a296; --ink-3:#7b756a;
+  --line:#302d28; --line-strong:#443f37;
+  --accent:#8fbfa8; --drop:#e08585; --spike:#7fc4a0; --warn:#d4b06a; --ok:#7fc4a0;
 }}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--ink);font:15.5px/1.62 var(--sans);
   -webkit-font-smoothing:antialiased;padding:0 0 90px}
-.wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+.wrap{max-width:980px;margin:0 auto;padding:0 36px}
 
 header{border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:10}
 .bar{display:flex;align-items:baseline;gap:22px;padding:16px 0;flex-wrap:wrap}
@@ -36,14 +36,23 @@ button{cursor:pointer}
 button:hover{background:var(--raised)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
-.head{padding:34px 0 26px;border-bottom:1px solid var(--line)}
-h1{font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1.25}
+.head{padding:52px 0 40px}
+h1{font-size:34px;font-weight:600;letter-spacing:-.02em;line-height:1.25}
 .sub{color:var(--ink-2);font-size:14px;margin-top:5px}
 .defn{color:var(--ink-2);font-size:14.5px;margin-top:10px;max-width:66ch}
 
-section{padding:38px 0;border-bottom:1px solid var(--line)}
-h2{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--ink-3);margin-bottom:18px}
+nav.tabs{display:flex;gap:2px;margin:36px 0 8px;border-bottom:1px solid var(--line)}
+nav.tabs button{background:none;border:none;border-bottom:2px solid transparent;
+  border-radius:0;padding:10px 16px;color:var(--ink-3);font-size:15px;cursor:pointer}
+nav.tabs button:hover{color:var(--ink-2);background:none}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);
+  font-weight:500}
+section{padding:8px 0 44px}
+section + section{padding-top:34px}
+section[hidden]{display:none}
+h2{font-size:19px;font-weight:600;letter-spacing:-.01em;color:var(--ink);
+  margin-bottom:6px}
+.lede{color:var(--ink-2);font-size:14.5px;margin-bottom:22px;max-width:64ch}
 .chart{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:3px}
 canvas{display:block;width:100%;height:340px}
 .legend{display:flex;gap:22px;font-size:13px;color:var(--ink-2);margin-top:14px;flex-wrap:wrap}
@@ -54,20 +63,21 @@ canvas{display:block;width:100%;height:340px}
 .swatch.an{height:9px;width:9px;border-radius:50%;background:var(--drop)}
 
 table{width:100%;border-collapse:collapse;font-size:14.5px}
-th{text-align:left;font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--ink-3);padding:0 14px 11px 0;border-bottom:1px solid var(--line-strong)}
-td{padding:10px 14px 10px 0;border-bottom:1px solid var(--line);
+th{text-align:left;font-weight:500;font-size:13px;color:var(--ink-3);
+  padding:0 14px 10px 0;border-bottom:1px solid var(--line)}
+td{padding:11px 14px 11px 0;border-bottom:1px solid var(--line);
   font-variant-numeric:tabular-nums}
 th.n,td.n{text-align:right;padding-right:20px}
 tbody tr:hover{background:var(--raised)}
 .neg{color:var(--drop)}.pos{color:var(--spike)}
-.tag{display:inline-block;font-size:12px;font-family:var(--mono);padding:1px 5px;
-  border:1px solid var(--line-strong);border-radius:2px;color:var(--ink-2)}
+.tag{display:inline-block;font-size:12.5px;padding:2px 8px;
+  border:1px solid var(--line-strong);border-radius:3px;color:var(--ink-2);
+  background:var(--surface)}
 .scroll{overflow-x:auto}
 .empty{color:var(--ink-2);font-size:14px;padding:14px 0}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0 26px}
 .fact{padding:13px 0;border-bottom:1px solid var(--line)}
-.fact dt{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.fact dt{font-size:13.5px;color:var(--ink-3)}
 .fact dd{font-size:18px;margin-top:2px;font-variant-numeric:tabular-nums}
 .note{font-size:13.5px;color:var(--ink-2);margin-top:16px;max-width:72ch}
 code{font-family:var(--mono);font-size:13.5px}
@@ -96,8 +106,23 @@ code{font-family:var(--mono);font-size:13.5px}
     <p class="defn" id="definition"></p>
   </div>
 
+  <section id="verdict" hidden style="border-top:none;padding-top:0">
+    <h2>What happened</h2>
+    <p class="lede">The engine's answer, and how much of the movement it accounts for.</p>
+    <div id="verdictbody"></div>
+  </section>
+
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-panel="overview" aria-selected="true">Overview</button>
+    <button role="tab" data-panel="breakdown" aria-selected="false">What changed</button>
+    <button role="tab" data-panel="testing" aria-selected="false">What was tested</button>
+    <button role="tab" data-panel="data" aria-selected="false">Data</button>
+  </nav>
+
+  <div id="panel-overview">
   <section>
-    <h2>Observed against seasonally adjusted expectation</h2>
+    <h2>The metric</h2>
+    <p class="lede">Observed against what a normal day should have looked like.</p>
     <div class="chart"><canvas id="c"></canvas></div>
     <div class="legend">
       <span class="key"><i class="swatch"></i>Observed</span>
@@ -111,7 +136,8 @@ code{font-family:var(--mono);font-size:13.5px}
   </section>
 
   <section>
-    <h2>Material movements</h2>
+    <h2>Movements worth attention</h2>
+    <p class="lede">Days that passed both the statistical and the financial test.</p>
     <div class="scroll"><table>
       <thead><tr>
         <th>Day</th><th>Direction</th><th class="n">Observed</th><th class="n">Expected</th>
@@ -123,14 +149,13 @@ code{font-family:var(--mono);font-size:13.5px}
     <p class="note" id="matnote"></p>
   </section>
 
-  <section id="verdict" hidden>
-    <h2>Diagnosis</h2>
-    <div id="verdictbody"></div>
-  </section>
+  </div>
 
+  <div id="panel-breakdown" hidden>
   <section id="decomp" hidden>
-    <h2>What kind of change was it</h2>
-    <p class="sub" id="decompwin" style="margin:-8px 0 16px"></p>
+    <h2>What kind of change</h2>
+    <p class="lede">Revenue is units times price. Only three things can move it, and they add back to the total exactly.</p>
+    <p class="sub" id="decompwin" style="margin:0 0 20px"></p>
     <div class="scroll"><table>
       <thead><tr><th>Effect</th><th>Meaning</th><th class="n">Rupees per day</th>
         <th class="n">Share of movement</th></tr></thead>
@@ -145,15 +170,20 @@ code{font-family:var(--mono);font-size:13.5px}
 
   <section id="contrib" hidden>
     <h2>Where it happened</h2>
+    <p class="lede">The same movement, split across the business rather than by type.</p>
     <div id="dims"></div>
     <p class="note">A slice can move against the overall direction. Those are shown
       with a negative share rather than hidden, because a region that grew while
       revenue fell is worth knowing about.</p>
   </section>
 
+  </div>
+
+  <div id="panel-testing" hidden>
   <section id="causes" hidden>
-    <h2>Candidate causes, tested</h2>
-    <p class="sub" id="causewin" style="margin:-8px 0 18px"></p>
+    <h2>What was tested</h2>
+    <p class="lede">Everything the business wrote down in this window, and whether it survived being checked.</p>
+    <p class="sub" id="causewin" style="margin:0 0 22px"></p>
     <div id="causelist"></div>
     <p class="note">Every candidate comes from the operational record with nothing
       marking which are real. A candidate becomes a claim only by surviving every
@@ -161,8 +191,12 @@ code{font-family:var(--mono);font-size:13.5px}
       so those cases are held apart rather than counted either way.</p>
   </section>
 
+  </div>
+
+  <div id="panel-data" hidden>
   <section>
-    <h2>Source freshness</h2>
+    <h2>Where the data came from</h2>
+    <p class="lede">When each source last landed, against what it promised.</p>
     <div class="scroll"><table>
       <thead><tr><th>Source</th><th>Last landed</th><th class="n">Lag</th>
         <th class="n">SLA</th><th>Status</th></tr></thead>
@@ -170,10 +204,11 @@ code{font-family:var(--mono);font-size:13.5px}
     </table></div>
   </section>
 
-  <section style="border-bottom:none">
-    <h2>Run</h2>
+  <section>
+    <h2>This run</h2>
     <dl class="grid" id="meta"></dl>
   </section>
+  </div>
 </main>
 
 <script>
@@ -183,7 +218,7 @@ let DATA = null;
 
 async function boot(){
   const kpis = await (await fetch('/api/kpis')).json();
-  $('#kpi').innerHTML = kpis.map(k=>`<option value="${k.kpi_id}">${k.kpi_id.replace(/_/g,' ')}</option>`).join('');
+  $('#kpi').innerHTML = kpis.map(k=>{const n=k.kpi_id.replace(/_/g,' ');return `<option value="${k.kpi_id}">${n.charAt(0).toUpperCase()+n.slice(1)}</option>`;}).join('');
   const dims = new Set(kpis.flatMap(k=>k.dimensions));
   if(dims.has('region'))
     $('#region').innerHTML += ['North','South','East','West'].map(r=>`<option>${r}</option>`).join('');
@@ -207,9 +242,11 @@ function render(){
   const drops=d.anomalies.filter(a=>a.direction==='drop');
   const worst=drops.slice().sort((a,b)=>a.delta-b.delta)[0];
 
+  const metricName = d.kpi_id.replace(/_/g,' ');
+  const sentence = t => t.charAt(0).toUpperCase() + t.slice(1);
   $('#title').textContent = worst
-    ? `${d.kpi_id.replace(/_/g,' ')} fell ${Math.abs(worst.pct*100).toFixed(1)}% on ${worst.day}`
-    : `${d.kpi_id.replace(/_/g,' ')}  no material break`;
+    ? sentence(`${metricName} fell ${Math.abs(worst.pct*100).toFixed(1)}% on ${worst.day}`)
+    : sentence(`${metricName} shows no material break in this window`);
   const sl = Object.entries(d.slice).map(([k,v])=>`${v}`).join(' · ') || 'All regions';
   $('#subtitle').textContent = `${sl} · ${d.days[0]} to ${d.days.at(-1)} · ${d.days.length} days · compared with seasonally adjusted baseline`;
   $('#definition').textContent = meta ? meta.definition : '';
@@ -292,7 +329,7 @@ async function loadDecomposition(drops){
 }
 
 const STATE_MARK={verified:'\u25CF',rejected:'\u00D7',cannot_verify:'?'};
-const STATE_WORD={verified:'VERIFIED',rejected:'REJECTED',cannot_verify:'CANNOT VERIFY'};
+const STATE_WORD={verified:'Verified',rejected:'Rejected',cannot_verify:'Not testable'};
 const TEST_MARK={pass:'pass',fail:'FAIL',unavailable:'n/a'};
 
 function eventWindow(drops){
@@ -324,32 +361,32 @@ async function loadDiagnosis(drops){
     const a=d.abstention;
     $('#verdictbody').innerHTML=`
       <div style="display:flex;gap:12px;align-items:baseline;margin-bottom:14px">
-        <span class="tag" style="border-color:var(--warn);font-size:13px">? UNKNOWN</span>
+        <span class="tag" style="border-color:var(--warn);font-size:13px">Unknown</span>
         <span style="font-size:18px;font-weight:600">No cause can be established</span>
       </div>
       <p style="max-width:70ch;margin-bottom:16px">The metric moved
         ${m.total_change<0?'down':'up'} ${inr(Math.abs(m.total_change))} per day, and
         nothing in the operational record survives testing as an explanation. This is
         reported as unknown rather than as the closest available guess.</p>
-      <h3 style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:20px 0 10px">Why</h3>
+      <h3 style="font-size:13px;color:var(--ink-3);margin:20px 0 10px">Why</h3>
       <ul style="margin:0 0 18px 18px">${c.reasons.map(x=>`<li>${x}</li>`).join('')}</ul>
-      <h3 style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:20px 0 10px">What was ruled out</h3>
+      <h3 style="font-size:13px;color:var(--ink-3);margin:20px 0 10px">What was ruled out</h3>
       <div class="scroll"><table><thead><tr><th>Candidate</th><th>Verdict</th><th>Reason</th></tr></thead>
         <tbody>${a.ruled_out.map(x=>`<tr><td><code>${x.candidate}</code></td>
           <td><span class="tag">${x.verdict.replace(/_/g,' ')}</span></td>
           <td style="color:var(--ink-2)">${x.reason}</td></tr>`).join('')}</tbody></table></div>
-      ${a.blocking.length?`<h3 style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:20px 0 10px">Blocking</h3>
+      ${a.blocking.length?`<h3 style="font-size:13px;color:var(--ink-3);margin:20px 0 10px">Blocking</h3>
         <ul style="margin:0 0 18px 18px">${a.blocking.map(x=>`<li>${x}</li>`).join('')}</ul>`:''}
-      <h3 style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:20px 0 10px">Next check</h3>
+      <h3 style="font-size:13px;color:var(--ink-3);margin:20px 0 10px">Next check</h3>
       <p style="max-width:70ch">${a.next_check}</p>
       ${a.question?`<p style="margin-top:14px;padding:12px 14px;background:var(--raised);border-radius:3px;max-width:70ch">
         <strong>Clarification needed.</strong> ${a.question}</p>`:''}
-      <h3 style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:24px 0 10px">Confidence inputs</h3>
+      <h3 style="font-size:13px;color:var(--ink-3);margin:24px 0 10px">Confidence inputs</h3>
       <div class="scroll"><table><tbody>${bar}</tbody></table></div>`;
   } else {
     $('#verdictbody').innerHTML=`
       <div style="display:flex;gap:12px;align-items:baseline;margin-bottom:14px;flex-wrap:wrap">
-        <span class="tag" style="border-color:var(--ok);font-size:13px">\u25CF ${c.band.toUpperCase()} CONFIDENCE</span>
+        <span class="tag" style="border-color:var(--ok);font-size:13px">\u25CF ${c.band.charAt(0).toUpperCase()+c.band.slice(1)} confidence</span>
         <span style="font-size:18px;font-weight:600">${d.verified.length} verified cause${d.verified.length===1?'':'s'}</span>
         <span style="color:var(--ink-3);font-variant-numeric:tabular-nums">score ${c.score}</span>
       </div>
@@ -363,7 +400,7 @@ async function loadDiagnosis(drops){
           <td class="n neg">${(v.effect_pct*100).toFixed(1)}%</td>
           <td class="n neg">\u2212${inr(Math.abs(v.contribution))}</td>
           <td class="n">${v.supporting_documents}</td></tr>`).join('')}</tbody></table></div>
-      <h3 style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:24px 0 10px">How the score was reached</h3>
+      <h3 style="font-size:13px;color:var(--ink-3);margin:24px 0 10px">How the score was reached</h3>
       <div class="scroll"><table><tbody>${bar}</tbody></table></div>
       <p class="note">The score is arithmetic over evidence already established, not a
         judgement and not written by a model. It is deliberately not presented as a
@@ -401,7 +438,7 @@ async function loadCandidates(drops){
       <div style="margin-bottom:10px"><strong>${x.reason}</strong></div>
       ${x.corroboration && x.corroboration.searched ? `
         <div style="margin:0 0 12px;padding:12px 14px;background:var(--raised);border-radius:3px">
-          <div style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">
+          <div style="font-size:12px;color:var(--ink-3);margin-bottom:8px">
             In the company's own words
             ${x.corroboration.flagged?`<span class="tag" style="margin-left:8px;border-color:var(--warn)">${x.corroboration.flagged} document(s) contained instruction-like text, treated as data</span>`:''}
           </div>
@@ -469,6 +506,17 @@ function draw(){
     x.fillStyle=col(a.direction==='drop'?'--drop':'--spike');
     x.beginPath(); x.arc(X(i),Y(a.observed),3.2,0,7); x.fill(); });
 }
+
+$('#tabs').addEventListener('click', e=>{
+  const button = e.target.closest('button[data-panel]');
+  if(!button) return;
+  document.querySelectorAll('#tabs button').forEach(b=>
+    b.setAttribute('aria-selected', String(b===button)));
+  ['overview','breakdown','testing','data'].forEach(name=>
+    $('#panel-'+name).hidden = name!==button.dataset.panel);
+  // The chart cannot size itself while hidden, so redraw on the way back.
+  if(button.dataset.panel==='overview' && DATA) requestAnimationFrame(draw);
+});
 
 addEventListener('resize',()=>DATA&&draw());
 ['kpi','region','range'].forEach(id=>$('#'+id).addEventListener('change',load));

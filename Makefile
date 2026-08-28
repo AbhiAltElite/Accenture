@@ -15,7 +15,7 @@ test:             ## run the test suite (includes the invariant tests)
 	.venv/bin/pytest -q
 
 bench:            ## run the benchmark harness and print the report
-	.venv/bin/python -m bench.run --report
+	PYTHONPATH=. .venv/bin/python -m bench.run --report
 
 status:           ## show what the engine currently knows
 	.venv/bin/python -m whychain.inspect

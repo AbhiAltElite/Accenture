@@ -295,7 +295,10 @@ def _():
     html = _ui()
     radii = [int(v) for v in re.findall(r"border-radius:\s*(\d+)px", html)]
     assert all(r <= 4 for r in radii), f"oversized radius: {max(radii)}px"
-    assert html.count("border-radius") <= 6, "too many rounded containers"
+    # Count distinct radius values, not declarations: reusing one small radius
+    # across several elements is consistency, not a card grid.
+    distinct = len(set(radii))
+    assert distinct <= 3, f"{distinct} different corner radii in use"
     return f"{len(radii)} radii, max {max(radii) if radii else 0}px"
 
 

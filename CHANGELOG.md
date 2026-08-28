@@ -41,6 +41,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
   calibrate against
 - `/api/diagnose` ties the pipeline together and returns either a diagnosis or
   an abstention, never both
+- `datagen/bulk.py` — 160 labelled cases across ten independently generated
+  panels, spaced so their lookback windows do not contaminate each other
+- `bench/run.py` and `make bench` — top-1 and top-k accuracy, false alarm rate,
+  negative-control rejection, abstention precision and recall, calibration
+  buckets with ECE, and latency
+- Interface: sentence case throughout, warmer palette, tabbed panels so the
+  answer is visible without scrolling past the working
 - 141 tests, 39 marked `invariant`
 - GitHub Actions CI: lint, tests on Python 3.12 and 3.14, invariants as a
   separate check, and a job that fails the build on AI attribution in history

@@ -104,12 +104,17 @@ def corroborate(
     retriever: Retriever | None = None,
     extractor: Extractor | None = None,
     k: int = 12,
+    index: bool = True,
 ) -> Corroboration:
     """Search the window for text that supports this candidate.
 
     Only tickets are searched. Release logs and ops notes are where candidates
     came from in the first place, and letting a candidate corroborate itself
     would turn one record into two pieces of evidence.
+
+    Pass `index=False` with an already-indexed retriever when running many
+    candidates over one corpus; refitting per candidate is the slowest thing the
+    engine does and changes nothing.
     """
     retriever = retriever or NumpyRetriever()
     extractor = extractor or RuleExtractor()
@@ -135,7 +140,8 @@ def corroborate(
         )
         for _, row in tickets.iterrows()
     ]
-    retriever.index(corpus)
+    if index:
+        retriever.index(corpus)
 
     window = (
         datetime.combine(candidate.start, time.min, tzinfo=UTC),

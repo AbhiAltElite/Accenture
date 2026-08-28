@@ -37,7 +37,13 @@ A reader must never mistake a hypothesis for a verified cause. This is the singl
 
 **UNKNOWN, stale, sparse, entitlement-limited and validator-rejection are first-class states**, designed with the same care as the success path — never styled as errors.
 
-**Density over whitespace.** This is an analyst workstation. Compact metadata, tight table rows, strong alignment, controlled line lengths.
+**Density belongs in tables, not in the page.** Compact metadata, tight table rows, strong alignment, controlled line lengths — inside data. The page itself needs air between major blocks, or the reader has nothing to rest on and everything reads as urgent.
+
+*Correction, 2026-08-28: the first version of this line said "density over whitespace" without qualification, and the first build applied it to the whole page. The result was relentless. Density is a property of tables; a page made entirely of them is exhausting to look at whatever its information content.*
+
+**Sentence case for everything a person reads.** Uppercase with letterspacing is for a single small label at most. A page where every heading is set that way reads as shouting, and after three sections the reader stops distinguishing between them.
+
+**One answer visible, the working behind it.** The diagnosis stays on screen. The metric, the breakdown, the testing and the source data go behind tabs. Stacking every section on one page means the reader has to scroll past the evidence to find out whether there was an answer at all.
 
 **Numbers are data, not decoration.** Tabular numerals, consistent precision, explicit units, right-aligned numeric columns, clear positive/negative notation. No giant KPI cards.
 
