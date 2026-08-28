@@ -14,7 +14,7 @@ import json
 import statistics
 import time
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import timedelta
 from pathlib import Path
 
@@ -25,6 +25,8 @@ from datagen.scenarios import ExpectedVerdict
 from datagen.series import build_panel
 from datagen.sources import emit_plan_ops, emit_voice_ops
 from whychain.confidence import explained_movement, score
+from whychain.confidence.calibrate import expected_calibration_error
+from whychain.confidence.calibrate import fit as fit_calibration
 from whychain.contracts import ContractRegistry
 from whychain.corroborate import corroborate
 from whychain.corroborate.documents import Document
@@ -57,6 +59,10 @@ class Outcome:
     decoy_rejected: bool | None = None
     seconds: float = 0.0
     error: str | None = None
+    # Which half of the population this case belongs to. Calibration is fitted
+    # on `fit` and every reported figure comes from `test`, so the curve is
+    # never scored against the cases that produced it (BUGS.md T-13).
+    split: str = "test"
 
 
 @dataclass
@@ -64,6 +70,7 @@ class Metrics:
     counts: dict[str, int] = field(default_factory=dict)
     rates: dict[str, float | None] = field(default_factory=dict)
     calibration: list[dict] = field(default_factory=list)
+    calibration_fit: dict | None = None
     ece: float | None = None
     latency: dict[str, float] = field(default_factory=dict)
 
@@ -250,8 +257,10 @@ def compute_metrics(outcomes: list[Outcome], bins: int = 5) -> Metrics:
         ),
     }
 
-    # Calibration: does a higher score actually mean more often right?
-    scored = [o for o in outcomes if o.top1 is not None]
+    # Calibration is measured on the held-out half only. Reporting it over the
+    # whole population would include the cases the curve was fitted on, which
+    # is a measure of memorisation.
+    scored = [o for o in outcomes if o.top1 is not None and o.split == "test"]
     if scored:
         edges = [i / bins for i in range(bins + 1)]
         total_error, total_n = 0.0, 0
@@ -280,6 +289,13 @@ def compute_metrics(outcomes: list[Outcome], bins: int = 5) -> Metrics:
     return m
 
 
+# Panels, not cases, are split. Cases inside one panel share a generated world
+# and its seasonal draws, so splitting at case level would leak the world's
+# character across the boundary and flatter the calibration.
+def _split_for(panel_id: int, panels: int) -> str:
+    return "fit" if panel_id < panels // 2 else "test"
+
+
 def run(panels: int = 10, per_region: int = 4) -> tuple[list[Outcome], Metrics]:
     contract = ContractRegistry.from_directory("contracts").get("net_revenue")
     generated = build_cases(panels=panels, per_region=per_region)
@@ -287,12 +303,12 @@ def run(panels: int = 10, per_region: int = 4) -> tuple[list[Outcome], Metrics]:
 
     for bench_panel in generated:
         panel, documents, plan, retriever = _materialise(bench_panel)
+        split = _split_for(bench_panel.panel_id, len(generated))
         for case in bench_panel.cases:
-            outcomes.append(
-                run_case(case, panel, documents, plan, retriever, contract)
-            )
+            outcome = run_case(case, panel, documents, plan, retriever, contract)
+            outcomes.append(replace(outcome, split=split))
         print(f"  panel {bench_panel.panel_id + 1}/{len(generated)}: "
-              f"{len(bench_panel.cases)} cases", flush=True)
+              f"{len(bench_panel.cases)} cases [{split}]", flush=True)
 
     return outcomes, compute_metrics(outcomes)
 
@@ -351,12 +367,36 @@ def print_report(metrics: Metrics) -> None:
             print(f"  {row['range']:<14}{row['n']:>5}{row['mean_score']:>12.3f}"
                   f"{row['accuracy']:>11.3f}{row['gap']:>+8.3f}")
         print(f"  expected calibration error: {metrics.ece}")
+    if metrics.calibration_fit:
+        f = metrics.calibration_fit
+        print("\nIsotonic calibration   fitted on a held-out split")
+        if "note" in f:
+            print(f"  {f['note']}")
+        else:
+            print(f"  fitted on {f['fitted_on']} cases ({f['split']})")
+            print(f"  evaluated on {f['evaluated_on']} held-out cases")
+            print(f"  ECE {f['ece_before']} -> {f['ece_after']}"
+                  f"{'  (improved)' if f['improved'] else '  (no improvement, not applied)'}")
 
     if metrics.latency:
         print("\nLatency")
         for k, v in metrics.latency.items():
             print(f"  {k.replace('_', ' '):<28} {v:>8}")
     print()
+
+
+def _jsonable(value):
+    """Coerce numpy scalars on the way out of the harness.
+
+    Comparisons on pandas and numpy values return `np.bool_`, not `bool`, and
+    `json.dumps` refuses it. The failure was invisible in the worst way: the
+    report printed in full, then the write raised, so `bench/report.json` kept
+    the *previous* run's numbers while the terminal showed the new ones. Any
+    document written from the file disagreed with the run that produced it.
+    """
+    if hasattr(value, "item"):
+        return value.item()
+    raise TypeError(f"cannot serialise {type(value).__name__} into the report")
 
 
 def main() -> int:
@@ -368,6 +408,41 @@ def main() -> int:
 
     print(f"Running {args.panels} panels x 4 regions x {args.per_region} slots...")
     outcomes, metrics = run(args.panels, args.per_region)
+
+    # Fit the calibration on the fit half, and report what it does to the held-out
+    # half. The order matters: fitting after seeing the test result, or on the
+    # whole population, produces a curve that reports its own training error
+    # (BUGS.md T-13).
+    fit_rows = [o for o in outcomes if o.split == "fit" and o.top1 is not None]
+    test_rows = [o for o in outcomes if o.split == "test" and o.top1 is not None]
+    curve = fit_calibration(
+        [o.confidence for o in fit_rows],
+        [bool(o.top1) for o in fit_rows],
+        split=f"panels 0-{args.panels // 2 - 1} of {args.panels}",
+    )
+    if curve is not None and test_rows:
+        raw = [o.confidence for o in test_rows]
+        correct = [bool(o.top1) for o in test_rows]
+        before = expected_calibration_error(raw, correct)
+        after = expected_calibration_error([curve.probability(r) for r in raw], correct)
+        curve.save()
+        metrics.calibration_fit = {
+            "fitted_on": curve.fitted_on,
+            "split": curve.split,
+            "evaluated_on": len(test_rows),
+            "ece_before": before,
+            "ece_after": after,
+            "improved": after <= before,
+        }
+    elif fit_rows:
+        metrics.calibration_fit = {
+            "fitted_on": len(fit_rows),
+            "note": (
+                "not fitted: too few labelled outcomes, or the curve did not "
+                "improve on the raw score. The score is reported as a score."
+            ),
+        }
+
     print_report(metrics)
 
     if args.report:
@@ -376,6 +451,7 @@ def main() -> int:
             {
                 "counts": metrics.counts, "rates": metrics.rates,
                 "calibration": metrics.calibration, "ece": metrics.ece,
+                "calibration_fit": metrics.calibration_fit,
                 "latency": metrics.latency,
                 "cases": [
                     {"case_id": o.case_id, "expected": o.expected, "tags": list(o.tags),
@@ -384,7 +460,7 @@ def main() -> int:
                      "verified": list(o.verified), "error": o.error}
                     for o in outcomes
                 ],
-            }, indent=2))
+            }, indent=2, default=_jsonable))
         print(f"written to {REPORT}")
     return 0
 

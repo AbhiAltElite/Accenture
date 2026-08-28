@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 
 from whychain.actions import decision_cards, simulate
 from whychain.confidence import abstain, explained_movement, score
+from whychain.confidence.calibrate import Calibration
 from whychain.contracts import ContractError, ContractRegistry
 from whychain.corroborate import corroborate, scan
 from whychain.decompose import compute_bridge, contribution_by
@@ -29,7 +30,7 @@ from whychain.ingest import DEFAULT_WAREHOUSE, IngestError, Warehouse
 from whychain.narrate import narrate
 from whychain.personas import Persona, project
 from whychain.rank import rank
-from whychain.signalgap import find_gap
+from whychain.signalgap import PRECEDENT_LOOKBACK_DAYS, find_gap
 from whychain.telemetry import Telemetry
 from whychain.verify import filter_relevant, from_operations, from_promotions, verify
 from whychain.verify.tests import PLACEBO_WINDOWS
@@ -44,6 +45,21 @@ _registry: ContractRegistry | None = None
 _retriever: object | None = None
 _retriever_rows: int = 0
 _feedback = FeedbackStore()
+# Keyed on the file's mtime rather than loaded once at import. `make bench`
+# refits the curve while the service is running, and a calibration that only
+# takes effect after a restart is one that silently disagrees with the report
+# sitting next to it.
+_calibration_cache: tuple[float | None, Calibration | None] = (None, None)
+
+
+def calibration() -> Calibration | None:
+    """The fitted curve, reloaded when it changes. None is a valid state."""
+    global _calibration_cache
+    path = Path("data/calibration.json")
+    stamp = path.stat().st_mtime if path.exists() else None
+    if stamp != _calibration_cache[0]:
+        _calibration_cache = (stamp, Calibration.load(path))
+    return _calibration_cache[1]
 
 
 def ticket_retriever(documents: pd.DataFrame):
@@ -812,6 +828,7 @@ def diagnose(
         confidence = score(
             verifications, explained=explained, total_movement=bridge.total_change,
             supporting_documents=supporting, sources=sources,
+            calibration=calibration(),
         )
 
     with tel.stage("actions", MethodClass.DETERMINISTIC) as t:
@@ -830,12 +847,37 @@ def diagnose(
             v.candidate.description for v in verifications
             if v.state.value == "verified" and v.candidate.description
         ]
+        # The metric's own daily series over the precedent window, so "this has
+        # happened before" can be reported as "and it cost us something" rather
+        # than left as a count of weather.
+        # A separate, longer read. The diagnosis panel only spans the baseline
+        # and the event, so judging a precedent from two years ago against it
+        # returns "cannot tell" for almost every episode, and a recurrence
+        # figure where most rows are unknown is not worth showing.
+        try:
+            with Warehouse() as wh:
+                deep = wh.bridge_facts(
+                    contract,
+                    since=event_start - timedelta(days=PRECEDENT_LOOKBACK_DAYS),
+                    until=event_start,
+                )
+            if region:
+                deep = deep[deep["region"] == region]
+            history = (
+                deep.assign(_d=pd.to_datetime(deep["d"]).dt.date)
+                .groupby("_d")["revenue"].sum()
+            )
+        except IngestError:
+            history = None
         gap = find_gap(
             contract, ext,
             event_start=event_start, event_end=event_end,
-            region=region, causes=verified_descriptions,
+            region=region, causes=verified_descriptions, history=history,
         )
-        t.note = f"verdict {gap.verdict.value}, {gap.recurrence} prior episode(s)"
+        t.note = (
+            f"verdict {gap.verdict.value}, {gap.recurrence} prior episode(s), "
+            f"{gap.recurrence_that_hurt} of which moved the metric"
+        )
 
     stale = tuple(f"{f.source_id} is stale by {f.lag}" for f in sources.values()
                   if not f.sla_met)
@@ -860,6 +902,8 @@ def diagnose(
         "confidence": {
             "score": confidence.score,
             "band": confidence.band.value,
+            "probability": confidence.probability,
+            "calibrated_on": confidence.calibrated_on,
             "components": [
                 {"name": c.name, "value": round(c.value, 3), "detail": c.detail}
                 for c in confidence.components

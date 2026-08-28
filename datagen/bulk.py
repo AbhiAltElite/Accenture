@@ -42,6 +42,19 @@ EVENT_LENGTH = (4, 8)
 # the engine explaining things that did not happen.
 DECOY_SHARE = 0.34
 NOISE_SHARE = 0.12
+# Cases whose correct answer is "the evidence is insufficient". Without these
+# the population has only `verified` and `no_anomaly` in it, nothing has
+# abstention as its right answer, and both abstention rates report zero for
+# want of a denominator. An engine whose refusals cannot be scored is an engine
+# whose refusals are a claim rather than a measurement.
+UNANSWERABLE_SHARE = 0.12
+
+# A nationwide shock large enough to be material in every region and therefore
+# to leave difference-in-differences no control group. This is not a contrived
+# edge case: a list-price change, a platform release or a supplier failure
+# usually lands everywhere at once, which is exactly why so much of what moves
+# a P&L is untestable by comparison across geography.
+UNANSWERABLE_EFFECT = (-0.26, -0.15)
 
 # Effect sizes are stated against the *slice*, but materiality is judged at the
 # region, so what matters is the product of the two. The first version of this
@@ -190,6 +203,37 @@ def build_cases(
                     )
                     continue
 
+                if roll < NOISE_SHARE + UNANSWERABLE_SHARE:
+                    # Real, material, and untestable. Every region is exposed,
+                    # so there is no unaffected slice to compare against and the
+                    # only honest verdict is that the engine cannot tell. A
+                    # cause is still planted, so an engine that names it is
+                    # guessing rather than knowing.
+                    event_id = f"{case_id}-nationwide"
+                    panel.events.append(
+                        PlantedEvent(
+                            event_id=event_id,
+                            kind=CauseKind.STOCKOUT,
+                            start=start, end=end,
+                            target=Slice(),
+                            effect=rng.uniform(*UNANSWERABLE_EFFECT),
+                            description=(
+                                "Availability softened across every region at "
+                                "once, with no unaffected slice to compare to."
+                            ),
+                        )
+                    )
+                    panel.cases.append(
+                        BenchCase(
+                            case_id=case_id, panel_id=panel_id, kpi_id="net_revenue",
+                            region=region, window_start=start, window_end=end,
+                            expected=ExpectedVerdict.UNKNOWN,
+                            true_causes=(event_id,),
+                            tags=("unanswerable", "no_control_group"),
+                        )
+                    )
+                    continue
+
                 kind, (low, high), scope = rng.choice(CAUSE_PROFILES)
                 effect = rng.uniform(low, high)
                 event_id = f"{case_id}-cause"
@@ -202,7 +246,11 @@ def build_cases(
                 )
 
                 decoys: tuple[str, ...] = ()
-                if roll < NOISE_SHARE + DECOY_SHARE:
+                # The bands are cumulative, so this one has to start after the
+                # unanswerable band rather than after the noise band. Left as it
+                # was, adding unanswerable cases silently ate a third of the
+                # decoys and DECOY_SHARE stopped meaning what it says.
+                if roll < NOISE_SHARE + UNANSWERABLE_SHARE + DECOY_SHARE:
                     # A decoy runs in the same window and in two regions that saw
                     # nothing, so it correlates here and is contradicted there.
                     others = tuple(r for r in REGIONS if r != region)

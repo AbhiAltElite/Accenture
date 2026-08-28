@@ -636,6 +636,22 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
       <p class="railnote">Switching reader changes the projection, never the
         evidence. Nothing is recomputed.</p>
     </div>
+
+    <div class="railgroup">
+      <span class="label">Entitlement</span>
+      <div class="field-row">
+        <label for="entitled">Regions this reader may see</label>
+        <select id="entitled">
+          <option value="">Unrestricted</option>
+          <option value="West">West only</option>
+          <option value="South">South only</option>
+          <option value="North,East">North and East only</option>
+        </select>
+      </div>
+      <p class="railnote">Rows outside the scope are removed before the answer is
+        assembled, not hidden afterwards. When the removal changes the answer,
+        the response says so and names the role to escalate to.</p>
+    </div>
   </nav>
 
   <main class="content" id="main" aria-busy="true">
@@ -765,6 +781,10 @@ async function boot(){
   const params = new URLSearchParams(location.search);
   if(params.get('region')) $('#region').value = params.get('region');
   if(params.get('range')) $('#range').value = params.get('range');
+  $('#entitled').addEventListener('change',()=>{
+    STATE.entitled = $('#entitled').value || null;
+    route();
+  });
   ['region','range'].forEach(id=>$('#'+id).addEventListener('change',()=>{
     const q = new URLSearchParams();
     if($('#region').value) q.set('region',$('#region').value);
@@ -966,6 +986,11 @@ async function load(){
     const p=new URLSearchParams({kpi,start:win.start,end:win.end});
     if(region) p.set('region',region);
     p.set('persona', STATE.persona || 'analyst');
+    // Entitlement travels with the request and is enforced server-side at the
+    // projection. The control exists so the refusal can be *seen*: without it
+    // the row filter is a claim in a README rather than something a reader can
+    // trigger and watch happen.
+    if(STATE.entitled) p.set('entitled', STATE.entitled);
     stage('Testing candidate causes');
     // Keep the reason a request declined. "Could not be built" tells a reader
     // nothing; the server already knows why and says so.
@@ -1095,7 +1120,10 @@ function explainedStory(d){
     where it did not occur, and a placebo run over six quiet windows.
     ${docs} customer ${docs===1?'ticket describes':'tickets describe'} what happened, in the
     company's own words. Confidence is
-    <button class="claim" data-panel="confidence">${d.confidence.band}, scoring ${d.confidence.score}</button>.</p>`;
+    <button class="claim" data-panel="confidence">${d.confidence.band}${
+      d.confidence.probability != null
+        ? `, calibrated to ${d.confidence.probability}`
+        : `, scoring ${d.confidence.score}`}</button>.</p>`;
 }
 
 function unknownStory(d){
@@ -1163,7 +1191,15 @@ function signalGapBlock(){
   if(g.actionable_count) facts.push(['Actionable warnings', g.actionable_count, '']);
   if(g.best_lead_time_hours != null)
     facts.push(['Lead time', Math.round(g.best_lead_time_hours), 'hours']);
-  if(g.recurrence) facts.push(['Prior episodes', g.recurrence, 'in 24 months']);
+  if(g.recurrence){
+    // "Prior episodes" alone answers how often the weather recurred, and a
+    // reader takes it to mean how often it cost them something. Those are
+    // different numbers, so both are shown and the second is the one the
+    // finding rests on.
+    const hurt = g.recurrence_that_hurt;
+    facts.push(['Prior episodes', g.recurrence,
+      hurt == null ? 'in 24 months' : `${hurt} moved the metric`]);
+  }
   if(g.owner_role) facts.push(['Accountable', sentence(g.owner_role.replace(/_/g,' ')), '']);
 
   const m = g.monitoring;
@@ -1197,6 +1233,18 @@ function signalGapBlock(){
                 ? 'the rule would have caught this'
                 : 'the rule would not have caught this'}</span></td></tr>
       </table></div>`:''}
+    ${(g.precedents||[]).length?`<div class="scroll" style="margin-top:var(--sp-5)">
+      <h4 class="label">When this warning class covered the slice before</h4>
+      <table><thead><tr><th>Episode</th><th>Peak severity</th>
+        <th class="n">Warnings</th><th class="n">Metric moved</th></tr></thead><tbody>
+      ${g.precedents.map(x=>`<tr>
+        <td>${escapeHtml(x.start)}${x.end!==x.start?` to ${escapeHtml(x.end)}`:''}</td>
+        <td>${escapeHtml(x.max_severity)}</td>
+        <td class="n">${x.signal_count}</td>
+        <td class="n">${x.hurt === null
+          ? '<span class="na">not enough history</span>'
+          : `<span class="state ${x.hurt?'no':'off'}">${x.hurt?'yes':'no'}</span>`}</td>
+      </tr>`).join('')}</tbody></table></div>`:''}
     ${(g.signals||[]).length?`<div class="scroll" style="margin-top:var(--sp-5)">
       <table><thead><tr><th>Signal</th><th>Publisher</th><th>Severity</th>
         <th class="n">Lead</th><th class="n">Actionable</th></tr></thead><tbody>
@@ -1380,6 +1428,12 @@ function marginBlock(d){
     </section>
     ${rows.length?`<hr class="rule"><section><span class="label">Cost of this run</span>
       <dl>${rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></section>`:''}
+    ${(d.confidence||{}).probability!=null?`<hr class="rule"><section><span class="label">Confidence</span>
+      <dl>
+        <dt>Raw score</dt><dd>${d.confidence.score}</dd>
+        <dt>Calibrated</dt><dd>${d.confidence.probability}</dd>
+        <dt>Fitted on</dt><dd>${d.confidence.calibrated_on}</dd>
+      </dl></section>`:''}
     ${nar.writer?`<hr class="rule"><section><span class="label">Narrative</span>
       <dl>
         <dt>Written by</dt><dd>${escapeHtml(nar.writer)}</dd>
@@ -1389,7 +1443,8 @@ function marginBlock(d){
     ${gap.verdict?`<hr class="rule"><section><span class="label">Foreseeability</span>
       <dl>
         <dt>Verdict</dt><dd>${escapeHtml(String(gap.verdict).replace(/_/g,' '))}</dd>
-        ${gap.recurrence?`<dt>Prior episodes</dt><dd>${gap.recurrence}</dd>`:''}
+        ${gap.recurrence?`<dt>Prior episodes</dt><dd>${gap.recurrence}${
+          gap.recurrence_that_hurt!=null?` (${gap.recurrence_that_hurt} hurt)`:''}</dd>`:''}
       </dl></section>`:''}
     ${stale?`<hr class="rule"><section><span class="label">Freshness</span>
       <p>${stale} source(s) past SLA.</p></section>`:''}`;
@@ -1451,7 +1506,7 @@ function entitlementBlock(){
   if(!e || !e.notice) return '';
   return `<div class="notice">
     <h3>Part of this diagnosis is outside your scope</h3>
-    <p>${escapeHtml(e.notice)}</p>
+    <p>${escapeHtml(words(e.notice))}</p>
     <p class="q">The figures above cover only what you are entitled to see, so
     they do not sum to the total movement.</p></div>`;
 }
@@ -1760,10 +1815,22 @@ function openDrawer({cause,panel}){
         <td class="cname">${sentence(x.name)}</td>
         <td class="cval">${(x.value*100).toFixed(0)}%</td>
         <td class="cdetail">${x.detail}</td></tr>`).join('')}</tbody></table>
-      <p class="muted" style="margin-top:20px">This is deliberately not presented as a
-      probability. Turning it into one requires held-out cases to calibrate against,
-      and stating a probability without them would be the failure this engine exists
-      to avoid.</p>`;
+      ${d.confidence.probability != null ? `
+        <div class="gate" style="margin-top:var(--sp-5)">
+          <div><b>${d.confidence.score}</b>raw score</div>
+          <div><b>${d.confidence.probability}</b>calibrated probability</div>
+          <div><b>${d.confidence.calibrated_on}</b>cases fitted on</div>
+        </div>
+        <p class="muted">The raw score orders diagnoses; it is a weighted sum and
+        each term is above. The probability is that score passed through an
+        isotonic curve fitted on a held-out half of the benchmark population and
+        never refitted after the test half was scored. Both are shown because a
+        calibrated number that cannot be traced to the arithmetic under it is the
+        opaque figure this engine objects to elsewhere.</p>`
+      : `<p class="muted" style="margin-top:var(--sp-5)">This is a score, not a
+        probability, and it is labelled as one. No calibration curve is fitted, so
+        the engine will not claim that a 0.86 means right 86 times in a hundred.
+        Run <code>make bench</code> to fit one against held-out cases.</p>`}`;
   } else if(panel==='ruledout'){
     html = `<h3>Considered and ruled out</h3>
       <table style="margin-top:16px"><tbody>${d.abstention.ruled_out.map(r=>`<tr>

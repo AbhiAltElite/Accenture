@@ -138,13 +138,22 @@ class WarningSignal:
 
 @dataclass(frozen=True)
 class Precedent:
-    """A prior episode of the same warning class over the same slice."""
+    """A prior episode of the same warning class over the same slice.
+
+    `hurt` is the field that keeps this honest. Counting episodes answers "how
+    often has this weather happened", and a reader takes it to mean "how often
+    has this cost us money". Those are different numbers and the second is the
+    one the finding actually rests on, so it is measured rather than implied.
+    `None` means the metric history needed to decide was not supplied, which is
+    reported as unknown rather than assumed either way.
+    """
 
     start: date
     end: date
     region: str
     max_severity: str
     signal_count: int
+    hurt: bool | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -153,6 +162,7 @@ class Precedent:
             "region": self.region,
             "max_severity": self.max_severity,
             "signal_count": self.signal_count,
+            "hurt": self.hurt,
         }
 
 
@@ -185,6 +195,16 @@ class SignalGap:
     def recurrence(self) -> int:
         return len(self.precedents)
 
+    @property
+    def recurrence_that_hurt(self) -> int | None:
+        """How many prior episodes actually moved the metric.
+
+        None when no episode could be judged, which is the honest answer when
+        the metric history was not supplied.
+        """
+        judged = [p for p in self.precedents if p.hurt is not None]
+        return sum(1 for p in judged if p.hurt) if judged else None
+
     def as_dict(self) -> dict:
         return {
             "verdict": self.verdict.value,
@@ -203,6 +223,7 @@ class SignalGap:
                 else None
             ),
             "recurrence": self.recurrence,
+            "recurrence_that_hurt": self.recurrence_that_hurt,
             "precedents": [p.as_dict() for p in self.precedents],
             "window": {"from": self.window[0].isoformat(),
                        "to": self.window[1].isoformat()},
@@ -278,12 +299,19 @@ def find_precedents(
     region: str | None,
     signal_type: str,
     lookback_days: int = PRECEDENT_LOOKBACK_DAYS,
+    history: pd.Series | None = None,
 ) -> tuple[Precedent, ...]:
     """Prior episodes of the same actionable warning over the same slice.
 
     Consecutive warning days are collapsed into one episode, so a five-day
     cyclone is one precedent rather than five. Counting rows here would inflate
     recurrence by exactly the length of the weather.
+
+    `history` is the metric's own daily series. When it is given, each episode
+    is checked against it and marked for whether the metric actually moved
+    against its own recent level during the episode. Without that check the
+    recurrence figure says only that the weather recurred, which is not the
+    claim a reader takes from it.
     """
     if ext_signals is None or ext_signals.empty:
         return ()
@@ -318,18 +346,54 @@ def find_precedents(
     out: list[Precedent] = []
     for episode in episodes:
         rows = pd.concat([d["rows"] for d in episode])
+        start, end = episode[0]["day"], episode[-1]["day"]
         out.append(
             Precedent(
-                start=episode[0]["day"],
-                end=episode[-1]["day"],
+                start=start,
+                end=end,
                 region=region or "all regions",
                 max_severity=max(
                     rows["severity"], key=lambda s: _SEVERITY_ORDER.index(s)
                 ),
                 signal_count=len(rows),
+                hurt=_moved_during(history, start, end),
             )
         )
     return tuple(reversed(out))
+
+
+# How far the metric must fall below its own trailing level during an episode
+# before that episode counts as one that hurt. Deliberately looser than the
+# contract's detection threshold: this is asking "did the business feel it",
+# not "would the detector have fired", and holding it to the stricter bar would
+# undercount episodes that were real but sat just under the z gate.
+PRECEDENT_IMPACT_DROP = 0.06
+PRECEDENT_BASELINE_DAYS = 28
+
+
+def _moved_during(
+    history: pd.Series | None, start: date, end: date
+) -> bool | None:
+    """Whether the metric fell materially while this episode was running.
+
+    Returns None when there is not enough history either side to judge, because
+    "we could not tell" and "it did not hurt" are different answers and only one
+    of them is evidence.
+    """
+    if history is None or history.empty:
+        return None
+    index = pd.Series(list(history.index))
+    during = history[(index >= start).to_numpy() & (index <= end).to_numpy()]
+    before = history[
+        ((index < start) & (index >= start - timedelta(days=PRECEDENT_BASELINE_DAYS)))
+        .to_numpy()
+    ]
+    if during.empty or len(before) < 7:
+        return None
+    baseline = float(before.mean())
+    if not baseline:
+        return None
+    return bool((float(during.mean()) / baseline - 1.0) <= -PRECEDENT_IMPACT_DROP)
 
 
 def _driver_for_signal(contract: KPIContract, signal_type: str):
@@ -539,6 +603,15 @@ def assess(
             **common,
         )
 
+    hurt = sum(1 for p in precedents if p.hurt)
+    judged = any(p.hurt is not None for p in precedents)
+    recurrence_clause = (
+        f" The same warning class has covered this slice {len(precedents)} time(s) "
+        f"before, {hurt} of which coincided with a material movement."
+        if precedents and judged else
+        f" The same warning class has covered this slice {len(precedents)} time(s) "
+        "before; whether those cost anything was not checked." if precedents else ""
+    )
     return SignalGap(
         verdict=GapVerdict.GAP_FOUND,
         reason=(
@@ -547,6 +620,7 @@ def assess(
             f"of lead time. The registered planning process consumes "
             f"{', '.join(c.replace('_', ' ') for c in consumed)} and no external "
             f"risk signal, so nothing in the cycle could have read them."
+            + recurrence_clause
         ),
         monitoring=_monitoring(kind, owner, best_lead, len(precedents)),
         **common,
@@ -562,6 +636,7 @@ def find_gap(
     region: str | None = None,
     causes: Sequence[str] = (),
     signal_type: str | None = None,
+    history: pd.Series | None = None,
 ) -> SignalGap:
     """Read the feed and assess it. The one entry point the API calls.
 
@@ -604,7 +679,8 @@ def find_gap(
         ext_signals, window=window, region=region, signal_type=signal_type
     )
     precedents = find_precedents(
-        ext_signals, before=event_start, region=region, signal_type=signal_type
+        ext_signals, before=event_start, region=region,
+        signal_type=signal_type, history=history,
     )
     return assess(
         contract,

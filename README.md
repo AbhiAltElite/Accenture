@@ -19,35 +19,41 @@ Over 160 labelled synthetic cases with planted causes and planted decoys
 
 | | |
 |---|---|
-| Top-1 accuracy | 36.6% |
-| Top-1 among cases that clear materiality | 75.4% (52 of 69) |
-| Cause verified at all | 48.6% |
-| False-alarm rate on noise-only cases | 0.0% |
-| Planted correlation traps rejected | 86.7% |
-| Expected calibration error | 0.103 |
-| p95 latency per diagnosis | 0.175s |
+| Top-1 accuracy | 38.2% |
+| Top-1 among cases that clear materiality | 78.6% (55 of 70) |
+| True cause verified at all | 47.9% |
+| False alarms on noise-only cases | **0.0%** |
+| Planted correlation traps rejected | 87.5% |
+| Abstention precision | 86.4% |
+| Abstention recall | 20.9% |
+| Expected calibration error | 0.1171 raw, **0.1043 calibrated** on held out |
+| Latency p50 / p95 per diagnosis | 0.077s / 0.180s |
 
-The headline number carries its condition on purpose. The engine explains
-movements that pass both a statistical and a rupee materiality test; the
-remaining cases are ones it declines to explain, because a movement of about
-10% at regional level sits at roughly z = 2.2 against 4.5% daily noise and is
-not distinguishable from it at the z >= 3 threshold the contracts declare.
-Declining those is the correct behaviour, and lowering the threshold to raise
-the headline is the trap recorded as T-14 in `BUGS.md`.
+Read those with their conditions attached. The engine explains movements that
+pass both a statistical and a rupee materiality test and declines the rest, so
+top-1 over the whole population is bounded by how many movements are worth
+explaining at all. Lowering a threshold to raise the headline is the trap
+recorded as T-14 in `BUGS.md`.
 
-Two of these numbers are worse than they should be, and are recorded here
-rather than tuned away:
+Three of these are worse than they should be, and are recorded rather than
+tuned away:
 
-- **Confidence is overconfident at the top of its range.** Scores between 0.8
-  and 1.0 average 0.917 and are right 71% of the time, a 20-point gap. The
-  score is not yet calibrated against a held-out split, and until it is, the
-  band label is more trustworthy than the number beside it.
-- **Abstention is not measurable from this population.** Every case is either
-  `verified` or `no_anomaly`, so there is no case whose correct answer is "the
-  evidence is insufficient", and the two abstention rates are reported as zero
-  for want of a denominator. The behaviour is real and fires in the console on
-  `demo-02-low-confidence`; what is missing is the labelled population needed
-  to score it. See `HANDOFF.md`.
+- **The engine under-abstains.** Abstention recall is 20.9%: faced with a
+  case it cannot answer it more often reports "no material movement" than
+  "unknown". When it does abstain it is right 86.4% of the time, so the
+  judgement is sound and the trigger is too conservative.
+- **Confidence is still overconfident at the top of its range**, even after
+  calibration. The isotonic curve is fitted on 73 cases from a held-out
+  half and improves held-out ECE from 0.1171 to 0.1043. That is a real
+  improvement on a small sample, not a solved problem.
+- **Only `net_revenue` decomposes exactly.** The price/volume/mix bridge is an
+  identity over priced units; a rate has no units to move and no price to
+  change. The other four KPIs decline with a reason rather than returning a
+  price effect on a percentage.
+
+**Every objective and minimum expectation in the brief is mapped to code and to
+a command in [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md), including the rows
+that are only partly met.**
 
 ## On the process document behind Answer 2
 
@@ -99,5 +105,6 @@ Requires Python 3.12+. No database server, no Docker.
 | `docs/PRODUCT-OUTLINE.md` | features and intended behaviour |
 | `docs/CONCEPTS.md` | terminology reference |
 | `docs/SECURITY-LOGIC-CHECKLIST.md` | correctness invariants and security tests |
+| `docs/REQUIREMENTS.md` | **every brief objective and expectation, mapped to code and a command** |
 | `docs/DESIGN-CHECKLIST.md` | interface requirements |
 | `DECISIONS.md` | architectural decisions and rationale |

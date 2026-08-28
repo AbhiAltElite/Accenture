@@ -106,6 +106,70 @@ version of this file listed three empty packages, and they are written.
 
 ---
 
+## Status as of 2026-08-28 (third session)
+
+**Phase:** every objective and every minimum expectation in the brief is mapped
+to code and a command in `docs/REQUIREMENTS.md`, including the rows only partly
+met.
+
+### Done this session
+- **`docs/REQUIREMENTS.md`.** The requirement to implementation matrix
+  `STRATEGY.md` called insurance against a literal scorer, and which did not
+  exist. All 8 objectives, all 10 minimum expectations, plus the
+  native/configured/custom/integrated classification the brief asks for
+- **Entitlement is demonstrable.** The API took `entitled`; the console never
+  sent it, so the role-based security expectation could only be shown with
+  curl. There is now a rail control, and selecting "South only" while viewing
+  West produces the honest redaction notice naming the escalation role
+- **Abstention is measurable.** The population had only `verified` and
+  `no_anomaly` in it, so nothing had "the evidence is insufficient" as its right
+  answer and both abstention rates reported zero. `datagen/bulk.py` now plants a
+  share of nationwide shocks, which are material and leave
+  difference-in-differences no control group. Abstention precision **86.4%**,
+  recall **20.9%**
+- **Confidence is calibrated.** `whychain/confidence/calibrate.py` fits an
+  isotonic curve on a held-out half and never refits after the test half is
+  scored (T-13). Held-out ECE 0.1171 to 0.1043. The raw score is never
+  overwritten, banding still runs on it, and with no curve on disk the console
+  says "score" rather than "probability"
+- **The precedent count no longer overreaches.** It said "2 prior episodes",
+  which a reader takes as "this cost us money twice". It now measures each
+  episode against the metric's own history and reports "2 prior episodes, 1 of
+  which coincided with a material movement"
+
+### Current figures
+Top-1 38.2%, 78.6% among the 70 cases that clear materiality, verified at
+all 47.9%, false alarms 0.0%, traps rejected 87.5%, abstention
+precision 86.4% recall 20.9%, ECE 0.1171 raw and 0.1043 calibrated,
+p95 0.180s. 252 tests, 105 invariant.
+
+### Next
+1. **Abstention recall is 20.9% and is the weakest number in the report.**
+   The engine under-abstains: given a case it cannot answer it more often
+   reports "no material movement" than "unknown". Precision of 86.4% says the
+   judgement is sound and the trigger is too conservative. Look at where a
+   material movement with no verifiable cause falls through to `no_movement`
+2. **Calibration is fitted on 73 cases.** Real, and thin. More panels, or a
+   larger `per_region`, would make the curve worth more than it currently is
+3. **Make the corroboration extractor model-backed**, so an API-keyed run
+   reports two model calls and T-01 becomes assertable as `== 2`
+4. **A real weather snapshot** into `ext_signals`
+5. **Pool the event window in detection.** 71 of 160 cases still produce no
+   material movement because a sustained multi-day drop is tested a day at a
+   time. This is the largest single accuracy gain available
+6. **Apply-a-proposal is still manual**
+
+### Anything the next person will trip on
+- **`make bench` used to crash silently after printing.** A numpy bool reached
+  `json.dumps`, the write raised, and `bench/report.json` kept the previous
+  run's numbers while the terminal showed the new ones. Fixed (B-015), but if
+  you ever see the report disagree with the terminal, check the exit code
+  rather than the output.
+- Restart the server after pulling; check `/openapi.json` carries the params
+  you expect before believing a UI bug.
+
+---
+
 ## Template, copy this block when you stop work
 
 ```markdown

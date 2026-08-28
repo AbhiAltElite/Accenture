@@ -1,52 +1,60 @@
 {
   "counts": {
     "cases": 160,
-    "with_planted_cause": 142,
-    "noise_only": 18,
-    "decoy_bearing": 60,
-    "reported_a_cause": 65,
-    "no_material_movement": 91,
-    "abstained": 4,
+    "with_planted_cause": 144,
+    "noise_only": 16,
+    "decoy_bearing": 64,
+    "reported_a_cause": 67,
+    "no_material_movement": 71,
+    "abstained": 22,
     "errors": 0
   },
   "rates": {
-    "top1_accuracy": 0.366,
-    "topk_accuracy": 0.486,
+    "top1_accuracy": 0.382,
+    "topk_accuracy": 0.479,
     "false_alarm_rate": 0.0,
-    "negative_control_rejection": 0.867,
-    "abstention_precision": 0.0,
-    "abstention_recall": 0.0,
-    "detection_rate": 0.845,
-    "material_detection_rate": 0.486
+    "negative_control_rejection": 0.875,
+    "abstention_precision": 0.864,
+    "abstention_recall": 0.209,
+    "detection_rate": 0.882,
+    "material_detection_rate": 0.604
   },
   "calibration": [
     {
       "range": "0.0-0.2",
-      "n": 73,
-      "mean_score": 0.0,
+      "n": 39,
+      "mean_score": 0.031,
       "accuracy": 0.0,
-      "gap": 0.0
+      "gap": -0.031
     },
     {
       "range": "0.6-0.8",
-      "n": 10,
-      "mean_score": 0.744,
+      "n": 11,
+      "mean_score": 0.701,
       "accuracy": 1.0,
-      "gap": 0.256
+      "gap": 0.299
     },
     {
       "range": "0.8-1.0",
-      "n": 59,
-      "mean_score": 0.917,
-      "accuracy": 0.712,
-      "gap": -0.205
+      "n": 21,
+      "mean_score": 0.896,
+      "accuracy": 0.714,
+      "gap": -0.182
     }
   ],
-  "ece": 0.103,
+  "ece": 0.117,
+  "calibration_fit": {
+    "fitted_on": 73,
+    "split": "panels 0-4 of 10",
+    "evaluated_on": 71,
+    "ece_before": 0.1171,
+    "ece_after": 0.1043,
+    "improved": true
+  },
   "latency": {
-    "p50_seconds": 0.025,
-    "p95_seconds": 0.175,
-    "total_seconds": 11.4
+    "p50_seconds": 0.077,
+    "p95_seconds": 0.18,
+    "total_seconds": 12.9
   },
   "cases": [
     {
@@ -56,11 +64,10 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
-      "top1": false,
-      "decoy_rejected": false,
+      "confidence": 0.919,
+      "top1": true,
+      "decoy_rejected": true,
       "verified": [
-        "bench-00-north-0-decoy",
         "bench-00-north-0-cause"
       ],
       "error": null
@@ -69,14 +76,13 @@
       "case_id": "bench-00-north-1",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.724,
+      "confidence": 0.8,
       "top1": true,
-      "decoy_rejected": null,
+      "decoy_rejected": true,
       "verified": [
-        "bench-00-north-1-cause",
         "bench-00-north-1-cause"
       ],
       "error": null
@@ -87,13 +93,12 @@
       "tags": [
         "decoy"
       ],
-      "verdict": "unknown",
-      "confidence": 1.0,
+      "verdict": "explained",
+      "confidence": 0.901,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
-        "bench-00-north-2-cause",
-        "bench-00-south-2-decoy"
+        "bench-00-north-2-cause"
       ],
       "error": null
     },
@@ -114,15 +119,13 @@
       "case_id": "bench-00-south-0",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
-      "top1": false,
-      "decoy_rejected": null,
+      "confidence": 0.716,
+      "top1": true,
+      "decoy_rejected": true,
       "verified": [
-        "bench-00-north-0-decoy",
-        "bench-00-south-0-cause",
         "bench-00-south-0-cause"
       ],
       "error": null
@@ -131,25 +134,29 @@
       "case_id": "bench-00-south-1",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
+      "verdict": "explained",
+      "confidence": 0.8,
       "top1": false,
-      "decoy_rejected": null,
-      "verified": [],
+      "decoy_rejected": false,
+      "verified": [
+        "bench-00-south-1-decoy",
+        "bench-00-south-1-cause"
+      ],
       "error": null
     },
     {
       "case_id": "bench-00-south-2",
-      "expected": "verified",
+      "expected": "unknown",
       "tags": [
-        "decoy"
+        "unanswerable",
+        "no_control_group"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
+      "verdict": "unknown",
+      "confidence": 0.15,
       "top1": false,
-      "decoy_rejected": true,
+      "decoy_rejected": null,
       "verified": [],
       "error": null
     },
@@ -170,6 +177,19 @@
       "case_id": "bench-00-east-0",
       "expected": "verified",
       "tags": [
+        "single_cause"
+      ],
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [],
+      "error": null
+    },
+    {
+      "case_id": "bench-00-east-1",
+      "expected": "verified",
+      "tags": [
         "decoy"
       ],
       "verdict": "no_movement",
@@ -180,40 +200,29 @@
       "error": null
     },
     {
-      "case_id": "bench-00-east-1",
-      "expected": "verified",
-      "tags": [
-        "single_cause"
-      ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
-      "decoy_rejected": null,
-      "verified": [],
-      "error": null
-    },
-    {
       "case_id": "bench-00-east-2",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
-      "decoy_rejected": null,
-      "verified": [],
+      "verdict": "explained",
+      "confidence": 0.8,
+      "top1": true,
+      "decoy_rejected": true,
+      "verified": [
+        "bench-00-east-2-cause"
+      ],
       "error": null
     },
     {
       "case_id": "bench-00-east-3",
-      "expected": "no_anomaly",
+      "expected": "verified",
       "tags": [
-        "noise"
+        "single_cause"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
-      "top1": null,
+      "top1": false,
       "decoy_rejected": null,
       "verified": [],
       "error": null
@@ -224,11 +233,13 @@
       "tags": [
         "single_cause"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
+      "verdict": "explained",
+      "confidence": 0.934,
+      "top1": true,
       "decoy_rejected": null,
-      "verified": [],
+      "verified": [
+        "bench-00-west-0-cause"
+      ],
       "error": null
     },
     {
@@ -250,31 +261,17 @@
       "tags": [
         "single_cause"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
+      "verdict": "explained",
+      "confidence": 1.0,
+      "top1": true,
       "decoy_rejected": null,
-      "verified": [],
+      "verified": [
+        "bench-00-west-2-cause"
+      ],
       "error": null
     },
     {
       "case_id": "bench-00-west-3",
-      "expected": "verified",
-      "tags": [
-        "single_cause"
-      ],
-      "verdict": "explained",
-      "confidence": 0.721,
-      "top1": true,
-      "decoy_rejected": null,
-      "verified": [
-        "bench-00-west-3-cause",
-        "bench-00-west-3-cause"
-      ],
-      "error": null
-    },
-    {
-      "case_id": "bench-01-north-0",
       "expected": "no_anomaly",
       "tags": [
         "noise"
@@ -287,16 +284,32 @@
       "error": null
     },
     {
-      "case_id": "bench-01-north-1",
-      "expected": "verified",
+      "case_id": "bench-01-north-0",
+      "expected": "unknown",
       "tags": [
-        "single_cause"
+        "unanswerable",
+        "no_control_group"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
+      "verdict": "unknown",
+      "confidence": 0.15,
       "top1": false,
       "decoy_rejected": null,
       "verified": [],
+      "error": null
+    },
+    {
+      "case_id": "bench-01-north-1",
+      "expected": "verified",
+      "tags": [
+        "decoy"
+      ],
+      "verdict": "explained",
+      "confidence": 0.971,
+      "top1": true,
+      "decoy_rejected": true,
+      "verified": [
+        "bench-01-north-1-cause"
+      ],
       "error": null
     },
     {
@@ -306,7 +319,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.874,
+      "confidence": 0.922,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
@@ -316,61 +329,59 @@
     },
     {
       "case_id": "bench-01-north-3",
-      "expected": "verified",
+      "expected": "unknown",
       "tags": [
-        "decoy"
+        "unanswerable",
+        "no_control_group"
       ],
-      "verdict": "explained",
-      "confidence": 1.0,
+      "verdict": "unknown",
+      "confidence": 0.15,
       "top1": false,
-      "decoy_rejected": false,
-      "verified": [
-        "bench-01-north-3-decoy",
-        "bench-01-north-3-cause"
-      ],
+      "decoy_rejected": null,
+      "verified": [],
       "error": null
     },
     {
       "case_id": "bench-01-south-0",
-      "expected": "verified",
-      "tags": [
-        "single_cause"
-      ],
-      "verdict": "explained",
-      "confidence": 0.8,
-      "top1": false,
-      "decoy_rejected": null,
-      "verified": [
-        "bench-01-west-0-decoy",
-        "bench-01-south-0-cause"
-      ],
-      "error": null
-    },
-    {
-      "case_id": "bench-01-south-1",
       "expected": "no_anomaly",
       "tags": [
         "noise"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
+      "verdict": "unknown",
+      "confidence": 0.15,
       "top1": null,
       "decoy_rejected": null,
       "verified": [],
       "error": null
     },
     {
-      "case_id": "bench-01-south-2",
+      "case_id": "bench-01-south-1",
       "expected": "verified",
       "tags": [
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.901,
+      "confidence": 0.978,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
-        "bench-01-south-2-cause"
+        "bench-01-south-1-cause"
+      ],
+      "error": null
+    },
+    {
+      "case_id": "bench-01-south-2",
+      "expected": "unknown",
+      "tags": [
+        "unanswerable",
+        "no_control_group"
+      ],
+      "verdict": "explained",
+      "confidence": 0.8,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [
+        "bench-01-west-2-decoy"
       ],
       "error": null
     },
@@ -378,14 +389,13 @@
       "case_id": "bench-01-south-3",
       "expected": "verified",
       "tags": [
-        "decoy"
+        "single_cause"
       ],
       "verdict": "explained",
       "confidence": 0.8,
-      "top1": false,
-      "decoy_rejected": true,
+      "top1": true,
+      "decoy_rejected": null,
       "verified": [
-        "bench-01-east-3-decoy",
         "bench-01-south-3-cause"
       ],
       "error": null
@@ -394,12 +404,12 @@
       "case_id": "bench-01-east-0",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
       "top1": false,
-      "decoy_rejected": null,
+      "decoy_rejected": true,
       "verified": [],
       "error": null
     },
@@ -449,7 +459,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.958,
+      "confidence": 0.8,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -477,7 +487,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.896,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -492,11 +502,10 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
-      "top1": false,
+      "confidence": 0.884,
+      "top1": true,
       "decoy_rejected": null,
       "verified": [
-        "bench-01-north-3-decoy",
         "bench-01-west-3-cause"
       ],
       "error": null
@@ -508,10 +517,11 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.758,
-      "top1": true,
+      "confidence": 0.8,
+      "top1": false,
       "decoy_rejected": null,
       "verified": [
+        "bench-02-south-0-decoy",
         "bench-02-north-0-cause"
       ],
       "error": null
@@ -522,26 +532,27 @@
       "tags": [
         "single_cause"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
+      "verdict": "explained",
+      "confidence": 1.0,
+      "top1": true,
       "decoy_rejected": null,
-      "verified": [],
+      "verified": [
+        "bench-02-north-1-cause"
+      ],
       "error": null
     },
     {
       "case_id": "bench-02-north-2",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
       "verdict": "explained",
       "confidence": 1.0,
       "top1": true,
-      "decoy_rejected": null,
+      "decoy_rejected": true,
       "verified": [
-        "bench-02-north-2-cause",
-        "bench-02-east-2-decoy"
+        "bench-02-north-2-cause"
       ],
       "error": null
     },
@@ -552,7 +563,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.8,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -564,28 +575,27 @@
       "case_id": "bench-02-south-0",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
       "top1": false,
-      "decoy_rejected": null,
+      "decoy_rejected": true,
       "verified": [],
       "error": null
     },
     {
       "case_id": "bench-02-south-1",
-      "expected": "verified",
+      "expected": "unknown",
       "tags": [
-        "decoy"
+        "unanswerable",
+        "no_control_group"
       ],
-      "verdict": "explained",
-      "confidence": 0.756,
-      "top1": true,
-      "decoy_rejected": true,
-      "verified": [
-        "bench-02-south-1-cause"
-      ],
+      "verdict": "unknown",
+      "confidence": 0.15,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [],
       "error": null
     },
     {
@@ -595,7 +605,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.947,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -607,12 +617,12 @@
       "case_id": "bench-02-south-3",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
       "verdict": "explained",
       "confidence": 1.0,
       "top1": true,
-      "decoy_rejected": null,
+      "decoy_rejected": true,
       "verified": [
         "bench-02-south-3-cause"
       ],
@@ -620,32 +630,6 @@
     },
     {
       "case_id": "bench-02-east-0",
-      "expected": "no_anomaly",
-      "tags": [
-        "noise"
-      ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": null,
-      "decoy_rejected": null,
-      "verified": [],
-      "error": null
-    },
-    {
-      "case_id": "bench-02-east-1",
-      "expected": "verified",
-      "tags": [
-        "single_cause"
-      ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
-      "decoy_rejected": null,
-      "verified": [],
-      "error": null
-    },
-    {
-      "case_id": "bench-02-east-2",
       "expected": "verified",
       "tags": [
         "decoy"
@@ -654,6 +638,32 @@
       "confidence": 0.0,
       "top1": false,
       "decoy_rejected": true,
+      "verified": [],
+      "error": null
+    },
+    {
+      "case_id": "bench-02-east-1",
+      "expected": "verified",
+      "tags": [
+        "decoy"
+      ],
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": false,
+      "decoy_rejected": true,
+      "verified": [],
+      "error": null
+    },
+    {
+      "case_id": "bench-02-east-2",
+      "expected": "no_anomaly",
+      "tags": [
+        "noise"
+      ],
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": null,
+      "decoy_rejected": null,
       "verified": [],
       "error": null
     },
@@ -676,26 +686,27 @@
       "tags": [
         "single_cause"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
+      "verdict": "explained",
+      "confidence": 0.885,
+      "top1": true,
       "decoy_rejected": null,
-      "verified": [],
+      "verified": [
+        "bench-02-west-0-cause"
+      ],
       "error": null
     },
     {
       "case_id": "bench-02-west-1",
-      "expected": "verified",
+      "expected": "unknown",
       "tags": [
-        "decoy"
+        "unanswerable",
+        "no_control_group"
       ],
-      "verdict": "explained",
-      "confidence": 0.977,
-      "top1": true,
-      "decoy_rejected": true,
-      "verified": [
-        "bench-02-west-1-cause"
-      ],
+      "verdict": "unknown",
+      "confidence": 0.15,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [],
       "error": null
     },
     {
@@ -717,14 +728,13 @@
       "case_id": "bench-02-west-3",
       "expected": "verified",
       "tags": [
-        "decoy"
+        "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
-      "top1": false,
-      "decoy_rejected": false,
+      "confidence": 1.0,
+      "top1": true,
+      "decoy_rejected": null,
       "verified": [
-        "bench-02-west-3-decoy",
         "bench-02-west-3-cause"
       ],
       "error": null
@@ -736,7 +746,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.8,
       "top1": false,
       "decoy_rejected": false,
       "verified": [
@@ -762,14 +772,14 @@
       "case_id": "bench-03-north-2",
       "expected": "verified",
       "tags": [
-        "decoy"
+        "single_cause"
       ],
       "verdict": "unknown",
-      "confidence": 1.0,
+      "confidence": 0.594,
       "top1": false,
-      "decoy_rejected": false,
+      "decoy_rejected": null,
       "verified": [
-        "bench-03-north-2-decoy",
+        "bench-03-east-2-decoy",
         "bench-03-north-2-cause"
       ],
       "error": null
@@ -778,13 +788,15 @@
       "case_id": "bench-03-north-3",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
-      "decoy_rejected": null,
-      "verified": [],
+      "verdict": "explained",
+      "confidence": 0.8,
+      "top1": true,
+      "decoy_rejected": true,
+      "verified": [
+        "bench-03-north-3-cause"
+      ],
       "error": null
     },
     {
@@ -808,9 +820,10 @@
       ],
       "verdict": "explained",
       "confidence": 0.8,
-      "top1": true,
-      "decoy_rejected": true,
+      "top1": false,
+      "decoy_rejected": false,
       "verified": [
+        "bench-03-south-1-decoy",
         "bench-03-south-1-cause"
       ],
       "error": null
@@ -871,12 +884,12 @@
       "case_id": "bench-03-east-2",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
       "top1": false,
-      "decoy_rejected": null,
+      "decoy_rejected": true,
       "verified": [],
       "error": null
     },
@@ -884,12 +897,12 @@
       "case_id": "bench-03-east-3",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
       "top1": false,
-      "decoy_rejected": null,
+      "decoy_rejected": true,
       "verified": [],
       "error": null
     },
@@ -900,69 +913,74 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
-      "top1": false,
+      "confidence": 0.8,
+      "top1": true,
       "decoy_rejected": null,
       "verified": [
-        "bench-03-north-0-decoy",
         "bench-03-west-0-cause"
       ],
       "error": null
     },
     {
       "case_id": "bench-03-west-1",
-      "expected": "verified",
+      "expected": "unknown",
       "tags": [
-        "decoy"
+        "unanswerable",
+        "no_control_group"
       ],
-      "verdict": "explained",
-      "confidence": 0.94,
-      "top1": true,
-      "decoy_rejected": true,
-      "verified": [
-        "bench-03-west-1-cause"
-      ],
+      "verdict": "unknown",
+      "confidence": 0.15,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [],
       "error": null
     },
     {
       "case_id": "bench-03-west-2",
-      "expected": "no_anomaly",
+      "expected": "verified",
       "tags": [
-        "noise"
+        "decoy"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": null,
-      "decoy_rejected": null,
-      "verified": [],
+      "verdict": "unknown",
+      "confidence": 0.469,
+      "top1": true,
+      "decoy_rejected": true,
+      "verified": [
+        "bench-03-west-2-cause",
+        "bench-03-east-2-decoy"
+      ],
       "error": null
     },
     {
       "case_id": "bench-03-west-3",
       "expected": "verified",
       "tags": [
-        "decoy"
+        "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
-      "top1": true,
-      "decoy_rejected": true,
+      "confidence": 1.0,
+      "top1": false,
+      "decoy_rejected": null,
       "verified": [
+        "bench-03-south-3-decoy",
         "bench-03-west-3-cause"
       ],
       "error": null
     },
     {
       "case_id": "bench-04-north-0",
-      "expected": "no_anomaly",
+      "expected": "verified",
       "tags": [
-        "noise"
+        "decoy"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": null,
-      "decoy_rejected": null,
-      "verified": [],
+      "verdict": "explained",
+      "confidence": 0.8,
+      "top1": false,
+      "decoy_rejected": false,
+      "verified": [
+        "bench-04-north-0-decoy",
+        "bench-04-north-0-cause"
+      ],
       "error": null
     },
     {
@@ -971,32 +989,45 @@
       "tags": [
         "single_cause"
       ],
-      "verdict": "explained",
-      "confidence": 0.767,
-      "top1": true,
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": false,
       "decoy_rejected": null,
-      "verified": [
-        "bench-04-north-1-cause"
-      ],
+      "verified": [],
       "error": null
     },
     {
       "case_id": "bench-04-north-2",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
-      "verdict": "explained",
+      "verdict": "unknown",
       "confidence": 0.8,
-      "top1": true,
-      "decoy_rejected": null,
+      "top1": false,
+      "decoy_rejected": true,
       "verified": [
+        "bench-04-east-2-decoy",
         "bench-04-north-2-cause"
       ],
       "error": null
     },
     {
       "case_id": "bench-04-north-3",
+      "expected": "unknown",
+      "tags": [
+        "unanswerable",
+        "no_control_group"
+      ],
+      "verdict": "unknown",
+      "confidence": 0.15,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [],
+      "error": null
+    },
+    {
+      "case_id": "bench-04-south-0",
       "expected": "verified",
       "tags": [
         "decoy"
@@ -1006,21 +1037,6 @@
       "top1": false,
       "decoy_rejected": true,
       "verified": [],
-      "error": null
-    },
-    {
-      "case_id": "bench-04-south-0",
-      "expected": "verified",
-      "tags": [
-        "single_cause"
-      ],
-      "verdict": "explained",
-      "confidence": 0.8,
-      "top1": true,
-      "decoy_rejected": null,
-      "verified": [
-        "bench-04-south-0-cause"
-      ],
       "error": null
     },
     {
@@ -1029,41 +1045,41 @@
       "tags": [
         "single_cause"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
+      "verdict": "explained",
+      "confidence": 0.776,
+      "top1": true,
+      "decoy_rejected": null,
+      "verified": [
+        "bench-04-south-1-cause",
+        "bench-04-south-1-cause"
+      ],
+      "error": null
+    },
+    {
+      "case_id": "bench-04-south-2",
+      "expected": "unknown",
+      "tags": [
+        "unanswerable",
+        "no_control_group"
+      ],
+      "verdict": "unknown",
+      "confidence": 0.15,
       "top1": false,
       "decoy_rejected": null,
       "verified": [],
       "error": null
     },
     {
-      "case_id": "bench-04-south-2",
+      "case_id": "bench-04-south-3",
       "expected": "verified",
       "tags": [
         "single_cause"
       ],
-      "verdict": "explained",
-      "confidence": 0.8,
-      "top1": true,
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": false,
       "decoy_rejected": null,
-      "verified": [
-        "bench-04-south-2-cause"
-      ],
-      "error": null
-    },
-    {
-      "case_id": "bench-04-south-3",
-      "expected": "verified",
-      "tags": [
-        "decoy"
-      ],
-      "verdict": "explained",
-      "confidence": 0.8,
-      "top1": true,
-      "decoy_rejected": true,
-      "verified": [
-        "bench-04-south-3-cause"
-      ],
+      "verified": [],
       "error": null
     },
     {
@@ -1111,13 +1127,11 @@
       "tags": [
         "single_cause"
       ],
-      "verdict": "explained",
-      "confidence": 0.95,
-      "top1": true,
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": false,
       "decoy_rejected": null,
-      "verified": [
-        "bench-04-east-3-cause"
-      ],
+      "verified": [],
       "error": null
     },
     {
@@ -1152,17 +1166,16 @@
     },
     {
       "case_id": "bench-04-west-2",
-      "expected": "verified",
+      "expected": "unknown",
       "tags": [
-        "decoy"
+        "unanswerable",
+        "no_control_group"
       ],
-      "verdict": "explained",
-      "confidence": 0.8,
-      "top1": true,
-      "decoy_rejected": true,
-      "verified": [
-        "bench-04-west-2-cause"
-      ],
+      "verdict": "unknown",
+      "confidence": 0.15,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [],
       "error": null
     },
     {
@@ -1172,11 +1185,10 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.821,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
-        "bench-04-west-3-cause",
         "bench-04-west-3-cause"
       ],
       "error": null
@@ -1187,45 +1199,33 @@
       "tags": [
         "decoy"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
+      "verdict": "explained",
+      "confidence": 1.0,
+      "top1": true,
       "decoy_rejected": true,
-      "verified": [],
+      "verified": [
+        "bench-05-north-0-cause"
+      ],
       "error": null
     },
     {
       "case_id": "bench-05-north-1",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
       "verdict": "explained",
       "confidence": 0.8,
       "top1": true,
-      "decoy_rejected": null,
+      "decoy_rejected": false,
       "verified": [
-        "bench-05-north-1-cause"
+        "bench-05-north-1-cause",
+        "bench-05-north-1-decoy"
       ],
       "error": null
     },
     {
       "case_id": "bench-05-north-2",
-      "expected": "verified",
-      "tags": [
-        "single_cause"
-      ],
-      "verdict": "explained",
-      "confidence": 1.0,
-      "top1": true,
-      "decoy_rejected": null,
-      "verified": [
-        "bench-05-north-2-cause"
-      ],
-      "error": null
-    },
-    {
-      "case_id": "bench-05-north-3",
       "expected": "no_anomaly",
       "tags": [
         "noise"
@@ -1238,18 +1238,29 @@
       "error": null
     },
     {
-      "case_id": "bench-05-south-0",
+      "case_id": "bench-05-north-3",
       "expected": "verified",
       "tags": [
-        "decoy"
+        "single_cause"
       ],
-      "verdict": "explained",
-      "confidence": 0.922,
-      "top1": true,
-      "decoy_rejected": true,
-      "verified": [
-        "bench-05-south-0-cause"
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [],
+      "error": null
+    },
+    {
+      "case_id": "bench-05-south-0",
+      "expected": "no_anomaly",
+      "tags": [
+        "noise"
       ],
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": null,
+      "decoy_rejected": null,
+      "verified": [],
       "error": null
     },
     {
@@ -1258,22 +1269,25 @@
       "tags": [
         "decoy"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
+      "verdict": "explained",
+      "confidence": 1.0,
+      "top1": true,
       "decoy_rejected": true,
-      "verified": [],
+      "verified": [
+        "bench-05-south-1-cause"
+      ],
       "error": null
     },
     {
       "case_id": "bench-05-south-2",
-      "expected": "no_anomaly",
+      "expected": "unknown",
       "tags": [
-        "noise"
+        "unanswerable",
+        "no_control_group"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": null,
+      "verdict": "unknown",
+      "confidence": 0.15,
+      "top1": false,
       "decoy_rejected": null,
       "verified": [],
       "error": null
@@ -1285,7 +1299,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.69,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -1310,12 +1324,12 @@
       "case_id": "bench-05-east-1",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
       "top1": false,
-      "decoy_rejected": null,
+      "decoy_rejected": true,
       "verified": [],
       "error": null
     },
@@ -1334,13 +1348,13 @@
     },
     {
       "case_id": "bench-05-east-3",
-      "expected": "verified",
+      "expected": "no_anomaly",
       "tags": [
-        "single_cause"
+        "noise"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
-      "top1": false,
+      "top1": null,
       "decoy_rejected": null,
       "verified": [],
       "error": null
@@ -1362,16 +1376,13 @@
       "case_id": "bench-05-west-1",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
-      "verdict": "explained",
-      "confidence": 0.793,
-      "top1": true,
-      "decoy_rejected": null,
-      "verified": [
-        "bench-05-west-1-cause",
-        "bench-05-west-1-cause"
-      ],
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": false,
+      "decoy_rejected": true,
+      "verified": [],
       "error": null
     },
     {
@@ -1380,8 +1391,8 @@
       "tags": [
         "noise"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
+      "verdict": "unknown",
+      "confidence": 0.15,
       "top1": null,
       "decoy_rejected": null,
       "verified": [],
@@ -1417,13 +1428,15 @@
       "case_id": "bench-06-north-1",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
-      "decoy_rejected": null,
-      "verified": [],
+      "verdict": "explained",
+      "confidence": 0.791,
+      "top1": true,
+      "decoy_rejected": true,
+      "verified": [
+        "bench-06-north-1-cause"
+      ],
       "error": null
     },
     {
@@ -1432,11 +1445,14 @@
       "tags": [
         "single_cause"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
+      "verdict": "explained",
+      "confidence": 0.685,
+      "top1": true,
       "decoy_rejected": null,
-      "verified": [],
+      "verified": [
+        "bench-06-north-2-cause",
+        "bench-06-north-2-cause"
+      ],
       "error": null
     },
     {
@@ -1446,7 +1462,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.845,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
@@ -1456,13 +1472,13 @@
     },
     {
       "case_id": "bench-06-south-0",
-      "expected": "verified",
+      "expected": "no_anomaly",
       "tags": [
-        "single_cause"
+        "noise"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
-      "top1": false,
+      "top1": null,
       "decoy_rejected": null,
       "verified": [],
       "error": null
@@ -1487,41 +1503,41 @@
       "case_id": "bench-06-south-2",
       "expected": "verified",
       "tags": [
+        "single_cause"
+      ],
+      "verdict": "explained",
+      "confidence": 1.0,
+      "top1": true,
+      "decoy_rejected": null,
+      "verified": [
+        "bench-06-south-2-cause"
+      ],
+      "error": null
+    },
+    {
+      "case_id": "bench-06-south-3",
+      "expected": "unknown",
+      "tags": [
+        "unanswerable",
+        "no_control_group"
+      ],
+      "verdict": "unknown",
+      "confidence": 0.15,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [],
+      "error": null
+    },
+    {
+      "case_id": "bench-06-east-0",
+      "expected": "verified",
+      "tags": [
         "decoy"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
       "top1": false,
       "decoy_rejected": true,
-      "verified": [],
-      "error": null
-    },
-    {
-      "case_id": "bench-06-south-3",
-      "expected": "verified",
-      "tags": [
-        "single_cause"
-      ],
-      "verdict": "explained",
-      "confidence": 1.0,
-      "top1": false,
-      "decoy_rejected": null,
-      "verified": [
-        "bench-06-east-3-decoy",
-        "bench-06-south-3-cause"
-      ],
-      "error": null
-    },
-    {
-      "case_id": "bench-06-east-0",
-      "expected": "no_anomaly",
-      "tags": [
-        "noise"
-      ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": null,
-      "decoy_rejected": null,
       "verified": [],
       "error": null
     },
@@ -1529,12 +1545,12 @@
       "case_id": "bench-06-east-1",
       "expected": "verified",
       "tags": [
-        "decoy"
+        "single_cause"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
       "top1": false,
-      "decoy_rejected": true,
+      "decoy_rejected": null,
       "verified": [],
       "error": null
     },
@@ -1555,17 +1571,32 @@
       "case_id": "bench-06-east-3",
       "expected": "verified",
       "tags": [
-        "decoy"
+        "single_cause"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
       "top1": false,
-      "decoy_rejected": true,
+      "decoy_rejected": null,
       "verified": [],
       "error": null
     },
     {
       "case_id": "bench-06-west-0",
+      "expected": "verified",
+      "tags": [
+        "single_cause"
+      ],
+      "verdict": "explained",
+      "confidence": 1.0,
+      "top1": true,
+      "decoy_rejected": null,
+      "verified": [
+        "bench-06-west-0-cause"
+      ],
+      "error": null
+    },
+    {
+      "case_id": "bench-06-west-1",
       "expected": "verified",
       "tags": [
         "decoy"
@@ -1578,7 +1609,7 @@
       "error": null
     },
     {
-      "case_id": "bench-06-west-1",
+      "case_id": "bench-06-west-2",
       "expected": "verified",
       "tags": [
         "decoy"
@@ -1588,47 +1619,34 @@
       "top1": true,
       "decoy_rejected": true,
       "verified": [
-        "bench-06-west-1-cause"
+        "bench-06-west-2-cause"
       ],
-      "error": null
-    },
-    {
-      "case_id": "bench-06-west-2",
-      "expected": "verified",
-      "tags": [
-        "single_cause"
-      ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
-      "decoy_rejected": null,
-      "verified": [],
       "error": null
     },
     {
       "case_id": "bench-06-west-3",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
-      "top1": false,
-      "decoy_rejected": null,
+      "confidence": 1.0,
+      "top1": true,
+      "decoy_rejected": true,
       "verified": [
-        "bench-06-east-3-decoy",
         "bench-06-west-3-cause"
       ],
       "error": null
     },
     {
       "case_id": "bench-07-north-0",
-      "expected": "verified",
+      "expected": "unknown",
       "tags": [
-        "single_cause"
+        "unanswerable",
+        "no_control_group"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
+      "verdict": "unknown",
+      "confidence": 0.15,
       "top1": false,
       "decoy_rejected": null,
       "verified": [],
@@ -1640,22 +1658,24 @@
       "tags": [
         "single_cause"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
+      "verdict": "explained",
+      "confidence": 0.8,
+      "top1": true,
       "decoy_rejected": null,
-      "verified": [],
+      "verified": [
+        "bench-07-north-1-cause"
+      ],
       "error": null
     },
     {
       "case_id": "bench-07-north-2",
-      "expected": "no_anomaly",
+      "expected": "verified",
       "tags": [
-        "noise"
+        "single_cause"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
-      "top1": null,
+      "top1": false,
       "decoy_rejected": null,
       "verified": [],
       "error": null
@@ -1671,6 +1691,7 @@
       "top1": true,
       "decoy_rejected": null,
       "verified": [
+        "bench-07-north-3-cause",
         "bench-07-north-3-cause"
       ],
       "error": null
@@ -1679,27 +1700,25 @@
       "case_id": "bench-07-south-0",
       "expected": "verified",
       "tags": [
-        "decoy"
-      ],
-      "verdict": "explained",
-      "confidence": 0.932,
-      "top1": true,
-      "decoy_rejected": true,
-      "verified": [
-        "bench-07-south-0-cause"
-      ],
-      "error": null
-    },
-    {
-      "case_id": "bench-07-south-1",
-      "expected": "verified",
-      "tags": [
-        "decoy"
+        "single_cause"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
       "top1": false,
-      "decoy_rejected": true,
+      "decoy_rejected": null,
+      "verified": [],
+      "error": null
+    },
+    {
+      "case_id": "bench-07-south-1",
+      "expected": "no_anomaly",
+      "tags": [
+        "noise"
+      ],
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": null,
+      "decoy_rejected": null,
       "verified": [],
       "error": null
     },
@@ -1707,15 +1726,14 @@
       "case_id": "bench-07-south-2",
       "expected": "verified",
       "tags": [
-        "decoy"
+        "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.739,
       "top1": true,
-      "decoy_rejected": false,
+      "decoy_rejected": null,
       "verified": [
-        "bench-07-south-2-cause",
-        "bench-07-south-2-decoy"
+        "bench-07-south-2-cause"
       ],
       "error": null
     },
@@ -1726,7 +1744,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.693,
+      "confidence": 0.8,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -1738,12 +1756,12 @@
       "case_id": "bench-07-east-0",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
       "top1": false,
-      "decoy_rejected": null,
+      "decoy_rejected": true,
       "verified": [],
       "error": null
     },
@@ -1775,13 +1793,13 @@
     },
     {
       "case_id": "bench-07-east-3",
-      "expected": "verified",
+      "expected": "no_anomaly",
       "tags": [
-        "single_cause"
+        "noise"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
-      "top1": false,
+      "top1": null,
       "decoy_rejected": null,
       "verified": [],
       "error": null
@@ -1792,11 +1810,14 @@
       "tags": [
         "single_cause"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
+      "verdict": "explained",
+      "confidence": 0.673,
+      "top1": true,
       "decoy_rejected": null,
-      "verified": [],
+      "verified": [
+        "bench-07-west-0-cause",
+        "bench-07-west-0-cause"
+      ],
       "error": null
     },
     {
@@ -1806,32 +1827,17 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.8,
       "top1": false,
       "decoy_rejected": null,
       "verified": [
-        "bench-07-south-1-decoy",
+        "bench-07-east-1-decoy",
         "bench-07-west-1-cause"
       ],
       "error": null
     },
     {
       "case_id": "bench-07-west-2",
-      "expected": "verified",
-      "tags": [
-        "single_cause"
-      ],
-      "verdict": "explained",
-      "confidence": 0.897,
-      "top1": true,
-      "decoy_rejected": null,
-      "verified": [
-        "bench-07-west-2-cause"
-      ],
-      "error": null
-    },
-    {
-      "case_id": "bench-07-west-3",
       "expected": "verified",
       "tags": [
         "decoy"
@@ -1841,8 +1847,21 @@
       "top1": true,
       "decoy_rejected": true,
       "verified": [
-        "bench-07-west-3-cause"
+        "bench-07-west-2-cause"
       ],
+      "error": null
+    },
+    {
+      "case_id": "bench-07-west-3",
+      "expected": "verified",
+      "tags": [
+        "single_cause"
+      ],
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [],
       "error": null
     },
     {
@@ -1877,59 +1896,17 @@
       "tags": [
         "single_cause"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
+      "verdict": "explained",
+      "confidence": 0.894,
+      "top1": true,
       "decoy_rejected": null,
-      "verified": [],
+      "verified": [
+        "bench-08-north-2-cause"
+      ],
       "error": null
     },
     {
       "case_id": "bench-08-north-3",
-      "expected": "verified",
-      "tags": [
-        "single_cause"
-      ],
-      "verdict": "explained",
-      "confidence": 0.925,
-      "top1": true,
-      "decoy_rejected": null,
-      "verified": [
-        "bench-08-north-3-cause",
-        "bench-08-east-3-decoy"
-      ],
-      "error": null
-    },
-    {
-      "case_id": "bench-08-south-0",
-      "expected": "verified",
-      "tags": [
-        "single_cause"
-      ],
-      "verdict": "explained",
-      "confidence": 0.889,
-      "top1": true,
-      "decoy_rejected": null,
-      "verified": [
-        "bench-08-south-0-cause"
-      ],
-      "error": null
-    },
-    {
-      "case_id": "bench-08-south-1",
-      "expected": "verified",
-      "tags": [
-        "decoy"
-      ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
-      "decoy_rejected": true,
-      "verified": [],
-      "error": null
-    },
-    {
-      "case_id": "bench-08-south-2",
       "expected": "verified",
       "tags": [
         "decoy"
@@ -1939,8 +1916,49 @@
       "top1": true,
       "decoy_rejected": true,
       "verified": [
-        "bench-08-south-2-cause"
+        "bench-08-north-3-cause"
       ],
+      "error": null
+    },
+    {
+      "case_id": "bench-08-south-0",
+      "expected": "verified",
+      "tags": [
+        "single_cause"
+      ],
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [],
+      "error": null
+    },
+    {
+      "case_id": "bench-08-south-1",
+      "expected": "verified",
+      "tags": [
+        "single_cause"
+      ],
+      "verdict": "explained",
+      "confidence": 0.658,
+      "top1": true,
+      "decoy_rejected": null,
+      "verified": [
+        "bench-08-south-1-cause"
+      ],
+      "error": null
+    },
+    {
+      "case_id": "bench-08-south-2",
+      "expected": "verified",
+      "tags": [
+        "single_cause"
+      ],
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [],
       "error": null
     },
     {
@@ -1950,7 +1968,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.886,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
@@ -1962,12 +1980,12 @@
       "case_id": "bench-08-east-0",
       "expected": "verified",
       "tags": [
-        "decoy"
+        "single_cause"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
       "top1": false,
-      "decoy_rejected": true,
+      "decoy_rejected": null,
       "verified": [],
       "error": null
     },
@@ -2001,12 +2019,12 @@
       "case_id": "bench-08-east-3",
       "expected": "verified",
       "tags": [
-        "decoy"
+        "single_cause"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
       "top1": false,
-      "decoy_rejected": true,
+      "decoy_rejected": null,
       "verified": [],
       "error": null
     },
@@ -2028,12 +2046,13 @@
     },
     {
       "case_id": "bench-08-west-1",
-      "expected": "verified",
+      "expected": "unknown",
       "tags": [
-        "single_cause"
+        "unanswerable",
+        "no_control_group"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
+      "verdict": "unknown",
+      "confidence": 0.15,
       "top1": false,
       "decoy_rejected": null,
       "verified": [],
@@ -2043,13 +2062,15 @@
       "case_id": "bench-08-west-2",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
-      "decoy_rejected": null,
-      "verified": [],
+      "verdict": "explained",
+      "confidence": 0.722,
+      "top1": true,
+      "decoy_rejected": true,
+      "verified": [
+        "bench-08-west-2-cause"
+      ],
       "error": null
     },
     {
@@ -2059,7 +2080,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.652,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
@@ -2071,61 +2092,17 @@
       "case_id": "bench-09-north-0",
       "expected": "verified",
       "tags": [
-        "decoy"
+        "single_cause"
       ],
-      "verdict": "explained",
-      "confidence": 1.0,
-      "top1": true,
-      "decoy_rejected": true,
-      "verified": [
-        "bench-09-north-0-cause"
-      ],
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [],
       "error": null
     },
     {
       "case_id": "bench-09-north-1",
-      "expected": "verified",
-      "tags": [
-        "single_cause"
-      ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
-      "decoy_rejected": null,
-      "verified": [],
-      "error": null
-    },
-    {
-      "case_id": "bench-09-north-2",
-      "expected": "verified",
-      "tags": [
-        "single_cause"
-      ],
-      "verdict": "unknown",
-      "confidence": 1.0,
-      "top1": false,
-      "decoy_rejected": null,
-      "verified": [
-        "bench-09-west-2-decoy",
-        "bench-09-north-2-cause"
-      ],
-      "error": null
-    },
-    {
-      "case_id": "bench-09-north-3",
-      "expected": "verified",
-      "tags": [
-        "decoy"
-      ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
-      "top1": false,
-      "decoy_rejected": true,
-      "verified": [],
-      "error": null
-    },
-    {
-      "case_id": "bench-09-south-0",
       "expected": "no_anomaly",
       "tags": [
         "noise"
@@ -2135,6 +2112,49 @@
       "top1": null,
       "decoy_rejected": null,
       "verified": [],
+      "error": null
+    },
+    {
+      "case_id": "bench-09-north-2",
+      "expected": "unknown",
+      "tags": [
+        "unanswerable",
+        "no_control_group"
+      ],
+      "verdict": "unknown",
+      "confidence": 0.15,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [],
+      "error": null
+    },
+    {
+      "case_id": "bench-09-north-3",
+      "expected": "verified",
+      "tags": [
+        "decoy"
+      ],
+      "verdict": "unknown",
+      "confidence": 0.15,
+      "top1": false,
+      "decoy_rejected": true,
+      "verified": [],
+      "error": null
+    },
+    {
+      "case_id": "bench-09-south-0",
+      "expected": "verified",
+      "tags": [
+        "single_cause"
+      ],
+      "verdict": "explained",
+      "confidence": 0.647,
+      "top1": true,
+      "decoy_rejected": null,
+      "verified": [
+        "bench-09-south-0-cause",
+        "bench-09-south-0-cause"
+      ],
       "error": null
     },
     {
@@ -2144,10 +2164,11 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.687,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
+        "bench-09-south-1-cause",
         "bench-09-south-1-cause"
       ],
       "error": null
@@ -2156,15 +2177,13 @@
       "case_id": "bench-09-south-2",
       "expected": "verified",
       "tags": [
-        "decoy"
+        "single_cause"
       ],
-      "verdict": "explained",
-      "confidence": 0.712,
-      "top1": true,
-      "decoy_rejected": true,
-      "verified": [
-        "bench-09-south-2-cause"
-      ],
+      "verdict": "no_movement",
+      "confidence": 0.0,
+      "top1": false,
+      "decoy_rejected": null,
+      "verified": [],
       "error": null
     },
     {
@@ -2174,25 +2193,25 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.747,
-      "top1": true,
+      "confidence": 0.8,
+      "top1": false,
       "decoy_rejected": null,
       "verified": [
-        "bench-09-south-3-cause",
+        "bench-09-east-3-decoy",
         "bench-09-south-3-cause"
       ],
       "error": null
     },
     {
       "case_id": "bench-09-east-0",
-      "expected": "no_anomaly",
+      "expected": "verified",
       "tags": [
-        "noise"
+        "decoy"
       ],
       "verdict": "no_movement",
       "confidence": 0.0,
-      "top1": null,
-      "decoy_rejected": null,
+      "top1": false,
+      "decoy_rejected": true,
       "verified": [],
       "error": null
     },
@@ -2226,26 +2245,30 @@
       "case_id": "bench-09-east-3",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
+      "verdict": "explained",
+      "confidence": 1.0,
       "top1": false,
-      "decoy_rejected": null,
-      "verified": [],
+      "decoy_rejected": false,
+      "verified": [
+        "bench-09-east-3-decoy",
+        "bench-09-east-3-cause"
+      ],
       "error": null
     },
     {
       "case_id": "bench-09-west-0",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.935,
-      "top1": true,
-      "decoy_rejected": null,
+      "confidence": 1.0,
+      "top1": false,
+      "decoy_rejected": false,
       "verified": [
+        "bench-09-west-0-decoy",
         "bench-09-west-0-cause"
       ],
       "error": null
@@ -2254,44 +2277,43 @@
       "case_id": "bench-09-west-1",
       "expected": "verified",
       "tags": [
-        "single_cause"
+        "decoy"
       ],
-      "verdict": "no_movement",
-      "confidence": 0.0,
+      "verdict": "explained",
+      "confidence": 0.77,
+      "top1": true,
+      "decoy_rejected": true,
+      "verified": [
+        "bench-09-west-1-cause"
+      ],
+      "error": null
+    },
+    {
+      "case_id": "bench-09-west-2",
+      "expected": "unknown",
+      "tags": [
+        "unanswerable",
+        "no_control_group"
+      ],
+      "verdict": "unknown",
+      "confidence": 0.15,
       "top1": false,
       "decoy_rejected": null,
       "verified": [],
       "error": null
     },
     {
-      "case_id": "bench-09-west-2",
-      "expected": "verified",
+      "case_id": "bench-09-west-3",
+      "expected": "unknown",
       "tags": [
-        "decoy"
+        "unanswerable",
+        "no_control_group"
       ],
       "verdict": "unknown",
-      "confidence": 1.0,
+      "confidence": 0.15,
       "top1": false,
-      "decoy_rejected": false,
-      "verified": [
-        "bench-09-west-2-decoy",
-        "bench-09-west-2-cause"
-      ],
-      "error": null
-    },
-    {
-      "case_id": "bench-09-west-3",
-      "expected": "verified",
-      "tags": [
-        "single_cause"
-      ],
-      "verdict": "explained",
-      "confidence": 1.0,
-      "top1": true,
       "decoy_rejected": null,
-      "verified": [
-        "bench-09-west-3-cause"
-      ],
+      "verified": [],
       "error": null
     }
   ]

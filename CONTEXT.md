@@ -89,6 +89,7 @@ declares whether it can be decomposed, and the other four decline.
 | `HANDOFF.md` | picking up where someone stopped |
 | `DECISIONS.md` | **before proposing an architectural change**; it may already have been decided and rejected |
 | `BUGS.md` | before writing a stage; it lists traps already identified |
+| `docs/REQUIREMENTS.md` | checking the build against the brief, objective by objective |
 | `docs/PROTOTYPE-SPEC.md` | implementing a stage |
 | `docs/SECURITY-LOGIC-CHECKLIST.md` | writing tests, or before demoing |
 | `docs/DESIGN-CHECKLIST.md` | building any UI |
@@ -102,7 +103,7 @@ Until then:
 
 ```bash
 make status    # read the real contracts through the real loader
-make test      # 222 tests; -m invariant for the 91 hard correctness ones
+make test      # 258 tests; -m invariant for the 106 hard correctness ones
 make audit     # 30 executable security, logic and design checks
 make bench     # accuracy, trap rejection, calibration, latency
 ```

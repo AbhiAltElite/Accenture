@@ -31,6 +31,30 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-015 · `make bench` reported numbers it never wrote
+**Found:** 2026-08-28 · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** the benchmark printed a full report, exited, and left
+`bench/report.json` holding the *previous* run's numbers. Any document written
+from the file disagreed with the run that produced it, and the terminal output
+looked correct throughout.
+
+**Root cause:** comparisons on pandas and numpy values return `np.bool_`, which
+`json.dumps` refuses. The write raised after `print_report` had already run. The
+exit code was non-zero, but every invocation was piped through `tail`, so the
+shell reported `tail`'s status instead and the failure was invisible.
+
+**Fix:** a `default=` hook that coerces numpy scalars on the way out.
+
+**Lesson:** two failures stacked. A serialisation bug is ordinary; a pipeline
+that hides the exit code is what turned it into published numbers that were
+never computed. This is T-17 in a second form, and the reason the benchmark
+figures in every document were re-derived from a clean run rather than trusted.
+
+**Regression test:** `tests/test_bench_report.py`, which covers the numpy
+scalar types that arise from pandas comparisons and asserts that a type the
+hook cannot convert raises rather than being dropped from the report.
+
 ### B-014 · Benchmark cases contaminated each other's baselines
 **Found:** 2026-08-28 · **Severity:** P1 · **Status:** fixed
 

@@ -74,10 +74,20 @@ class Confidence:
     band: Band
     components: tuple[Component, ...]
     reasons: tuple[str, ...] = ()          # why it abstained, if it did
+    # The calibrated reading, when a curve has been fitted on a held-out split.
+    # None means no calibration is on disk, and the reader is shown a score
+    # labelled as a score rather than a probability it has not earned.
+    probability: float | None = None
+    calibrated_on: int | None = None
 
     @property
     def abstained(self) -> bool:
         return self.band is Band.UNKNOWN
+
+    @property
+    def is_probability(self) -> bool:
+        """Whether `probability` may be read as one. Never inferred from the score."""
+        return self.probability is not None
 
     def explain(self) -> dict[str, float]:
         return {c.name: round(c.value, 3) for c in self.components}
@@ -173,8 +183,15 @@ def score(
     total_movement: float,
     supporting_documents: int,
     sources: dict[str, Freshness],
+    calibration=None,
 ) -> Confidence:
-    """Combine the inputs, then decide whether to report at all."""
+    """Combine the inputs, then decide whether to report at all.
+
+    Banding and abstention are decided on the *raw* score, deliberately. The
+    thresholds were chosen against that scale, and re-deriving them from a
+    calibrated probability would move the abstention boundary every time the
+    curve is refitted, which is a silent change to when the engine refuses.
+    """
     components = (
         _coverage(explained, total_movement),
         _causal_strength(verifications),
@@ -202,7 +219,16 @@ def score(
 
     # Any reason at all is enough. Confidence is not a vote among concerns.
     band = Band.UNKNOWN if reasons else (Band.HIGH if raw >= HIGH_ABOVE else Band.MODERATE)
-    return Confidence(round(raw, 3), band, components, tuple(reasons))
+    return Confidence(
+        round(raw, 3),
+        band,
+        components,
+        tuple(reasons),
+        probability=(
+            round(calibration.probability(raw), 3) if calibration is not None else None
+        ),
+        calibrated_on=(calibration.fitted_on if calibration is not None else None),
+    )
 
 
 def abstain(verifications, confidence: Confidence, blocking: tuple[str, ...] = ()) -> Abstention:

@@ -15,6 +15,7 @@ number six months later.
 
 from __future__ import annotations
 
+import math
 from itertools import pairwise
 from pathlib import Path
 
@@ -26,6 +27,7 @@ from datagen.bulk import (
     EVENT_LENGTH,
     LOOKBACK_DAYS,
     NOISE_SHARE,
+    UNANSWERABLE_SHARE,
     build_cases,
 )
 from datagen.scenarios import ExpectedVerdict
@@ -121,10 +123,37 @@ class TestThePopulationIsBalanced:
         decoyed = sum(1 for c in cases if c.decoys)
 
         assert cases, "the generator produced no cases"
-        # Wide tolerance: this asserts the shares are honoured, not that a
-        # random draw hit them exactly.
-        assert abs(noise / len(cases) - NOISE_SHARE) < 0.06
-        assert abs(decoyed / len(cases) - DECOY_SHARE) < 0.10
+        unanswerable = sum(1 for c in cases if c.expected is ExpectedVerdict.UNKNOWN)
+
+        # Three standard errors for this sample size, rather than a number
+        # picked to make the test pass. A share drawn 160 times misses its
+        # target by a few points; a fixed tolerance either fails on an honest
+        # draw or hides real drift, depending on how many cases there happen
+        # to be.
+        def within_sampling_error(observed: int, declared: float) -> bool:
+            n = len(cases)
+            standard_error = math.sqrt(declared * (1 - declared) / n)
+            return abs(observed / n - declared) <= 3 * standard_error
+
+        assert within_sampling_error(noise, NOISE_SHARE)
+        assert within_sampling_error(decoyed, DECOY_SHARE)
+        assert within_sampling_error(unanswerable, UNANSWERABLE_SHARE)
+
+    @pytest.mark.invariant
+    def test_the_population_can_score_abstention(self):
+        """Requirement 5 of the brief needs a denominator to be measurable.
+
+        With only `verified` and `no_anomaly` in the population, nothing has
+        "the evidence is insufficient" as its correct answer, and an engine that
+        never abstains scores identically to one that always does.
+        """
+        cases = [c for p in build_cases() for c in p.cases]
+        unanswerable = [c for c in cases if c.expected is ExpectedVerdict.UNKNOWN]
+        assert unanswerable, "no case in the population should be abstained on"
+        for case in unanswerable:
+            # A cause is planted, so naming one is guessing rather than knowing.
+            assert case.true_causes
+            assert "no_control_group" in case.tags
 
     def test_noise_cases_carry_no_planted_cause(self):
         """A case whose correct answer is silence must have nothing to find."""
