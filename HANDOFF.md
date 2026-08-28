@@ -6,7 +6,7 @@
 
 ## Status as of 2026-08-28
 
-**Phase:** detection and decomposition complete and served. Ranking and causal verification are next.
+**Phase:** causal verification working. Corroboration and confidence are next.
 
 ### Done
 - **`whychain/evidence/` — the spine, and it is now frozen.** `Evidence`,
@@ -38,7 +38,11 @@
   with zero residual, checked by a property test over a hundred random period
   pairs and asserted before anything is reported
 - **`make audit`** runs 30 executable security, logic and design checks
-- 97 tests passing, 20 marked `invariant`
+- **`whychain/verify/` — the planted correlation trap is rejected.** Four tests;
+  the one that catches the trap is exposure consistency, since
+  difference-in-differences passes it unaided. That is worth understanding before
+  changing anything here
+- 106 tests passing, 25 marked `invariant`
 - Repo structure created, one package per pipeline stage
 - Python 3.14.6 venv verified; full scientific stack installs cleanly (numpy 2.5.2, pandas 3.0.5, scipy 1.18.1, statsmodels 0.15.0, scikit-learn 1.9.0, duckdb 1.5.5, fastapi 0.141.1)
 - `MSTL`, `IsotonicRegression`, `Ridge` confirmed importable — no wheel gaps on 3.14

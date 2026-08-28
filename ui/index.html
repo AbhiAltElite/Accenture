@@ -146,6 +146,16 @@ code{font-family:var(--mono);font-size:13.5px}
       revenue fell is worth knowing about.</p>
   </section>
 
+  <section id="causes" hidden>
+    <h2>Candidate causes, tested</h2>
+    <p class="sub" id="causewin" style="margin:-8px 0 18px"></p>
+    <div id="causelist"></div>
+    <p class="note">Every candidate comes from the operational record with nothing
+      marking which are real. A candidate becomes a claim only by surviving every
+      test that could be run. A test that could not run is not a test that passed,
+      so those cases are held apart rather than counted either way.</p>
+  </section>
+
   <section>
     <h2>Source freshness</h2>
     <div class="scroll"><table>
@@ -221,6 +231,7 @@ function render(){
     <td>${f.sla_met?'within SLA':'<span class="neg">breached</span>'}</td></tr>`).join('');
 
   loadDecomposition(drops);
+  loadCandidates(drops);
 
   $('#meta').innerHTML = [
     ['Days analysed', d.days.length],
@@ -237,13 +248,8 @@ async function loadDecomposition(drops){
   if(!drops.length){ dec.hidden=true; con.hidden=true; return; }
   // The window is the run of drops around the largest one, not every drop in
   // view. Spanning unrelated events in one bridge explains none of them.
-  const sorted=drops.slice().sort((a,b)=>a.day<b.day?-1:1);
-  const worst=sorted.reduce((m,a)=>a.delta<m.delta?a:m,sorted[0]);
-  const gapDays=(a,b)=>Math.round((new Date(b)-new Date(a))/864e5);
-  let lo=sorted.findIndex(a=>a.day===worst.day), hi=lo;
-  while(lo>0 && gapDays(sorted[lo-1].day,sorted[lo].day)<=2) lo--;
-  while(hi<sorted.length-1 && gapDays(sorted[hi].day,sorted[hi+1].day)<=2) hi++;
-  const p=new URLSearchParams({kpi:DATA.kpi_id,start:sorted[lo].day,end:sorted[hi].day});
+  const [wstart,wend]=eventWindow(drops);
+  const p=new URLSearchParams({kpi:DATA.kpi_id,start:wstart,end:wend});
   if(DATA.slice.region) p.set('region',DATA.slice.region);
   const r=await fetch('/api/decomposition?'+p);
   if(!r.ok){ dec.hidden=true; con.hidden=true; return; }
@@ -277,6 +283,55 @@ async function loadDecomposition(drops){
       <td class="n ${s.pct_change<0?'neg':'pos'}">${s.pct_change==null?'':(s.pct_change*100).toFixed(1)+'%'}</td>
       <td class="n">${(s.share*100).toFixed(1)}%</td></tr>`).join('')}</tbody></table></div>`).join('');
   con.hidden=false;
+}
+
+const STATE_MARK={verified:'\u25CF',rejected:'\u00D7',cannot_verify:'?'};
+const STATE_WORD={verified:'VERIFIED',rejected:'REJECTED',cannot_verify:'CANNOT VERIFY'};
+const TEST_MARK={pass:'pass',fail:'FAIL',unavailable:'n/a'};
+
+function eventWindow(drops){
+  const sorted=drops.slice().sort((a,b)=>a.day<b.day?-1:1);
+  const worst=sorted.reduce((m,a)=>a.delta<m.delta?a:m,sorted[0]);
+  const gap=(a,b)=>Math.round((new Date(b)-new Date(a))/864e5);
+  let lo=sorted.findIndex(a=>a.day===worst.day), hi=lo;
+  while(lo>0 && gap(sorted[lo-1].day,sorted[lo].day)<=2) lo--;
+  while(hi<sorted.length-1 && gap(sorted[hi].day,sorted[hi+1].day)<=2) hi++;
+  return [sorted[lo].day, sorted[hi].day];
+}
+
+async function loadCandidates(drops){
+  const sec=$('#causes');
+  if(!drops.length){ sec.hidden=true; return; }
+  const [start,end]=eventWindow(drops);
+  const p=new URLSearchParams({kpi:DATA.kpi_id,start,end});
+  const r=await fetch('/api/candidates?'+p);
+  if(!r.ok){ sec.hidden=true; return; }
+  const d=await r.json(), c=d.counts;
+
+  $('#causewin').textContent =
+    `${c.considered} candidates in the record for ${start} to ${end} · `+
+    `${c.verified} verified · ${c.rejected} rejected · ${c.cannot_verify} not testable`;
+
+  const order=['verified','rejected','cannot_verify'];
+  $('#causelist').innerHTML = order.flatMap(k=>d[k].map(x=>`
+    <div style="padding:18px 0;border-bottom:1px solid var(--line)">
+      <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap">
+        <span class="tag" style="border-color:var(--${k==='rejected'?'drop':k==='verified'?'ok':'warn'})">
+          ${STATE_MARK[k]} ${STATE_WORD[k]}</span>
+        <code style="font-size:14.5px">${x.candidate_id}</code>
+        <span style="color:var(--ink-3);font-size:13.5px">${x.kind.replace(/_/g,' ')}</span>
+        ${x.effect_pct!=null?`<span class="${x.effect_pct<0?'neg':'pos'}" style="font-variant-numeric:tabular-nums">${(x.effect_pct*100).toFixed(1)}% in exposed slices</span>`:''}
+      </div>
+      <div style="margin:8px 0 4px;color:var(--ink-2)">${x.description||''}</div>
+      <div style="margin-bottom:10px"><strong>${x.reason}</strong></div>
+      <div class="scroll"><table><tbody>
+        ${x.tests.map(t=>`<tr>
+          <td style="width:104px"><span class="tag">${TEST_MARK[t.outcome]}</span></td>
+          <td style="width:230px">${t.name.replace(/_/g,' ')}</td>
+          <td style="color:var(--ink-2)">${t.detail}</td></tr>`).join('')}
+      </tbody></table></div>
+    </div>`)).join('');
+  sec.hidden=false;
 }
 
 function draw(){

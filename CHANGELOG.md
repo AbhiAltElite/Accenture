@@ -22,7 +22,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 - `whychain/decompose/` — price/volume/mix bridge and dimensional contribution,
   both reconciling exactly and refusing to report if they do not
 - `/api/decomposition`; console sections for the bridge and contributions
-- 97 tests, 20 marked `invariant`
+- `whychain/verify/` — event-time isolation, difference-in-differences,
+  exposure consistency and placebo, with `CANNOT_VERIFY` held distinct from
+  `REJECTED`. Candidates are read from the operational record with nothing
+  marking which are real
+- `/api/candidates`; console section showing verified, rejected and untestable
+  candidates with the outcome of every test
+- 106 tests, 25 marked `invariant`
 - GitHub Actions CI: lint, tests on Python 3.12 and 3.14, invariants as a
   separate check, and a job that fails the build on AI attribution in history
 - Pull request template

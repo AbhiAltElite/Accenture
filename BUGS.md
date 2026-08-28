@@ -87,6 +87,29 @@ pre-aggregated in practice.
 
 **Fix:** emit hourly session counts — 416k rows for the same information.
 
+### B-005 · A real cause rejected because its scope was not extracted
+**Found:** 2026-08-28 · **Severity:** P2 · **Status:** open, accepted for now
+
+**Symptom:** `comp-pricecut-aug` is a genuine planted cause, a competitor price
+cut confined to personal care in the West. Verification rejects it on the placebo
+test.
+
+**Root cause:** candidate scope is extracted from note text by keyword match, and
+the note says "personal care prices" in prose the matcher does not read. Without
+`category=personal_care` the effect is measured across all of the West, where it
+is swamped by the checkout regression, and the placebo window is correspondingly
+noisy.
+
+**Why it is left open:** this is precisely the work the corroboration stage does.
+A model reading the note properly will extract the category, and the candidate
+will be scoped correctly before it reaches verification. Tuning the placebo
+threshold to let it through would hide the real problem and weaken a test that
+correctly rejects the planted trap.
+
+**Consequence to report honestly:** the benchmark will count this as a false
+negative, and it should. One real cause missed is a better outcome than a
+coincidence promoted.
+
 ### Template
 
 ```markdown

@@ -20,6 +20,7 @@ from whychain.decompose import compute_bridge, contribution_by
 from whychain.decompose.bridge import BridgeError
 from whychain.detect import decompose, find_anomalies, material
 from whychain.ingest import IngestError, Warehouse
+from whychain.verify import from_operations, from_promotions, verify
 
 # statsmodels warns about period length on short slices; the guard is in decompose().
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
@@ -257,6 +258,72 @@ def decomposition(
             "current_units": round(bridge.current_units, 1),
         },
         "contributions": contributions,
+    }
+
+
+@app.get("/api/candidates")
+def candidates(
+    kpi: str = Query("net_revenue"),
+    region: str | None = None,
+    event_start: date = Query(..., alias="start"),
+    event_end: date = Query(..., alias="end"),
+) -> dict:
+    """Every candidate cause in the record, and whether it survives testing.
+
+    Candidates arrive from the operational data with nothing marking which are
+    real. Ranking them by association would promote whatever happened to
+    coincide; that is exactly what the tests exist to prevent.
+    """
+    _contract(kpi)
+    try:
+        with Warehouse() as wh:
+            panel = wh.table("_panel")
+            documents = wh.table("voice_ops")
+            plan = wh.table("plan_ops")
+    except IngestError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+    found = from_operations(documents, event_start, event_end) + from_promotions(
+        plan, event_start, event_end
+    )
+    all_regions = tuple(sorted(panel["region"].unique()))
+
+    verified, rejected, untestable = [], [], []
+    for candidate in found:
+        v = verify(candidate, panel, all_regions)
+        row = {
+            "candidate_id": candidate.candidate_id,
+            "kind": candidate.kind,
+            "description": candidate.description,
+            "exposed_regions": list(candidate.exposed_regions) or list(all_regions),
+            "scope": {k: v2 for k, v2 in
+                      (("channel", candidate.channel), ("device", candidate.device),
+                       ("category", candidate.category)) if v2},
+            "state": v.state.value,
+            "reason": v.reason,
+            "effect_pct": round(v.effect_pct, 4) if v.effect_pct is not None else None,
+            "per_region": {k: round(x, 4) for k, x in v.per_region.items()
+                           if x == x},  # drop NaN
+            "tests": [
+                {"name": t.name, "outcome": t.outcome.value, "detail": t.detail}
+                for t in v.results
+            ],
+        }
+        {"verified": verified, "rejected": rejected}.get(row["state"], untestable).append(row)
+
+    return {
+        "kpi_id": kpi,
+        "region": region,
+        "window": {"from": event_start.isoformat(), "to": event_end.isoformat()},
+        "counts": {
+            "considered": len(found),
+            "verified": len(verified),
+            "rejected": len(rejected),
+            "cannot_verify": len(untestable),
+        },
+        "verified": verified,
+        "rejected": rejected,
+        "cannot_verify": untestable,
     }
 
 
