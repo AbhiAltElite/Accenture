@@ -88,7 +88,7 @@ pre-aggregated in practice.
 **Fix:** emit hourly session counts — 416k rows for the same information.
 
 ### B-005 · A real cause rejected because its scope was not extracted
-**Found:** 2026-08-28 · **Severity:** P2 · **Status:** open, accepted for now
+**Found:** 2026-08-28 · **Severity:** P2 · **Status:** resolved, differently than expected
 
 **Symptom:** `comp-pricecut-aug` is a genuine planted cause, a competitor price
 cut confined to personal care in the West. Verification rejects it on the placebo
@@ -106,9 +106,30 @@ will be scoped correctly before it reaches verification. Tuning the placebo
 threshold to let it through would hide the real problem and weaken a test that
 correctly rejects the planted trap.
 
-**Consequence to report honestly:** the benchmark will count this as a false
-negative, and it should. One real cause missed is a better outcome than a
-coincidence promoted.
+**Resolution:** scope extraction now shares the corroboration vocabulary, so the
+note yields `category=personal_care` and the candidate is tested against personal
+care alone. It is still rejected, but the reason changed and the new one is
+defensible: across six quiet windows the same comparison ranges to -21.0%, and
+the measured effect is -20.7%. A planted -9% on one category in one region is not
+distinguishable from what the method produces on data where nothing happened.
+
+**What this actually says:** the effect is real and too small for this method to
+resolve on that slice. The benchmark should count it as a false negative and
+report it. One real cause missed is a better outcome than a coincidence promoted,
+and the placebo distribution is what makes the difference legible rather than a
+matter of threshold taste.
+
+### B-006 · SVD dimension bounded by corpus size instead of vocabulary
+**Found:** 2026-08-28 · **Severity:** P2 · **Status:** fixed
+
+**Symptom:** indexing seven thousand tickets raised
+`n_components(128) must be <= n_features(85)`.
+
+**Root cause:** the guard used corpus length. The constraint is on the term
+matrix width, and templated tickets have far fewer distinct terms than documents.
+
+**Fix:** fit the vectorizer first and take the dimension from the vocabulary it
+found.
 
 ### Template
 

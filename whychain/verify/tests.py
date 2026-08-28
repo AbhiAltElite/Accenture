@@ -18,9 +18,12 @@ promotion that ran across three regions while only one of them fell is not what
 made that one fall. Correlation in a single slice looks identical to causation
 until you check the other slices where the same thing happened.
 
-**Placebo.** Run the same comparison over a period when the cause was absent. If
-an effect appears there too, the method is finding structure that is not there,
-and its finding here cannot be trusted either.
+**Placebo.** Run the same comparison repeatedly over periods when the cause was
+absent, and compare the real effect against that spread. One quiet window is not
+enough: in a growing, seasonal series any two adjacent periods differ, so a
+single placebo comparison fails real causes about as often as false ones. What
+matters is whether the measured effect stands outside the range the method
+produces when nothing is happening.
 
 A test that cannot run is not a test that passed. Where there is no unexposed
 comparison group, or not enough history, the verdict is CANNOT_VERIFY and the
@@ -94,8 +97,12 @@ EFFECT_FLOOR = 0.04
 # Exposed slices must move together: if fewer than this share of them respond,
 # the exposure is not what produced the response in the one that did.
 CONSISTENCY_FLOOR = 0.5
-# A placebo comparison this large means the method finds effects where none exist.
-PLACEBO_CEILING = 0.5
+# How many quiet windows to sample for the placebo distribution. Each is the same
+# length as the real event and separated from it, so none overlaps the effect.
+PLACEBO_WINDOWS = 6
+# The real effect must exceed every placebo comparison by this much. At 1.0 it
+# merely has to be the largest; above that it has to stand clearly apart.
+PLACEBO_MARGIN = 1.25
 
 
 def _mean(panel: pd.DataFrame, day: pd.Series, lo: date, hi: date, regions=None) -> float:
@@ -116,6 +123,38 @@ def _change(panel, day, candidate: Candidate, regions, baseline_days: int) -> fl
     if not np.isfinite(before) or before == 0 or not np.isfinite(during):
         return float("nan")
     return during / before - 1.0
+
+
+def _placebo_distribution(
+    scoped: pd.DataFrame,
+    day: pd.Series,
+    candidate: Candidate,
+    exposed: tuple[str, ...],
+    control: tuple[str, ...],
+    baseline_days: int,
+) -> list[float]:
+    """The same comparison run over windows when nothing was happening.
+
+    Each placebo sits entirely before the event and is spaced a fortnight apart,
+    so none of them touches the effect being tested. What comes back is the range
+    of answers this method gives on quiet data, which is what the real effect has
+    to beat.
+    """
+    length = max((candidate.end - candidate.start).days, 1)
+    out: list[float] = []
+    for step in range(1, PLACEBO_WINDOWS + 1):
+        end = candidate.start - timedelta(days=baseline_days + 1 + step * 14)
+        window = Candidate(
+            candidate_id=f"{candidate.candidate_id}-placebo-{step}",
+            kind=candidate.kind, start=end - timedelta(days=length), end=end,
+            exposed_regions=exposed, channel=candidate.channel,
+            device=candidate.device, category=candidate.category,
+        )
+        treated = _change(scoped, day, window, exposed, baseline_days)
+        comparison = _change(scoped, day, window, control, baseline_days)
+        if np.isfinite(treated) and np.isfinite(comparison):
+            out.append(treated - comparison)
+    return out
 
 
 def verify(
@@ -221,33 +260,30 @@ def verify(
         )
 
     # --- placebo ----------------------------------------------------------
-    length = (candidate.end - candidate.start).days
-    placebo_end = candidate.start - timedelta(days=baseline_days + 1)
-    placebo = Candidate(
-        candidate_id=f"{candidate.candidate_id}-placebo", kind=candidate.kind,
-        start=placebo_end - timedelta(days=length), end=placebo_end,
-        exposed_regions=exposed, channel=candidate.channel,
-        device=candidate.device, category=candidate.category,
-    )
-    placebo_treated = _change(scoped, day, placebo, exposed, baseline_days)
-    placebo_control = (
-        _change(scoped, day, placebo, control, baseline_days) if control else float("nan")
-    )
-    if not np.isfinite(placebo_treated) or not np.isfinite(placebo_control):
+    if did is None or not control:
         results.append(TestResult("placebo", Outcome.UNAVAILABLE,
-                                  "not enough history before the event to run a placebo"))
+                                  "no comparison group, so there is nothing to permute"))
     else:
-        placebo_did = placebo_treated - placebo_control
-        ratio = abs(placebo_did) / abs(did) if did else float("inf")
-        results.append(
-            TestResult(
-                "placebo",
-                Outcome.FAIL if ratio > PLACEBO_CEILING else Outcome.PASS,
-                f"an equivalent window before the event shows {placebo_did:+.1%}, "
-                f"{ratio:.0%} of the measured effect",
-                placebo_did,
-            )
+        placebos = _placebo_distribution(
+            scoped, day, candidate, exposed, control, baseline_days
         )
+        if len(placebos) < 3:
+            results.append(TestResult("placebo", Outcome.UNAVAILABLE,
+                                      f"only {len(placebos)} quiet windows available; "
+                                      "not enough history to establish a spread"))
+        else:
+            worst = max(abs(p) for p in placebos)
+            stands_apart = abs(did) >= worst * PLACEBO_MARGIN
+            results.append(
+                TestResult(
+                    "placebo",
+                    Outcome.PASS if stands_apart else Outcome.FAIL,
+                    f"across {len(placebos)} quiet windows the same comparison ranged "
+                    f"{min(placebos):+.1%} to {max(placebos):+.1%}; the measured "
+                    f"{did:+.1%} is {abs(did) / worst:.1f} times the largest of them",
+                    worst,
+                )
+            )
 
     return _decide(candidate, tuple(results), treated_change, per_region)
 

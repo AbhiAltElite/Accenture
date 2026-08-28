@@ -324,6 +324,21 @@ async function loadCandidates(drops){
       </div>
       <div style="margin:8px 0 4px;color:var(--ink-2)">${x.description||''}</div>
       <div style="margin-bottom:10px"><strong>${x.reason}</strong></div>
+      ${x.corroboration && x.corroboration.searched ? `
+        <div style="margin:0 0 12px;padding:12px 14px;background:var(--raised);border-radius:3px">
+          <div style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">
+            In the company's own words
+            ${x.corroboration.flagged?`<span class="tag" style="margin-left:8px;border-color:var(--warn)">${x.corroboration.flagged} document(s) contained instruction-like text, treated as data</span>`:''}
+          </div>
+          ${x.corroboration.supporting
+            ? `<div style="margin-bottom:8px">${x.corroboration.supporting} of ${x.corroboration.searched} retrieved tickets describe ${Object.keys(x.corroboration.summary).join(', ').replace(/_/g,' ')}</div>`
+            : `<div style="color:var(--ink-2)">Nothing in the record describes this. ${x.corroboration.searched} tickets were searched in the window.</div>`}
+          ${x.corroboration.citations.map(c=>`
+            <div style="margin-top:6px;padding-left:12px;border-left:2px solid var(--line-strong)">
+              <span style="color:var(--ink-2)">"${c.quote}"</span>
+              <code style="color:var(--ink-3);margin-left:8px">${c.doc_id} [${c.span[0]}:${c.span[1]}]</code>
+            </div>`).join('')}
+        </div>` : ''}
       <div class="scroll"><table><tbody>
         ${x.tests.map(t=>`<tr>
           <td style="width:104px"><span class="tag">${TEST_MARK[t.outcome]}</span></td>

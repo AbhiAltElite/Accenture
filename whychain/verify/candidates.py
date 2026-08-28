@@ -14,25 +14,22 @@ from datetime import date, timedelta
 
 import pandas as pd
 
+from whychain.corroborate.extract import _SCOPE_TERMS, _first_term
 from whychain.verify.tests import Candidate
-
-# Words that place a document's subject on a channel or device, so a candidate
-# inherits the scope of the thing it describes.
-_SCOPE_HINTS = {
-    "channel": {"app": "app", "mobile app": "app", "web": "web", "store": "store"},
-    "device": {"android": "mobile", "mobile": "mobile", "desktop": "desktop"},
-}
 
 
 def _scope(text: str) -> dict[str, str | None]:
-    lowered = text.lower()
-    found: dict[str, str | None] = {"channel": None, "device": None}
-    for dimension, hints in _SCOPE_HINTS.items():
-        for phrase, value in hints.items():
-            if phrase in lowered:
-                found[dimension] = value
-                break
-    return found
+    """Which slice of the business a note is about.
+
+    Shares the extractor's vocabulary rather than keeping a second, smaller copy.
+    Scope matters more than it looks: a competitor price cut described as
+    affecting "personal care prices" must be tested against personal care alone.
+    Measured across a whole region it is swamped by whatever else was happening,
+    and a real cause gets rejected for the wrong reason.
+    """
+    return {
+        dimension: _first_term(text, terms) for dimension, terms in _SCOPE_TERMS.items()
+    }
 
 
 def from_operations(
@@ -64,6 +61,7 @@ def from_operations(
                 description=text,
                 channel=scope["channel"],
                 device=scope["device"],
+                category=scope["category"],
             )
         )
     return out

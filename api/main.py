@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from whychain.contracts import ContractError, ContractRegistry
+from whychain.corroborate import corroborate
 from whychain.decompose import compute_bridge, contribution_by
 from whychain.decompose.bridge import BridgeError
 from whychain.detect import decompose, find_anomalies, material
@@ -291,6 +292,7 @@ def candidates(
     verified, rejected, untestable = [], [], []
     for candidate in found:
         v = verify(candidate, panel, all_regions)
+        corr = corroborate(candidate, documents)
         row = {
             "candidate_id": candidate.candidate_id,
             "kind": candidate.kind,
@@ -308,6 +310,22 @@ def candidates(
                 {"name": t.name, "outcome": t.outcome.value, "detail": t.detail}
                 for t in v.results
             ],
+            "corroboration": {
+                "searched": corr.searched,
+                "supporting": corr.support_count,
+                "summary": corr.summary,
+                "flagged": len(corr.flagged),
+                "citations": [
+                    {
+                        "doc_id": e.doc_id,
+                        "issue": e.issue.value,
+                        "span": list(e.span),
+                        "quote": e.quote,
+                        "flags": list(e.flags),
+                    }
+                    for e in corr.supporting[:4]
+                ],
+            },
         }
         {"verified": verified, "rejected": rejected}.get(row["state"], untestable).append(row)
 

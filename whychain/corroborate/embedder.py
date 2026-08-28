@@ -49,10 +49,23 @@ class TfidfSvdEmbedder:
     def fit(self, corpus: list[str]) -> None:
         if not corpus:
             raise ValueError("cannot fit an embedder on an empty corpus")
-        # SVD cannot produce more components than the term matrix has columns.
-        n_components = min(self._dim, max(1, len(corpus) - 1))
+
+        # SVD cannot produce more components than the term matrix has columns, and
+        # the column count is the vocabulary, not the corpus. A large set of
+        # similarly worded tickets has far fewer distinct terms than documents, so
+        # the vectorizer is fitted first and the dimension taken from what it found.
+        vectorizer = TfidfVectorizer(sublinear_tf=True, stop_words="english", min_df=1)
+        matrix = vectorizer.fit_transform(corpus)
+        n_features = matrix.shape[1]
+        if n_features < 2:
+            raise ValueError(
+                f"corpus has only {n_features} distinct term(s); there is nothing to "
+                "distinguish documents by"
+            )
+
+        n_components = min(self._dim, n_features - 1)
         self._pipeline = make_pipeline(
-            TfidfVectorizer(sublinear_tf=True, stop_words="english", min_df=1),
+            vectorizer,
             TruncatedSVD(n_components=n_components, random_state=self._random_state),
             Normalizer(copy=False),
         )

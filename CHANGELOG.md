@@ -28,7 +28,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
   marking which are real
 - `/api/candidates`; console section showing verified, rejected and untestable
   candidates with the outcome of every test
-- 106 tests, 25 marked `invariant`
+- `whychain/corroborate/quarantine.py` — the boundary for untrusted text:
+  fence neutralisation, control-character stripping, truncation, and detection
+  of eleven classes of instruction injection
+- `whychain/corroborate/extract.py` — structured extraction with span citations,
+  behind a protocol so a model-based extractor drops in
+- `whychain/corroborate/pipeline.py` — retrieval and extraction per candidate
+- Placebo is now a distribution over six quiet windows rather than one
+- 128 tests, 33 marked `invariant`
 - GitHub Actions CI: lint, tests on Python 3.12 and 3.14, invariants as a
   separate check, and a job that fails the build on AI attribution in history
 - Pull request template
