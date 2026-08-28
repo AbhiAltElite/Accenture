@@ -536,6 +536,16 @@ def candidates(
     coincide; that is exactly what the tests exist to prevent.
     """
     contract = _contract(kpi)
+    # Candidate testing runs difference-in-differences over a revenue panel, so
+    # it needs the same facts the bridge does. Say so plainly: a metric with no
+    # bridge is a 422 with a reason, not a 503, which would claim the service is
+    # unavailable when it is answering correctly.
+    if contract.decomposition.method != "pvm":
+        raise HTTPException(
+            422,
+            f"{kpi} has no price/volume/mix panel to test candidates against, "
+            "so causal verification is not available for it yet.",
+        )
     try:
         with Warehouse() as wh:
             panel = wh.bridge_facts(

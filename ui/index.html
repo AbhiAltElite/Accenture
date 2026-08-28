@@ -648,22 +648,31 @@ async function load(){
   const series = await seriesRes.json();
   const drops = series.anomalies.filter(a=>a.direction==='drop');
 
-  let diagnosis=null, decomposition=null, candidates=null, win=null;
+  let diagnosis=null, decomposition=null, candidates=null, win=null, declined=null;
   if(drops.length){
     win = windowFor(drops);
     const p=new URLSearchParams({kpi,start:win.start,end:win.end});
     if(region) p.set('region',region);
     stage('Testing candidate causes');
+    // Keep the reason a request declined. "Could not be built" tells a reader
+    // nothing; the server already knows why and says so.
+    const take = async res => res.ok
+      ? await res.json()
+      : {__declined: (await res.json().catch(()=>({}))).detail || null};
     const [d,dec,cand] = await Promise.all([
-      fetch('/api/diagnose?'+p).then(r=>r.ok?r.json():null),
-      fetch('/api/decomposition?'+p).then(r=>r.ok?r.json():null),
-      fetch('/api/candidates?'+p).then(r=>r.ok?r.json():null),
+      fetch('/api/diagnose?'+p).then(take),
+      fetch('/api/decomposition?'+p).then(take),
+      fetch('/api/candidates?'+p).then(take),
     ]);
-    diagnosis=d; decomposition=dec; candidates=cand;
+    diagnosis = d.__declined === undefined ? d : null;
+    decomposition = dec.__declined === undefined ? dec : null;
+    candidates = cand.__declined === undefined ? cand : null;
+    declined = d.__declined || dec.__declined || null;
   }
   // A new series means the previous zoom no longer refers to anything.
   VIEW = openingView(series);
-  STATE = {...STATE, series, drops, win, diagnosis, decomposition, candidates, region, kpi};
+  STATE = {...STATE, series, drops, win, diagnosis, decomposition, candidates,
+           declined, region, kpi};
   render();
   $('#main').setAttribute('aria-busy','false');
 }
@@ -755,7 +764,18 @@ function explainedStory(d){
 }
 
 function unknownStory(d){
-  if(!d) return `<p>The movement is real, but the diagnosis could not be built.</p>`;
+  if(!d){
+    // A declined request is a result with a reason, not a failure. Four of the
+    // five metrics have no price/volume/mix identity, so causal verification
+    // genuinely does not apply to them yet, and saying that is more useful than
+    // reporting that something could not be built.
+    const why = STATE.declined;
+    return `<p>The movement is real and detection stands. A causal diagnosis is
+      not available for this metric.</p>
+      ${why ? `<p class="q">${escapeHtml(why)}</p>` : ''}
+      <p class="q">The chart, the material movements and source freshness below
+      are unaffected.</p>`;
+  }
   const a = d.abstention, m = d.movement;
   return `
     <p>Revenue fell <strong>${inr(m.total_change)}</strong> per day, and
