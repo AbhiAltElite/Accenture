@@ -24,7 +24,7 @@ from whychain.decompose import compute_bridge, contribution_by
 from whychain.decompose.bridge import BridgeError
 from whychain.detect import decompose, find_anomalies, material
 from whychain.evidence import MethodClass
-from whychain.ingest import IngestError, Warehouse
+from whychain.ingest import DEFAULT_WAREHOUSE, IngestError, Warehouse
 from whychain.telemetry import Telemetry
 from whychain.verify import filter_relevant, from_operations, from_promotions, verify
 from whychain.verify.tests import PLACEBO_WINDOWS
@@ -81,6 +81,41 @@ def ticket_retriever(documents: pd.DataFrame):
     return retriever
 
 
+_series_cache: dict[tuple, tuple[tuple, object]] = {}
+
+
+def _snapshot() -> tuple:
+    """What the cached answers are answers about.
+
+    T-06 requires a cache key to carry the data snapshot, the contract version
+    and the entitlement context. The first two are here; entitlement is folded in
+    by callers that have one, and until a caller does, nothing entitlement-scoped
+    may be cached through this. A key that omits any of the three can serve one
+    reader another reader's rows, which the same trap calls a P0.
+    """
+    try:
+        stamp = DEFAULT_WAREHOUSE.stat().st_mtime_ns
+    except OSError:
+        stamp = 0
+    return (stamp, tuple(sorted((c.kpi_id, c.version) for c in registry())))
+
+
+def _cached(key: tuple, build):
+    """Memoise against the current snapshot.
+
+    The warehouse is read-only and only `make gen` changes it, so recomputing a
+    three-year series on every request re-derives an answer that cannot have
+    moved. Entries for a previous snapshot are dropped rather than served.
+    """
+    snapshot = _snapshot()
+    hit = _series_cache.get(key)
+    if hit is not None and hit[0] == snapshot:
+        return hit[1]
+    value = build()
+    _series_cache[key] = (snapshot, value)
+    return value
+
+
 def registry() -> ContractRegistry:
     global _registry
     if _registry is None:
@@ -135,7 +170,10 @@ def overview(region: str | None = None, days: int = Query(90, ge=30, le=730)) ->
             rows = []
             for contract in reg:
                 try:
-                    raw = wh.kpi_series(contract)
+                    raw = _cached(
+                        ("kpi_series", contract.kpi_id),
+                        lambda c=contract: wh.kpi_series(c),
+                    )
                 except IngestError:
                     continue
                 if region and "region" in raw.columns:
@@ -147,7 +185,12 @@ def overview(region: str | None = None, days: int = Query(90, ge=30, le=730)) ->
                 if len(frame) < 60:
                     continue
                 try:
-                    d = decompose(frame)
+                    # MSTL over three years is the other half of the cost, and it
+                    # is a pure function of the frame it is given.
+                    d = _cached(
+                        ("decompose", contract.kpi_id, region),
+                        lambda f=frame: decompose(f),
+                    )
                 except ValueError:
                     continue
                 anomalies = material(
@@ -238,7 +281,11 @@ def series(
 
     try:
         with Warehouse() as wh:
-            raw = wh.kpi_series(contract)
+            raw = _cached(
+                ("kpi_series", contract.kpi_id),
+                lambda: wh.kpi_series(contract),
+            )
+            # Freshness is a clock reading, not a derived series: never cached.
             freshness = wh.freshness(contract)
     except IngestError as exc:
         raise HTTPException(503, str(exc)) from exc

@@ -103,14 +103,20 @@ body{background:var(--paper);color:var(--ink);
    Density belongs in the tables; the rail is chrome a reader returns to all
    day, and a 28px target set in 14px type is neither comfortable nor obviously
    interactive. Every control here clears a 40px row. */
-.navitem{display:block;width:100%;text-align:left;background:none;border:none;
+/* Flex rather than a floated count. The float let a long label run right up to
+   its number: "Checkout conversion 79" with nothing between them. The gap is
+   now structural, the count cannot be pushed out of the row, and every count
+   right-aligns on the same edge whatever the label above it. */
+.navitem{display:flex;align-items:baseline;gap:var(--sp-3);
+  width:100%;text-align:left;background:none;border:none;
   font:inherit;font-size:var(--t-base);color:var(--ink-2);
   padding:var(--sp-3) var(--sp-3);
   border-radius:var(--r-sm);cursor:pointer;line-height:var(--lh-snug)}
+.navitem > .label{flex:1;min-width:0}
 .navitem:hover{background:var(--sunk);color:var(--ink)}
 .navitem[aria-current="true"]{background:var(--accent-soft);color:var(--accent-ink);
   font-weight:500}
-.navitem .flag{float:right;font-size:var(--t-sm);color:var(--down);
+.navitem .flag{margin-left:auto;flex:none;font-size:var(--t-sm);color:var(--down);
   font-variant-numeric:tabular-nums}
 .navitem.d1{padding-left:var(--sp-5)}
 .navitem.d2{padding-left:var(--sp-6)}
@@ -130,7 +136,18 @@ select:hover,button.ctl:hover{border-color:var(--ink-3)}
 /* ---------- content ---------- */
 .content{padding:var(--sp-9) var(--sp-8) var(--sp-9);max-width:860px}
 @media (max-width:900px){.content{padding:var(--sp-7) var(--sp-5)}}
-.eyebrow{font-size:var(--t-sm);color:var(--ink-3);margin-bottom:var(--sp-4)}
+.eyebrow{font-size:var(--t-sm);color:var(--ink-3);margin-bottom:var(--sp-4);
+  min-height:1.4em}
+/* A quiet pulse on the text itself, not a spinner beside it. It stops moving
+   the moment real content replaces it, and `prefers-reduced-motion` gets a
+   static label rather than a substitute animation. */
+.working{color:var(--ink-3)}
+.working::after{content:"";display:inline-block;width:2.5em;text-align:left;
+  animation:ellipsis 1.4s steps(4,end) infinite}
+@keyframes ellipsis{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+@media (prefers-reduced-motion:reduce){
+  .working::after{animation:none;content:"..."}
+}
 h1{font-family:var(--serif);font-size:var(--t-3xl);line-height:var(--lh-tight);
   font-weight:500;letter-spacing:-.018em;text-wrap:balance;margin-bottom:var(--sp-5)}
 .prose{font-family:var(--serif);font-size:var(--t-md);line-height:var(--lh-normal);
@@ -233,7 +250,13 @@ th{text-align:left;font-weight:500;font-size:var(--t-xs);color:var(--ink-3);
   padding:0 var(--sp-4) var(--sp-2) 0;border-bottom:1px solid var(--line-strong)}
 td{padding:var(--sp-3) var(--sp-4) var(--sp-3) 0;border-bottom:1px solid var(--line);
   font-variant-numeric:tabular-nums;vertical-align:top}
-th.n,td.n{text-align:right;padding-right:0}
+/* A right-aligned column still needs space after it. `padding-right:0` was
+   there to pull the last numeric column flush with the table edge, but it
+   applies to every `.n` cell, so a numeric column followed by anything else ran
+   straight into it: "SLA" and "Status" collided in the header, and 6h touched
+   the pill beside it. Only the final column goes flush. */
+th.n,td.n{text-align:right}
+th.n:last-child,td.n:last-child{padding-right:0}
 tr:last-child td{border-bottom:none}
 .down{color:var(--down)}.up{color:var(--up)}
 .scroll{overflow-x:auto}
@@ -287,6 +310,24 @@ table.chain td .q{color:var(--ink-2)}
   border-radius:var(--r-sm);background:var(--flag-soft);color:var(--flag);
   border:1px solid var(--flag);margin-right:var(--sp-2)}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* Confidence components. The number and its explanation were adjacent cells
+   with no space between them, so the column read "100%verified causes account
+   for...". The figure gets its own column with room either side, and the
+   explanation wraps against a left edge of its own rather than under the
+   number. */
+table.components{margin-top:var(--sp-5);width:100%;border-collapse:collapse}
+table.components td{padding:var(--sp-3) 0;border-bottom:1px solid var(--line);
+  vertical-align:baseline}
+table.components tr:last-child td{border-bottom:none}
+.components .cname{width:11rem;color:var(--ink);padding-right:var(--sp-4)}
+.components .cval{width:4.5rem;text-align:right;font-variant-numeric:tabular-nums;
+  padding-right:var(--sp-5);color:var(--ink)}
+.components .cdetail{color:var(--ink-2);line-height:var(--lh-snug)}
+@media (max-width:560px){
+  .components .cname{width:auto}
+  .components .cval{width:auto;padding-right:var(--sp-3)}
+}
 
 /* ---------- drawer ---------- */
 .scrim{position:fixed;inset:0;background:rgba(20,18,14,.34);opacity:0;
@@ -455,8 +496,10 @@ function renderNav(){
   data.roots.forEach(r=>walk(r,0));
   $('#nav').innerHTML = rows.map(({k,depth})=>`
     <button class="navitem d${depth}" data-kpi="${k.kpi_id}"
-      aria-current="${STATE.kpi===k.kpi_id}">${title(k.kpi_id)}
-      ${k.material_drops?`<span class="flag">${k.material_drops}</span>`:''}</button>`).join('');
+      aria-current="${STATE.kpi===k.kpi_id}"><span class="label">${title(k.kpi_id)}</span>${
+      k.material_drops
+        ? `<span class="flag" title="${k.material_drops} material drops">${k.material_drops}</span>`
+        : ''}</button>`).join('');
   $('#nav').querySelectorAll('[data-kpi]').forEach(b=>
     b.addEventListener('click',()=>go('/kpi/'+b.dataset.kpi)));
 }
@@ -546,9 +589,22 @@ function windowFor(drops){
 
 /* Everything is fetched before anything is drawn. Painting the chart and then
    filling in a block above it makes the page jump under the reader's cursor. */
+/* Loading text names the stage that is actually running.
+
+   The design checklist asks for this and the reason is not decoration: these
+   stages take different amounts of time for different metrics, and a reader
+   waiting on an hourly series deserves to know it is decomposing twenty
+   thousand points rather than watching an indeterminate spinner that would say
+   the same thing if the request had failed. No animation, no fake progress, and
+   the words are the names of real work. */
+function stage(text){
+  const el = $('#eyebrow');
+  if(el) el.innerHTML = `<span class="working">${text}</span>`;
+}
+
 async function load(){
   $('#main').setAttribute('aria-busy','true');
-  $('#eyebrow').textContent='Loading'; $('#headline').textContent='';
+  stage('Reading the contract'); $('#headline').textContent='';
   $('#story').innerHTML=''; $('#rest').innerHTML='';
 
   $('#diagnosis').hidden = false;
@@ -564,6 +620,7 @@ async function load(){
     from.setDate(to.getDate()-days);
     q.set('from',from.toISOString().slice(0,10)); q.set('to',to.toISOString().slice(0,10)); }
 
+  stage('Separating trend and seasonality');
   const seriesRes = await fetch('/api/series?'+q);
   if(!seriesRes.ok){ $('#eyebrow').textContent=''; $('#headline').textContent='No data for that slice'; return; }
   const series = await seriesRes.json();
@@ -574,6 +631,7 @@ async function load(){
     win = windowFor(drops);
     const p=new URLSearchParams({kpi,start:win.start,end:win.end});
     if(region) p.set('region',region);
+    stage('Testing candidate causes');
     const [d,dec,cand] = await Promise.all([
       fetch('/api/diagnose?'+p).then(r=>r.ok?r.json():null),
       fetch('/api/decomposition?'+p).then(r=>r.ok?r.json():null),
@@ -944,10 +1002,10 @@ function openDrawer({cause,panel}){
     html = `<h3>How the score was reached</h3>
       <p class="muted">Arithmetic over evidence already established. Not a judgement,
       and not written by a model.</p>
-      <table style="margin-top:18px"><tbody>${d.confidence.components.map(x=>`<tr>
-        <td style="width:150px">${x.name.replace(/_/g,' ')}</td>
-        <td class="n" style="width:60px">${(x.value*100).toFixed(0)}%</td>
-        <td class="muted">${x.detail}</td></tr>`).join('')}</tbody></table>
+      <table class="components"><tbody>${d.confidence.components.map(x=>`<tr>
+        <td class="cname">${x.name.replace(/_/g,' ')}</td>
+        <td class="cval">${(x.value*100).toFixed(0)}%</td>
+        <td class="cdetail">${x.detail}</td></tr>`).join('')}</tbody></table>
       <p class="muted" style="margin-top:20px">This is deliberately not presented as a
       probability. Turning it into one requires held-out cases to calibrate against,
       and stating a probability without them would be the failure this engine exists
