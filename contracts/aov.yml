@@ -1,0 +1,56 @@
+# Average order value. The other half of the identity, and where the
+# price/volume/mix bridge does its work.
+kpi_id: aov
+version: 1
+owner_role: category_manager
+definition: >
+  Net revenue divided by completed orders. Sensitive to product mix as well as
+  price, which is why movements here are decomposed rather than read directly.
+
+calculation:
+  canonical_sql: |
+    SELECT date_trunc('day', order_ts) AS d,
+           region, channel, category, device,
+           SUM(qty * unit_price - discount) / NULLIF(COUNT(DISTINCT order_id), 0) AS value
+    FROM pos_txn
+    WHERE status <> 'cancelled'
+    GROUP BY 1, 2, 3, 4, 5
+  dialect_targets: [duckdb, databricks, snowflake]
+
+grain:
+  time: day
+  dims: [region, channel, category, device]
+
+calendar: fiscal_in
+parents: [net_revenue]
+children: []
+dimensions: [region, channel, category, device, sku]
+
+drivers:
+  - id: unit_price
+    source: pos_txn
+    controllable_lever: pricing
+    owner_role: category_manager
+    elasticity_prior: -1.4
+  - id: product_mix
+    source: pos_txn
+    controllable_lever: assortment
+    owner_role: category_manager
+  - id: competitor_price_index
+    source: plan_ops
+
+materiality:
+  min_abs_robust_z: 3.0
+  min_abs_delta_inr: 150000
+
+freshness_sla:
+  pos_txn: 6h
+  plan_ops: 72h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+  column_masks: [unit_margin]
+
+lineage:
+  upstream: [pos_txn.orders, pos_txn.order_items]
+  transforms: [dedupe_order_id, net_returns]

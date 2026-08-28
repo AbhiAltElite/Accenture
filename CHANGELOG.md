@@ -11,7 +11,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 - `whychain/corroborate/` — `Retriever` protocol with `NumpyRetriever` (default)
   and `PgVectorRetriever`; offline deterministic `TfidfSvdEmbedder`; sentence-level
   span citation
-- 30 tests, 6 marked `invariant`
+- `whychain/contracts/` — contract model and registry. Cross-contract validation
+  covers KPI graph consistency, cycles, duplicate ids, missing freshness SLAs and
+  unowned controllable levers
+- `contracts/*.yml` — all five KPIs: net revenue, orders, AOV, checkout conversion
+  (hourly, digital only), on-time delivery (T+1, no SOP registered)
+- `data/docs/sop/` — the demand planning SOP that Answer 2 reads
+- 52 tests, 10 marked `invariant`
 - GitHub Actions CI: lint, tests on Python 3.12 and 3.14, invariants as a
   separate check, and a job that fails the build on AI attribution in history
 - Pull request template

@@ -1,0 +1,64 @@
+# Checkout conversion. Deliberately at a different grain and cadence from its
+# parent: hourly, digital channels only. Comparing it to a daily all-channel
+# metric is exactly the reconciliation the engine has to get right.
+kpi_id: checkout_conversion
+version: 1
+owner_role: ecommerce_lead
+definition: >
+  Completed orders divided by checkout sessions started, digital channels only.
+  Store transactions have no session and are excluded rather than counted as
+  converting.
+
+calculation:
+  canonical_sql: |
+    SELECT date_trunc('hour', s.session_ts) AS h,
+           s.region, s.device,
+           COUNT(DISTINCT o.order_id)::DOUBLE / NULLIF(COUNT(DISTINCT s.session_id), 0) AS value
+    FROM sessions s
+    LEFT JOIN pos_txn o
+      ON o.session_id = s.session_id AND o.status <> 'cancelled'
+    WHERE s.channel IN ('web', 'app')
+    GROUP BY 1, 2, 3
+  dialect_targets: [duckdb, databricks, snowflake]
+
+grain:
+  time: hour
+  dims: [region, device]
+
+calendar: fiscal_in
+parents: [orders]
+children: []
+dimensions: [region, device, channel]
+
+drivers:
+  - id: app_release
+    source: voice_ops
+    controllable_lever: release_rollback
+    owner_role: ecommerce_lead
+  - id: payment_gateway_health
+    source: voice_ops
+    controllable_lever: gateway_failover
+    owner_role: platform_lead
+  - id: unit_price
+    source: pos_txn
+    controllable_lever: pricing
+    owner_role: category_manager
+    elasticity_prior: -0.8
+
+materiality:
+  # A rate metric, so the rupee floor is the revenue the shortfall represents
+  # rather than a movement in the ratio itself.
+  min_abs_robust_z: 3.0
+  min_abs_delta_inr: 200000
+
+freshness_sla:
+  pos_txn: 6h
+  voice_ops: 2h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+  domain_restriction: [pii]
+
+lineage:
+  upstream: [sessions, pos_txn.orders]
+  transforms: [tz_normalise, digital_channels_only]

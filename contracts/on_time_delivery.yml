@@ -1,0 +1,61 @@
+# On-time delivery. Arrives from a third source on a T+1 cadence, so it is the
+# metric most likely to be stale when a diagnosis runs — which makes it the
+# natural place to demonstrate the freshness gate.
+kpi_id: on_time_delivery
+version: 1
+owner_role: supply_planner
+definition: >
+  Share of shipments delivered on or before the promised date. Undelivered
+  shipments past their promise date count as late; shipments still within their
+  window are excluded rather than assumed on time.
+
+calculation:
+  canonical_sql: |
+    SELECT date_trunc('day', promised_date) AS d,
+           region, category,
+           AVG(CASE WHEN delivered_date <= promised_date THEN 1.0 ELSE 0.0 END) AS value
+    FROM shipments
+    WHERE delivered_date IS NOT NULL OR promised_date < CURRENT_DATE
+    GROUP BY 1, 2, 3
+  dialect_targets: [duckdb, databricks, snowflake]
+
+grain:
+  time: day
+  dims: [region, category]
+
+calendar: fiscal_in
+parents: []
+children: []
+dimensions: [region, category, carrier]
+
+drivers:
+  - id: carrier_performance
+    source: plan_ops
+    controllable_lever: carrier_mix
+    owner_role: supply_planner
+  - id: stock_position
+    source: plan_ops
+    controllable_lever: replenishment
+    owner_role: supply_planner
+  - id: severe_weather
+    source: ext_signals
+
+materiality:
+  min_abs_robust_z: 2.5
+  min_abs_delta_inr: 100000
+
+freshness_sla:
+  plan_ops: 72h
+  ext_signals: 36h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+
+# No process document registered for this metric yet, so coverage is unknown and
+# Answer 2 will decline to assert a gap rather than infer one from silence.
+signals_consumed:
+  coverage: unknown
+
+lineage:
+  upstream: [shipments]
+  transforms: [tz_normalise, exclude_in_flight]

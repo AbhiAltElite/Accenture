@@ -1,0 +1,82 @@
+# Net revenue — the master metric. Movements here cascade from orders and AOV,
+# which is what lets a break be traced down the graph rather than guessed at.
+kpi_id: net_revenue
+version: 1
+owner_role: finance_director
+definition: >
+  Gross merchandise value net of returns and discounts, excluding tax.
+  Cancelled orders are excluded; returns are netted in the period of the return,
+  not the period of the original order.
+
+calculation:
+  canonical_sql: |
+    SELECT date_trunc('day', order_ts) AS d,
+           region, channel, category, device,
+           SUM(qty * unit_price - discount) AS value
+    FROM pos_txn
+    WHERE status <> 'cancelled'
+    GROUP BY 1, 2, 3, 4, 5
+  dialect_targets: [duckdb, databricks, snowflake]
+
+grain:
+  time: day
+  dims: [region, channel, category, device]
+
+calendar: fiscal_in
+parents: []
+children: [orders, aov]
+dimensions: [region, channel, category, device, sku]
+
+drivers:
+  - id: unit_price
+    source: pos_txn
+    controllable_lever: pricing
+    owner_role: category_manager
+    elasticity_prior: -1.4
+  - id: marketing_spend
+    source: plan_ops
+    controllable_lever: media_budget
+    owner_role: marketing_lead
+    elasticity_prior: 0.3
+  - id: stock_position
+    source: plan_ops
+    controllable_lever: replenishment
+    owner_role: supply_planner
+  # Observable but not actionable — no lever, so no owner.
+  - id: competitor_price_index
+    source: plan_ops
+  - id: severe_weather
+    source: ext_signals
+
+materiality:
+  min_abs_robust_z: 3.0
+  min_abs_delta_inr: 500000
+
+freshness_sla:
+  pos_txn: 6h
+  plan_ops: 72h
+  voice_ops: 2h
+  ext_signals: 36h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+  column_masks: [unit_margin, customer_email]
+  domain_restriction: [pii]
+
+# Derived at registration from a published S&OP process description — a document
+# nobody on this team wrote. Note what the standard cycle consumes: sales history,
+# inventory, capacity, financials. No external risk signal. That absence is the
+# finding, and it is visible in the industry's own description of its own process.
+signals_consumed:
+  derived_from: data/docs/sop/sop_demand_planning_v2.md
+  coverage: complete
+  extracted_at: 2026-08-28T09:14:00Z
+  extracted:
+    - {signal: historical_sales, span: [430, 526]}
+    - {signal: inventory_position, span: [527, 619]}
+    - {signal: capacity_metrics, span: [620, 693]}
+    - {signal: financial_plan, span: [694, 764]}
+
+lineage:
+  upstream: [pos_txn.orders, pos_txn.order_items]
+  transforms: [dedupe_order_id, tz_normalise, net_returns]

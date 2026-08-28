@@ -1,0 +1,54 @@
+# Order count. Half of the revenue identity: net_revenue = orders x aov.
+kpi_id: orders
+version: 1
+owner_role: commercial_director
+definition: Count of completed orders, excluding cancellations and test accounts.
+
+calculation:
+  canonical_sql: |
+    SELECT date_trunc('day', order_ts) AS d,
+           region, channel, category, device,
+           COUNT(DISTINCT order_id) AS value
+    FROM pos_txn
+    WHERE status <> 'cancelled' AND is_test = FALSE
+    GROUP BY 1, 2, 3, 4, 5
+  dialect_targets: [duckdb, databricks, snowflake]
+
+grain:
+  time: day
+  dims: [region, channel, category, device]
+
+calendar: fiscal_in
+parents: [net_revenue]
+children: [checkout_conversion]
+dimensions: [region, channel, category, device]
+
+drivers:
+  - id: marketing_spend
+    source: plan_ops
+    controllable_lever: media_budget
+    owner_role: marketing_lead
+    elasticity_prior: 0.4
+  - id: stock_position
+    source: plan_ops
+    controllable_lever: replenishment
+    owner_role: supply_planner
+  - id: severe_weather
+    source: ext_signals
+
+materiality:
+  min_abs_robust_z: 3.0
+  min_abs_delta_inr: 250000
+
+freshness_sla:
+  pos_txn: 6h
+  plan_ops: 72h
+  ext_signals: 36h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+  domain_restriction: [pii]
+
+lineage:
+  upstream: [pos_txn.orders]
+  transforms: [dedupe_order_id, exclude_test_accounts]
