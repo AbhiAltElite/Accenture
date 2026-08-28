@@ -6,7 +6,7 @@
 
 ## Status as of 2026-08-28
 
-**Phase:** the pipeline runs end to end and abstains when it should. Calibration and Answer 2 are next.
+**Phase:** measured. First real benchmark numbers below. Answer 2 and calibration fitting are next.
 
 ### Done
 - **`whychain/evidence/` — the spine, and it is now frozen.** `Evidence`,
