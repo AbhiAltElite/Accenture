@@ -362,3 +362,101 @@ def emit_shipments(panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: 
             "carrier": rng.choice(["BlueDart", "Delhivery", "Ecom", "InHouse"], total),
         }
     )
+
+
+# Severity bands as a public met service issues them. Only amber and above is
+# actionable: a yellow advisory covering half the country every monsoon week is
+# available without being usable, which is the distinction Answer 2 turns on.
+_SEVERITY_BANDS = ((0.85, "red"), (0.65, "amber"), (0.40, "yellow"), (0.0, "green"))
+
+
+def _severity(intensity: float) -> str:
+    return next(name for floor, name in _SEVERITY_BANDS if intensity >= floor)
+
+
+def emit_ext_signals(
+    panel: pd.DataFrame,
+    events: tuple[PlantedEvent, ...],
+    seed: int = 29,
+) -> pd.DataFrame:
+    """Public weather warnings, per city, as an external feed would deliver them.
+
+    This is the source Answer 2 reads. It is a peer of nothing: the engine
+    consults it, never joins it into the fact grain, because a warning is
+    context until a causal test says otherwise.
+
+    Every row carries what foreseeability is decided on, and no more:
+
+    - `issued_at` against `valid_from` gives the lead time. A warning that
+      landed an hour before the weather is not a missed opportunity, and the
+      engine must be able to say so rather than manufacture a gap in hindsight.
+    - `severity` gives the actionability threshold.
+    - `city` and `region` give the spatial specificity. A national advisory does
+      not cover a regional slice.
+    - `is_public` records whether anyone outside the company could have seen it.
+
+    The values are generated, not fetched. That is stated in `source` on every
+    row so a reader is never misled about provenance, and the schema is the one
+    a cached IMD or Open-Meteo snapshot drops into unchanged.
+    """
+    rng = np.random.default_rng(seed)
+    days = pd.to_datetime(panel["d"]).drop_duplicates().sort_values()
+
+    weather_windows = {
+        (e.target.region, d.date())
+        for e in events
+        if e.kind is CauseKind.EXTERNAL_WEATHER and not e.is_decoy
+        for d in pd.date_range(e.start, e.end, freq="D")
+    }
+
+    rows = []
+    for city in CITIES:
+        seasonal = _monsoon_intensity(days, city.region)
+        for day, base in zip(days, seasonal, strict=True):
+            planted = (city.region, day.date()) in weather_windows
+            # A planted event is a genuine severe-weather episode; the rest is
+            # ordinary monsoon variation, which is what stops the feed being a
+            # perfect oracle for the events.
+            intensity = min(1.0, base + 0.55) if planted else base
+            intensity = float(np.clip(intensity + rng.normal(0, 0.06), 0.0, 1.0))
+            severity = _severity(intensity)
+            if severity == "green":
+                continue
+
+            valid_from = datetime.combine(day.date(), datetime.min.time(), tzinfo=UTC)
+            # Real met services issue further ahead for more severe weather.
+            lead_hours = {"yellow": 18.0, "amber": 54.0, "red": 78.0}[severity]
+            lead_hours += float(rng.normal(0, 6))
+            rows.append(
+                {
+                    "signal_id": f"wx-{city.name.lower()}-{day.date():%Y%m%d}",
+                    "signal_type": "severe_weather",
+                    "city": city.name,
+                    "region": city.region,
+                    "lat": city.lat,
+                    "lon": city.lon,
+                    "severity": severity,
+                    "intensity": round(intensity, 3),
+                    "issued_at": valid_from - timedelta(hours=lead_hours),
+                    "valid_from": valid_from,
+                    "valid_to": valid_from + timedelta(hours=24),
+                    "lead_time_hours": round(lead_hours, 1),
+                    "is_public": True,
+                    "publisher": "India Meteorological Department",
+                    "source": "generated",
+                    "source_url": "https://mausam.imd.gov.in/",
+                }
+            )
+    return pd.DataFrame(rows).sort_values(["valid_from", "city"]).reset_index(drop=True)
+
+
+def _monsoon_intensity(days: pd.Series, region: str) -> np.ndarray:
+    """Ordinary seasonal wetness, on the same curve the panel is built from.
+
+    Shares its shape with `series._monsoon_factor` so the feed and the demand it
+    is meant to explain agree about when the monsoon is.
+    """
+    day_of_year = days.dt.dayofyear.to_numpy()
+    phase = {"West": 190, "South": 250, "East": 200, "North": 210}[region]
+    depth = {"West": 0.62, "South": 0.34, "East": 0.45, "North": 0.20}[region]
+    return depth * np.exp(-(((day_of_year - phase) / 32.0) ** 2))

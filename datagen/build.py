@@ -19,6 +19,7 @@ from datagen.demo_cases import DEMO_SCENARIOS
 from datagen.scenarios import Scenario
 from datagen.series import build_panel
 from datagen.sources import (
+    emit_ext_signals,
     emit_plan_ops,
     emit_pos_txn,
     emit_sessions,
@@ -60,6 +61,7 @@ def build(warehouse: Path = WAREHOUSE, scenarios: tuple[Scenario, ...] = DEMO_SC
     shipments = emit_shipments(panel, events)
     plan_ops = emit_plan_ops(panel, events)
     voice_ops = emit_voice_ops(panel, events)
+    ext_signals = emit_ext_signals(panel, events)
     freshness = source_freshness()
 
     warehouse.parent.mkdir(parents=True, exist_ok=True)
@@ -73,6 +75,7 @@ def build(warehouse: Path = WAREHOUSE, scenarios: tuple[Scenario, ...] = DEMO_SC
         ("shipments", shipments),
         ("plan_ops", plan_ops),
         ("voice_ops", voice_ops),
+        ("ext_signals", ext_signals),
         ("source_freshness", freshness),
         # The panel is kept as a convenience for inspection. The engine reads the
         # source tables, exactly as it would against a real warehouse.
