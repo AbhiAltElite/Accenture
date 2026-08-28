@@ -72,6 +72,34 @@ validate (binding + numeral + entity checks)      ← rejects unbound sentences
 | `docs/PRODUCT-OUTLINE.md` | deciding what a feature should do |
 | `docs/CONCEPTS.md` | any unfamiliar term |
 
+## How to check progress
+
+The engine is built bottom-up, so there is no interface until detection lands.
+Until then:
+
+```bash
+make status    # read the real contracts through the real loader
+make test      # 52 tests; -m invariant for the hard correctness ones
+```
+
+`make status` is not a mock — if it prints the KPI graph, the governance layer
+genuinely loads and cross-validates.
+
+### When each phase becomes visible
+
+| Phase | Built | What you can see |
+|---|---|---|
+| 1 ✅ | evidence model, retrieval, contracts | `make status`, `make test` |
+| 2 | data generation | `make gen` then query the DuckDB file directly |
+| 3 | reconcile + detect | **first localhost** — metric chart, expected band, anomaly window |
+| 4 | decompose + rank + verify | contribution table, ranked candidates, rejected ones with the test that killed each |
+| 5 | corroborate + confidence + narrate + validate | the full diagnosis, click-to-evidence, UNKNOWN when weak |
+| 6 | Answer 2, personas, entitlements, telemetry | signal gap, monitoring plan, persona switch, receipt |
+| 7 | benchmark | published accuracy, calibration curve |
+
+Phase 3 is the first point where opening a browser tells you anything. Before
+that, the tests and `make status` are the honest measure.
+
 ## Current state
 
-Scaffolding complete, dependencies verified, no engine code yet. See `HANDOFF.md`.
+See `HANDOFF.md`.

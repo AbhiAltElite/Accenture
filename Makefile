@@ -1,4 +1,4 @@
-.PHONY: setup gen demo test bench lint clean
+.PHONY: setup gen demo test bench status lint clean
 
 setup:            ## create venv and install dependencies
 	python3 -m venv .venv
@@ -16,6 +16,9 @@ test:             ## run the test suite (includes the invariant tests)
 
 bench:            ## run the benchmark harness and print the report
 	.venv/bin/python -m bench.run --report
+
+status:           ## show what the engine currently knows
+	.venv/bin/python -m whychain.inspect
 
 lint:
 	.venv/bin/ruff check .
