@@ -39,3 +39,6 @@ ui/dist/
 # the repository, and a checked-in file would seed every clone with one
 # team’s opinions.
 data/feedback/
+
+# Local dev-server config for the preview pane. Machine-specific.
+.claude/launch.json

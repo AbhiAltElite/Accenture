@@ -25,10 +25,44 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 | T-15 | Naive datetimes in freshness arithmetic | ingest, evidence | All timestamps are timezone-aware UTC. `Freshness` rejects naive input, and ruff `DTZ` enforces it at the source. Sources sit in different zones; a naive/aware mix raises mid-diagnosis |
 | T-16 | Writing a version, path or command from memory | everywhere | Read it from the environment. Pins come from `pip freeze`, not recollection, see B-001 |
 | T-17 | A verification command that passes on empty output | scripts, CI | `cmd \| tail && echo OK` reports success when `cmd` never ran. Check the exit status of the command itself, and confirm the check can actually fail |
+| T-18 | A benchmark result that improved for a reason nobody checked | bench, datagen | Numbers that move the flattering way get accepted; numbers that move the other way get investigated. A harness defect usually shows up as the former. Any invariant the generator depends on is executed by a test, never only stated in a docstring (see B-014) |
 
 ---
 
 ## Defects
+
+### B-014 · Benchmark cases contaminated each other's baselines
+**Found:** 2026-08-28 · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** none visible. The benchmark ran clean, produced plausible numbers,
+and reported 46.4% top-1 with a perfect rate conditional on materiality.
+
+**Root cause:** `datagen/bulk.py` spaced events across a 560-day panel, which
+worked out to 109 days between them, then applied a jitter capped at
+`spacing - 20` that could close the gap to 20 days. Verification looks back
+`LOOKBACK_DAYS = 110` for its baseline and its six placebo windows, so
+neighbouring cases sat inside each other's control periods. Each was partly a
+measurement of the other. The module docstring had asserted this must never
+happen since the file was written; nothing checked it.
+
+**Why it went unnoticed:** contamination did not make the harness fail, it made
+it *flatter*. A neighbouring event in the control window depresses the
+counterfactual, so the measured effect of the case under test looks cleaner
+than it is. The result was numbers that were too good, which is the direction
+nobody investigates.
+
+**Fix:** `PANEL_DAYS` raised to 700 so the spacing exceeds the clearance, the
+jitter cap derived from `LOOKBACK_DAYS + max(EVENT_LENGTH)` rather than a
+literal, and `_slots` raises rather than returning a contaminated layout.
+
+**Effect on published numbers:** top-1 46.4% -> 36.6%, conditional 100% -> 75.4%,
+trap rejection 94.3% -> 86.7%, ECE 0.054 -> 0.103. Every document carrying the
+old figures was corrected rather than left to stand.
+
+**Lesson:** an invariant stated in a docstring is a comment. This one had been
+written down, believed, and never executed. Promoted to a trap below (T-18).
+
+**Regression test:** `tests/test_bulk.py::TestThePopulationIsBalanced::test_events_do_not_contaminate_each_others_baselines`.
 
 ### B-011 · Signal gap assessed against the window rather than the cause
 **Found:** 2026-08-28 · **Severity:** P1 · **Status:** fixed

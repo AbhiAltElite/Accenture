@@ -19,20 +19,35 @@ Over 160 labelled synthetic cases with planted causes and planted decoys
 
 | | |
 |---|---|
-| Top-1 accuracy | 46.4% |
-| Top-1 among cases that clear materiality | **100%** (64 of 64) |
+| Top-1 accuracy | 36.6% |
+| Top-1 among cases that clear materiality | 75.4% (52 of 69) |
+| Cause verified at all | 48.6% |
 | False-alarm rate on noise-only cases | 0.0% |
-| Planted correlation traps rejected | 94.3% |
-| Expected calibration error | 0.054 |
-| p95 latency per diagnosis | 0.117s |
+| Planted correlation traps rejected | 86.7% |
+| Expected calibration error | 0.103 |
+| p95 latency per diagnosis | 0.175s |
 
 The headline number carries its condition on purpose. The engine explains
 movements that pass both a statistical and a rupee materiality test; the
 remaining cases are ones it declines to explain, because a movement of about
-10% at regional level sits at roughly z ≈ 2.2 against 4.5% daily noise and is
-not distinguishable from it at the z ≥ 3 threshold the contracts declare.
+10% at regional level sits at roughly z = 2.2 against 4.5% daily noise and is
+not distinguishable from it at the z >= 3 threshold the contracts declare.
 Declining those is the correct behaviour, and lowering the threshold to raise
 the headline is the trap recorded as T-14 in `BUGS.md`.
+
+Two of these numbers are worse than they should be, and are recorded here
+rather than tuned away:
+
+- **Confidence is overconfident at the top of its range.** Scores between 0.8
+  and 1.0 average 0.917 and are right 71% of the time, a 20-point gap. The
+  score is not yet calibrated against a held-out split, and until it is, the
+  band label is more trustworthy than the number beside it.
+- **Abstention is not measurable from this population.** Every case is either
+  `verified` or `no_anomaly`, so there is no case whose correct answer is "the
+  evidence is insufficient", and the two abstention rates are reported as zero
+  for want of a denominator. The behaviour is real and fires in the console on
+  `demo-02-low-confidence`; what is missing is the labelled population needed
+  to score it. See `HANDOFF.md`.
 
 ## On the process document behind Answer 2
 

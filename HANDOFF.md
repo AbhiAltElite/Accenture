@@ -35,9 +35,16 @@ version of this file listed three empty packages, and they are written.
   business-owned inputs, need two independent submitters, and go contested
   rather than averaged when readers disagree. Named misses become labelled
   regression cases
-- **Benchmark scale fixed. Top-1 2.9% → 46.4%**, and of the 64 cases that clear
-  materiality the true cause is ranked first in **100%**. False alarms 0.0%,
-  trap rejection 94.3%, ECE 0.054, p95 0.117s
+- **Benchmark scale fixed, and then the harness itself.** Planted effects were
+  too small to clear regional materiality, which took top-1 from 2.9% to 46.4%.
+  Measuring that fix exposed a second, older defect: events were planted 20 to
+  109 days apart in the same region while verification looks back 110 days, so
+  cases were partly measuring each other. With the clearance guaranteed by
+  construction the honest figures are **top-1 36.6%**,
+  75.4% among the 69 cases that clear materiality, false alarms
+  0.0%, trap rejection 86.7%,
+  ECE 0.103, p95 0.175s. The numbers fell because the
+  measurement got honest
 - **Complete UI overhaul.** Masthead with live run context, a rail, a document
   column and a margin for run metadata; numbered report sections; the overview
   as a watchlist table rather than tiles; Answer 2 rendered as all four verdicts
@@ -57,18 +64,31 @@ version of this file listed three empty packages, and they are written.
   numerals, and `4.05` quoted from inside a cited claim read as fabricated
 
 ### Next
-1. **A real weather snapshot.** `ext_signals` still says `source: generated` on
+1. **Abstention cannot be scored, and it is a brief requirement.** Every case in
+   `datagen/bulk.py` is either `verified` or `no_anomaly`, so nothing in the
+   population has "the evidence is insufficient" as its correct answer and both
+   abstention rates report zero for want of a denominator. The behaviour is real
+   and fires in the console on `demo-02-low-confidence`. `ExpectedVerdict`
+   already has `UNKNOWN` and `CANNOT_VERIFY`; the population needs a share of
+   each. Two that generate naturally: a shallow movement planted in every region
+   at once, which leaves difference-in-differences no control group, and a slice
+   with too little history to test
+2. **Confidence is overconfident at the top of its range.** Scores in 0.8-1.0
+   average 0.917 and are right 71.2% of the time. The isotonic calibration the
+   design calls for is not fitted; fit it on a held-out split and never re-fit
+   after seeing test results (T-13)
+3. **A real weather snapshot.** `ext_signals` still says `source: generated` on
    every row. One cached IMD or Open-Meteo file drops into the schema unchanged,
    and only then may any document claim a live external feed
 2. **Make the corroboration extractor model-backed**, so an API-keyed run
    genuinely reports two model calls. The protocol is already in place; only the
    extractor changes, and T-01 then becomes assertable as `== 2`
-3. **The residual benchmark gap is a detector question, not a data question.**
+5. **The residual benchmark gap is a detector question, not a data question.**
    96 of 160 cases produce no material movement because a ~10% regional move sits
    at z ≈ 2.2 against 4.5% daily noise, under the z ≥ 3 gate. Pooling the event
    window rather than testing single days would recover most of them, a real
    improvement, and a change to `detect/`, not to a threshold (BUGS.md T-14)
-4. **Apply-a-proposal is not wired.** Feedback reaches quorum and the console
+6. **Apply-a-proposal is not wired.** Feedback reaches quorum and the console
    says so, but a human applying a proposal to a contract is still manual
 
 ### Blocked / undecided

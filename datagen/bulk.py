@@ -28,7 +28,10 @@ from datagen.scenarios import (
 )
 
 PANEL_START = date(2023, 9, 1)
-PANEL_DAYS = 560
+# Long enough that `per_region` events fit with a full lookback between each
+# pair. At 560 the spacing worked out to 109 days against a 110-day lookback,
+# so every panel contaminated its own baselines even before jitter was added.
+PANEL_DAYS = 700
 # Clearance each event needs behind it: fourteen days of baseline plus six
 # placebo windows spaced a fortnight apart.
 LOOKBACK_DAYS = 110
@@ -112,14 +115,34 @@ class BenchPanel:
 
 
 def _slots(rng: random.Random, per_region: int) -> list[date]:
-    """Event start dates with enough clearance behind each one."""
+    """Event start dates with a full lookback of clear air behind each one.
+
+    The jitter is what stops every panel planting its events on the same days,
+    and it is also what quietly broke this: the cap was a flat `spacing - 20`,
+    which on a 109-day spacing allowed two events 20 days apart while
+    verification looks back 110 days for its baseline and placebo windows. The
+    cases either side of such a pair are measuring each other.
+
+    The cap is now derived from the clearance actually required, and the
+    invariant is asserted rather than assumed, so a future change to
+    `PANEL_DAYS`, `per_region` or `LOOKBACK_DAYS` fails here instead of
+    depressing the benchmark for reasons nobody can find.
+    """
     usable = PANEL_DAYS - LOOKBACK_DAYS - max(EVENT_LENGTH) - 5
     if usable <= 0 or per_region <= 0:
         return []
     spacing = usable // per_region
+    clearance = LOOKBACK_DAYS + max(EVENT_LENGTH)
+    jitter = max(0, spacing - clearance)
+    if per_region > 1 and spacing - jitter < clearance:
+        raise ValueError(
+            f"{per_region} events over {PANEL_DAYS} days leaves {spacing} days "
+            f"between them, under the {clearance} each needs for a clean "
+            "baseline. Lengthen the panel or plant fewer events per region"
+        )
     return [
         PANEL_START
-        + timedelta(days=LOOKBACK_DAYS + i * spacing + rng.randint(0, max(spacing - 20, 1)))
+        + timedelta(days=LOOKBACK_DAYS + i * spacing + rng.randint(0, jitter))
         for i in range(per_region)
     ]
 
