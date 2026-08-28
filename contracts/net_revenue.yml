@@ -43,6 +43,13 @@ drivers:
     source: plan_ops
     controllable_lever: replenishment
     owner_role: supply_planner
+  # A shipped regression is a driver like any other: it moves the metric and
+  # somebody owns the lever that reverses it. Without it the demo's headline
+  # cause is verifiable but not actionable, which is only half an answer.
+  - id: release_quality
+    source: voice_ops
+    controllable_lever: release_rollback
+    owner_role: ecommerce_lead
   # Observable but not actionable — no lever, so no owner.
   - id: competitor_price_index
     source: plan_ops
@@ -78,6 +85,15 @@ signals_consumed:
     - {signal: inventory_position, span: [527, 619]}
     - {signal: capacity_metrics, span: [620, 693]}
     - {signal: financial_plan, span: [694, 764]}
+
+# Revenue is a sum of priced units, so the price/volume/mix identity genuinely
+# applies and its three legs add back to the movement exactly. The other four
+# KPIs leave this unset: a rate has no units to move and no price to change.
+decomposition:
+  method: pvm
+  key: sku
+  units: qty
+  revenue: qty * unit_price - discount
 
 lineage:
   upstream: [pos_txn.orders, pos_txn.order_items]
