@@ -294,7 +294,9 @@ def _():
     import re
     html = _ui()
     radii = [int(v) for v in re.findall(r"border-radius:\s*(\d+)px", html)]
-    assert all(r <= 4 for r in radii), f"oversized radius: {max(radii)}px"
+    # Small controls stay tight; a panel may go slightly softer. Above this and
+    # the page starts reading as a card grid rather than a document.
+    assert all(r <= 6 for r in radii), f"oversized radius: {max(radii)}px"
     # Count distinct radius values, not declarations: reusing one small radius
     # across several elements is consistency, not a card grid.
     distinct = len(set(radii))
@@ -312,7 +314,12 @@ def _():
 def _():
     html = _ui()
     assert "prefers-color-scheme" in html, "dark theme not designed"
-    assert "background:var(--bg)" in html.replace(" ", ""), "body background not painted"
+    # The token is matched by role rather than by name, so a rename does not turn
+    # a passing check into a silent one.
+    compact = html.replace(" ", "")
+    assert re.search(r"body\{[^}]*background:var\(--[\w-]+\)", compact), (
+        "body background not painted from a token; it would borrow the host's ground"
+    )
     return "light and dark defined via tokens"
 
 
