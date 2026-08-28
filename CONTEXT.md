@@ -135,21 +135,21 @@ code and runs. Two things remain true and should be stated rather than glossed:
   schema is the one a cached IMD or Open-Meteo snapshot drops into unchanged,
   and until one does, no document may claim a live external feed.
 
-**What the benchmark says, over 160 labelled cases.** Top-1 accuracy
-36.6%; of the 69 cases whose movement clears both materiality
-tests, the true cause is ranked first in 75.4%. The rest are movements the
-engine declines to explain, because a sub-threshold move is not distinguishable
-from noise at z >= 3. False-alarm rate 0.0%; planted
-correlation traps rejected 86.7%; expected
-calibration error 0.103; p95 latency 0.175s.
+**What the benchmark says, over 160 labelled cases.** Of the 70 movements
+that clear both materiality tests, the true cause is ranked first in 78.6%;
+over the whole population, including movements not worth explaining, top-1 is
+38.2%. False alarms on noise 0.0%. Planted correlation traps rejected
+87.5%. Of the 17 cases whose correct answer is an abstention, 94.1% got
+one, and 1 did not. Expected calibration error 0.1171 raw, 0.1043 after an
+isotonic curve fitted on a held-out half. p95 latency 0.178s.
 
-**These figures replace higher ones, and the reason matters.** An earlier run
-reported 46.4% top-1 and a perfect conditional rate. That population planted
-events 20 to 109 days apart in the same region while verification looks back
-110 days, so cases sat inside each other's baseline and placebo windows and
-were partly measuring one another. The generator now guarantees the clearance
-by construction and asserts it (`tests/test_bulk.py`). The numbers got worse
-because the measurement got honest. See B-014 in `BUGS.md`.
+**Two of those figures have moved for reasons worth knowing before quoting
+them.** B-014: benchmark cases were sitting inside each other's baseline
+windows, so an earlier run reported 46.4% top-1 and a perfect conditional rate,
+and the numbers got worse when the measurement got honest. B-016: abstention
+recall counted correct silences as missed abstentions, reading 20.9% while the
+engine was in fact abstaining on 16 of the 17 cases that called for it. Both
+are written up in `BUGS.md` with the old numbers.
 
 Read a claim in `docs/PROTOTYPE-SPEC.md` or `docs/PRODUCT-OUTLINE.md` as a
 design intent, not a description of the running system. This file and

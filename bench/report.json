@@ -15,7 +15,8 @@
     "false_alarm_rate": 0.0,
     "negative_control_rejection": 0.875,
     "abstention_precision": 0.864,
-    "abstention_recall": 0.209,
+    "abstention_recall": 0.941,
+    "missed_abstentions": 1,
     "detection_rate": 0.882,
     "material_detection_rate": 0.604
   },
@@ -52,9 +53,9 @@
     "improved": true
   },
   "latency": {
-    "p50_seconds": 0.077,
-    "p95_seconds": 0.18,
-    "total_seconds": 12.9
+    "p50_seconds": 0.08,
+    "p95_seconds": 0.178,
+    "total_seconds": 13.1
   },
   "cases": [
     {

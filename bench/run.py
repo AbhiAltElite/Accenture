@@ -42,6 +42,12 @@ BASELINE_DAYS = 14
 REPORT = Path("bench/report.json")
 
 
+# The verdicts whose correct answer is "the evidence is insufficient". Kept as
+# a set rather than a literal so `CANNOT_VERIFY` counts the moment the
+# generator starts planting sparse-history cases.
+UNANSWERABLE = frozenset({"unknown", "cannot_verify"})
+
+
 @dataclass
 class Outcome:
     case_id: str
@@ -239,15 +245,36 @@ def compute_metrics(outcomes: list[Outcome], bins: int = 5) -> Metrics:
         "negative_control_rejection": rate(
             sum(1 for o in with_decoy if o.decoy_rejected), len(with_decoy)
         ),
-        # Of abstentions, how often abstaining was right.
+        # Of abstentions, how often abstaining was right: the case was labelled
+        # unanswerable, or a cause was planted and the engine could not have
+        # reached it.
         "abstention_precision": rate(
-            sum(1 for o in outcomes if o.verdict == "unknown" and not o.topk),
+            sum(1 for o in outcomes if o.verdict == "unknown"
+                and (o.expected in UNANSWERABLE or not o.topk)),
             sum(1 for o in outcomes if o.verdict == "unknown"),
         ),
-        # Of cases it could not have got right, how often it abstained.
+        # Of the cases whose *correct answer is abstention*, how often it
+        # abstained.
+        #
+        # This denominator used to be every case where the true cause was not
+        # found, which silently counted correct silences as missed abstentions:
+        # a sub-threshold movement reported as "no material movement" and a
+        # noise case reported as nothing at all are both right, and neither is
+        # an abstention the engine failed to make. With 87 such cases in the
+        # denominator the rate read 20.9% while the engine was in fact
+        # abstaining on 16 of the 17 cases that called for it. The population
+        # carries the label now, so the metric uses it. See B-016.
         "abstention_recall": rate(
-            sum(1 for o in outcomes if o.verdict == "unknown" and not o.topk),
-            sum(1 for o in outcomes if not o.topk),
+            sum(1 for o in outcomes
+                if o.expected in UNANSWERABLE and o.verdict == "unknown"),
+            sum(1 for o in outcomes if o.expected in UNANSWERABLE),
+        ),
+        # Cases that called for an abstention and did not get one. Reported as a
+        # count rather than folded into a rate, because each one is a case where
+        # the engine answered something it could not support.
+        "missed_abstentions": sum(
+            1 for o in outcomes
+            if o.expected in UNANSWERABLE and o.verdict != "unknown"
         ),
         "detection_rate": rate(
             sum(1 for o in with_cause if o.detected), len(with_cause)
@@ -355,10 +382,21 @@ def print_report(metrics: Metrics) -> None:
         "negative_control_rejection": "correlation traps rejected",
         "abstention_precision": "abstentions that were right",
         "abstention_recall": "unanswerable cases abstained on",
+        "missed_abstentions": "cases that needed an abstention and did not get one",
     }
+    # Counts print as counts. Sending an integer through a percentage format
+    # renders "1 missed abstention" as "100.0%", which is not a smaller mistake
+    # for being cosmetic.
+    counts = {"missed_abstentions"}
     for key, label in labels.items():
         value = metrics.rates.get(key)
-        print(f"  {label:<34} {'n/a' if value is None else f'{value:>6.1%}'}")
+        if value is None:
+            rendered = "n/a"
+        elif key in counts:
+            rendered = f"{value:>6d}"
+        else:
+            rendered = f"{value:>6.1%}"
+        print(f"  {label:<50} {rendered}")
 
     if metrics.calibration:
         print("\nCalibration   does a higher score mean more often right?")

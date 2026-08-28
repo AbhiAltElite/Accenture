@@ -125,8 +125,8 @@ met.
   `no_anomaly` in it, so nothing had "the evidence is insufficient" as its right
   answer and both abstention rates reported zero. `datagen/bulk.py` now plants a
   share of nationwide shocks, which are material and leave
-  difference-in-differences no control group. Abstention precision **86.4%**,
-  recall **20.9%**
+  difference-in-differences no control group. Abstention precision
+  **86.4%**, recall **94.1%**, with 1 missed abstention of 17
 - **Confidence is calibrated.** `whychain/confidence/calibrate.py` fits an
   isotonic curve on a held-out half and never refits after the test half is
   scored (T-13). Held-out ECE 0.1171 to 0.1043. The raw score is never
@@ -140,15 +140,15 @@ met.
 ### Current figures
 Top-1 38.2%, 78.6% among the 70 cases that clear materiality, verified at
 all 47.9%, false alarms 0.0%, traps rejected 87.5%, abstention
-precision 86.4% recall 20.9%, ECE 0.1171 raw and 0.1043 calibrated,
+precision 86.4% recall 94.1%, ECE 0.1171 raw and 0.1043 calibrated,
 p95 0.180s. 252 tests, 105 invariant.
 
 ### Next
-1. **Abstention recall is 20.9% and is the weakest number in the report.**
-   The engine under-abstains: given a case it cannot answer it more often
-   reports "no material movement" than "unknown". Precision of 86.4% says the
-   judgement is sound and the trigger is too conservative. Look at where a
-   material movement with no verifiable cause falls through to `no_movement`
+1. **One missed abstention.** Recall is 94.1%: of the 17 cases whose correct
+   answer is "the evidence is insufficient", one was answered anyway. It is a
+   single case rather than a rate to chase, so read it rather than tune against
+   it. (The 20.9% previously recorded here was a metric defect, not engine
+   behaviour: see B-016)
 2. **Calibration is fitted on 73 cases.** Real, and thin. More panels, or a
    larger `per_region`, would make the curve worth more than it currently is
 3. **Make the corroboration extractor model-backed**, so an API-keyed run

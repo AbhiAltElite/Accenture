@@ -31,6 +31,43 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-016 · Abstention recall measured a quantity nobody wanted
+**Found:** 2026-08-28 · **Severity:** P2 · **Status:** fixed
+
+**Symptom:** the benchmark reported abstention recall of 20.9% and the engine
+was written up as under-abstaining, "preferring no material movement to
+unknown". It was not. It abstained on 16 of the 17 cases that called for it.
+
+**Root cause:** the denominator was every case where the true cause was not
+found. That set is dominated by cases the engine handled *correctly*: 71
+sub-threshold movements reported as "no material movement" and 16 noise cases
+reported as nothing at all. Neither is an abstention the engine failed to make.
+87 correct silences sat in the denominator of a metric about missed
+abstentions.
+
+**Why it was defensible when written and wrong now:** the population had no
+labelled unanswerable cases, so "the true cause was not found" was the only
+proxy available. Adding those cases gave the metric a real denominator and made
+the proxy obsolete in the same change. The proxy was not re-examined.
+
+**Fix:** the denominator is the cases whose *correct answer is abstention*
+(`expected in {unknown, cannot_verify}`). A companion count,
+`missed_abstentions`, reports the cases that needed one and did not get one,
+because a rate near 1.0 hides the individual failures that matter.
+
+**Effect on published numbers:** abstention recall 20.9% to 94.1%, one missed
+abstention out of seventeen.
+
+**This is not T-14.** T-14 is weakening an assertion so failing code passes.
+Here the code was correct and the measurement was of the wrong quantity; the
+figure moved because the metric started measuring what its own label claimed.
+The old number and the reason are recorded above so the change can be audited
+rather than taken on trust.
+
+**Regression test:** the metric is asserted end to end by the benchmark itself;
+`tests/test_bulk.py::test_the_population_can_score_abstention` guarantees the
+denominator is never empty again.
+
 ### B-015 · `make bench` reported numbers it never wrote
 **Found:** 2026-08-28 · **Severity:** P1 · **Status:** fixed
 

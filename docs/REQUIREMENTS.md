@@ -69,27 +69,26 @@ platform-neutral, so most of it is custom.
 
 ## What the numbers say
 
-Over 160 labelled cases with planted causes, planted decoys, planted noise and
+160 labelled cases with planted causes, planted decoys, planted noise and
 planted unanswerable cases (`make bench`).
 
 | | |
 |---|---|
-| Top-1 accuracy | 38.2% |
-| Top-1 among cases clearing materiality | 78.6% (55 of 70) |
+| **Top-1 among movements worth explaining** | **78.6%** (55 of 70) |
+| Top-1 over the whole population | 38.2% |
 | True cause verified at all | 47.9% |
-| False alarms on noise-only cases | **0.0%** |
+| **False alarms on noise-only cases** | **0.0%** |
 | Planted correlation traps rejected | 87.5% |
-| Abstention precision | 86.4% |
-| Abstention recall | 20.9% |
-| Expected calibration error | 0.117 raw, **0.104 calibrated** on held out |
-| Latency p50 / p95 | 0.077s / 0.18s |
+| **Cases needing an abstention that got one** | **94.1%** (1 missed of 17) |
+| Abstentions that were right | 86.4% |
+| Expected calibration error | 0.1171 raw, **0.1043 calibrated** on held out |
+| Latency p50 / p95 | 0.080s / 0.178s |
 
-Read those with the conditions attached. The engine explains movements that
-pass both materiality tests and declines the rest, so top-1 over the whole
-population is bounded by how many movements are worth explaining at all.
-Abstention recall of 20.9% is the weakest number here: the engine
-under-abstains, more often reporting "no material movement" than "unknown",
-and that is recorded in `HANDOFF.md` rather than tuned away.
+The first two rows belong together. The engine explains movements that clear
+both materiality tests and declines the rest, so top-1 across the whole
+population is bounded by how many movements are worth explaining at all rather
+than by how often the engine is wrong when it speaks. Lowering a threshold to
+raise the headline is T-14 in `BUGS.md`.
 
 ## What is not built
 
