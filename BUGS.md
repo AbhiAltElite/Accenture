@@ -214,6 +214,30 @@ only meaningful where a cause touched more than one region.
 the narrative was already telling readers all three tests had run. Displaying a
 gate is not enforcing it.
 
+### B-011 · Every chart figure was formatted as rupees
+**Found:** 2026-08-28 · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** hovering the checkout conversion chart read
+`observed ₹1, expected ₹1, −₹0`. On-time delivery did the same.
+
+**Root cause:** `const money = v => STATE.overview && false ? v : inr(v)`. The
+`&& false` made the branch unreachable, so every value went through the rupee
+formatter regardless of the metric, and `inr` rounds to whole rupees. A rate
+around 0.06 became ₹0.
+
+**Fix:** the unit travels with the series and is used. Values render as currency,
+per cent or a count according to the contract, and the difference between two
+rates is reported in percentage points rather than per cent (T-02).
+
+**Why nobody saw it:** it was not reachable. Until B-008 was fixed every endpoint
+answered with revenue whatever KPI was requested, so a rate was never actually
+drawn. Fixing one bug made three others visible in the same afternoon.
+
+**Lesson:** a dead branch that silences a whole class of formatting is invisible
+to tests that never exercise the other class. This is the failure
+DESIGN-CHECKLIST §3 names in as many words, "freshness is not a percentage" and
+its sibling, a rate reading as one rupee.
+
 ### Template
 
 ```markdown

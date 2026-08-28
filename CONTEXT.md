@@ -37,11 +37,15 @@ confidence (deterministic score → isotonic calibration) → abstain if weak
    ↓
 actions (driver → lever → impact → owner → monitoring)  ← every field derived
    ↓
+scenarios (if we act) ← projections, assumptions stated, never causal facts
+   ↓
 signal gap (Answer 2) → monitoring plan           ← NOT BUILT
    ↓
 narrate (constrained to the evidence table)       ← NOT BUILT (LLM call 2 of 2)
    ↓
 validate (binding + numeral + entity checks)      ← NOT BUILT
+   ↓
+project (persona + entitlement)                   ← the last stage, always
 ```
 
 **Two model calls per diagnosis is the design.** The running system currently
@@ -90,7 +94,7 @@ Until then:
 
 ```bash
 make status    # read the real contracts through the real loader
-make test      # 142 tests; -m invariant for the hard correctness ones
+make test      # 160 tests; -m invariant for the hard correctness ones
 make audit     # 30 executable security, logic and design checks
 make bench     # accuracy, trap rejection, calibration, latency
 ```
@@ -110,7 +114,7 @@ genuinely loads and cross-validates.
 | 3 ✅ | reconcile + detect | metric chart, expected band, anomaly window |
 | 4 ✅ | decompose + verify | contribution table, candidates, rejected ones with the test that killed each |
 | 5 ◐ | corroborate + confidence | the diagnosis, click-to-evidence, UNKNOWN when weak. **narrate and validate are not built**: the narrative is a deterministic template |
-| 6 ◐ | actions + telemetry | decision card with lever, owner, impact and monitoring rule; run receipt. **Answer 2, personas and entitlement projection are not built** |
+| 6 ◐ | actions + personas + telemetry | decision card with lever, owner, impact and monitoring rule; impact scenarios; CFO/ops/analyst projections with entitlement enforced and announced; run receipt. **Answer 2 is not built** |
 | 7 ✅ | benchmark | `make bench` — accuracy, trap rejection, calibration, latency |
 
 **Where the honest line is.** `whychain/signalgap/`, `whychain/narrate/` and

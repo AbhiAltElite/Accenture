@@ -177,3 +177,68 @@ production because a statistic moved is not something anyone will run.
 request is asking a human to authorise a guess. It is a declared share of the
 movement the causal test measured, and where no share is declared for a lever
 the figure is left blank rather than invented.
+
+---
+
+### D-012 · A persona changes the projection, never the evidence
+**Status:** accepted · 2026-08-28
+
+CFO, ops and analyst are views over one run. The verified causes, the effect
+sizes and the confidence score are identical for all three; only which fields
+are rendered differs, and each view lists what it omits.
+
+**Why:** the easy version of this feature is a tone change, the same paragraph
+warmed up for the CFO. That fools nobody, and worse, it invites a persona that
+quietly changes a number. Two readers disagreeing about the size of a movement
+would mean the projection had become part of the analysis.
+
+**Consequence:** the projection is the last stage and recomputes nothing. A test
+asserts the movement and the confidence band match across every persona, and
+that projecting does not mutate what it was given.
+
+**Why they differ structurally rather than in wording:** a CFO is being asked to
+back one call and needs the size, the decision and how much is recoverable. An
+ops manager needs the lever they hold and who signs it off. Different fields,
+not different adjectives.
+
+---
+
+### D-013 · Entitlement is enforced at the projection, and announced
+**Status:** accepted · 2026-08-28
+
+Rows outside a requester's scope are removed before assembly. When the removal
+changes the answer, the response says how much movement is out of scope and
+names the role to escalate to.
+
+**Why enforced here:** it is the last point before anything reaches a reader or,
+later, a prompt. Filtering in the client is a presentation choice rather than an
+access control, and a prompt instruction asking a model not to mention a region
+is not one either (T-10).
+
+**Why announced rather than silently omitted:** a regional manager reading a
+diagnosis that quietly excluded the region actually responsible would have no way
+to tell, and would draw a confident wrong conclusion from a technically accurate
+answer. The notice names the size of what is hidden and not its content, which
+is enough to escalate and not enough to leak.
+
+---
+
+### D-014 · Scenarios are projections, and say so
+**Status:** accepted · 2026-08-28
+
+The impact simulator returns single points labelled `scenario_estimate`, each
+carrying its assumptions as structured data rather than inside a formula.
+
+**Why the label is load-bearing:** everything upstream measures something that
+already happened. A scenario does not. Presenting the two in the same visual
+register is how a projection gets quoted back as a finding.
+
+**The refusals are the design.** A scenario with no measured quantity behind it
+is not offered. One whose coefficient the contract does not declare returns
+unavailable rather than borrowing a plausible elasticity, because a borrowed
+coefficient makes a chosen number look derived. An unavailable scenario carries a
+reason and never a zero, since zero is a figure a reader would act on.
+
+**Rejected alternative:** a chat box taking arbitrary what-if questions. It would
+demo well and would answer questions the data cannot support, which is the
+failure mode this project exists to avoid.

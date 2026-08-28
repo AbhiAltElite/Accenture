@@ -6,6 +6,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 
 ### Fixed — correctness
 
+- **Every figure is formatted in the unit its contract declares.** The chart put
+  all values through the rupee formatter, via a branch that could never be taken,
+  so a conversion rate around 0.06 rendered as "observed ₹0" and on-time delivery
+  as "₹1". A difference between two rates is now reported in percentage points,
+  which T-02 treats as a distinct claim. Neither fault was reachable before,
+  because no endpoint had ever actually drawn a rate
+- **`/api/candidates` returns 422 with a reason rather than 503** for metrics
+  with no bridge panel. 503 claims the service is unavailable when it is
+  answering correctly
+- A right-aligned numeric column no longer runs into whatever follows it:
+  `.n` set `padding-right: 0` on every numeric cell rather than the last, so a
+  freshness header read "SLAStatus" and its value touched the status pill
 - **Every diagnosis endpoint now executes the KPI contract it was asked for.**
   `/api/diagnose`, `/api/decomposition` and `/api/candidates` resolved the
   contract only to reject an unknown name, then read `_panel` — the generator's
@@ -42,6 +54,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 
 ### Added
 
+- `whychain/actions/simulate.py` and `/api/diagnose?price_delta=&horizon_days=`
+  — impact scenarios. Reversing a verified regression, a price move against the
+  contract's declared elasticity, and a verified external effect carried forward
+  at its measured rate. Each rests on a quantity already measured or a
+  coefficient already declared, carries its assumptions as data, and is labelled
+  `scenario_estimate` and never `causal_fact`. A scenario with nothing measured
+  behind it, or whose coefficient the contract does not declare, returns
+  unavailable with a reason instead of a zero, because zero is a figure a reader
+  would act on
+- `whychain/personas/` and `/api/diagnose?persona=&entitled=` — CFO, ops and
+  analyst projections over one run. The evidence is identical for every reader
+  and only what is rendered from it differs, asserted by test. They differ
+  structurally rather than in tone: a CFO gets the size, one decision and the
+  split between what is recoverable and what can only be watched; an ops manager
+  gets the levers they hold and monitoring rules for the causes they do not; an
+  analyst gets the working. What each view omits is listed in the response, so an
+  absence is a stated choice rather than a gap
+- Entitlement enforced at the projection, before assembly. A withheld cause is
+  announced with the movement it accounts for and the role to escalate to, never
+  silently dropped
+- `whychain/actions/recovery.py` — recovery shares per lever, shared so a
+  decision card and a scenario cannot disagree about the same action
+- `tests/test_personas.py` and `tests/test_simulate.py` — 18 tests, all marked
+  `invariant`. 160 tests total, 80 invariant
 - `whychain/telemetry/` — per-stage latency, method class, model calls, tokens
   and cost, rendered as a run receipt. It reports the model-call count it
   observed rather than asserting one: with no narrate stage yet that count is
@@ -58,11 +94,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 
 ### Changed
 
+- Results that only `make gen` can change are memoised against a snapshot key of
+  the warehouse mtime and the loaded contract versions. The overview was
+  rescanning 1.8M order lines through a window function three times per request
+  to draw five sparklines: it falls from 2,323ms to 130ms, and a metric page from
+  roughly 450ms to 45ms. Freshness readings stay uncached, being a clock reading
+  rather than a derived series
+- Loading names the stage running rather than saying "Loading", since these take
+  visibly different times per metric and a spinner would say the same thing if
+  the request had failed
+- An hourly series opens on a readable window instead of drawing 1,729 points
+  across 800 pixels, and the chart names its points by the contract's grain
 - A diagnosis takes 449ms rather than 2,317ms. Scans are bounded to the history
   a diagnosis actually reads instead of the whole table, and the document corpus
   is no longer rebuilt per candidate through `iterrows` to look up twelve rows
+- Interface: the decision card and the scenarios sit directly under the
+  narrative, above the working, so a reader who stops after two panels still
+  leaves knowing what to do and who does it. A persona switch in the rail
+  re-projects the same run. Section headings, column labels and card labels were
+  set at the same weight as body text and are now bold and in sentence case;
+  field names arriving from the engine (`causal_strength`, `release_rollback`)
+  are sentence-cased at render rather than dropped into prose as identifiers
 - Interface: IBM Plex throughout, one superfamily rather than two chosen fonts;
-  a 17px base with the headline brought down from 40px; larger navigation and
+  an 18px base with the headline brought down from 40px; larger navigation and
   controls; a second accent so a clickable claim and a verified one are no
   longer the same colour. An hourly series opens on a readable window instead of
   drawing two points per pixel
