@@ -1,4 +1,4 @@
-.PHONY: setup gen demo test bench status audit lint clean
+.PHONY: setup gen demo test bench status audit guardrails lint clean
 
 setup:            ## create venv and install dependencies
 	python3 -m venv .venv
@@ -19,6 +19,9 @@ bench:            ## run the benchmark harness and print the report
 
 status:           ## show what the engine currently knows
 	.venv/bin/python -m whychain.inspect
+
+guardrails:       ## watch the guardrails refuse bad input
+	PYTHONPATH=. .venv/bin/python scripts/guardrails.py
 
 audit:            ## run the security and logic checklists
 	PYTHONPATH=. .venv/bin/python scripts/audit.py
