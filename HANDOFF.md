@@ -6,7 +6,7 @@
 
 ## Status as of 2026-08-28
 
-**Phase:** evidence model, retrieval and contracts built. Data generation not started.
+**Phase:** scenario layer built. Series generation and source emission are next.
 
 ### Done
 - **`whychain/evidence/` — the spine, and it is now frozen.** `Evidence`,
@@ -24,7 +24,15 @@
 - **`data/docs/sop/sop_demand_planning_v2.md`** — the process document Answer 2
   reads. `net_revenue`'s `signals_consumed` spans were computed from the file, and
   a test asserts each span actually contains the signal it names
-- 52 tests passing, 10 marked `invariant`
+- **`datagen/calendar.py`** — real Indian festival dates via the `holidays`
+  package, with a build-up and hangover curve. Diwali peaks at +85% then falls
+  18% overnight, which is the seasonal decoy
+- **`datagen/catalog.py`** — 11 cities with real coordinates (weather is pulled
+  against them), 12 SKUs, one launched late for the sparse-history case
+- **`datagen/scenarios.py`** — `PlantedEvent`, `Slice`, `AvailableSignal`,
+  `Scenario`. Decoys carry zero effect but are emitted identically to causes
+- **`datagen/demo_cases.py`** — six scenarios covering all four expected verdicts
+- 72 tests passing, 14 marked `invariant`
 - Repo structure created, one package per pipeline stage
 - Python 3.14.6 venv verified; full scientific stack installs cleanly (numpy 2.5.2, pandas 3.0.5, scipy 1.18.1, statsmodels 0.15.0, scikit-learn 1.9.0, duckdb 1.5.5, fastapi 0.141.1)
 - `MSTL`, `IsotonicRegression`, `Ridge` confirmed importable — no wheel gaps on 3.14

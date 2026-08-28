@@ -17,7 +17,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 - `contracts/*.yml` — all five KPIs: net revenue, orders, AOV, checkout conversion
   (hourly, digital only), on-time delivery (T+1, no SOP registered)
 - `data/docs/sop/` — the demand planning SOP that Answer 2 reads
-- 52 tests, 10 marked `invariant`
+- `datagen/` — retail calendar with real festival dates, catalog with real city
+  coordinates, scenario and planted-event types, six demo cases
+- 72 tests, 14 marked `invariant`
 - GitHub Actions CI: lint, tests on Python 3.12 and 3.14, invariants as a
   separate check, and a job that fails the build on AI attribution in history
 - Pull request template
