@@ -19,7 +19,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 - `data/docs/sop/` — the demand planning SOP that Answer 2 reads
 - `datagen/` — retail calendar with real festival dates, catalog with real city
   coordinates, scenario and planted-event types, six demo cases
-- 72 tests, 14 marked `invariant`
+- `whychain/decompose/` — price/volume/mix bridge and dimensional contribution,
+  both reconciling exactly and refusing to report if they do not
+- `/api/decomposition`; console sections for the bridge and contributions
+- 97 tests, 20 marked `invariant`
 - GitHub Actions CI: lint, tests on Python 3.12 and 3.14, invariants as a
   separate check, and a job that fails the build on AI attribution in history
 - Pull request template

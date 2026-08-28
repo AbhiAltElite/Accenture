@@ -7,7 +7,7 @@ runs detection, and returns the result. No analysis happens here.
 from __future__ import annotations
 
 import warnings
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -16,6 +16,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from whychain.contracts import ContractError, ContractRegistry
+from whychain.decompose import compute_bridge, contribution_by
+from whychain.decompose.bridge import BridgeError
 from whychain.detect import decompose, find_anomalies, material
 from whychain.ingest import IngestError, Warehouse
 
@@ -163,6 +165,99 @@ def _contract(kpi: str):
         return registry().get(kpi)
     except ContractError as exc:
         raise HTTPException(404, str(exc)) from exc
+
+
+@app.get("/api/decomposition")
+def decomposition(
+    kpi: str = Query("net_revenue"),
+    region: str | None = None,
+    event_start: date = Query(..., alias="start"),
+    event_end: date = Query(..., alias="end"),
+    baseline_days: int = Query(14, ge=7, le=90),
+) -> dict:
+    """Split a movement into price, volume and mix, and locate it by dimension.
+
+    The baseline is the period immediately before the movement, normalised to a
+    daily rate so a fortnight can be compared against a week.
+    """
+    _contract(kpi)  # 404s on an unknown metric before touching the warehouse
+
+    try:
+        with Warehouse() as wh:
+            panel = wh.table("_panel")
+    except IngestError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+    if region:
+        panel = panel[panel["region"] == region]
+    day = pd.to_datetime(panel["d"]).dt.date
+
+    base_start = event_start - timedelta(days=baseline_days)
+    base = panel[(day >= base_start) & (day < event_start)]
+    current = panel[(day >= event_start) & (day <= event_end)]
+    if base.empty or current.empty:
+        raise HTTPException(404, "no data in the baseline or the event window")
+
+    base_days = max((event_start - base_start).days, 1)
+    event_days = max((event_end - event_start).days + 1, 1)
+    base = base.assign(units=base["units"] / base_days, revenue=base["revenue"] / base_days)
+    current = current.assign(
+        units=current["units"] / event_days, revenue=current["revenue"] / event_days
+    )
+
+    try:
+        bridge = compute_bridge(base, current)
+    except BridgeError as exc:
+        # An identity that does not hold must not be presented as one.
+        raise HTTPException(422, str(exc)) from exc
+
+    dimensions = [d for d in ("channel", "device", "category", "region") if d in panel.columns]
+    contributions = []
+    for dim in dimensions:
+        if region and dim == "region":
+            continue
+        c = contribution_by(base, current, dim)
+        contributions.append(
+            {
+                "dimension": dim,
+                "total_change": round(c.total_change, 2),
+                "concentration_top1": round(c.concentration(1), 4),
+                "slices": [
+                    {
+                        "value": s.value,
+                        "base": round(s.base, 2),
+                        "current": round(s.current, 2),
+                        "delta": round(s.delta, 2),
+                        "share": round(c.share_of(s), 4),
+                        "pct_change": round(s.pct_change, 4) if s.pct_change is not None else None,
+                    }
+                    for s in c.ranked()
+                ],
+            }
+        )
+
+    shares = bridge.shares()
+    return {
+        "kpi_id": kpi,
+        "region": region,
+        "baseline": {"from": base_start.isoformat(), "to": (event_start - timedelta(days=1)).isoformat()},
+        "event": {"from": event_start.isoformat(), "to": event_end.isoformat()},
+        "bridge": {
+            "base_revenue": round(bridge.base_revenue, 2),
+            "current_revenue": round(bridge.current_revenue, 2),
+            "total_change": round(bridge.total_change, 2),
+            "legs": [
+                {"leg": "volume", "value": round(bridge.volume_effect, 2), "share": round(shares["volume"], 4)},
+                {"leg": "mix", "value": round(bridge.mix_effect, 2), "share": round(shares["mix"], 4)},
+                {"leg": "price", "value": round(bridge.price_effect, 2), "share": round(shares["price"], 4)},
+            ],
+            "residual": round(bridge.residual, 6),
+            "reconciles": abs(bridge.residual) < 0.1,
+            "base_units": round(bridge.base_units, 1),
+            "current_units": round(bridge.current_units, 1),
+        },
+        "contributions": contributions,
+    }
 
 
 @app.get("/")
