@@ -16,7 +16,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from whychain.actions import decision_cards
+from whychain.actions import decision_cards, simulate
 from whychain.confidence import abstain, explained_movement, score
 from whychain.contracts import ContractError, ContractRegistry
 from whychain.corroborate import corroborate, scan
@@ -25,6 +25,7 @@ from whychain.decompose.bridge import BridgeError
 from whychain.detect import decompose, find_anomalies, material
 from whychain.evidence import MethodClass
 from whychain.ingest import DEFAULT_WAREHOUSE, IngestError, Warehouse
+from whychain.personas import Persona, project
 from whychain.telemetry import Telemetry
 from whychain.verify import filter_relevant, from_operations, from_promotions, verify
 from whychain.verify.tests import PLACEBO_WINDOWS
@@ -637,6 +638,12 @@ def diagnose(
     event_start: date = Query(..., alias="start"),
     event_end: date = Query(..., alias="end"),
     baseline_days: int = Query(14, ge=7, le=90),
+    persona: str = Query("analyst"),
+    entitled: str | None = Query(
+        None, description="comma-separated regions this requester may see"
+    ),
+    price_delta: float = Query(-0.05, ge=-0.5, le=0.5),
+    horizon_days: int = Query(14, ge=1, le=90),
 ) -> dict:
     """The whole pipeline for one movement: decompose, test, corroborate, score.
 
@@ -730,6 +737,11 @@ def diagnose(
         cards = decision_cards(
             verifications, per_cause, contract, confidence.band.value
         )
+        scenarios = simulate(
+            verifications, per_cause, contract,
+            base_revenue_per_day=bridge.current_revenue,
+            price_delta=price_delta, horizon_days=horizon_days,
+        )
         t.note = f"{len(cards)} decision card(s), every field derived"
 
     stale = tuple(f"{f.source_id} is stale by {f.lag}" for f in sources.values()
@@ -739,6 +751,7 @@ def diagnose(
         "run_id": run_id,
         "region": region,
         "decisions": [c.as_dict() for c in cards],
+        "scenarios": [sc.as_dict() for sc in scenarios],
         "window": {"from": event_start.isoformat(), "to": event_end.isoformat()},
         "baseline": {"from": base_lo.isoformat(),
                      "to": (event_start - timedelta(days=1)).isoformat()},
@@ -808,7 +821,22 @@ def diagnose(
 
     # Last, so the receipt covers every stage that actually ran.
     result["telemetry"] = tel.receipt()
-    return result
+
+    # The projection happens after everything is computed and never before: the
+    # evidence set is identical for every reader, and only what is rendered from
+    # it differs. Entitlement is applied here, at the projection layer.
+    try:
+        who = Persona(persona)
+    except ValueError:
+        raise HTTPException(
+            422, f"unknown persona {persona!r}; expected one of "
+            f"{[p.value for p in Persona]}"
+        ) from None
+    scope = tuple(r.strip() for r in entitled.split(",") if r.strip()) if entitled else None
+    with tel.stage("project", MethodClass.DETERMINISTIC) as t:
+        projected = project(result, who, entitled_regions=scope)
+        t.note = f"persona {who.value}"
+    return projected
 
 
 @app.get("/")

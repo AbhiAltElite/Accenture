@@ -30,20 +30,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
+from whychain.actions.recovery import RECOVERY_SHARE
+from whychain.actions.simulate import Scenario, simulate
 from whychain.contracts import Driver, KPIContract
 from whychain.evidence import ClaimState
 
-# How much of a measured loss reversing the cause is assumed to recover, by
-# lever. These are assumptions, not measurements, and they are declared here so
-# a reader can see and argue with them rather than find them inside a formula.
-# A rollback recovers most of what a regression took; a replenishment recovers
-# less, because demand deferred is partly demand lost.
-RECOVERY_SHARE: dict[str, float] = {
-    "release_rollback": 0.90,
-    "replenishment": 0.65,
-    "pricing": 0.50,
-    "media_budget": 0.40,
-}
+# Shared with the impact simulator so a card and a scenario cannot disagree
+# about what the same action recovers. See whychain/actions/recovery.py.
 
 # Which contract driver a verified candidate belongs to. Declared rather than
 # inferred: a model guessing that a release note is a pricing problem would put
@@ -346,5 +339,7 @@ __all__ = [
     "ApprovalDraft",
     "DecisionCard",
     "MonitoringRule",
+    "Scenario",
     "decision_cards",
+    "simulate",
 ]

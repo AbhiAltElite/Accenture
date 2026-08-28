@@ -34,9 +34,9 @@
      tool, and the thing that made the page read as a landing page rather than
      an analyst's screen. Reading text and controls go up; the headline comes
      down, so the gap between them narrows from both ends. */
-  --t-xs:13px; --t-sm:15px; --t-base:17px; --t-md:20px;
-  --t-lg:23.5px; --t-xl:27.5px; --t-2xl:31px; --t-3xl:34px;
-  --lh-tight:1.24; --lh-snug:1.45; --lh-normal:1.65;
+  --t-xs:14px; --t-sm:16px; --t-base:18px; --t-md:21px;
+  --t-lg:25px; --t-xl:29px; --t-2xl:32px; --t-3xl:36px;
+  --lh-tight:1.24; --lh-snug:1.48; --lh-normal:1.65;
 
   --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px;
   --sp-6:32px; --sp-7:48px; --sp-8:64px; --sp-9:96px;
@@ -94,11 +94,14 @@ body{background:var(--paper);color:var(--ink);
   letter-spacing:-.01em;display:block;margin-bottom:var(--sp-1);
   color:var(--ink);text-decoration:none}
 .rail .brand:hover{color:var(--accent-ink)}
-.rail .tagline{font-size:var(--t-xs);color:var(--ink-3);line-height:var(--lh-snug);
+.rail .tagline{font-size:var(--t-sm);color:var(--ink-3);line-height:var(--lh-snug);
   margin-bottom:var(--sp-7)}
 .railgroup{margin-bottom:var(--sp-7)}
-.railgroup > h2{font-size:var(--t-xs);font-weight:600;color:var(--ink-3);
-  letter-spacing:.07em;margin-bottom:var(--sp-3)}
+/* Sentence case, not letterspaced uppercase. The design checklist allows one
+   small uppercase label at most, and a page where every group label shouts
+   stops distinguishing between them. */
+.railgroup > h2{font-size:var(--t-sm);font-weight:600;color:var(--ink-2);
+  letter-spacing:0;margin-bottom:var(--sp-3)}
 /* Navigation and controls are sized to be hit and read, not to be compact.
    Density belongs in the tables; the rail is chrome a reader returns to all
    day, and a 28px target set in 14px type is neither comfortable nor obviously
@@ -151,7 +154,7 @@ select:hover,button.ctl:hover{border-color:var(--ink-3)}
 h1{font-family:var(--serif);font-size:var(--t-3xl);line-height:var(--lh-tight);
   font-weight:500;letter-spacing:-.018em;text-wrap:balance;margin-bottom:var(--sp-5)}
 .prose{font-family:var(--serif);font-size:var(--t-md);line-height:var(--lh-normal);
-  max-width:60ch}
+  max-width:64ch}
 .prose p{margin-bottom:var(--sp-4)}
 .prose .q{color:var(--ink-2)}
 .prose strong{font-weight:600}
@@ -161,7 +164,16 @@ h1{font-family:var(--serif);font-size:var(--t-3xl);line-height:var(--lh-tight);
    states stay evergreen, so the two never trade places. */
 .claim{color:var(--evidence-ink);background:var(--evidence-soft);border:none;font:inherit;
   padding:2px 6px;border-radius:var(--r-sm);cursor:pointer;
-  box-shadow:inset 0 -1.5px 0 var(--evidence)}
+  box-shadow:inset 0 -1.5px 0 var(--evidence);
+  /* A claim is a sentence and will wrap. Without this the background and the
+     underline are drawn once around the whole run, so the second line loses its
+     padding and sits adrift of the first. `clone` gives each fragment its own
+     box. `inline` keeps it in the flow of the prose rather than forming a
+     block that breaks the paragraph. */
+  display:inline;
+  -webkit-box-decoration-break:clone;
+  box-decoration-break:clone;
+  text-align:left}
 .claim:hover{background:var(--evidence);color:var(--surface)}
 .claim::after{content:"\2009\203A";opacity:.6}
 
@@ -208,7 +220,7 @@ h1{font-family:var(--serif);font-size:var(--t-3xl);line-height:var(--lh-tight);
   border-radius:var(--r-md);background:var(--surface);padding:var(--sp-4) var(--sp-4) var(--sp-3)}
 .charthead{display:flex;align-items:baseline;gap:var(--sp-4);margin-bottom:var(--sp-3);
   flex-wrap:wrap}
-.charthead h2{font-size:var(--t-sm);font-weight:500;color:var(--ink-3);margin:0}
+.charthead h2{font-size:var(--t-sm);font-weight:600;color:var(--ink-2);margin:0}
 .charthead .zoomnote{margin-left:auto;font-size:var(--t-xs);color:var(--ink-3);
   font-variant-numeric:tabular-nums}
 .charthead button{font-size:var(--t-xs);padding:2px var(--sp-2);width:auto}
@@ -232,8 +244,12 @@ canvas#c.panning{cursor:grabbing}
 
 /* ---------- disclosure ---------- */
 details{border-top:1px solid var(--line)}
+/* A section heading is structure, and structure should be legible at a glance.
+   These sat at weight 400 in the body colour, so they read as another paragraph
+   and the page had no scannable skeleton. */
 details summary{cursor:pointer;list-style:none;padding:var(--sp-4) 0;display:flex;
-  align-items:baseline;gap:var(--sp-3);color:var(--ink-2);font-size:var(--t-base)}
+  align-items:baseline;gap:var(--sp-3);color:var(--ink);font-size:var(--t-base);
+  font-weight:600}
 details summary::-webkit-details-marker{display:none}
 details summary::before{content:"+";color:var(--ink-3);font-family:var(--mono);
   width:14px;flex:none}
@@ -242,11 +258,12 @@ details summary:hover{color:var(--ink)}
 details summary .count{margin-left:auto;color:var(--ink-3);font-size:var(--t-sm);
   font-variant-numeric:tabular-nums}
 .body{padding:0 0 var(--sp-6) var(--sp-5)}
-.body p{max-width:60ch;color:var(--ink-2);margin-bottom:var(--sp-3)}
+.body p{max-width:64ch;color:var(--ink-2);margin-bottom:var(--sp-3);
+  font-size:var(--t-base)}
 
 /* ---------- tables ---------- */
-table{width:100%;border-collapse:collapse;font-size:var(--t-sm)}
-th{text-align:left;font-weight:500;font-size:var(--t-xs);color:var(--ink-3);
+table{width:100%;border-collapse:collapse;font-size:var(--t-base)}
+th{text-align:left;font-weight:600;font-size:var(--t-sm);color:var(--ink-2);
   padding:0 var(--sp-4) var(--sp-2) 0;border-bottom:1px solid var(--line-strong)}
 td{padding:var(--sp-3) var(--sp-4) var(--sp-3) 0;border-bottom:1px solid var(--line);
   font-variant-numeric:tabular-nums;vertical-align:top}
@@ -271,7 +288,7 @@ code{font-family:var(--mono);font-size:var(--t-xs)}
   font-size:var(--t-sm);padding:0;cursor:pointer;text-decoration:underline;
   text-underline-offset:3px;width:auto}
 .linkback:hover{color:var(--ink)}
-.muted{color:var(--ink-3);font-size:var(--t-sm)}
+.muted{color:var(--ink-3);font-size:var(--t-base)}
 
 /* ---------- decision ---------- */
 /* One of the few places a card earns its border: a decision is a real
@@ -279,19 +296,19 @@ code{font-family:var(--mono);font-size:var(--t-xs)}
 .decision{border:1px solid var(--line-strong);border-radius:var(--r-md);
   background:var(--surface);padding:var(--sp-5);margin-bottom:var(--sp-4)}
 .decision:last-child{margin-bottom:0}
-.decision h3{font-family:var(--serif);font-size:var(--t-md);font-weight:500;
+.decision h3{font-family:var(--serif);font-size:var(--t-md);font-weight:600;
   line-height:var(--lh-snug);margin-bottom:var(--sp-2)}
-.decision h4{font-size:var(--t-xs);font-weight:600;color:var(--ink-3);
-  letter-spacing:.06em;margin-bottom:var(--sp-2)}
+.decision h4{font-size:var(--t-sm);font-weight:600;color:var(--ink-2);
+  letter-spacing:0;margin-bottom:var(--sp-3)}
 .verdictline{font-size:var(--t-sm);color:var(--ink-2);margin-bottom:var(--sp-4)}
 .verdictline .mark{font-weight:600;margin-right:var(--sp-1)}
 .verdictline .mark.ok{color:var(--up)}
 .verdictline .mark.na{color:var(--ink-3)}
 /* Label column fixed so every value starts on the same edge down the card. */
-table.chain{width:100%;border-collapse:collapse;font-size:var(--t-sm);
+table.chain{width:100%;border-collapse:collapse;font-size:var(--t-base);
   table-layout:fixed}
-table.chain th[scope="row"]{width:11.5rem;text-align:left;font-weight:400;
-  color:var(--ink-3);font-size:var(--t-sm);letter-spacing:0;
+table.chain th[scope="row"]{width:11.5rem;text-align:left;font-weight:600;
+  color:var(--ink-2);font-size:var(--t-sm);letter-spacing:0;
   padding:var(--sp-2) var(--sp-4) var(--sp-2) 0;border:none;vertical-align:top}
 table.chain td{padding:var(--sp-2) 0;border:none;vertical-align:top;
   color:var(--ink);overflow-wrap:anywhere}
@@ -328,6 +345,28 @@ table.components tr:last-child td{border-bottom:none}
   .components .cname{width:auto}
   .components .cval{width:auto;padding-right:var(--sp-3)}
 }
+
+/* ---------- persona, notice, scenarios ---------- */
+.railnote{font-size:var(--t-xs);color:var(--ink-3);line-height:var(--lh-snug);
+  margin-top:var(--sp-3)}
+/* An entitlement notice is an operational statement, not an error. It is marked
+   by a rule and a label rather than by alarm colour. */
+.notice{border:1px solid var(--flag);border-left-width:3px;
+  border-radius:var(--r-md);background:var(--flag-soft);
+  padding:var(--sp-5);margin-bottom:var(--sp-6)}
+.notice h3{font-family:var(--serif);font-size:var(--t-base);font-weight:600;
+  margin-bottom:var(--sp-2);color:var(--ink)}
+.notice p{font-size:var(--t-sm);color:var(--ink-2);margin-bottom:var(--sp-2)}
+.notice p:last-child{margin-bottom:0}
+
+.scenario{border-top:1px solid var(--line);padding:var(--sp-5) 0}
+.scenario:first-of-type{border-top:none;padding-top:var(--sp-3)}
+.scenario h4{font-family:var(--serif);font-size:var(--t-base);font-weight:500;
+  color:var(--ink);letter-spacing:0;margin-bottom:var(--sp-3)}
+.scenario .figure{font-size:var(--t-lg);font-variant-numeric:tabular-nums;
+  margin-bottom:var(--sp-4)}
+.scenario.off h4{color:var(--ink-3)}
+.scenario .bounded{margin-top:var(--sp-3);font-size:var(--t-sm)}
 
 /* ---------- drawer ---------- */
 .scrim{position:fixed;inset:0;background:rgba(20,18,14,.34);opacity:0;
@@ -383,6 +422,17 @@ pre{background:var(--sunk);border-radius:var(--r-sm);padding:var(--sp-3) var(--s
           <option value="0">Full history</option>
         </select>
       </div>
+    </div>
+
+    <div class="railgroup">
+      <h2>Reading as</h2>
+      <div class="seg" id="persona" role="group" aria-label="Persona">
+        <button data-persona="analyst" aria-pressed="true">Analyst</button>
+        <button data-persona="cfo" aria-pressed="false">CFO</button>
+        <button data-persona="ops" aria-pressed="false">Ops</button>
+      </div>
+      <p class="railnote">Same evidence, different projection. Nothing is
+        recomputed when this changes.</p>
     </div>
 
     <div class="railgroup">
@@ -446,7 +496,45 @@ const title = id => {
   return ACRONYM[id] || k.split(' ').map(w=>ACRONYM[w]||w).join(' ').replace(/^./,c=>c.toUpperCase());
 };
 const pct = n => (n*100).toFixed(1) + '%';
-let STATE = {};
+
+/* Sentence case for anything that reaches a reader.
+
+   Several labels are field names carried straight through from the engine —
+   `causal_strength`, `release_rollback`, `ecommerce_lead` — and rendering them
+   raw put lowercase identifiers in the middle of prose. Underscores become
+   spaces and the first letter is raised; nothing else is touched, so an
+   acronym or a version number inside the label survives. */
+const sentence = t => {
+  const clean = String(t == null ? '' : t).replace(/_/g,' ').trim();
+  return clean ? clean[0].toUpperCase() + clean.slice(1) : clean;
+};
+let STATE = {persona:'analyst'};
+
+/* ---------- persona ----------
+   The switch re-requests the same run under a different projection. It does not
+   recompute anything: the server runs the pipeline, then projects, and the
+   evidence behind every persona is the same. Entitlement is applied server-side
+   at that projection, never here, because a filter a client applies is a
+   presentation choice rather than an access control. */
+const PERSONAS = ['analyst','cfo','ops'];
+function initPersona(){
+  let saved = 'analyst';
+  try{ saved = localStorage.getItem('whychain-persona') || 'analyst'; }catch{ /* private mode */ }
+  STATE.persona = PERSONAS.includes(saved) ? saved : 'analyst';
+  markPersona();
+  $('#persona').addEventListener('click',e=>{
+    const b = e.target.closest('button[data-persona]'); if(!b) return;
+    if(b.dataset.persona === STATE.persona) return;
+    STATE.persona = b.dataset.persona;
+    try{ localStorage.setItem('whychain-persona',STATE.persona); }catch{ /* ignore */ }
+    markPersona();
+    if(STATE.kpi) load();
+  });
+}
+function markPersona(){
+  document.querySelectorAll('#persona button').forEach(b=>
+    b.setAttribute('aria-pressed', String(b.dataset.persona===STATE.persona)));
+}
 
 /* ---------- appearance ---------- */
 const THEMES=['auto','light','dark'];
@@ -472,6 +560,7 @@ function initTheme(){
 /* ---------- data ---------- */
 async function boot(){
   initTheme();
+  initPersona();
   STATE.kpis = await (await fetch('/api/kpis')).json();
   $('#region').innerHTML += ['North','South','East','West']
     .map(r=>`<option>${r}</option>`).join('');
@@ -653,6 +742,7 @@ async function load(){
     win = windowFor(drops);
     const p=new URLSearchParams({kpi,start:win.start,end:win.end});
     if(region) p.set('region',region);
+    p.set('persona', STATE.persona || 'analyst');
     stage('Testing candidate causes');
     // Keep the reason a request declined. "Could not be built" tells a reader
     // nothing; the server already knows why and says so.
@@ -726,20 +816,27 @@ function render(){
 
   if(!diagnosis || diagnosis.verdict === 'unknown'){
     $('#story').innerHTML = unknownStory(diagnosis);
+  } else if(diagnosis.persona === 'cfo'){
+    $('#story').innerHTML = cfoStory(diagnosis);
+  } else if(diagnosis.persona === 'ops'){
+    $('#story').innerHTML = opsStory(diagnosis);
   } else {
     $('#story').innerHTML = explainedStory(diagnosis);
   }
 
   // Order is the reading order the product argues for: what to do, then the
   // working behind it, then what it cost to produce.
+  const persona = (diagnosis && diagnosis.persona) || 'analyst';
   $('#rest').innerHTML =
-    decisionsBlock()
+    entitlementBlock()
+    + decisionsBlock()
+    + simulatorBlock()
     + section('The metric', chartMarkup(), true)
     + movementsBlock()
-    + decompositionBlock()
-    + candidatesBlock()
+    + (persona === 'analyst' ? decompositionBlock() + candidatesBlock() : '')
     + freshnessBlock()
-    + receiptBlock();
+    + (persona === 'analyst' ? receiptBlock() : '')
+    + withheldBlock();
   drawChart();
   bindChart();
   wireClaims();
@@ -806,14 +903,135 @@ function section(title, body, open=false, count=''){
     <div class="body">${body}</div></details>`;
 }
 
+/* ---------- persona projections ---------- */
+
+/* A CFO is being asked to back one call: the size, the decision, the owner, and
+   how much of the loss is actually recoverable. The methods are withheld and the
+   page says they are withheld, so their absence is a choice rather than a gap. */
+function cfoStory(d){
+  const h = d.headline, o = d.recovery_outlook, dec = d.decision;
+  const causes = d.causes.map(c =>
+    `${escapeHtml(String(c.cause||'').split(':').pop().trim())}`).join(', ');
+  return `
+    <p>Net revenue fell <strong>${inr(h.change_inr_per_day)}</strong> per day.
+    ${d.causes.length === 1 ? 'One verified cause accounts' :
+      `${d.causes.length} verified causes account`} for it: ${causes}.</p>
+    ${dec ? `<p><strong>The decision.</strong> ${escapeHtml(dec.action)}, owned by
+      <strong>${sentence(escapeHtml(dec.owner||''))}</strong>.
+      Expected recovery <strong>${inr(dec.expected_recovery_inr_per_day)}</strong>
+      per day, computed from the movement the causal test measured rather than
+      estimated. It is drafted and awaiting approval; nothing has been changed.</p>`
+      : `<p>No cause in this window has a lever, so there is no decision to take.
+         The response is the monitoring rule below.</p>`}
+    <p class="q">Of the fall, <strong>${inr(o.recoverable_inr_per_day)}</strong> per
+    day sits behind a lever somebody owns.
+    <strong>${inr(o.not_actionable_inr_per_day)}</strong> does not and can only be
+    watched. Confidence is ${escapeHtml(h.confidence)}.</p>`;
+}
+
+/* A regional or channel manager needs the lever they personally hold, and needs
+   to know about the movement they do not hold so they are not surprised by it. */
+function opsStory(d){
+  const mine = d.my_actions, watch = d.watch_only;
+  return `
+    <p>Net revenue fell <strong>${inr(d.movement.total_change)}</strong> per day
+    in ${escapeHtml(d.region || 'all regions')}.
+    ${mine.length
+      ? `<strong>${mine.length}</strong> of them ${mine.length===1?'sits':'sit'} behind a lever you can pull.`
+      : `None of them sits behind a lever you hold.`}</p>
+    ${mine.map(a => `<p><strong>${escapeHtml(a.action)}</strong> —
+      ${sentence(escapeHtml(a.lever||''))}, owned by
+      ${sentence(escapeHtml(a.owner||''))}. Expected recovery
+      ${inr(a.expected_recovery_inr_per_day)} per day, awaiting approval.</p>`).join('')}
+    ${watch.length ? `<p class="q">${watch.length} further cause${watch.length>1?'s':''}
+      moved the metric with no lever to pull. The monitoring rule${watch.length>1?'s':''}
+      for ${watch.length>1?'those':'that'} ${watch.length>1?'are':'is'} below.</p>` : ''}
+    <p class="q">Confidence is ${escapeHtml(d.confidence || 'unknown')}.</p>`;
+}
+
+/* Entitlement, announced. A reader must never mistake a withheld cause for an
+   absent one, so this sits above the decision rather than in a footnote. */
+function entitlementBlock(){
+  const e = STATE.diagnosis && STATE.diagnosis.entitlement;
+  if(!e || !e.notice) return '';
+  return `<div class="notice">
+    <h3>Part of this diagnosis is outside your scope</h3>
+    <p>${escapeHtml(e.notice)}</p>
+    <p class="q">The figures above cover only what you are entitled to see, so
+    they do not sum to the total movement.</p></div>`;
+}
+
+/* What this reader was not shown, and that it was a choice. */
+function withheldBlock(){
+  const w = (STATE.diagnosis && STATE.diagnosis.withheld) || [];
+  if(!w.length) return '';
+  return section('Not shown in this view',
+    `<p>This projection omits ${w.map(x=>escapeHtml(x)).join(', ')}.
+     The evidence behind the answer is identical for every reader; only what is
+     rendered from it differs. Switch to the analyst view to see all of it.</p>`);
+}
+
+/* Scenarios. Kept visually distinct from the decision above it, because one is
+   a measurement carried forward and the other is a projection. */
+function simulatorBlock(){
+  const list = (STATE.diagnosis && STATE.diagnosis.scenarios) || [];
+  if(!list.length) return '';
+  const rows = list.map(s => {
+    if(!s.available) return `
+      <article class="scenario off">
+        <h4>${escapeHtml(s.question)}</h4>
+        <p class="q">Not available. ${escapeHtml(s.unavailable_because)}</p>
+      </article>`;
+    const total = s.effect_inr_total != null
+      ? ` &middot; ${inr(s.effect_inr_total)} over ${s.horizon_days} days` : '';
+    const sign = s.effect_inr_per_day < 0 ? 'down' : 'up';
+    return `
+      <article class="scenario">
+        <h4>${escapeHtml(s.question)}</h4>
+        <p class="figure ${sign}">${s.effect_inr_per_day<0?'\u2212':'+'}${
+          inr(s.effect_inr_per_day)} per day${total}</p>
+        <table class="chain">${s.assumptions.map(a=>`
+          <tr><th scope="row">${escapeHtml(a.name)}</th>
+              <td>${escapeHtml(a.value)}<br><span class="q">${escapeHtml(a.basis)}</span></td>
+          </tr>`).join('')}</table>
+        ${s.bounded_by ? `<p class="q bounded">Bounded by ${escapeHtml(s.bounded_by)}.</p>` : ''}
+      </article>`;
+  }).join('');
+  return section('If we act', `
+    <p>Projections, not measurements. Each rests on a quantity already measured
+    or a coefficient the contract declares, and every assumption is stated so it
+    can be argued with.</p>${rows}`, false,
+    `${list.filter(s=>s.available).length} of ${list.length} available`);
+}
+
 /* The decision the diagnosis implies. Sits directly under the narrative and
    above the working, because a reader who stops after two panels should still
    leave knowing what to do and who does it. Every field is derived; the card
    says which are assumptions and refuses to show a recovery figure where the
    cause has no lever. */
 function decisionsBlock(){
-  const cards = (STATE.diagnosis && STATE.diagnosis.decisions) || [];
-  if(!cards.length) return '';
+  const d = STATE.diagnosis;
+  // Only the analyst view carries the full cards. The other two projections
+  // render their own shape in the story above, and show monitoring rules here
+  // for the causes they cannot act on.
+  const cards = (d && d.decisions) || [];
+  if(!cards.length){
+    const watch = (d && d.watch_only) || [];
+    if(!watch.length) return '';
+    return section('Monitoring', watch.map(w => `
+      <article class="decision">
+        <h3>${escapeHtml(w.cause)}</h3>
+        <p class="verdictline"><span class="mark na">&middot;</span>
+          Verified, but nothing to act on</p>
+        <table class="chain">
+          <tr><th scope="row">Watch</th><td>${escapeHtml(w.monitoring.watch)}</td></tr>
+          <tr><th scope="row">Threshold</th><td>${escapeHtml(w.monitoring.threshold)}</td></tr>
+          <tr><th scope="row">Window</th><td>${escapeHtml(w.monitoring.window)}</td></tr>
+          <tr><th scope="row">Route to</th><td>${
+            sentence(escapeHtml(w.monitoring.route_to))}</td></tr>
+        </table>
+      </article>`).join(''), true, `${watch.length}`);
+  }
 
   const rows = cards.map(c => {
     const money = c.expected_recovery_inr_per_day == null
@@ -821,16 +1039,16 @@ function decisionsBlock(){
       : `<b>${inr(c.expected_recovery_inr_per_day)}</b> per day`;
 
     const chain = [
-      ['Driver', c.driver ? c.driver.replace(/_/g,' ') : '<span class="na">none matched</span>'],
-      ['Lever', c.lever ? c.lever.replace(/_/g,' ')
-        : '<span class="na">none — this cause cannot be acted on</span>'],
+      ['Driver', c.driver ? sentence(c.driver) : '<span class="na">None matched</span>'],
+      ['Lever', c.lever ? sentence(c.lever)
+        : '<span class="na">None — this cause cannot be acted on</span>'],
       ['Action', escapeHtml(c.action)],
       ['Measured loss', `<b>${inr(c.measured_loss_inr_per_day)}</b> per day`],
       ['Expected recovery', money],
       ['Basis', `<span class="q">${escapeHtml(c.recovery_basis)}</span>`],
-      ['Owner', c.owner ? c.owner.replace(/_/g,' ')
-        : '<span class="na">unowned</span>'],
-      ['Confidence', escapeHtml(c.confidence_band)],
+      ['Owner', c.owner ? sentence(c.owner)
+        : '<span class="na">Unowned</span>'],
+      ['Confidence', sentence(escapeHtml(c.confidence_band))],
     ].map(([k,v]) => `<tr><th scope="row">${k}</th><td>${v}</td></tr>`).join('');
 
     const m = c.monitoring;
@@ -861,7 +1079,7 @@ function decisionsBlock(){
             <tr><th scope="row">Watch</th><td>${escapeHtml(m.watch)}</td></tr>
             <tr><th scope="row">Threshold</th><td>${escapeHtml(m.threshold)}</td></tr>
             <tr><th scope="row">Window</th><td>${escapeHtml(m.window)}</td></tr>
-            <tr><th scope="row">Route to</th><td>${escapeHtml(m.route_to.replace(/_/g,' '))}</td></tr>
+            <tr><th scope="row">Route to</th><td>${sentence(escapeHtml(m.route_to))}</td></tr>
           </table>
         </div>
         ${approval}
@@ -878,8 +1096,8 @@ function receiptBlock(){
   const t = STATE.diagnosis && STATE.diagnosis.telemetry;
   if(!t) return '';
   const rows = t.stages.map(s => `
-    <tr><td>${escapeHtml(s.stage)}</td>
-        <td>${escapeHtml(s.method_class)}</td>
+    <tr><td>${sentence(escapeHtml(s.stage))}</td>
+        <td>${sentence(escapeHtml(s.method_class))}</td>
         <td class="num">${s.ms.toFixed(1)}</td>
         <td class="num">${s.model_calls}</td>
         <td class="q">${s.note ? escapeHtml(s.note) : ''}</td></tr>`).join('');
@@ -1046,7 +1264,7 @@ function openDrawer({cause,panel}){
       <p class="muted">Arithmetic over evidence already established. Not a judgement,
       and not written by a model.</p>
       <table class="components"><tbody>${d.confidence.components.map(x=>`<tr>
-        <td class="cname">${x.name.replace(/_/g,' ')}</td>
+        <td class="cname">${sentence(x.name)}</td>
         <td class="cval">${(x.value*100).toFixed(0)}%</td>
         <td class="cdetail">${x.detail}</td></tr>`).join('')}</tbody></table>
       <p class="muted" style="margin-top:20px">This is deliberately not presented as a
