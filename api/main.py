@@ -639,5 +639,16 @@ def index() -> FileResponse:
     return FileResponse(UI / "index.html")
 
 
+@app.get("/kpi/{kpi_id}")
+def kpi_page(kpi_id: str) -> FileResponse:
+    """Serve the app for a deep link.
+
+    A diagnosis someone can send to a colleague is worth more than one they have
+    to describe how to reach, so the view has a real URL and the server hands
+    back the app rather than a 404 for it.
+    """
+    return FileResponse(UI / "index.html")
+
+
 if UI.exists():
     app.mount("/static", StaticFiles(directory=UI), name="static")
