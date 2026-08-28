@@ -5,7 +5,7 @@ built so far.
 
 ---
 
-## Step 1 — Set up
+## Step 1, Set up
 
 ```bash
 make setup
@@ -14,7 +14,7 @@ make setup
 Creates `.venv` and installs pinned dependencies. Python 3.12+ required; the pins
 are verified against 3.14.6.
 
-## Step 2 — Generate the dataset
+## Step 2, Generate the dataset
 
 ```bash
 make gen
@@ -22,7 +22,7 @@ make gen
 
 Builds three years of a synthetic Indian retail business and writes it to
 `data/warehouse/whychain.duckdb`, plus labelled ground truth to
-`data/ground_truth/` — **which the engine has no code path to read.**
+`data/ground_truth/`, **which the engine has no code path to read.**
 
 You should see roughly:
 
@@ -39,16 +39,16 @@ source_freshness             4 rows      when each source last landed
 `ext_signals` is the feed Answer 2 reads. Its rows are generated and say so; see
 `DECISIONS.md` D-004 for exactly which parts of the dataset are real.
 
-## Step 3 — Check what the engine knows
+## Step 3, Check what the engine knows
 
 ```bash
 make status
 ```
 
 Prints the KPI graph, drivers with their owners, freshness SLAs, signal coverage
-and access policies — read through the real contract loader, not mocked.
+and access policies, read through the real contract loader, not mocked.
 
-## Step 4 — Run the console
+## Step 4, Run the console
 
 ```bash
 make demo
@@ -56,7 +56,7 @@ make demo
 
 Then open **http://localhost:8000**.
 
-## Step 5 — Run the tests
+## Step 5, Run the tests
 
 ```bash
 make test                        # everything
@@ -67,7 +67,7 @@ make test                        # everything
 
 # Understanding what you are looking at
 
-The console opens on **net revenue, West region, last 90 days** — the case the
+The console opens on **net revenue, West region, last 90 days**; the case the
 demo is built around.
 
 ### The headline
@@ -79,10 +79,10 @@ it without being told.
 ### The chart
 Three things are drawn:
 
-- **Observed** — what actually happened
-- **Expected** — trend, weekly rhythm and the retail calendar combined. This is
+- **Observed**, what actually happened
+- **Expected**, trend, weekly rhythm and the retail calendar combined. This is
   what a normal day *should* have looked like
-- **Normal range** — three robust standard deviations either side of expected
+- **Normal range**, three robust standard deviations either side of expected
 
 A dot marks a movement that passed both materiality tests.
 
@@ -99,7 +99,7 @@ surfaces movements too small to act on; size alone surfaces noise that happens
 to be large. The brief asks for both.
 
 `Robust z` is how far the day sits from expectation, measured in units built
-from the median and MAD rather than mean and standard deviation — so a genuine
+from the median and MAD rather than mean and standard deviation, so a genuine
 shock earlier in the history does not inflate what counts as normal and hide the
 next one.
 
@@ -130,7 +130,7 @@ decomposed rather than returning revenue arithmetic under their own name. See
 
 **A number worth knowing.** About 2.6% of days are flagged as material across the
 full three years. Some are the planted scenarios; the rest are false positives.
-That rate is not hidden — the benchmark harness will measure and publish it,
+That rate is not hidden; the benchmark harness will measure and publish it,
 because a detector that never reports its own false-alarm rate is asking to be
 trusted rather than believed.
 
@@ -141,7 +141,7 @@ trusted rather than believed.
 | Do this | Because |
 |---|---|
 | Set the range to **Full history** and look at October 2025 | The post-Diwali collapse, unflagged |
-| Switch region to **East** | The same window is quiet — the event was regional, which is what makes a comparison group possible later |
+| Switch region to **East** | The same window is quiet; the event was regional, which is what makes a comparison group possible later |
 | Switch KPI to **checkout conversion** | Hourly grain, digital channels only. A different metric, a different shape |
 | Switch KPI to **on-time delivery** | Arrives from a third source at T+1 |
 | Stop the server, run `make status` | The contracts drive everything the console shows |

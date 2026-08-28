@@ -1,7 +1,7 @@
 """Build the dataset: `make gen`.
 
 Writes the source tables to DuckDB and the ground truth to a directory the
-engine has no code path to read. The separation is the point — the labels are
+engine has no code path to read. The separation is the point; the labels are
 what the benchmark grades against, and an engine that can see them proves
 nothing.
 """
@@ -61,7 +61,8 @@ def build(warehouse: Path = WAREHOUSE, scenarios: tuple[Scenario, ...] = DEMO_SC
     shipments = emit_shipments(panel, events)
     plan_ops = emit_plan_ops(panel, events)
     voice_ops = emit_voice_ops(panel, events)
-    ext_signals = emit_ext_signals(panel, events)
+    declared = tuple(sig for s in scenarios for sig in s.signals)
+    ext_signals = emit_ext_signals(panel, events, declared=declared)
     freshness = source_freshness()
 
     warehouse.parent.mkdir(parents=True, exist_ok=True)

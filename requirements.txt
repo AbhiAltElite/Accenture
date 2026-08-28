@@ -26,3 +26,8 @@ ruff==0.16.5
 
 # Optional — only needed for the pgvector retrieval backend (see D-002).
 # psycopg[binary]==3.2.3
+
+# The narrative stage's model call. Optional at runtime — the
+# deterministic writer covers every path without it — but declared
+# here because a clean machine cannot install what is not listed.
+anthropic==1.2.0

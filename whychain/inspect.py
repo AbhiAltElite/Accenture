@@ -63,7 +63,7 @@ def main() -> int:
     for contract in registry:
         sc = contract.signals_consumed
         if sc.coverage.value == "unknown":
-            print(f"  {contract.kpi_id:22s} {DIM}unknown — no process document registered{OFF}")
+            print(f"  {contract.kpi_id:22s} {DIM}unknown, no process document registered{OFF}")
             continue
         print(f"  {contract.kpi_id:22s} {sc.coverage.value}: {', '.join(sorted(sc.signal_ids))}")
         print(f"  {'':22s} {DIM}from {sc.derived_from}{OFF}")

@@ -2,7 +2,7 @@
 
 Architectural decisions and **why**, so they are not re-litigated. Read before proposing a structural change.
 
-Format: one entry per decision. Never delete an entry — supersede it with a new one and mark the old `Superseded by D-0NN`.
+Format: one entry per decision. Never delete an entry, supersede it with a new one and mark the old `Superseded by D-0NN`.
 
 ---
 
@@ -18,7 +18,7 @@ The model reads unstructured text (call 1) and writes the narrative (call 2). It
 ---
 
 ### D-002 · DuckDB by default; retrieval backend is pluggable
-**Status:** accepted · 2026-08-28 · *revised same day — the first version of this entry was justified badly*
+**Status:** accepted · 2026-08-28 · *revised same day, the first version of this entry was justified badly*
 
 DuckDB is the analytics and document store. Retrieval sits behind a `Retriever`
 protocol with two real implementations: `NumpyRetriever` (default) and
@@ -32,7 +32,7 @@ strength of its confidence.
 
 **The reason that holds:** the README promises `git clone && make setup && make demo`.
 A Postgres path turns that into install, extension, createdb, migrate, configure,
-*then* demo — a real failure surface on a teammate's or judge's machine.
+*then* demo, a real failure surface on a teammate's or judge's machine.
 
 **The technical threshold:** at demo corpus size brute force is not merely adequate,
 it wins. Twenty thousand documents at 128 dimensions is a single matmul in well
@@ -40,7 +40,7 @@ under a millisecond, exact, with no round trip and no recall trade-off. pgvector
 becomes correct somewhere around a million vectors, or when several processes need
 shared indexed access.
 
-**Why both, rather than one:** it lets the README say retrieval is pluggable —
+**Why both, rather than one:** it lets the README say retrieval is pluggable,
 brute force locally where it is genuinely faster, pgvector at deployment scale.
 That is more credible than either alone, because it shows we know where the
 threshold sits. It also mirrors the semantic contract carrying `dialect_targets`.
@@ -55,7 +55,7 @@ Track A ranks internal structural drivers from the exact price/volume/mix bridge
 
 **Why:** the bridge is an identity that sums exactly, which is a stronger basis than a model estimate. SHAP explains the model, not reality, and a SHAP waterfall is what every competing submission will show. Dropping GBM also removes training and feature-engineering work.
 
-**Rejected alternative:** cutting the model layer entirely. The brief names marketing, supply and competition as drivers, and none is derivable from the bridge — removing track B would lose three of the eight named driver types.
+**Rejected alternative:** cutting the model layer entirely. The brief names marketing, supply and competition as drivers, and none is derivable from the bridge, removing track B would lose three of the eight named driver types.
 
 ---
 
@@ -84,7 +84,7 @@ Indian retail/CPG spine is generated; weather (Open-Meteo) and the festival cale
 
 Extracted at contract registration from a real SOP document, stored with character spans back to the source.
 
-**Why:** if we type the field, the fatal objection is "you declared the gap you then discovered." Deriving it from a **published third-party S&OP process description** — which documents itself as consuming historical sales, inventory, capacity and financials, and conspicuously no external risk signal — means the gap is found in a document nobody on the team wrote.
+**Why:** if we type the field, the fatal objection is "you declared the gap you then discovered." Deriving it from a **published third-party S&OP process description**, which documents itself as consuming historical sales, inventory, capacity and financials, and conspicuously no external risk signal, means the gap is found in a document nobody on the team wrote.
 
 **Consequence:** where no SOP exists, report `coverage: unknown`. Never assert a gap from absence of evidence.
 
@@ -95,7 +95,7 @@ Extracted at contract registration from a real SOP document, stored with charact
 
 `CANNOT_VERIFY` (no comparison group, insufficient history) and `REJECTED` (test ran and failed) are distinct terminal states.
 
-**Why:** collapsing them causes the engine to reject candidates it should abstain on, which corrupts abstention precision/recall and the calibration curve — two of the metrics we publish.
+**Why:** collapsing them causes the engine to reject candidates it should abstain on, which corrupts abstention precision/recall and the calibration curve, two of the metrics we publish.
 
 ---
 

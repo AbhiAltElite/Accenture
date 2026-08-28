@@ -1,4 +1,4 @@
-# Context — read this first
+# Context, read this first
 
 **Any new session, new teammate, or return after a gap starts here.**
 
@@ -6,14 +6,14 @@
 
 An engine that takes a business metric that materially moved and answers two questions:
 
-1. **What caused it** — a causally tested explanation where every sentence resolves on click to the exact query, rows, or source document behind it.
-2. **Why it went unanticipated** — which warning signal existed, which process failed to consume it, how often this has recurred, who owns it, and what should now be monitored.
+1. **What caused it**, a causally tested explanation where every sentence resolves on click to the exact query, rows, or source document behind it.
+2. **Why it went unanticipated**, which warning signal existed, which process failed to consume it, how often this has recurred, who owns it, and what should now be monitored.
 
 It sits on top of existing BI rather than replacing it.
 
 ## The one rule everything else serves
 
-> **The quantitative layer is deterministic. The language model reads, ranks and writes — it never calculates, and it never decides what is true.**
+> **The quantitative layer is deterministic. The language model reads, ranks and writes, it never calculates, and it never decides what is true.**
 
 A polished false diagnosis is worse than an explicit UNKNOWN. If a change would let the model determine a number, a causal status, an owner, a threshold, or an authorisation, that change is wrong regardless of how good the output looks.
 
@@ -24,10 +24,10 @@ sources (3 grains + 1 external feed)
    ↓ reconcile · freshness gate
 detect (MSTL → robust z on residual)
    ↓ materiality (statistical AND ₹)
-decompose (price/volume/mix bridge — exact identity)
+decompose (price/volume/mix bridge, exact identity)
    ↓
 rank  ├─ track A: exact, from the bridge
-      └─ track B: ridge/lasso, labelled CORRELATIONAL
+      └─ track B: ridge, labelled CORRELATIONAL, never merged with A
    ↓
 verify (event-time isolation ∧ DiD ∧ placebo)   ← only survivors become claims
    ↓
@@ -37,19 +37,31 @@ confidence (deterministic score → isotonic calibration) → abstain if weak
    ↓
 actions (driver → lever → impact → owner → monitoring)  ← every field derived
    ↓
-signal gap (Answer 2) → monitoring plan           ← NOT BUILT
+signal gap (Answer 2) → monitoring plan
    ↓
-narrate (constrained to the evidence table)       ← NOT BUILT (LLM call 2 of 2)
+narrate (constrained to the evidence table)       ← LLM call 2 of 2
    ↓
-validate (binding + numeral + entity checks)      ← NOT BUILT
+validate (binding + numeral + entity + rejected-cause checks)
+   ↓
+feedback (bounded: business inputs only, never a computed value)
 ```
 
-**Two model calls per diagnosis is the design.** The running system currently
-makes zero: the extractor behind the corroboration protocol is rule-based and
-there is no narrate stage, so the narrative comes from a deterministic template.
-The run receipt reports the count it observed rather than the count intended, so
-this is visible rather than assumed. SOP parsing happens once at contract
+**Two model calls per diagnosis is the design.** Both stages now exist. The
+narrate stage makes its call only when `ANTHROPIC_API_KEY` is set; without one
+it falls back to a deterministic template over the same evidence table, put
+through the same validator, and the receipt reports the count it *observed*
+rather than the count intended. The corroboration extractor is still rule-based.
+So a keyless clone reports zero model calls and says so, and that is the honest
+reading rather than a missing feature. SOP parsing happens once at contract
 registration, offline, and stays outside the per-diagnosis count either way.
+
+**The validator is the load-bearing part of the narrative stage.** The model
+writes sentences carrying evidence ids; a deterministic checker then rejects any
+sentence that cites nothing, prints a figure not present in a fact it cites,
+names an entity the evidence does not contain, or states a rejected candidate as
+a cause. Rejected sentences are dropped and counted on the receipt, never
+repaired. If every sentence fails, the template writes it and the fallback is
+reported.
 
 **The bridge applies to `net_revenue` alone.** It is an identity over priced
 units; a rate has no units to move and no price to change. Each contract
@@ -60,8 +72,8 @@ declares whether it can be decomposed, and the other four decline.
 | Path | Contents |
 |---|---|
 | `whychain/` | the engine, one package per pipeline stage |
-| `whychain/evidence/` | the `Evidence` type — the spine of the system |
-| `contracts/` | KPI semantic contracts (YAML) — executable governance |
+| `whychain/evidence/` | the `Evidence` type, the spine of the system |
+| `contracts/` | KPI semantic contracts (YAML), executable governance |
 | `datagen/` | synthetic dataset generator + planted causes |
 | `data/ground_truth/` | **the engine must never read this.** Enforced by test |
 | `bench/` | benchmark harness and metrics |
@@ -75,7 +87,7 @@ declares whether it can be decomposed, and the other four decline.
 |---|---|
 | `CONTEXT.md` | starting any session |
 | `HANDOFF.md` | picking up where someone stopped |
-| `DECISIONS.md` | **before proposing an architectural change** — it may already have been decided and rejected |
+| `DECISIONS.md` | **before proposing an architectural change**; it may already have been decided and rejected |
 | `BUGS.md` | before writing a stage; it lists traps already identified |
 | `docs/PROTOTYPE-SPEC.md` | implementing a stage |
 | `docs/SECURITY-LOGIC-CHECKLIST.md` | writing tests, or before demoing |
@@ -90,7 +102,7 @@ Until then:
 
 ```bash
 make status    # read the real contracts through the real loader
-make test      # 142 tests; -m invariant for the hard correctness ones
+make test      # 222 tests; -m invariant for the 91 hard correctness ones
 make audit     # 30 executable security, logic and design checks
 make bench     # accuracy, trap rejection, calibration, latency
 ```
@@ -98,7 +110,7 @@ make bench     # accuracy, trap rejection, calibration, latency
 `make audit` and `make bench` both need `make gen` to have run. Without a
 warehouse the audit reports ten failures that are all the same missing file.
 
-`make status` is not a mock — if it prints the KPI graph, the governance layer
+`make status` is not a mock, if it prints the KPI graph, the governance layer
 genuinely loads and cross-validates.
 
 ### When each phase becomes visible
@@ -109,14 +121,28 @@ genuinely loads and cross-validates.
 | 2 ✅ | data generation | `make gen` then query the DuckDB file directly |
 | 3 ✅ | reconcile + detect | metric chart, expected band, anomaly window |
 | 4 ✅ | decompose + verify | contribution table, candidates, rejected ones with the test that killed each |
-| 5 ◐ | corroborate + confidence | the diagnosis, click-to-evidence, UNKNOWN when weak. **narrate and validate are not built**: the narrative is a deterministic template |
-| 6 ◐ | actions + telemetry | decision card with lever, owner, impact and monitoring rule; run receipt. **Answer 2, personas and entitlement projection are not built** |
-| 7 ✅ | benchmark | `make bench` — accuracy, trap rejection, calibration, latency |
+| 5 ✅ | corroborate + confidence + narrate + validate | the diagnosis, click-to-evidence, UNKNOWN when weak, and a live count of sentences the validator rejected |
+| 6 ✅ | actions + telemetry + personas + signal gap + feedback | decision card with lever, owner, impact and monitoring rule; Answer 2 with all four verdicts; three reader projections; run receipt; bounded correction loop |
+| 7 ✅ | benchmark | `make bench`, accuracy, trap rejection, calibration, latency |
 
-**Where the honest line is.** `whychain/signalgap/`, `whychain/narrate/` and
-`whychain/rank/` are empty files. Answer 2, the model-written narrative and the
-two-track ranking are specified in `docs/` and do not exist in code. Everything
-else in the diagram above runs.
+**Where the honest line is.** Every stage in the diagram above now exists in
+code and runs. Two things remain true and should be stated rather than glossed:
+
+- **The corroboration extractor is rule-based**, so a keyless clone makes zero
+  model calls, not two. The receipt reports what happened.
+- **`ext_signals` is generated**, and every row says `source: generated`. The
+  schema is the one a cached IMD or Open-Meteo snapshot drops into unchanged,
+  and until one does, no document may claim a live external feed.
+
+**What the benchmark says, over 160 labelled cases.** Top-1 accuracy
+46.4%, and that number needs its condition attached: of the
+64 cases whose movement clears both
+materiality tests, the true cause is ranked first in **100%** of them. The
+remainder are movements the engine correctly declines to explain, because a
+sub-threshold move is not distinguishable from noise at z ≥ 3. False-alarm rate
+is 0.0%; planted correlation traps are rejected
+94.3% of the time; expected calibration error is
+0.054; p95 latency 0.117s.
 
 Read a claim in `docs/PROTOTYPE-SPEC.md` or `docs/PRODUCT-OUTLINE.md` as a
 design intent, not a description of the running system. This file and

@@ -82,6 +82,14 @@ def project(
         # and each scenario already carries its own assumptions, so it needs no
         # method section to be read honestly.
         "scenarios": result.get("scenarios") or [],
+        # Answer 2 and the narrative go to every reader. Neither is method
+        # detail: "the warning existed, the process has no step for it, and
+        # this is the third occurrence" is the finding a CFO is being asked to
+        # act on, and withholding it from them while showing it to the analyst
+        # would leave the decision-maker reading the incident and not the
+        # control failure behind it.
+        "signal_gap": result.get("signal_gap"),
+        "narrative": result.get("narrative"),
     }
 
     confidence = result.get("confidence") or {}
@@ -138,6 +146,10 @@ def project(
             "awaiting_approval_from": (top.get("approval") or {}).get("assigned_to"),
         }
         out["recovery_outlook"] = _outlook(decisions)
+        # The full card for the one decision being backed, so the console can
+        # show the lever, the owner and the monitoring rule rather than a
+        # summary of them.
+        out["decisions"] = decisions[:1]
 
     elif persona is Persona.OPS:
         out["causes"] = [
@@ -164,6 +176,7 @@ def project(
             for d in decisions if not d["controllable"]
         ]
         out["confidence"] = confidence.get("band")
+        out["decisions"] = [d for d in decisions if d["controllable"]]
 
     else:  # analyst: the full record, nothing removed
         out = {**result, **out}

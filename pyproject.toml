@@ -19,7 +19,7 @@ select = [
     "UP",            # pyupgrade
     "B",             # bugbear
     "C4",            # comprehensions
-    "DTZ",           # timezone-aware datetimes — freshness arithmetic depends on it
+    "DTZ",           # timezone-aware datetimes, freshness arithmetic depends on it
     "SIM",           # simplification
     "RUF",
 ]
@@ -29,3 +29,9 @@ ignore = ["E501"]    # line length is formatted, not linted
 # FastAPI declares request metadata through argument defaults; that is the
 # framework's interface, not the mutable-default bug B008 is written for.
 "api/*.py" = ["B008"]
+# U+2212 MINUS SIGN is the correct glyph for a negative currency figure, and
+# "−₹39,486" is the only rendering of a loss a finance reader should be shown.
+# RUF001 exists to catch a hyphen typo'd as a dash; here the dash is the intent,
+# so it is ignored where money is formatted and asserted, and nowhere else.
+"whychain/narrate/brief.py" = ["RUF001"]
+"tests/test_narrate.py" = ["RUF001"]

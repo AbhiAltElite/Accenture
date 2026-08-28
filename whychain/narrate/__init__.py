@@ -1,0 +1,136 @@
+"""The narrative, and the gate it has to pass.
+
+    result -> brief -> writer -> validator -> Narrative
+
+`narrate` is the only entry point the API uses. It always returns a narrative:
+if the model is unavailable, the template writes it; if the model writes and
+the validator rejects everything, the template writes it and the fallback is
+reported rather than hidden. What varies is who wrote it and what it cost, and
+both are on the receipt.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from whychain.narrate.brief import Brief, Fact, build_brief, format_value
+from whychain.narrate.validate import (
+    Failure,
+    Rejection,
+    Sentence,
+    ValidationResult,
+    validate,
+)
+from whychain.narrate.writer import (
+    ModelWriter,
+    TemplateWriter,
+    Writer,
+    Written,
+    default_writer,
+)
+
+
+@dataclass(frozen=True)
+class Narrative:
+    """Validated prose, with the audit of how it got there attached."""
+
+    text: str
+    sentences: tuple[Sentence, ...]
+    validation: ValidationResult
+    writer: str
+    model_calls: int
+    tokens_in: int
+    tokens_out: int
+    note: str
+    fell_back: bool = False
+
+    def as_dict(self) -> dict:
+        return {
+            "text": self.text,
+            "sentences": [s.as_dict() for s in self.sentences],
+            "validation": self.validation.as_dict(),
+            "writer": self.writer,
+            "model_calls": self.model_calls,
+            "tokens_in": self.tokens_in,
+            "tokens_out": self.tokens_out,
+            "note": self.note,
+            "fell_back": self.fell_back,
+        }
+
+
+def narrate(
+    result: dict,
+    *,
+    writer: Writer | None = None,
+    known_entities: frozenset[str] = frozenset(),
+) -> Narrative:
+    """Write the summary for one diagnosis, and prove every sentence.
+
+    A model failure is not an error condition for the caller. If the call
+    raises, the template runs and `fell_back` records it; the diagnosis is
+    already complete at this point and the narrative is the last thing added
+    to it, so there is nothing to abandon.
+    """
+    brief = build_brief(result)
+    writer = writer or default_writer()
+
+    try:
+        written = writer.write(brief)
+        failure_note = ""
+    except Exception as exc:
+        written = TemplateWriter().write(brief)
+        failure_note = f"model writer failed ({type(exc).__name__}), template used"
+
+    validation = validate(list(written.sentences), brief, known_entities=known_entities)
+    fell_back = bool(failure_note)
+
+    # Everything the writer produced was rejected. Falling back is the honest
+    # move; emitting an empty narrative would read as "nothing to say".
+    if not validation.accepted and written.sentences:
+        fallback = TemplateWriter().write(brief)
+        validation = validate(list(fallback.sentences), brief, known_entities=known_entities)
+        failure_note = (
+            f"every sentence from the {written.writer} writer failed validation; "
+            "the deterministic template was used instead"
+        )
+        written = Written(
+            sentences=fallback.sentences,
+            model_calls=written.model_calls,
+            tokens_in=written.tokens_in,
+            tokens_out=written.tokens_out,
+            writer=f"{written.writer} -> template",
+            note=fallback.note,
+        )
+        fell_back = True
+
+    return Narrative(
+        text=" ".join(s.text for s in validation.accepted),
+        sentences=validation.accepted,
+        validation=validation,
+        writer=written.writer,
+        model_calls=written.model_calls,
+        tokens_in=written.tokens_in,
+        tokens_out=written.tokens_out,
+        note=" · ".join(n for n in (written.note, failure_note) if n),
+        fell_back=fell_back,
+    )
+
+
+__all__ = [
+    "Brief",
+    "Fact",
+    "Failure",
+    "ModelWriter",
+    "Narrative",
+    "Rejection",
+    "Sentence",
+    "TemplateWriter",
+    "ValidationResult",
+    "Writer",
+    "Written",
+    "build_brief",
+    "default_writer",
+    "format_value",
+    "narrate",
+    "validate",
+]

@@ -4,109 +4,92 @@
 
 ---
 
-## Status as of 2026-08-28
+## Status as of 2026-08-28 (later session)
 
-**Phase:** measured, and then corrected. The first benchmark numbers exposed a
-set of correctness bugs that a green test suite had not; those are fixed and the
-list below says what is genuinely built versus what the specs still only
-describe.
+**Phase:** feature-complete against the Round 2 brief. Every stage named in the
+`CONTEXT.md` architecture diagram now exists in code and runs; the previous
+version of this file listed three empty packages, and they are written.
 
-**Read this before trusting an earlier version of this file.** It previously
-said the system "runs end to end". It does not: `whychain/signalgap/`,
-`whychain/rank/` and `whychain/narrate/` are empty files, so Answer 2, the
-two-track ranking and the model-written narrative do not exist in code. The
-pipeline from detect through decompose, verify, corroborate, confidence and now
-actions does run, and the console shows it.
+### Done this session
+- **`whychain/signalgap/`, Answer 2 exists.** `read_signals`, `find_precedents`,
+  `assess`, `find_gap`. All four verdicts are reachable *from the generated
+  warehouse*, not just from hand-built fixtures: `gap_found` (demo-05, 86h of
+  lead time, 3 prior episodes), `not_foreseeable` (demo-06, a 40-minute carrier
+  warning), `no_gap` (an internal release regression), `coverage_unknown` (a KPI
+  with no registered process document)
+- **The gap is scoped to the verified cause, not to the window.** Weather
+  warnings are in the feed most weeks of the monsoon, so an engine that checks
+  the window alone reports a signal gap on a release bug, real warning, real
+  lead time, no relationship whatever. That was the first thing the new stage
+  did, and `TestScopedToTheCause` exists so it cannot come back
+- **`whychain/rank/`, two tracks that never merge.** Track A exact from the
+  identity; track B a standardised ridge over the driver series, every row
+  `HYPOTHESIS` and `CORRELATIONAL`, rejected candidates barred from re-entering
+- **`whychain/narrate/`, brief, writer, validator.** `ModelWriter` (constrained
+  `claude-opus-5` call, JSON schema, adaptive thinking) and `TemplateWriter`
+  implement one protocol and pass through one validator. Four checks: binding,
+  numerals, entities, rejected-as-cause. A failed call or a wholly-rejected
+  narrative falls back to the template and *says so*
+- **`whychain/feedback/`, the loop the brief asks for, bounded.** Corrections
+  never edit a run and never move a computed value. They propose changes to
+  business-owned inputs, need two independent submitters, and go contested
+  rather than averaged when readers disagree. Named misses become labelled
+  regression cases
+- **Benchmark scale fixed. Top-1 2.9% → 46.4%**, and of the 64 cases that clear
+  materiality the true cause is ranked first in **100%**. False alarms 0.0%,
+  trap rejection 94.3%, ECE 0.054, p95 0.117s
+- **Complete UI overhaul.** Masthead with live run context, a rail, a document
+  column and a margin for run metadata; numbered report sections; the overview
+  as a watchlist table rather than tiles; Answer 2 rendered as all four verdicts
+  with the reached one marked. No status dots, no accent-striped cards
+- 222 tests (91 invariant), `ruff` clean, `make audit` 30/30
 
-### Done
-- **`whychain/evidence/` — the spine, and it is now frozen.** `Evidence`,
-  `Provenance`, `Freshness`, `EvidenceStore`. Records are immutable, the store is
-  append-only, references must resolve at insert time, and unit/method agreement
-  is enforced at construction so a bridge cannot report order counts
-- **`whychain/corroborate/` — retrieval.** `Retriever` protocol,
-  `NumpyRetriever` (default), `PgVectorRetriever`, offline `TfidfSvdEmbedder`.
-  Search is windowed to the anomaly period and returns sentence-level spans, so a
-  citation points at the words rather than the file
-- **`whychain/contracts/` + `contracts/*.yml` — the governance layer.** All five
-  KPIs of the graph, loading and cross-validating. The registry rejects one-sided
-  parent/child edges, cycles, unknown references, duplicate `kpi_id`, drivers whose
-  source has no freshness SLA, and controllable levers with no owner
-- **`data/docs/sop/sop_demand_planning_v2.md`** — the process document Answer 2
-  reads. `net_revenue`'s `signals_consumed` spans were computed from the file, and
-  a test asserts each span actually contains the signal it names
-- **`datagen/calendar.py`** — real Indian festival dates via the `holidays`
-  package, with a build-up and hangover curve. Diwali peaks at +85% then falls
-  18% overnight, which is the seasonal decoy
-- **`datagen/catalog.py`** — 11 cities with real coordinates (weather is pulled
-  against them), 12 SKUs, one launched late for the sparse-history case
-- **`datagen/scenarios.py`** — `PlantedEvent`, `Slice`, `AvailableSignal`,
-  `Scenario`. Decoys carry zero effect but are emitted identically to causes
-- **`datagen/demo_cases.py`** — six scenarios covering all four expected verdicts
-- **`datagen/` complete** plus `whychain/ingest/`, `whychain/detect/`,
-  `whychain/decompose/`, `api/`, `ui/`. The system runs end to end
-- **The bridge reconciles exactly.** Volume, mix and price sum to the movement
-  with zero residual, checked by a property test over a hundred random period
-  pairs and asserted before anything is reported
-- **`make audit`** runs 30 executable security, logic and design checks
-- **`whychain/verify/` — the planted correlation trap is rejected.** Four tests;
-  the one that catches the trap is exposure consistency, since
-  difference-in-differences passes it unaided. That is worth understanding before
-  changing anything here
-- 106 tests passing, 25 marked `invariant`
-- Repo structure created, one package per pipeline stage
-- Python 3.14.6 venv verified; full scientific stack installs cleanly (numpy 2.5.2, pandas 3.0.5, scipy 1.18.1, statsmodels 0.15.0, scikit-learn 1.9.0, duckdb 1.5.5, fastapi 0.141.1)
-- `MSTL`, `IsotonicRegression`, `Ridge` confirmed importable — no wheel gaps on 3.14
-- Makefile, requirements, pyproject, .gitignore, .env.example
-- Specs written: prototype, product outline, design checklist, security/logic checklist, concepts
+### Fixed along the way, all found by running the thing
+- The persona projection dropped `decisions`, `signal_gap` and `narrative`, so
+  the CFO; the reader who most needs Answer 2, saw neither it nor the decision
+- `FeedbackStore.record` wrote to disk before warming its cache, counting every
+  entry twice and inflating the number the quorum rule depends on
+- Track A was sorted so that slices moving *against* the total headed a list of
+  reasons the metric fell
+- With a region selected, `region = West` topped Track A at a 100% share, which
+  is true, useless, and displaced a real contributor
+- The narrative validator rejected its own correct output: ISO dates parsed as
+  numerals, and `4.05` quoted from inside a cited claim read as fabricated
 
-### Next — in dependency order
-1. **`whychain/signalgap/`** — still an empty file, and Answer 2 is the
-   differentiator. `ext_signals` now exists to read: `signals_available ∖
-   signals_consumed`, gated on public availability, lead time and slice
-   coverage. All four verdicts must be reachable in the demo: `gap_found`,
-   `no_gap`, `not_foreseeable`, `coverage_unknown`
-2. **Benchmark scale.** 152 of 160 cases produce no material movement, so top-1
-   is 2.9%. The planted effects in `datagen/bulk.py` are too small relative to
-   `min_abs_delta_inr` at region level. Fix the scale, not the threshold —
-   lowering the floor to pass is T-14
-3. **`whychain/narrate/`** — constrained call over the evidence table, with the
-   binding and numeral validator. Until it exists the receipt honestly reports
-   zero model calls
-4. **Personas** — CFO and regional manager as projections over a byte-identical
-   evidence set
-5. **A real weather feed.** `ext_signals` carries the right schema and says
-   `source: generated` on every row. One cached IMD or Open-Meteo snapshot drops
-   into it unchanged, and only then may the docs claim a real external feed
-
-### Open question for the team
-`data/docs/sop/sop_demand_planning_v2.md` is a representative process document
-written for the repo, not a third-party one — we cannot redistribute someone
-else's SOP in a public repository. The Answer 2 claim that the standard S&OP
-cycle consumes no external risk signal should therefore be **cited** to public
-sources in the README rather than rested on this file alone. Worth 20 minutes
-before the submission.
-
-### If you are picking this up cold
-Read `CONTEXT.md`, then `whychain/evidence/types.py`. That file is the contract
-between all three workstreams — every stage returns these objects and the UI
-renders them. Understand it before writing a stage.
+### Next
+1. **A real weather snapshot.** `ext_signals` still says `source: generated` on
+   every row. One cached IMD or Open-Meteo file drops into the schema unchanged,
+   and only then may any document claim a live external feed
+2. **Make the corroboration extractor model-backed**, so an API-keyed run
+   genuinely reports two model calls. The protocol is already in place; only the
+   extractor changes, and T-01 then becomes assertable as `== 2`
+3. **The residual benchmark gap is a detector question, not a data question.**
+   96 of 160 cases produce no material movement because a ~10% regional move sits
+   at z ≈ 2.2 against 4.5% daily noise, under the z ≥ 3 gate. Pooling the event
+   window rather than testing single days would recover most of them, a real
+   improvement, and a change to `detect/`, not to a threshold (BUGS.md T-14)
+4. **Apply-a-proposal is not wired.** Feedback reaches quorum and the console
+   says so, but a human applying a proposal to a contract is still manual
 
 ### Blocked / undecided
 - Nothing blocked.
-- Retrieval backend question is settled — see D-002. `TfidfSvdEmbedder` is the
-  offline default; swapping in a hosted embedder means implementing the `Embedder`
-  protocol and nothing else.
+- The SOP redistribution question is settled: `README.md` now cites public
+  sources for the claim that a standard S&OP cycle consumes no external risk
+  signal, and the repo's own document is labelled as representative.
 
-### Environment notes
-- **No Postgres, no Docker required.** DuckDB is embedded; the whole system runs from a clone (see `DECISIONS.md` D-002)
-- `.env` is required for LLM stages only. Stages 0–6 and the entire benchmark run without an API key
+### Anything the next person will trip on
+- **Restart the server after pulling.** A stale `uvicorn` from before the
+  persona work cost an hour of debugging a UI that was fine; check
+  `/openapi.json` carries the `persona` parameter before believing a bug.
+- `make gen` must be re-run: `ext_signals` did not exist in warehouses built
+  before this session, and `find_gap` needs it.
 
 ---
 
-## Template — copy this block when you stop work
+## Template, copy this block when you stop work
 
 ```markdown
-## Status as of YYYY-MM-DD — <name>
+## Status as of YYYY-MM-DD, <name>
 
 ### Done this session
 

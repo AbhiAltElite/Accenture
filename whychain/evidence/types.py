@@ -55,7 +55,7 @@ class ClaimState(StrEnum):
 class Unit(StrEnum):
     INR = "INR"
     PCT = "pct"
-    PCT_POINT = "pct_point"  # distinct from PCT — see BUGS.md T-02
+    PCT_POINT = "pct_point"  # distinct from PCT, see BUGS.md T-02
     COUNT = "count"
     HOURS = "hours"
     RATIO = "ratio"
@@ -107,7 +107,7 @@ class Freshness(BaseModel):
     """When a source was last updated, and whether that breaches its SLA.
 
     Both timestamps must be timezone-aware. Staleness drives confidence and can
-    trigger abstention, so a naive/aware mix here is not a style problem — it
+    trigger abstention, so a naive/aware mix here is not a style problem, it
     raises at runtime in the middle of a diagnosis. See BUGS.md T-15.
     """
 

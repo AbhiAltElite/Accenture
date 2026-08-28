@@ -3,7 +3,7 @@
 Festival dates are not a mystery to be recovered from the data. They are on a
 calendar, and a deployment configures the calendar its business trades against.
 Estimating a 365-day seasonal pattern from three years of history instead means
-each day-of-year is fitted from three observations — so a single bad August gets
+each day-of-year is fitted from three observations, so a single bad August gets
 absorbed into "what August looks like", and the event disappears into the
 seasonality it caused.
 

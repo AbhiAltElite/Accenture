@@ -36,7 +36,7 @@ class TestRealContracts:
         assert registry.descendants("net_revenue") == ["orders", "aov", "checkout_conversion"]
 
     def test_conversion_runs_at_a_finer_grain_than_its_parent(self, registry):
-        """The grain mismatch is deliberate — it is what the reconciler must handle."""
+        """The grain mismatch is deliberate; it is what the reconciler must handle."""
         assert registry.get("checkout_conversion").grain.time == "hour"
         assert registry.get("orders").grain.time == "day"
 
@@ -139,7 +139,7 @@ class TestSignalConsumption:
             passage = sop[start:end].lower()
             words = extracted.signal.split("_")
             assert all(w in passage for w in words), (
-                f"{extracted.signal}: span does not mention it — {passage[:70]!r}"
+                f"{extracted.signal}: span does not mention it, {passage[:70]!r}"
             )
 
     def test_coverage_requires_a_source_document(self):
@@ -149,10 +149,37 @@ class TestSignalConsumption:
             SignalsConsumed(coverage=Coverage.COMPLETE)
 
     def test_unknown_coverage_is_a_valid_honest_state(self, registry):
-        """No SOP registered means Answer 2 declines, not that it infers a gap."""
-        otd = registry.get("on_time_delivery")
-        assert otd.signals_consumed.coverage is Coverage.UNKNOWN
-        assert otd.signals_consumed.signal_ids == frozenset()
+        """No SOP registered means Answer 2 declines, not that it infers a gap.
+
+        Asserted over the registry rather than against a named KPI. The property
+        that matters is that the state exists, is reachable, and carries no
+        extracted signals, not which contract happens to be in it this week.
+        Pinning it to `on_time_delivery` made registering that KPI's SOP look
+        like a regression when it was the point.
+        """
+        unknown = [
+            c for c in registry
+            if c.signals_consumed.coverage is Coverage.UNKNOWN
+        ]
+        assert unknown, (
+            "no contract has unknown signal coverage, so the branch of Answer 2 "
+            "that declines for lack of a process document is now unreachable "
+            "from the demo data"
+        )
+        for contract in unknown:
+            assert contract.signals_consumed.signal_ids == frozenset()
+            assert contract.signals_consumed.derived_from is None
+
+    def test_a_registered_sop_makes_answer_two_decidable(self, registry):
+        """The other half: a contract with a document can reach a gap verdict."""
+        registered = [
+            c for c in registry
+            if c.signals_consumed.coverage is not Coverage.UNKNOWN
+        ]
+        assert registered, "no contract carries a process document"
+        for contract in registered:
+            assert contract.signals_consumed.derived_from
+            assert contract.signals_consumed.signal_ids
 
     def test_standard_cycle_consumes_no_external_risk_signal(self, registry):
         """The Answer 2 finding, asserted against the document itself.

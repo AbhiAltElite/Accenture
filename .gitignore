@@ -34,3 +34,8 @@ ui/dist/
 .DS_Store
 .idea/
 .vscode/
+
+# Runtime feedback records. Real corrections belong to a deployment, not to
+# the repository, and a checked-in file would seed every clone with one
+# team’s opinions.
+data/feedback/

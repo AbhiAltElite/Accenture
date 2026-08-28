@@ -1,34 +1,99 @@
 # Bugs & traps
 
-Two sections. **Traps** are failure modes identified in advance — read before writing the relevant stage, so they are never made. **Defects** are bugs actually found, with root cause, so they are not remade.
+Two sections. **Traps** are failure modes identified in advance, read before writing the relevant stage, so they are never made. **Defects** are bugs actually found, with root cause, so they are not remade.
 
 ---
 
-## Traps — known in advance, do not walk into these
+## Traps, known in advance, do not walk into these
 
 | # | Trap | Where | Correct behaviour |
 |---|---|---|---|
-| T-01 | Asserting `model_calls <= 2` | telemetry test | Assert `== 2`. `<=` passes silently when a call fails — defeating the check we invite judges to make |
+| T-01 | Asserting `model_calls <= 2` | telemetry test | Assert `== 2`. `<=` passes silently when a call fails, defeating the check we invite judges to make |
 | T-02 | Percentage vs percentage point | narrate, validate | 10% → 15% is **+5 percentage points**, not "+5%" and not "+50%". Validator must treat these as different claims |
 | T-03 | Method and unit disagreeing | evidence | A price/volume/mix bridge produces **currency**, never order counts. Assert unit compatibility per method |
 | T-04 | Engine reading ground truth | datagen, bench | No import path from `whychain/` to `data/ground_truth/`. Enforced by `test_no_label_leakage` |
-| T-05 | `CANNOT_VERIFY` collapsed into `REJECTED` | verify | Distinct states — see D-006. Corrupts abstention metrics if merged |
+| T-05 | `CANNOT_VERIFY` collapsed into `REJECTED` | verify | Distinct states, see D-006. Corrupts abstention metrics if merged |
 | T-06 | Cache key omitting entitlement | any caching | Key must include entitlement context, contract version and data snapshot. A cross-permission cache hit is a P0 |
 | T-07 | Contributions that align but don't reconcile | decompose, UI | Dimensional contributions must sum to the same total as the bridge. Alignment is cosmetic; reconciliation is the claim |
 | T-08 | Retrieved text treated as instruction | corroborate | Support tickets are untrusted third-party input. A ticket saying "ignore previous instructions" must change nothing |
-| T-09 | Freshness rendered as a percentage | UI, confidence | Freshness is a timestamp, a lag and an SLA verdict — not `97%` |
+| T-09 | Freshness rendered as a percentage | UI, confidence | Freshness is a timestamp, a lag and an SLA verdict, not `97%` |
 | T-10 | Prompt instructions used as access control | narrate | Entitlement filtering happens at projection, before assembly. Never "please don't mention region X" |
 | T-11 | Placebo failure overridden by other passes | verify | A failed placebo is fatal regardless of what else passed |
 | T-12 | Rejected candidate silently re-promoted | rank, narrate | Once rejected, a candidate cannot reappear as a verified cause later in the same run |
 | T-13 | Tuning on the held-out set | bench | Calibration is fitted on a held-out split and never re-fitted after seeing test results |
 | T-14 | Fixing a failure by weakening its test | everywhere | If a test fails, fix the code or record the limitation. Never relax the assertion |
 | T-15 | Naive datetimes in freshness arithmetic | ingest, evidence | All timestamps are timezone-aware UTC. `Freshness` rejects naive input, and ruff `DTZ` enforces it at the source. Sources sit in different zones; a naive/aware mix raises mid-diagnosis |
-| T-16 | Writing a version, path or command from memory | everywhere | Read it from the environment. Pins come from `pip freeze`, not recollection — see B-001 |
+| T-16 | Writing a version, path or command from memory | everywhere | Read it from the environment. Pins come from `pip freeze`, not recollection, see B-001 |
 | T-17 | A verification command that passes on empty output | scripts, CI | `cmd \| tail && echo OK` reports success when `cmd` never ran. Check the exit status of the command itself, and confirm the check can actually fail |
 
 ---
 
 ## Defects
+
+### B-011 · Signal gap assessed against the window rather than the cause
+**Found:** 2026-08-28 · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** a diagnosis whose only verified cause was an internal release
+regression reported `gap_found`, citing nine public severe-weather warnings with
+up to 67 hours of lead time.
+
+**Root cause:** `find_gap` read every signal overlapping the anomaly window and
+never asked whether the cause was the kind of thing an external body warns
+about. Weather warnings are in the feed most weeks of the monsoon, so the
+coincidence is near-certain rather than rare.
+
+**Why it matters more than an ordinary false positive:** the output is
+*well-evidenced*. Every fact in it is true; the warning was published, it was
+public, the lead time was real, and the conclusion drawn from them is false.
+That is harder to catch by reading the output than an obviously wrong number.
+
+**Fix:** `find_gap` takes the verified causes. Causes that match an internal
+marker consult no external feed at all; otherwise the relevant signal type is
+selected from the cause's own description using the vocabulary `whychain.actions`
+already uses to route drivers, so the two stages cannot disagree about what kind
+of thing a cause is.
+
+**Regression test:** `tests/test_signalgap.py::TestScopedToTheCause`.
+
+### B-012 · Feedback counted every entry twice
+**Found:** 2026-08-28 · **Severity:** P2 · **Status:** fixed
+
+**Symptom:** three submissions from two people reported a total of four, and a
+proposal reached quorum on one person's opinion.
+
+**Root cause:** `FeedbackStore.record` appended to the file first, then called
+`_all()`, which lazily read the file, including the line just written, and
+then appended the in-memory object on top of it.
+
+**Fix:** warm the cache before writing.
+
+**Lesson:** a lazy cache and a side-effecting write in the same method need an
+explicit order, and the order is not obvious from either line on its own. Worth
+noticing that the inflated number was the one the quorum rule reads.
+
+**Regression test:** `tests/test_rank_feedback.py::TestFeedbackIsBounded::test_recording_is_append_only_and_counts_once`.
+
+### B-013 · Persona projection dropped the finding it was projecting
+**Found:** 2026-08-28 · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** the CFO and ops views rendered no decision card and no Answer 2.
+
+**Root cause:** `project` builds a fresh dict per persona rather than filtering
+the analyst result, so any key not explicitly carried is silently absent.
+`decisions`, `signal_gap` and `narrative` were never added when those stages
+landed.
+
+**Fix:** carry all three to every reader. Answer 2 is not method detail; it is
+the finding a decision-maker is being asked to act on, and withholding it from
+them while showing it to the analyst inverts who the product is for.
+
+**Lesson:** a projection that whitelists keys fails *silently* when the source
+grows. The `withheld` list on each persona should be the only thing that removes
+information, and it should be tested against the analyst result's key set.
+
+**Regression test:** covered by the API contract tests; the deeper fix, an
+assertion that every analyst key is either projected or explicitly withheld, is
+recorded in `HANDOFF.md` as work not yet done.
 
 ### B-001 · Dependency pins invented rather than read from the environment
 **Found:** 2026-08-28 · **Severity:** P2 · **Status:** fixed
@@ -45,7 +110,7 @@ into a throwaway venv and running the suite there.
 **Regression test:** the CI matrix installs from `requirements.txt` on a clean
 runner, so a bad pin now fails the build.
 
-**Lesson — promoted to a trap below (T-16).**
+**Lesson, promoted to a trap below (T-16).**
 
 ### B-002 · Rupee materiality floor applied to counts and ratios
 **Found:** 2026-08-28 · **Severity:** P1 · **Status:** fixed
@@ -68,7 +133,7 @@ factor and that revenue's is exactly 1.0.
 
 **Symptom:** `checkout_conversion` and `on_time_delivery` failed at query time.
 Nothing caught it, because contracts validate their own shape and the registry
-validates the graph — neither executes the SQL.
+validates the graph, neither executes the SQL.
 
 **Fix:** generator emits `sessions` and `shipments`. `on_time_delivery` also
 declared `tz_normalise`, a transform that rewrites `order_ts`, which shipments
@@ -85,7 +150,7 @@ counts. Build time and file size for no analytical gain.
 **Root cause:** modelled sessions as events out of habit. Web analytics arrives
 pre-aggregated in practice.
 
-**Fix:** emit hourly session counts — 416k rows for the same information.
+**Fix:** emit hourly session counts, 416k rows for the same information.
 
 ### B-005 · A real cause rejected because its scope was not extracted
 **Found:** 2026-08-28 · **Severity:** P2 · **Status:** resolved, differently than expected
@@ -224,5 +289,5 @@ gate is not enforcing it.
 **Root cause:**
 **Fix:**
 **Regression test:**
-**Lesson (if it generalises — promote to a Trap above):**
+**Lesson (if it generalises, promote to a Trap above):**
 ```

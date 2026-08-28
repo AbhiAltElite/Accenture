@@ -24,7 +24,7 @@ grain:
   time: day
   dims: [region, channel, category, device]
   # Currency, but structurally a ratio: revenue over orders. Rolling up means
-  # total revenue over total orders, never the mean of slice AOVs — a category
+  # total revenue over total orders, never the mean of slice AOVs; a category
   # with three orders would otherwise weigh as much as one with thirty thousand.
   aggregation: ratio_of_sums
   numerator: net_revenue

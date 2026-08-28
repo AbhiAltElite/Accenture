@@ -151,7 +151,7 @@ def _festival_response(log_values: np.ndarray, festival: np.ndarray) -> float:
     """Least-squares coefficient of the log series on the log calendar curve.
 
     Returns 0.0 when the calendar is flat over the window, or when the series
-    shows no calendar response at all — in which case nothing is removed.
+    shows no calendar response at all, in which case nothing is removed.
     """
     x = np.log(festival)
     if np.allclose(x, 0.0):

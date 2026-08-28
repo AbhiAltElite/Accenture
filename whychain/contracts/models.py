@@ -22,7 +22,7 @@ from whychain.evidence.types import Unit
 class Coverage(StrEnum):
     """How much of a process's signal consumption we could establish.
 
-    UNKNOWN is not a failure state — it is the honest answer when no process
+    UNKNOWN is not a failure state; it is the honest answer when no process
     document exists, and it stops Answer 2 asserting a gap from absence of
     evidence (see D-005).
     """
@@ -154,7 +154,7 @@ class Materiality(BaseModel):
 
 
 class AccessPolicy(BaseModel):
-    """Entitlement, enforced at projection — never by asking a model nicely.
+    """Entitlement, enforced at projection, never by asking a model nicely.
 
     `row_filter` is a SQL fragment with named bindings resolved from the
     requester's entitlements. `domain_restriction` names classes of data that
@@ -182,7 +182,7 @@ class ExtractedSignal(BaseModel):
 class SignalsConsumed(BaseModel):
     """Which signals this KPI's planning process actually ingests.
 
-    Derived at contract registration by reading a real SOP, never hand-written —
+    Derived at contract registration by reading a real SOP, never hand-written,
     otherwise Answer 2 reduces to declaring the gap we then discover (D-005).
     Every entry keeps a span back into the source document so the finding can be
     shown rather than asserted.
@@ -216,7 +216,7 @@ class Calculation(BaseModel):
     @model_validator(mode="after")
     def _runnable_locally(self) -> Calculation:
         # The engine executes DuckDB. Other dialects are declared for portability
-        # but are not compiled — see D-002 and the README's roadmap note.
+        # but are not compiled, see D-002 and the README's roadmap note.
         if "duckdb" not in self.dialect_targets:
             raise ValueError("dialect_targets must include 'duckdb', the execution engine")
         return self

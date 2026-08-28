@@ -63,7 +63,7 @@ class Warehouse:
     def __init__(self, path: Path | str = DEFAULT_WAREHOUSE) -> None:
         self.path = Path(path)
         if not self.path.exists():
-            raise IngestError(f"no warehouse at {self.path} — run `make gen` first")
+            raise IngestError(f"no warehouse at {self.path}, run `make gen` first")
         # Read-only: the engine analyses, it never writes to the source of truth.
         self._con = duckdb.connect(str(self.path), read_only=True)
 

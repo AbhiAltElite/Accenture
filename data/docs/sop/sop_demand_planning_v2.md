@@ -1,4 +1,4 @@
-# Regional Demand Planning — Standard Operating Procedure
+# Regional Demand Planning, Standard Operating Procedure
 
 Version 2.1 · Owner: Supply Planning · Review cycle: annual
 

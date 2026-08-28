@@ -24,8 +24,12 @@ from whychain.decompose import compute_bridge, contribution_by
 from whychain.decompose.bridge import BridgeError
 from whychain.detect import decompose, find_anomalies, material
 from whychain.evidence import MethodClass
+from whychain.feedback import FeedbackStore, Judgement, new_feedback
 from whychain.ingest import DEFAULT_WAREHOUSE, IngestError, Warehouse
+from whychain.narrate import narrate
 from whychain.personas import Persona, project
+from whychain.rank import rank
+from whychain.signalgap import find_gap
 from whychain.telemetry import Telemetry
 from whychain.verify import filter_relevant, from_operations, from_promotions, verify
 from whychain.verify.tests import PLACEBO_WINDOWS
@@ -39,6 +43,7 @@ UI = Path("ui")
 _registry: ContractRegistry | None = None
 _retriever: object | None = None
 _retriever_rows: int = 0
+_feedback = FeedbackStore()
 
 
 def ticket_retriever(documents: pd.DataFrame):
@@ -631,6 +636,50 @@ def candidates(
     }
 
 
+
+def _driver_series(
+    panel: pd.DataFrame,
+    plan: pd.DataFrame,
+    region: str | None,
+    event_start: date,
+    baseline_days: int,
+) -> pd.DataFrame:
+    """Daily series for each driver the contract names, on the metric's index.
+
+    `plan_ops` lands weekly, so it is forward-filled onto days: a planner's
+    stock and spend figures hold until the next planning cycle replaces them,
+    which is what the source actually means. Interpolating between them would
+    invent a mid-week decision nobody took.
+    """
+    days = panel.assign(d=pd.to_datetime(panel["d"]).dt.date)
+    price = days.groupby("d").apply(
+        lambda g: (g["revenue"].sum() / g["units"].sum()) if g["units"].sum() else float("nan"),
+        include_groups=False,
+    )
+    frame = pd.DataFrame({"realised_price": price})
+
+    if plan is not None and not plan.empty:
+        p = plan.copy()
+        if region:
+            p = p[p["region"] == region]
+        if not p.empty:
+            p["week"] = pd.to_datetime(p["week"])
+            weekly = p.groupby("week")[
+                ["marketing_spend", "planned_stock", "competitor_price_index"]
+            ].sum(numeric_only=True)
+            weekly["competitor_price_index"] = p.groupby("week")[
+                "competitor_price_index"
+            ].mean()
+            index = pd.to_datetime(pd.Series(sorted(frame.index)))
+            daily = weekly.reindex(
+                weekly.index.union(index)
+            ).sort_index().ffill().reindex(index)
+            daily.index = [d.date() for d in index]
+            frame = frame.join(daily)
+
+    return frame.dropna(axis=1, how="all")
+
+
 @app.get("/api/diagnose")
 def diagnose(
     kpi: str = Query("net_revenue"),
@@ -671,6 +720,7 @@ def diagnose(
             )
             documents = wh.table("voice_ops")
             plan = wh.table("plan_ops")
+            ext = wh.table("ext_signals")
             sources = wh.freshness(contract)
     except IngestError as exc:
         raise HTTPException(503, str(exc)) from exc
@@ -703,6 +753,37 @@ def diagnose(
         + from_promotions(plan, event_start, event_end),
         event_start, event_end, region,
     )
+
+    with tel.stage("rank", MethodClass.STATISTICAL) as t:
+        # The scoping dimension is excluded. With a region selected, the
+        # "region = West" slice *is* the total, so it tops the ranking at a
+        # 100% share and says nothing; a row that is true, useless, and
+        # displaces a real contributor out of the list.
+        contributions = [
+            contribution_by(base, current, dim)
+            for dim in contract.grain.dims
+            if dim in base.columns and not (region and dim == "region")
+        ]
+        # Track B needs a daily series per driver. They are built here rather
+        # than inside the ranker because the shape of a driver series is a
+        # property of this warehouse, not of the method: `plan_ops` is weekly
+        # and regional, the price and volume series come off the panel, and a
+        # ranker that knew that could not be pointed at a different warehouse.
+        drivers = _driver_series(scoped, plan, region, event_start, baseline_days)
+        metric = (
+            scoped.assign(d=pd.to_datetime(scoped["d"]).dt.date)
+            .groupby("d")["revenue"].sum()
+        )
+        ranking = rank(
+            contributions, metric, drivers,
+            rejected=frozenset(c.candidate_id for c, _ in set_aside),
+            top_n=8,
+        )
+        t.note = (
+            f"track A: {len(ranking.exact)} exact contribution(s); "
+            f"track B: {len(ranking.associational)} associational, none stateable"
+        )
+
     with tel.stage("verify", MethodClass.CAUSAL) as t:
         verifications = [verify(c, panel, all_regions) for c in found]
         t.note = f"{len(found)} candidates tested"
@@ -744,6 +825,18 @@ def diagnose(
         )
         t.note = f"{len(cards)} decision card(s), every field derived"
 
+    with tel.stage("signalgap", MethodClass.DETERMINISTIC) as t:
+        verified_descriptions = [
+            v.candidate.description for v in verifications
+            if v.state.value == "verified" and v.candidate.description
+        ]
+        gap = find_gap(
+            contract, ext,
+            event_start=event_start, event_end=event_end,
+            region=region, causes=verified_descriptions,
+        )
+        t.note = f"verdict {gap.verdict.value}, {gap.recurrence} prior episode(s)"
+
     stale = tuple(f"{f.source_id} is stale by {f.lag}" for f in sources.values()
                   if not f.sla_met)
     result = {
@@ -773,6 +866,8 @@ def diagnose(
             ],
             "reasons": list(confidence.reasons),
         },
+        "ranking": ranking.as_dict(),
+        "signal_gap": gap.as_dict(),
         "set_aside": [
             {"candidate_id": c.candidate_id, "reason": why} for c, why in set_aside
         ],
@@ -819,6 +914,24 @@ def diagnose(
     else:
         result["verdict"] = "explained"
 
+    # The narrative is written from the finished result and nothing else, so it
+    # can only describe what the pipeline concluded. It runs after abstention is
+    # decided, because "we could not tell" is one of the things it has to say.
+    with tel.stage("narrate", MethodClass.LLM) as t:
+        known = set(all_regions) | {
+            c.kpi_id for c in registry()
+        } | {d.id for d in contract.drivers} | {
+            d.owner_role for d in contract.drivers if d.owner_role
+        } | {contract.owner_role, contract.kpi_id}
+        story = narrate(result, known_entities=frozenset(k for k in known if k))
+        t.model_calls = story.model_calls
+        t.tokens_in, t.tokens_out = story.tokens_in, story.tokens_out
+        t.note = (
+            f"{story.writer}; {len(story.sentences)} sentence(s) accepted, "
+            f"{len(story.validation.rejected)} rejected by the validator"
+        )
+    result["narrative"] = story.as_dict()
+
     # Last, so the receipt covers every stage that actually ran.
     result["telemetry"] = tel.receipt()
 
@@ -837,6 +950,62 @@ def diagnose(
         projected = project(result, who, entitled_regions=scope)
         t.note = f"persona {who.value}"
     return projected
+
+
+@app.post("/api/feedback")
+def submit_feedback(payload: dict) -> dict:
+    """Record one reader's judgement on one run.
+
+    Recording is unconditional; *learning* from it is not. The response says
+    which of the two happened, so a reader who submits a comment is not left
+    believing they changed the engine.
+    """
+    required = ("run_id", "kpi_id", "judgement", "submitted_by")
+    missing = [k for k in required if not payload.get(k)]
+    if missing:
+        raise HTTPException(422, f"missing required field(s): {', '.join(missing)}")
+    try:
+        entry = new_feedback(
+            run_id=str(payload["run_id"]),
+            kpi_id=str(payload["kpi_id"]),
+            persona=str(payload.get("persona", "analyst")),
+            judgement=str(payload["judgement"]),
+            submitted_by=str(payload["submitted_by"]),
+            candidate_id=payload.get("candidate_id"),
+            correction=payload.get("correction"),
+            note=str(payload.get("note", "")),
+            region=payload.get("region"),
+        )
+    except ValueError:
+        raise HTTPException(
+            422,
+            f"unknown judgement; expected one of {[j.value for j in Judgement]}",
+        ) from None
+
+    _feedback.record(entry)
+    return {
+        "recorded": entry.as_dict(),
+        "learned_from": entry.learnable,
+        "note": (
+            "this judgement can change a business input (candidate ranking, "
+            "driver mapping, retrieval filter or a threshold) once it reaches "
+            "quorum; it can never change a computed value"
+            if entry.learnable
+            else "recorded for audit only; this judgement class is not learned from"
+        ),
+        "summary": _feedback.summary(),
+    }
+
+
+@app.get("/api/feedback")
+def read_feedback(run_id: str | None = None) -> dict:
+    """The loop's own state: what readers said, and what it would change."""
+    if run_id:
+        return {
+            "run_id": run_id,
+            "entries": [f.as_dict() for f in _feedback.for_run(run_id)],
+        }
+    return _feedback.summary()
 
 
 @app.get("/")

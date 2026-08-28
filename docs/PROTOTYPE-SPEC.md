@@ -1,6 +1,6 @@
-# WhyChain — Prototype Design Specification
+# WhyChain, Prototype Design Specification
 
-An engine that takes a moved business metric and returns two things: a **verified cause with every claim bound to its source**, and a **detection gap** — what signal was missing, which process should have consumed it, who owns it.
+An engine that takes a moved business metric and returns two things: a **verified cause with every claim bound to its source**, and a **detection gap**, what signal was missing, which process should have consumed it, who owns it.
 
 ---
 
@@ -8,7 +8,7 @@ An engine that takes a moved business metric and returns two things: a **verifie
 
 Three decisions that everything else follows from. Get these right and the rest is mechanical.
 
-**1. Every computed fact becomes an `Evidence` record.** Not a number in a variable — a typed, addressable object with its method, its provenance, its freshness and its links to other evidence. The evidence set is the engine's entire output. The narrative is a *view* over it.
+**1. Every computed fact becomes an `Evidence` record.** Not a number in a variable, a typed, addressable object with its method, its provenance, its freshness and its links to other evidence. The evidence set is the engine's entire output. The narrative is a *view* over it.
 
 **2. The narrative layer may only reference evidence IDs, and a validator enforces it.** The LLM receives an evidence table and returns sentences tagged with the IDs they rest on. Any sentence that fails to bind, or that contains a number not present in its cited evidence, is rejected before a human sees it.
 
@@ -27,7 +27,7 @@ RunContext
 
 ## 1. Data model
 
-### Sources — deliberately incompatible
+### Sources, deliberately incompatible
 
 | id | contents | grain | cadence | notes |
 |---|---|---|---|---|
@@ -48,9 +48,9 @@ claim was wrong. The schema is the one a cached real snapshot drops into
 unchanged, and D-004's "real external feeds" guard is not satisfied until that
 lands.
 
-`ext_signals` is a **feed**, not a peer source — it is consulted, never joined into the primary fact grain.
+`ext_signals` is a **feed**, not a peer source; it is consulted, never joined into the primary fact grain.
 
-### KPI graph — connected by identity, so movement cascades exactly
+### KPI graph, connected by identity, so movement cascades exactly
 
 ```
 Net Revenue  =  Orders × AOV
@@ -59,14 +59,14 @@ Net Revenue  =  Orders × AOV
 On-Time Delivery %  →  Return Rate  →  Net Revenue
 ```
 
-Five KPIs. Conversion is hourly and digital-only — a different grain *and* cadence from its own parent, which is what forces the reconciliation layer to be real.
+Five KPIs. Conversion is hourly and digital-only, a different grain *and* cadence from its own parent, which is what forces the reconciliation layer to be real.
 
 ### Reconciliation layer
 
-- **Grain harmoniser** — order-line → daily → weekly, with declared aggregation rules per measure (sum, weighted mean, ratio-of-sums)
-- **Calendar mapper** — Gregorian ↔ fiscal ↔ festival calendar
-- **Unit normaliser** — currency scale, UoM
-- **Freshness scorecard** — per source: `as_of`, lag, SLA met. Emits an `Evidence(kind=freshness)` on every run, which the confidence model consumes and the narrative must mention when breached
+- **Grain harmoniser**, order-line → daily → weekly, with declared aggregation rules per measure (sum, weighted mean, ratio-of-sums)
+- **Calendar mapper**, Gregorian ↔ fiscal ↔ festival calendar
+- **Unit normaliser**, currency scale, UoM
+- **Freshness scorecard**, per source: `as_of`, lag, SLA met. Emits an `Evidence(kind=freshness)` on every run, which the confidence model consumes and the narrative must mention when breached
 
 ---
 
@@ -107,7 +107,7 @@ drivers:
     owner_role: supply_planner
   - id: competitor_price_index
     source: plan_ops
-    controllable_lever: null          # not controllable — informs, never actioned
+    controllable_lever: null          # not controllable, informs, never actioned
     owner_role: null
   - id: severe_weather
     source: ext_signals
@@ -125,7 +125,7 @@ access_policy:
   column_masks: [unit_margin, customer_email]
   domain_restriction: [pii]                   # never enters an LLM prompt
 
-signals_consumed:                             # DERIVED at registration — never hand-written
+signals_consumed:                             # DERIVED at registration, never hand-written
   derived_from: docs/sop/sop_demand_planning_v2.pdf
   extracted:
     - {signal: historical_sales,   span: [1204, 1263]}
@@ -136,7 +136,7 @@ signals_consumed:                             # DERIVED at registration — neve
 lineage: {upstream: [pos_txn.orders, pos_txn.order_items], transforms: [dedupe_order_id, tz_normalise]}
 ```
 
-**`signals_consumed` is derived, never typed.** At contract registration a model reads the SOP once, offline, and stores extracted signals plus character spans. Three sourcing tiers, strongest first: a **published third-party S&OP process description** (the industry-standard cycle documents itself as consuming historical sales, inventory, capacity and financial inputs — and conspicuously *no external risk signal*); an SOP written by someone blind to the planted scenarios; your own only as a last resort.
+**`signals_consumed` is derived, never typed.** At contract registration a model reads the SOP once, offline, and stores extracted signals plus character spans. Three sourcing tiers, strongest first: a **published third-party S&OP process description** (the industry-standard cycle documents itself as consuming historical sales, inventory, capacity and financial inputs, and conspicuously *no external risk signal*); an SOP written by someone blind to the planted scenarios; your own only as a last resort.
 
 ---
 
@@ -190,7 +190,7 @@ class Provenance:
 | 2 | Prioritise | materiality = stat significance × ₹ impact × persistence × breadth across KPI graph × recurrence | ranking | DET |
 | 3 | Contextualise | contract, lineage, known releases/promos, open incidents | context | DET |
 | 4 | Decompose | **price/volume/mix bridge** (exact, additive) + dimensional contribution | `decomposition`, `contribution` | DET |
-| 5 | Rank — **two tracks** | **A (exact):** stage-4 output already ranks internal structural drivers as an identity summing to the total. **B (correlational, labelled):** ridge/lasso over standardised external+ops drivers with lag alignment; coefficients read directly | `association` | DET / STAT |
+| 5 | Rank, **two tracks** | **A (exact):** stage-4 output already ranks internal structural drivers as an identity summing to the total. **B (correlational, labelled):** ridge/lasso over standardised external+ops drivers with lag alignment; coefficients read directly | `association` | DET / STAT |
 | 6 | **Verify** | event-time isolation → DiD vs unaffected comparison group → placebo test. Only survivors become claims | `causal_test` | CAUSAL |
 | 7 | Corroborate | pgvector retrieval over tickets/notes/release logs windowed to the anomaly; structured extraction returning spans | `corroboration` | **LLM (call 1)** |
 | 8 | External check | consulted only if internal inconclusive; tests public availability, lead time, spatial specificity | `external_event` | DET |
@@ -200,9 +200,9 @@ class Provenance:
 | 12 | Narrate | one constrained call per persona-set, over the evidence table | narrative JSON | **LLM (call 2)** |
 | 13 | Validate | binding check, numeral check, entity check | accept/reject | DET |
 
-**Exactly two model invocations per diagnosis.** SOP parsing happens once at contract registration, offline — so Answer 2's expensive work is amortised across every future diagnosis of that KPI rather than charged per run.
+**Exactly two model invocations per diagnosis.** SOP parsing happens once at contract registration, offline, so Answer 2's expensive work is amortised across every future diagnosis of that KPI rather than charged per run.
 
-### Stage 4 — the exact bridge
+### Stage 4, the exact bridge
 
 ```
 Δrevenue = Δprice_effect + Δvolume_effect + Δmix_effect      (identity, sums exactly)
@@ -211,20 +211,20 @@ price_effect  = Σ_sku  (p1 - p0) · q0
 volume_effect = Σ_sku  (q1 - q0) · p0
 mix_effect    = Σ_sku  (p1 - p0) · (q1 - q0)
 ```
-Then dimensional contribution: each slice's signed share of the total movement, ranked. Because it is arithmetic, you can state that contributions sum to 100% — a model-based attribution cannot promise that.
+Then dimensional contribution: each slice's signed share of the total movement, ranked. Because it is arithmetic, you can state that contributions sum to 100%; a model-based attribution cannot promise that.
 
-### Stage 6 — verification, and what makes it non-circular
+### Stage 6, verification, and what makes it non-circular
 
 ```
 event_time_isolation:  effect starts strictly after t_event, not before
 difference_in_diff:    (affected_post − affected_pre) − (control_post − control_pre)
 placebo:               same test on a period where the cause was absent → must find nothing
 ```
-A candidate becomes a **claim** only if all three pass. Failures are retained and surfaced — "tested and rejected" is a displayed result, not a discarded one.
+A candidate becomes a **claim** only if all three pass. Failures are retained and surfaced, "tested and rejected" is a displayed result, not a discarded one.
 
-**Negative controls.** The case generator plants events that correlate perfectly with the drop but caused none of it (a promotion launched the same day as a checkout regression). A correlation-ranking approach picks the trap; verification must reject it. This is the standard negative-control device from observational causal inference — Lipsitch, Tchetgen Tchetgen & Cohen, *Epidemiology* (2010) — and that literature lists DiD among the recognised negative-control methods, so the pairing is textbook. Rejection rate is a reported metric.
+**Negative controls.** The case generator plants events that correlate perfectly with the drop but caused none of it (a promotion launched the same day as a checkout regression). A correlation-ranking approach picks the trap; verification must reject it. This is the standard negative-control device from observational causal inference, Lipsitch, Tchetgen Tchetgen & Cohen, *Epidemiology* (2010), and that literature lists DiD among the recognised negative-control methods, so the pairing is textbook. Rejection rate is a reported metric.
 
-### Stage 9 — confidence and abstention
+### Stage 9, confidence and abstention
 
 ```
 raw = w1·coverage            # share of the movement explained by surviving claims
@@ -239,7 +239,7 @@ p = isotonic_calibrate(raw)   # fitted on held-out planted cases
 **Abstain if any holds:**
 - `p < τ_abstain`
 - an unresolved contradiction exists (two claims of opposite sign on the same slice)
-- `coverage < 0.5` — most of the movement is unexplained
+- `coverage < 0.5`, most of the movement is unexplained
 - a required source is stale beyond SLA
 
 **Abstention output is structured, never a shrug:**
@@ -250,9 +250,9 @@ p = isotonic_calibrate(raw)   # fitted on held-out planted cases
  "blocking_data":["plan_ops stale by 96h (SLA 72h)"],
  "clarifying_question":"Was the Nagpur DC outage on 14 Aug in scope for this region?"}
 ```
-The clarifying question is a live input — answering it re-runs the diagnosis with the extra fact injected as evidence.
+The clarifying question is a live input, answering it re-runs the diagnosis with the extra fact injected as evidence.
 
-### Stage 10 — signal gap (the monitoring-plan generator)
+### Stage 10, signal gap (the monitoring-plan generator)
 
 ```
 signals_available: [{signal_id, publisher, public: bool, lead_time_h, spatial_specificity}]
@@ -262,7 +262,7 @@ foreseeable(s) ⇔ s.public
               ∧ s.lead_time_h ≥ actionable_threshold(kpi)
               ∧ s.spatial_specificity covers affected_slice
 ```
-All three must hold, or the engine returns **`not_foreseeable`** rather than manufacturing a gap — hindsight bias is a known failure mode and is guarded explicitly. If `signals_consumed.coverage == unknown` (no SOP available) it returns **`coverage_unknown`**, never an asserted gap.
+All three must hold, or the engine returns **`not_foreseeable`** rather than manufacturing a gap, hindsight bias is a known failure mode and is guarded explicitly. If `signals_consumed.coverage == unknown` (no SOP available) it returns **`coverage_unknown`**, never an asserted gap.
 
 Output is the `monitoring_plan` that stage 11 requires:
 ```json
@@ -298,15 +298,15 @@ The model receives the evidence table and the persona spec, and returns:
 
 Rejections are counted and surfaced in the UI. That counter is the anti-hallucination claim made observable.
 
-### Personas — structurally different, not tonally
+### Personas, structurally different, not tonally
 
 | Persona | Fields rendered | Withheld |
 |---|---|---|
 | CFO | ₹ impact, recovery outlook, one decision, confidence band. 5 sentences | methods, CIs, rejected candidates |
 | Category / Ops manager (regional) | levers they control, action + owner + monitoring plan, scoped to entitled rows | cross-region comparison, masked columns |
-| Analyst (the console) | full evidence DAG, method per claim, CIs, rejected candidates, telemetry | — |
+| Analyst (the console) | full evidence DAG, method per claim, CIs, rejected candidates, telemetry |  |
 
-**Entitlement is enforced at projection, not in the prompt.** When the dominant driver lies outside the requester's scope, the narrative says so explicitly — *"the largest contributor is outside your entitlement scope; escalated to finance_director"* — rather than silently omitting it. An audit record logs exactly which rows and columns entered each prompt.
+**Entitlement is enforced at projection, not in the prompt.** When the dominant driver lies outside the requester's scope, the narrative says so explicitly; *"the largest contributor is outside your entitlement scope; escalated to finance_director"*, rather than silently omitting it. An audit record logs exactly which rows and columns entered each prompt.
 
 ---
 
@@ -318,13 +318,13 @@ The case generator writes ground truth to a directory the engine has no code pat
 |---|---|
 | top-1 / top-3 root-cause accuracy | does it find the right cause |
 | false-alarm rate on seasonal decoys | does it stay quiet on festivals |
-| **negative-control rejection rate** | **does it refuse correlation traps** — the anti-circularity number |
+| **negative-control rejection rate** | **does it refuse correlation traps**, the anti-circularity number |
 | abstention precision / recall | does it say UNKNOWN exactly when it should |
 | ECE + reliability diagram | does "80% confident" mean 80% |
 | signal-gap detection rate | Answer 2 accuracy |
 | p50/p95 latency, ₹ per insight | operating cost |
 
-Case mix: single internal cause · external shock · **two interacting causes** · seasonal decoy · **negative control** · pure noise · sparse history · stale-source. Generate 150+ labelled cases, not just the demo scenarios — calibration needs a population to fit against.
+Case mix: single internal cause · external shock · **two interacting causes** · seasonal decoy · **negative control** · pure noise · sparse history · stale-source. Generate 150+ labelled cases, not just the demo scenarios, calibration needs a population to fit against.
 
 ---
 
@@ -339,7 +339,7 @@ GET  /telemetry/{run_id}                              → latency, calls, tokens
 POST /contracts/register {kpi_id, sop_path}           → offline SOP parse → signals_consumed
 ```
 
-**UI — one page, four panels:** metric with anomaly band · narrative where every sentence is clickable to its evidence · Answer 2 with the monitoring plan · telemetry receipt. Persona switcher in the header. Not Streamlit — the click-to-evidence interaction is the product and should not look like a stock expander widget.
+**UI, one page, four panels:** metric with anomaly band · narrative where every sentence is clickable to its evidence · Answer 2 with the monitoring plan · telemetry receipt. Persona switcher in the header. Not Streamlit; the click-to-evidence interaction is the product and should not look like a stock expander widget.
 
 **Feedback loop:** verdict per claim → Beta-Binomial priors per `(kpi, hypothesis_class)` reweight future ranking. Measurable: run the benchmark, inject verdicts, re-run, report the change in mean rank of the true cause.
 
@@ -357,4 +357,4 @@ one command, no cloud account and no database server in the path.
 not exist, so a diagnosis currently makes zero model calls and the run receipt
 says so. Postgres is not required for anything.*
 
-**Framing note:** this is an orchestrated agentic pipeline — tool use, retrieval, multi-step reasoning — with *deterministic control flow* rather than LLM-decided routing, chosen for auditability and replayability. The orchestration is agentic; the arithmetic is not.
+**Framing note:** this is an orchestrated agentic pipeline, tool use, retrieval, multi-step reasoning, with *deterministic control flow* rather than LLM-decided routing, chosen for auditability and replayability. The orchestration is agentic; the arithmetic is not.

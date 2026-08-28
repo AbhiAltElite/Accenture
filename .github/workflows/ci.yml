@@ -36,7 +36,7 @@ jobs:
 
       - name: Correctness invariants
         # Called out separately so a break here is obvious in the checks list.
-        # These must never be skipped or relaxed to pass — see CONTRIBUTING.
+        # These must never be skipped or relaxed to pass, see CONTRIBUTING.
         run: pytest -m invariant -q
 
   attribution:

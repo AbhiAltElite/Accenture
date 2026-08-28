@@ -9,311 +9,432 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* Paper and ink. Warmer and a shade deeper than before, so the page has a
-     ground rather than being white with grey text on it. */
-  --paper:#f6f2ea; --surface:#fffdf8; --raised:#efeae0; --sunk:#e6e0d3;
-  --ink:#1c1a15; --ink-2:#57524a; --ink-3:#8b8478;
-  --line:#e0d9cb; --line-strong:#c4bcaa;
-  --rail:#efeae0;
+  /* Paper and ink. The page has a ground rather than being white with grey
+     text on it, which is what stops long tabular reading from glaring. */
+  --paper:#f5f1e9; --surface:#fffdf8; --raised:#efeade; --sunk:#e7e1d3;
+  --ink:#191713; --ink-2:#524d45; --ink-3:#877f72; --ink-4:#a89f8f;
+  --line:#ded7c8; --line-strong:#c3baa7; --line-heavy:#8f8672;
 
-  /* Two accents, each with one job. Evergreen marks navigation state and the
-     verified verdict: it means "this held up". Ochre marks a click that opens
-     evidence: it means "there is proof behind this". They were one colour, so
-     a clickable sentence and a verified one looked alike, and the reader had
-     to learn which green meant which. */
-  --accent:#1f5c46; --accent-ink:#123d2e; --accent-soft:#dbe9e1;
-  --evidence:#8a5310; --evidence-ink:#6b400c; --evidence-soft:#f7e9d6;
-  --down:#9c2b25; --down-soft:#f3e0dd;
-  --up:#20674a;
-  --flag:#8a5a12; --flag-soft:#f6e9d2;
+  /* Two accents, each with exactly one job, because a page where colour means
+     several things means none. Evergreen: this held up under test. Ochre: there
+     is evidence behind this and clicking opens it. Nothing else is coloured. */
+  --accent:#1c5941; --accent-ink:#0f3b2b; --accent-soft:#dce9e2;
+  --evidence:#875010; --evidence-ink:#663d0b; --evidence-soft:#f6e8d4;
+  --down:#992722; --down-soft:#f3dfdc;
+  --up:#1c6446;
+  --flag:#87580f; --flag-soft:#f5e7cf;
 
-  /* Sizes are chosen from this scale and nowhere else, so the page has a
-     rhythm instead of arbitrary values.
-     A 1.18 ratio from a 17px base. Tighter than the 1.2 it replaces, because
-     the old top end put the headline at 40px: display sizing for a working
-     tool, and the thing that made the page read as a landing page rather than
-     an analyst's screen. Reading text and controls go up; the headline comes
-     down, so the gap between them narrows from both ends. */
-  --t-xs:14px; --t-sm:16px; --t-base:18px; --t-md:21px;
-  --t-lg:25px; --t-xl:29px; --t-2xl:32px; --t-3xl:36px;
-  --lh-tight:1.24; --lh-snug:1.48; --lh-normal:1.65;
+  /* One 1.16 ratio from a 17px base. Deliberately shallow: a working
+     instrument wants a narrow range of sizes and a wide range of weights and
+     colours, which is the opposite of a marketing page. */
+  --t-2xs:12px; --t-xs:13.5px; --t-sm:15px; --t-base:17px; --t-md:19.5px;
+  --t-lg:23px; --t-xl:27px; --t-2xl:32px; --t-3xl:38px;
+  --lh-tight:1.2; --lh-snug:1.45; --lh-normal:1.62;
 
   --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px;
-  --sp-6:32px; --sp-7:48px; --sp-8:64px; --sp-9:96px;
+  --sp-6:32px; --sp-7:48px; --sp-8:64px; --sp-9:88px;
 
   /* One superfamily across serif, sans and mono. IBM Plex was drawn for a
      technology company's own products, so the three cuts share a skeleton and
-     the page reads as one system rather than two fonts chosen separately.
-     The serif carries the narrative; the sans carries data and chrome. */
+     the page reads as one system rather than three fonts chosen separately.
+     Serif carries prose and display figures; sans carries chrome and tables;
+     mono carries identifiers, section numbers and anything a reader might copy. */
   --serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
   --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-  --rail-w:288px;
-  /* Two radii only: controls and small marks, then panels. */
-  --r-sm:4px; --r-md:6px;
+
+  --rail-w:246px; --margin-w:210px; --measure:70ch;
+  --r-sm:3px; --r-md:5px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --paper:#14130f; --surface:#1b1a15; --raised:#232119; --sunk:#2b2820;
-  --ink:#f0ece2; --ink-2:#aca596; --ink-3:#7d7669;
-  --line:#2b2820; --line-strong:#443f33;
-  --rail:#1b1a15;
-  --accent:#7fc4a2; --accent-ink:#a8dcc0; --accent-soft:#1e3229;
-  --evidence:#d9a05b; --evidence-ink:#e8bd83; --evidence-soft:#33260f;
-  --down:#e08b83; --down-soft:#33211f;
-  --up:#7fc4a2;
-  --flag:#d8ac63; --flag-soft:#332a17;
+  --paper:#131210; --surface:#1a1815; --raised:#22201b; --sunk:#292620;
+  --ink:#f2eee5; --ink-2:#b0a99b; --ink-3:#847c6f; --ink-4:#635c52;
+  --line:#2a2721; --line-strong:#413c33; --line-heavy:#6b6455;
+  --accent:#79c09e; --accent-ink:#a4d9bc; --accent-soft:#1a3128;
+  --evidence:#d69d57; --evidence-ink:#e8bd83; --evidence-soft:#31240e;
+  --down:#df8880; --down-soft:#31201e;
+  --up:#79c09e;
+  --flag:#d5a960; --flag-soft:#312816;
 }}
 :root[data-theme="dark"]{
-  --paper:#14130f; --surface:#1b1a15; --raised:#232119; --sunk:#2b2820;
-  --ink:#f0ece2; --ink-2:#aca596; --ink-3:#7d7669;
-  --line:#2b2820; --line-strong:#443f33;
-  --rail:#1b1a15;
-  --accent:#7fc4a2; --accent-ink:#a8dcc0; --accent-soft:#1e3229;
-  --evidence:#d9a05b; --evidence-ink:#e8bd83; --evidence-soft:#33260f;
-  --down:#e08b83; --down-soft:#33211f;
-  --up:#7fc4a2;
-  --flag:#d8ac63; --flag-soft:#332a17;
+  --paper:#131210; --surface:#1a1815; --raised:#22201b; --sunk:#292620;
+  --ink:#f2eee5; --ink-2:#b0a99b; --ink-3:#847c6f; --ink-4:#635c52;
+  --line:#2a2721; --line-strong:#413c33; --line-heavy:#6b6455;
+  --accent:#79c09e; --accent-ink:#a4d9bc; --accent-soft:#1a3128;
+  --evidence:#d69d57; --evidence-ink:#e8bd83; --evidence-soft:#31240e;
+  --down:#df8880; --down-soft:#31201e;
+  --up:#79c09e;
+  --flag:#d5a960; --flag-soft:#312816;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
 body{background:var(--paper);color:var(--ink);
-  font:var(--t-base)/var(--lh-normal) var(--sans);-webkit-font-smoothing:antialiased}
+  font:var(--t-base)/var(--lh-normal) var(--sans);-webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-sm)}
 
-/* ---------- shell ---------- */
-.shell{display:grid;grid-template-columns:var(--rail-w) minmax(0,1fr);min-height:100vh}
+/* ═══ masthead ═══════════════════════════════════════════════════════════
+   A full-width bar above everything, carrying identity on the left and the
+   reader's own state on the right. It is the single element that makes the
+   page read as an instrument with a current context rather than as a website
+   with a menu, and it is why the rail below can be quiet. */
+.masthead{position:sticky;top:0;z-index:15;background:var(--paper);
+  border-bottom:1px solid var(--line-heavy);
+  display:flex;align-items:stretch;gap:var(--sp-5);
+  padding:0 var(--sp-6);min-height:54px}
+.masthead .mark{display:flex;align-items:center;gap:var(--sp-3);
+  text-decoration:none;color:var(--ink);padding-right:var(--sp-5);
+  border-right:1px solid var(--line)}
+.masthead .mark b{font-family:var(--serif);font-size:var(--t-md);font-weight:600;
+  letter-spacing:-.015em}
+.masthead .mark span{font-size:var(--t-2xs);color:var(--ink-3);
+  letter-spacing:.09em;text-transform:uppercase;padding-top:2px}
+.masthead .context{display:flex;align-items:center;gap:var(--sp-4);
+  font-size:var(--t-xs);color:var(--ink-2);min-width:0;flex:1;
+  font-family:var(--mono);letter-spacing:-.01em;overflow:hidden}
+.masthead .context em{font-style:normal;color:var(--ink-4)}
+.masthead .tools{display:flex;align-items:center;gap:var(--sp-4);margin-left:auto}
+.masthead .toollabel{font-size:var(--t-2xs);color:var(--ink-3);
+  letter-spacing:.08em;text-transform:uppercase}
 @media (max-width:900px){
-  .shell{grid-template-columns:1fr}
-  .rail{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line)}
+  .masthead{padding:var(--sp-3) var(--sp-4);flex-wrap:wrap;min-height:0}
+  .masthead .context{display:none}
 }
 
-/* ---------- rail ---------- */
-.rail{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--rail);
-  border-right:1px solid var(--line);padding:var(--sp-6) var(--sp-5) var(--sp-6)}
-.rail .brand{font-family:var(--serif);font-size:var(--t-md);font-weight:600;
-  letter-spacing:-.01em;display:block;margin-bottom:var(--sp-1);
-  color:var(--ink);text-decoration:none}
-.rail .brand:hover{color:var(--accent-ink)}
-.rail .tagline{font-size:var(--t-sm);color:var(--ink-3);line-height:var(--lh-snug);
-  margin-bottom:var(--sp-7)}
-.railgroup{margin-bottom:var(--sp-7)}
-/* Sentence case, not letterspaced uppercase. The design checklist allows one
-   small uppercase label at most, and a page where every group label shouts
-   stops distinguishing between them. */
-.railgroup > h2{font-size:var(--t-sm);font-weight:600;color:var(--ink-2);
-  letter-spacing:0;margin-bottom:var(--sp-3)}
-/* Navigation and controls are sized to be hit and read, not to be compact.
-   Density belongs in the tables; the rail is chrome a reader returns to all
-   day, and a 28px target set in 14px type is neither comfortable nor obviously
-   interactive. Every control here clears a 40px row. */
-/* Flex rather than a floated count. The float let a long label run right up to
-   its number: "Checkout conversion 79" with nothing between them. The gap is
-   now structural, the count cannot be pushed out of the row, and every count
-   right-aligns on the same edge whatever the label above it. */
-.navitem{display:flex;align-items:baseline;gap:var(--sp-3);
-  width:100%;text-align:left;background:none;border:none;
-  font:inherit;font-size:var(--t-base);color:var(--ink-2);
-  padding:var(--sp-3) var(--sp-3);
-  border-radius:var(--r-sm);cursor:pointer;line-height:var(--lh-snug)}
-.navitem > .label{flex:1;min-width:0}
+/* ═══ shell ══════════════════════════════════════════════════════════════
+   Rail · document · margin. The margin column is the distinctive move: run
+   metadata, freshness and the cost receipt live beside the argument rather
+   than beneath it, the way a set of accounts carries its notes. It collapses
+   into the flow below 1180px and loses nothing. */
+.shell{display:grid;grid-template-columns:var(--rail-w) minmax(0,1fr);
+  min-height:calc(100vh - 54px)}
+.content{display:grid;grid-template-columns:minmax(0,1fr) var(--margin-w);
+  gap:var(--sp-8);padding:var(--sp-7) var(--sp-7) var(--sp-9);
+  max-width:1240px;align-items:start}
+@media (max-width:1180px){
+  .content{grid-template-columns:minmax(0,1fr);gap:var(--sp-6)}
+  .margin{order:2;border-top:1px solid var(--line);padding-top:var(--sp-5)}
+}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .rail{position:static;height:auto;border-right:none;
+    border-bottom:1px solid var(--line-strong)}
+  .content{padding:var(--sp-5) var(--sp-4) var(--sp-8)}
+}
+
+/* ═══ rail ═══════════════════════════════════════════════════════════════ */
+.rail{position:sticky;top:54px;height:calc(100vh - 54px);overflow-y:auto;
+  border-right:1px solid var(--line);padding:var(--sp-6) var(--sp-5)}
+.railgroup{margin-bottom:var(--sp-6)}
+.railgroup:last-child{margin-bottom:0}
+/* One letterspaced label style, used only for structural headings, rail
+   groups, section names, table captions. Because it is used consistently and
+   nowhere else, it reads as structure rather than as emphasis. */
+.label{font-size:var(--t-2xs);font-weight:600;color:var(--ink-3);
+  letter-spacing:.11em;text-transform:uppercase;display:block;
+  margin-bottom:var(--sp-3)}
+/* Flat rows, not cards. The rail is chrome a reader returns to all day; giving
+   every entry its own bordered surface adds five more edges to a page that is
+   already dense and makes the list compete with the document beside it.
+   Selection is carried by the ground and the weight alone, with no accent rule
+   down the side. */
+.navitem{display:flex;align-items:baseline;gap:var(--sp-3);width:100%;
+  text-align:left;background:none;border:none;font:inherit;font-size:var(--t-sm);
+  color:var(--ink-2);padding:var(--sp-2) var(--sp-3);border-radius:var(--r-sm);
+  cursor:pointer;line-height:var(--lh-snug);min-height:34px}
+.navitem > .label{flex:1;min-width:0;font-size:var(--t-sm);font-weight:400;
+  letter-spacing:0;text-transform:none;color:inherit;margin:0;display:block}
 .navitem:hover{background:var(--sunk);color:var(--ink)}
-.navitem[aria-current="true"]{background:var(--accent-soft);color:var(--accent-ink);
-  font-weight:500}
-.navitem .flag{margin-left:auto;flex:none;font-size:var(--t-sm);color:var(--down);
-  font-variant-numeric:tabular-nums}
+.navitem[aria-current="true"]{color:var(--ink);font-weight:600;background:var(--sunk)}
+.navitem .flag{margin-left:auto;flex:none;font-size:var(--t-xs);color:var(--ink-3)}
+.navitem[aria-current="true"] .flag,.navitem:hover .flag{color:var(--down)}
 .navitem.d1{padding-left:var(--sp-5)}
 .navitem.d2{padding-left:var(--sp-6)}
-.field-row{margin-bottom:var(--sp-5)}
-.field-row label{display:block;font-size:var(--t-sm);color:var(--ink-3);
+.field-row{margin-bottom:var(--sp-4)}
+.field-row > label{display:block;font-size:var(--t-xs);color:var(--ink-3);
   margin-bottom:var(--sp-2)}
-select,button.ctl{font:inherit;font-size:var(--t-base);color:var(--ink);
-  background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r-sm);
-  padding:var(--sp-3) var(--sp-4);width:100%;cursor:pointer;line-height:var(--lh-snug)}
+select,button.ctl{font:inherit;font-size:var(--t-sm);color:var(--ink);
+  background:var(--surface);border:1px solid var(--line-strong);
+  border-radius:var(--r-sm);padding:var(--sp-2) var(--sp-3);width:100%;
+  cursor:pointer;line-height:var(--lh-snug);min-height:34px}
 select:hover,button.ctl:hover{border-color:var(--ink-3)}
-.seg{display:flex;gap:2px;background:var(--sunk);padding:3px;border-radius:var(--r-sm)}
-.seg button{flex:1;font:inherit;font-size:var(--t-sm);border:none;background:none;
-  color:var(--ink-2);padding:var(--sp-2) var(--sp-3);border-radius:var(--r-sm);cursor:pointer}
-.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);
-  box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:var(--r-sm);
+  overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;font-size:var(--t-xs);border:none;background:none;
+  color:var(--ink-3);padding:var(--sp-2) var(--sp-3);cursor:pointer;
+  border-right:1px solid var(--line);min-height:30px;white-space:nowrap}
+.seg button:last-child{border-right:none}
+.seg button:hover{color:var(--ink);background:var(--sunk)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);
+  font-weight:500}
+.railnote{font-size:var(--t-xs);color:var(--ink-3);line-height:var(--lh-snug);
+  margin-top:var(--sp-3)}
 
-/* ---------- content ---------- */
-.content{padding:var(--sp-9) var(--sp-8) var(--sp-9);max-width:860px}
-@media (max-width:900px){.content{padding:var(--sp-7) var(--sp-5)}}
-.eyebrow{font-size:var(--t-sm);color:var(--ink-3);margin-bottom:var(--sp-4);
-  min-height:1.4em}
-/* A quiet pulse on the text itself, not a spinner beside it. It stops moving
-   the moment real content replaces it, and `prefers-reduced-motion` gets a
-   static label rather than a substitute animation. */
+/* ═══ document head ══════════════════════════════════════════════════════ */
+.eyebrow{font-family:var(--mono);font-size:var(--t-xs);color:var(--ink-3);
+  letter-spacing:-.01em;margin-bottom:var(--sp-4);min-height:1.3em}
 .working{color:var(--ink-3)}
 .working::after{content:"";display:inline-block;width:2.5em;text-align:left;
   animation:ellipsis 1.4s steps(4,end) infinite}
 @keyframes ellipsis{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
-@media (prefers-reduced-motion:reduce){
-  .working::after{animation:none;content:"..."}
-}
-h1{font-family:var(--serif);font-size:var(--t-3xl);line-height:var(--lh-tight);
-  font-weight:500;letter-spacing:-.018em;text-wrap:balance;margin-bottom:var(--sp-5)}
+@media (prefers-reduced-motion:reduce){.working::after{animation:none;content:"..."}}
+h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
+  font-weight:500;letter-spacing:-.02em;text-wrap:balance;margin-bottom:var(--sp-5);
+  max-width:24ch}
 .prose{font-family:var(--serif);font-size:var(--t-md);line-height:var(--lh-normal);
-  max-width:64ch}
+  max-width:var(--measure)}
 .prose p{margin-bottom:var(--sp-4)}
+.prose p:last-child{margin-bottom:0}
 .prose .q{color:var(--ink-2)}
 .prose strong{font-weight:600}
 
 /* A claim is ochre because it opens evidence, not because it is true. The
    underline is the affordance; the chevron says it leads somewhere. Verified
    states stay evergreen, so the two never trade places. */
-.claim{color:var(--evidence-ink);background:var(--evidence-soft);border:none;font:inherit;
-  padding:2px 6px;border-radius:var(--r-sm);cursor:pointer;
-  box-shadow:inset 0 -1.5px 0 var(--evidence);
-  /* A claim is a sentence and will wrap. Without this the background and the
-     underline are drawn once around the whole run, so the second line loses its
-     padding and sits adrift of the first. `clone` gives each fragment its own
-     box. `inline` keeps it in the flow of the prose rather than forming a
-     block that breaks the paragraph. */
-  display:inline;
-  -webkit-box-decoration-break:clone;
-  box-decoration-break:clone;
-  text-align:left}
+.claim{color:var(--evidence-ink);background:var(--evidence-soft);border:none;
+  font:inherit;padding:1px 5px;border-radius:var(--r-sm);cursor:pointer;
+  box-shadow:inset 0 -1.5px 0 var(--evidence);display:inline;
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;text-align:left}
 .claim:hover{background:var(--evidence);color:var(--surface)}
 .claim::after{content:"\2009\203A";opacity:.6}
 
-/* ---------- overview ---------- */
-.overview h1{font-size:var(--t-2xl)}
-.overview .sub{color:var(--ink-2);font-size:var(--t-base);max-width:58ch;
-  margin-bottom:var(--sp-7)}
-/* Four columns, and every one of them ends on the same right edge as the thing
-   above and below it. The sparkline used to be a fixed 132px inside a 136px
-   track, so it sat four pixels left of the flag count beneath it: not enough to
-   name, just enough to make the row look untidy. The canvas now fills its
-   track, and the numeric tracks are sized for the larger type rather than the
-   type they were drawn for. */
-.kpi{display:grid;
-  grid-template-columns:minmax(0,1fr) minmax(128px,auto) 96px 140px;
-  gap:var(--sp-5);
-  align-items:center;width:100%;text-align:left;background:none;border:none;
-  border-top:1px solid var(--line);padding:var(--sp-5) var(--sp-3);cursor:pointer;
-  font:inherit;color:inherit}
-.kpi:hover{background:var(--surface)}
-.kpi:last-of-type{border-bottom:1px solid var(--line)}
-.kpi .name{font-size:var(--t-md);font-weight:500;font-family:var(--serif);
-  line-height:var(--lh-snug)}
-.kpi .meta{font-size:var(--t-xs);color:var(--ink-3);margin-top:var(--sp-1);display:block}
-.kpi .val{text-align:right;font-variant-numeric:tabular-nums;font-size:var(--t-md);
-  line-height:var(--lh-snug);white-space:nowrap}
-.kpi .chg{text-align:right;font-variant-numeric:tabular-nums;font-size:var(--t-sm);
-  line-height:var(--lh-snug);white-space:nowrap}
-.kpi canvas{width:100%;height:38px;display:block}
-.kpi.d1{padding-left:var(--sp-6)}
-.kpi.d2{padding-left:var(--sp-8)}
-.kpi.d1 .name::before,.kpi.d2 .name::before{content:"\21B3";color:var(--ink-3);
-  margin-right:var(--sp-2);font-family:var(--sans);font-size:var(--t-sm)}
-.flagcount{font-size:var(--t-xs);color:var(--ink-3);text-align:right;display:block;
-  margin-top:var(--sp-1)}
-.flagcount b{color:var(--down);font-weight:600}
-@media (max-width:760px){
-  .kpi{grid-template-columns:1fr auto;gap:var(--sp-3)}
-  .kpi canvas,.kpi .chg{display:none}
+/* ═══ numbered sections ══════════════════════════════════════════════════
+   The report device that does the most work here. Each section carries a
+   two-digit ordinal in mono and a letterspaced name, over a rule that runs the
+   full measure. It gives the page a spine a reader can scan in one pass, and
+   it is the reason none of these sections needs to be a card. */
+/* Collapsed, these are a list and should stack like one. The spacing that
+   separates one section's *content* from the next belongs to the open state,
+   so it is applied there rather than carried by every header regardless. */
+.sec{margin-top:var(--sp-2)}
+/* Space below an open section, never above it. The gap exists to separate that
+   section's content from what follows; putting it on top as well pushes the
+   header away from the list it belongs to and makes an open section look
+   detached from the document. */
+.sec[open]{margin-bottom:var(--sp-7)}
+.sec:first-child{margin-top:var(--sp-6)}
+/* The header is the control, so it is given a surface to click. Bare text over
+   a rule reads as a caption; a reader has to discover it is interactive by
+   pointing at it. The card has no coloured edge and no stripe: a hairline, a
+   ground, and the ordinal doing the work. */
+.sec > summary,.sec > .sechead{list-style:none;cursor:pointer;
+  display:flex;align-items:center;gap:var(--sp-4);
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);
+  transition:border-color .1s,background .1s}
+.sec > summary:hover{border-color:var(--ink-3);background:var(--raised)}
+/* Open, the header hands off to its body, so the card loses the edge it would
+   otherwise share with content that is not inside it. */
+.sec[open] > summary{margin-bottom:var(--sp-5);
+  border-bottom-left-radius:0;border-bottom-right-radius:0;
+  border-bottom-color:var(--line-heavy);background:var(--raised)}
+.sec > .sechead{cursor:default;margin-bottom:var(--sp-5)}
+.sec > summary::-webkit-details-marker{display:none}
+.sec .num{font-family:var(--mono);font-size:var(--t-xs);color:var(--ink-4);
+  font-weight:500;flex:none;letter-spacing:.02em}
+/* The name takes the slack, so the count and the expander land on the same
+   right edge in every section whatever the title's length. */
+.sec .name{font-size:var(--t-sm);font-weight:600;color:var(--ink);
+  letter-spacing:.07em;text-transform:uppercase;flex:1;min-width:0}
+.sec .count{font-size:var(--t-xs);color:var(--ink-3);
+  font-family:var(--mono);flex:none}
+.sec > summary:hover .name{color:var(--accent-ink)}
+.sec > summary::after{content:"+";font-family:var(--mono);color:var(--ink-3);
+  font-size:var(--t-md);flex:none;width:16px;text-align:center;line-height:1}
+.sec[open] > summary::after{content:"\2212"}
+.sec .body{padding:0 var(--sp-1)}
+.sec .body > p{max-width:var(--measure);color:var(--ink-2);
+  margin-bottom:var(--sp-4);font-size:var(--t-base)}
+.sec .body > p:last-child{margin-bottom:0}
+.lede{font-family:var(--serif);font-size:var(--t-md);color:var(--ink) !important;
+  line-height:var(--lh-normal)}
+
+/* ═══ figure row ═════════════════════════════════════════════════════════
+   Headline quantities, separated by rules rather than boxed into cards. Three
+   or four of these across the top of a section reads as a statement of
+   account; the same numbers in bordered tiles read as a template. */
+.figures{display:flex;flex-wrap:wrap;gap:0;margin-bottom:var(--sp-6);
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.figures > div{padding:var(--sp-4) var(--sp-5) var(--sp-4) 0;
+  border-right:1px solid var(--line);margin-right:var(--sp-5);flex:0 1 auto}
+.figures > div:last-child{border-right:none;margin-right:0;padding-right:0}
+.figures dt{font-size:var(--t-2xs);color:var(--ink-3);letter-spacing:.09em;
+  text-transform:uppercase;margin-bottom:var(--sp-2);white-space:nowrap}
+.figures dd{font-family:var(--serif);font-size:var(--t-xl);line-height:1.1;
+  letter-spacing:-.02em;white-space:nowrap}
+.figures dd small{font-family:var(--sans);font-size:var(--t-xs);color:var(--ink-3);
+  letter-spacing:0;margin-left:var(--sp-2)}
+@media (max-width:640px){
+  .figures{display:grid;grid-template-columns:1fr 1fr}
+  .figures > div{border-right:none;margin-right:0;padding-right:var(--sp-4)}
+  .figures dd{font-size:var(--t-lg)}
 }
 
-/* ---------- chart ---------- */
-.strip{position:relative;margin-bottom:var(--sp-3);border:1px solid var(--line);
-  border-radius:var(--r-md);background:var(--surface);padding:var(--sp-4) var(--sp-4) var(--sp-3)}
-.charthead{display:flex;align-items:baseline;gap:var(--sp-4);margin-bottom:var(--sp-3);
-  flex-wrap:wrap}
-.charthead h2{font-size:var(--t-sm);font-weight:600;color:var(--ink-2);margin:0}
-.charthead .zoomnote{margin-left:auto;font-size:var(--t-xs);color:var(--ink-3);
-  font-variant-numeric:tabular-nums}
-.charthead button{font-size:var(--t-xs);padding:2px var(--sp-2);width:auto}
-canvas#c{display:block;width:100%;height:210px;cursor:crosshair;touch-action:pan-y}
+/* ═══ watchlist (overview) ═══════════════════════════════════════════════ */
+.overview h1{font-size:var(--t-2xl);max-width:20ch}
+.overview .sub{color:var(--ink-2);font-size:var(--t-base);max-width:62ch;
+  margin-bottom:var(--sp-7);font-family:var(--serif)}
+table.watch{width:100%;border-collapse:collapse}
+table.watch thead th{font-size:var(--t-2xs);font-weight:600;color:var(--ink-3);
+  letter-spacing:.09em;text-transform:uppercase;text-align:left;
+  padding:0 var(--sp-4) var(--sp-2) 0;border-bottom:1px solid var(--line-heavy);
+  white-space:nowrap}
+table.watch thead th.n{text-align:right}
+table.watch tbody tr{border-bottom:1px solid var(--line);cursor:pointer}
+table.watch tbody tr:hover{background:var(--surface)}
+table.watch td{padding:var(--sp-4) var(--sp-4) var(--sp-4) 0;vertical-align:middle}
+table.watch td:last-child,table.watch th:last-child{padding-right:0}
+table.watch td.n{text-align:right;white-space:nowrap}
+.watch .name{font-family:var(--serif);font-size:var(--t-md);font-weight:500;
+  line-height:var(--lh-snug);color:var(--ink);display:block}
+.watch .owner{font-size:var(--t-xs);color:var(--ink-3);display:block;
+  margin-top:2px}
+.watch .val{font-size:var(--t-md);font-family:var(--serif);letter-spacing:-.01em}
+.watch .chg{font-size:var(--t-sm)}
+.watch canvas{width:100%;height:34px;display:block;min-width:110px}
+.watch .d1 .name{padding-left:var(--sp-5)}
+.watch .d2 .name{padding-left:var(--sp-7)}
+.watch .d1 .name::before,.watch .d2 .name::before{content:"\21B3";
+  color:var(--ink-4);margin-right:var(--sp-2);font-family:var(--sans);
+  font-size:var(--t-sm);font-weight:400}
+.watch .flagcount{font-size:var(--t-sm);color:var(--ink-3)}
+.watch .flagcount b{color:var(--down);font-weight:600}
+@media (max-width:820px){
+  table.watch .hide-sm{display:none}
+}
+
+/* ═══ margin notes ═══════════════════════════════════════════════════════ */
+.margin{font-size:var(--t-xs);color:var(--ink-2);position:sticky;top:78px}
+.margin section{margin-bottom:var(--sp-6)}
+.margin section:last-child{margin-bottom:0}
+.margin .label{margin-bottom:var(--sp-2)}
+.margin dl{display:grid;grid-template-columns:1fr auto;gap:var(--sp-2) var(--sp-3);
+  align-items:baseline}
+.margin dt{color:var(--ink-3);min-width:0;overflow-wrap:anywhere}
+.margin dd{text-align:right;color:var(--ink);white-space:nowrap}
+.margin dd.mono{font-family:var(--mono);font-size:var(--t-2xs)}
+.margin .rule{border:none;border-top:1px solid var(--line);margin:var(--sp-4) 0}
+.margin p{line-height:var(--lh-snug);color:var(--ink-3)}
+
+/* ═══ chart ══════════════════════════════════════════════════════════════ */
+.strip{position:relative;margin-bottom:var(--sp-3);
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  padding:var(--sp-4) 0 var(--sp-3)}
+.charthead{display:flex;align-items:baseline;gap:var(--sp-4);
+  margin-bottom:var(--sp-3);flex-wrap:wrap}
+.charthead h2{font-size:var(--t-2xs);font-weight:600;color:var(--ink-3);margin:0;
+  letter-spacing:.09em;text-transform:uppercase}
+.charthead .zoomnote{margin-left:auto;font-size:var(--t-2xs);color:var(--ink-4);
+  font-family:var(--mono)}
+.charthead button{font-size:var(--t-2xs);padding:2px var(--sp-2);width:auto;
+  min-height:0}
+canvas#c{display:block;width:100%;height:220px;cursor:crosshair;touch-action:pan-y}
 canvas#c.panning{cursor:grabbing}
-.striplegend{display:flex;gap:var(--sp-4);font-size:var(--t-xs);color:var(--ink-3);
+.striplegend{display:flex;gap:var(--sp-5);font-size:var(--t-2xs);color:var(--ink-3);
   margin-top:var(--sp-3);flex-wrap:wrap}
 .striplegend i{display:inline-block;width:14px;height:2px;background:currentColor;
-  margin-right:var(--sp-1);vertical-align:middle}
-.scrubber{height:8px;margin-top:var(--sp-2);background:var(--sunk);border-radius:var(--r-sm);
-  position:relative;cursor:grab}
+  margin-right:var(--sp-2);vertical-align:middle}
+.scrubber{height:6px;margin-top:var(--sp-3);background:var(--sunk);
+  border-radius:var(--r-sm);position:relative;cursor:grab}
 .scrubber.on{cursor:grabbing}
-.scrubwin{position:absolute;top:0;bottom:0;background:var(--accent);opacity:.35;
+.scrubwin{position:absolute;top:0;bottom:0;background:var(--accent);opacity:.4;
   border-radius:var(--r-sm);min-width:12px}
-.tip{position:absolute;pointer-events:none;background:var(--surface);
-  border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:var(--sp-2) var(--sp-3);
-  font-size:var(--t-sm);line-height:var(--lh-snug);box-shadow:0 4px 14px rgba(0,0,0,.12);
-  white-space:nowrap;opacity:0;transition:opacity .08s;z-index:5}
+/* A floating panel, in the reader's own theme. This was briefly an inverted
+   chip, dark on a light page, light on a dark one, which made it the only
+   element that moved *against* the theme instead of with it, and read as a
+   tooltip that had not been themed at all. It is now the same surface
+   treatment as the evidence drawer, so every floating thing on the page is
+   made of the same material. */
+.tip{position:absolute;pointer-events:none;
+  background:var(--surface);color:var(--ink);
+  border:1px solid var(--line-strong);border-radius:var(--r-sm);
+  padding:var(--sp-2) var(--sp-3);
+  font-size:var(--t-xs);line-height:var(--lh-snug);white-space:nowrap;
+  opacity:0;transition:opacity .08s;z-index:5;
+  box-shadow:0 4px 14px rgba(0,0,0,.12)}
 .tip.on{opacity:1}
-.tip b{font-variant-numeric:tabular-nums}
+.tip b{font-weight:600;color:var(--ink)}
 
-/* ---------- disclosure ---------- */
-details{border-top:1px solid var(--line)}
-/* A section heading is structure, and structure should be legible at a glance.
-   These sat at weight 400 in the body colour, so they read as another paragraph
-   and the page had no scannable skeleton. */
-details summary{cursor:pointer;list-style:none;padding:var(--sp-4) 0;display:flex;
-  align-items:baseline;gap:var(--sp-3);color:var(--ink);font-size:var(--t-base);
-  font-weight:600}
-details summary::-webkit-details-marker{display:none}
-details summary::before{content:"+";color:var(--ink-3);font-family:var(--mono);
-  width:14px;flex:none}
-details[open] summary::before{content:"\2212"}
-details summary:hover{color:var(--ink)}
-details summary .count{margin-left:auto;color:var(--ink-3);font-size:var(--t-sm);
-  font-variant-numeric:tabular-nums}
-.body{padding:0 0 var(--sp-6) var(--sp-5)}
-.body p{max-width:64ch;color:var(--ink-2);margin-bottom:var(--sp-3);
-  font-size:var(--t-base)}
-
-/* ---------- tables ---------- */
-table{width:100%;border-collapse:collapse;font-size:var(--t-base)}
-th{text-align:left;font-weight:600;font-size:var(--t-sm);color:var(--ink-2);
-  padding:0 var(--sp-4) var(--sp-2) 0;border-bottom:1px solid var(--line-strong)}
-td{padding:var(--sp-3) var(--sp-4) var(--sp-3) 0;border-bottom:1px solid var(--line);
-  font-variant-numeric:tabular-nums;vertical-align:top}
-/* A right-aligned column still needs space after it. `padding-right:0` was
-   there to pull the last numeric column flush with the table edge, but it
-   applies to every `.n` cell, so a numeric column followed by anything else ran
-   straight into it: "SLA" and "Status" collided in the header, and 6h touched
-   the pill beside it. Only the final column goes flush. */
+/* ═══ tables ═════════════════════════════════════════════════════════════ */
+table{width:100%;border-collapse:collapse;font-size:var(--t-sm)}
+th{text-align:left;font-weight:600;font-size:var(--t-2xs);color:var(--ink-3);
+  letter-spacing:.09em;text-transform:uppercase;
+  padding:0 var(--sp-4) var(--sp-2) 0;border-bottom:1px solid var(--line-heavy);
+  white-space:nowrap}
+td{padding:var(--sp-3) var(--sp-4) var(--sp-3) 0;
+  border-bottom:1px solid var(--line);vertical-align:top;line-height:var(--lh-snug)}
 th.n,td.n{text-align:right}
 th.n:last-child,td.n:last-child{padding-right:0}
-tr:last-child td{border-bottom:none}
+tbody tr:last-child td{border-bottom:none}
 .down{color:var(--down)}.up{color:var(--up)}
 .scroll{overflow-x:auto}
 code{font-family:var(--mono);font-size:var(--t-xs)}
-.pill{display:inline-block;font-size:var(--t-xs);padding:2px var(--sp-2);
-  border-radius:var(--r-sm);border:1px solid var(--line-strong);color:var(--ink-2);
-  background:var(--surface)}
-.pill.ok{border-color:var(--up);color:var(--up);background:var(--accent-soft)}
-.pill.no{border-color:var(--down);color:var(--down);background:var(--down-soft)}
-.pill.na{border-color:var(--flag);color:var(--flag);background:var(--flag-soft)}
+.muted{color:var(--ink-3);font-size:var(--t-sm)}
+.na{color:var(--ink-4)}
+
+/* A state is a word, not a dot. Colour is carried by the text itself and by a
+   hairline underneath it, enough to scan a column by, and it survives being
+   printed, photocopied or read by someone who cannot separate red from green. */
+.state{font-size:var(--t-2xs);font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink-2);white-space:nowrap;
+  border-bottom:1.5px solid var(--line-strong);padding-bottom:1px}
+.state.ok{color:var(--up);border-bottom-color:var(--up)}
+.state.no{color:var(--down);border-bottom-color:var(--down)}
+.state.na{color:var(--flag);border-bottom-color:var(--flag)}
+.state.off{color:var(--ink-4);border-bottom-color:var(--line-strong)}
+/* Kept as an alias so existing markup keeps working while it is migrated. */
+.pill{font-size:var(--t-2xs);font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink-2);white-space:nowrap;
+  border-bottom:1.5px solid var(--line-strong);padding-bottom:1px}
+.pill.ok{color:var(--up);border-bottom-color:var(--up)}
+.pill.no{color:var(--down);border-bottom-color:var(--down)}
+.pill.na{color:var(--flag);border-bottom-color:var(--flag)}
+.tag{font-family:var(--mono);font-size:var(--t-2xs);color:var(--flag);
+  margin-right:var(--sp-2)}
 .linkback{background:none;border:none;color:var(--accent-ink);font:inherit;
   font-size:var(--t-sm);padding:0;cursor:pointer;text-decoration:underline;
   text-underline-offset:3px;width:auto}
 .linkback:hover{color:var(--ink)}
-.muted{color:var(--ink-3);font-size:var(--t-base)}
+td.num,th.num{text-align:right}
 
-/* ---------- decision ---------- */
-/* One of the few places a card earns its border: a decision is a real
-   conceptual boundary, and there is one per verified cause. */
-.decision{border:1px solid var(--line-strong);border-radius:var(--r-md);
-  background:var(--surface);padding:var(--sp-5);margin-bottom:var(--sp-4)}
-.decision:last-child{margin-bottom:0}
+/* ═══ verdict block ══════════════════════════════════════════════════════
+   The one place in the page that gets a filled ground, because it is the one
+   place where the answer itself is the content. No border, no left stripe,
+   the fill and the rule above it are the whole treatment. */
+.verdict{background:var(--surface);border-top:2px solid var(--ink);
+  padding:var(--sp-5) var(--sp-5) var(--sp-5) 0;margin-bottom:var(--sp-6)}
+.verdict .vlabel{font-size:var(--t-2xs);letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-3);font-weight:600;margin-bottom:var(--sp-3);display:block}
+.verdict h3{font-family:var(--serif);font-size:var(--t-lg);font-weight:500;
+  line-height:var(--lh-snug);margin-bottom:var(--sp-3);max-width:48ch}
+.verdict p{font-size:var(--t-sm);color:var(--ink-2);max-width:var(--measure);
+  margin-bottom:var(--sp-2)}
+.verdict p:last-child{margin-bottom:0}
+
+/* ═══ decision ═══════════════════════════════════════════════════════════ */
+.decision{border-top:1px solid var(--line-strong);padding:var(--sp-5) 0;
+  margin-bottom:0}
+.decision:first-of-type{border-top:none;padding-top:0}
 .decision h3{font-family:var(--serif);font-size:var(--t-md);font-weight:600;
   line-height:var(--lh-snug);margin-bottom:var(--sp-2)}
-.decision h4{font-size:var(--t-sm);font-weight:600;color:var(--ink-2);
-  letter-spacing:0;margin-bottom:var(--sp-3)}
-.verdictline{font-size:var(--t-sm);color:var(--ink-2);margin-bottom:var(--sp-4)}
-.verdictline .mark{font-weight:600;margin-right:var(--sp-1)}
-.verdictline .mark.ok{color:var(--up)}
-.verdictline .mark.na{color:var(--ink-3)}
-/* Label column fixed so every value starts on the same edge down the card. */
-table.chain{width:100%;border-collapse:collapse;font-size:var(--t-base);
+.decision h4{font-size:var(--t-2xs);font-weight:600;color:var(--ink-3);
+  letter-spacing:.09em;text-transform:uppercase;margin-bottom:var(--sp-3)}
+/* The state of a decision is a word, not a dot. A coloured disc carries no
+   meaning to a reader who has not been told what it means, survives neither
+   printing nor colour-blindness, and is the single most recognisable tell of a
+   dashboard assembled from a component kit. */
+.verdictline{font-size:var(--t-2xs);color:var(--ink-2);margin-bottom:var(--sp-5);
+  letter-spacing:.07em;text-transform:uppercase;font-weight:600}
+.verdictline .state{border-bottom-width:1.5px}
+table.chain{width:100%;border-collapse:collapse;font-size:var(--t-sm);
   table-layout:fixed}
 table.chain th[scope="row"]{width:11.5rem;text-align:left;font-weight:600;
-  color:var(--ink-2);font-size:var(--t-sm);letter-spacing:0;
-  padding:var(--sp-2) var(--sp-4) var(--sp-2) 0;border:none;vertical-align:top}
+  color:var(--ink-3);font-size:var(--t-2xs);letter-spacing:.07em;
+  text-transform:uppercase;padding:var(--sp-2) var(--sp-4) var(--sp-2) 0;
+  border:none;vertical-align:top;white-space:normal}
 table.chain td{padding:var(--sp-2) 0;border:none;vertical-align:top;
   color:var(--ink);overflow-wrap:anywhere}
 table.chain td .q{color:var(--ink-2)}
-.na{color:var(--ink-3)}
 .monitor{margin-top:var(--sp-5);padding-top:var(--sp-4);
   border-top:1px solid var(--line)}
 .caveats{margin:var(--sp-3) 0 0;padding-left:var(--sp-5);font-size:var(--t-sm);
@@ -323,92 +444,182 @@ table.chain td .q{color:var(--ink-2)}
   border-top:1px solid var(--line);font-size:var(--t-sm)}
 .approval p{margin-bottom:var(--sp-2)}
 .approval .q{color:var(--ink-2)}
-.tag{display:inline-block;font-size:var(--t-xs);padding:2px var(--sp-2);
-  border-radius:var(--r-sm);background:var(--flag-soft);color:var(--flag);
-  border:1px solid var(--flag);margin-right:var(--sp-2)}
-td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 
-/* Confidence components. The number and its explanation were adjacent cells
-   with no space between them, so the column read "100%verified causes account
-   for...". The figure gets its own column with room either side, and the
-   explanation wraps against a left edge of its own rather than under the
-   number. */
+/* ═══ confidence components ══════════════════════════════════════════════ */
 table.components{margin-top:var(--sp-5);width:100%;border-collapse:collapse}
 table.components td{padding:var(--sp-3) 0;border-bottom:1px solid var(--line);
   vertical-align:baseline}
 table.components tr:last-child td{border-bottom:none}
 .components .cname{width:11rem;color:var(--ink);padding-right:var(--sp-4)}
-.components .cval{width:4.5rem;text-align:right;font-variant-numeric:tabular-nums;
-  padding-right:var(--sp-5);color:var(--ink)}
-.components .cdetail{color:var(--ink-2);line-height:var(--lh-snug)}
+.components .cval{width:5rem;text-align:right;padding-right:var(--sp-5);
+  color:var(--ink);font-family:var(--serif);font-size:var(--t-base)}
+.components .cdetail{color:var(--ink-2);line-height:var(--lh-snug);
+  font-size:var(--t-sm)}
 @media (max-width:560px){
   .components .cname{width:auto}
   .components .cval{width:auto;padding-right:var(--sp-3)}
 }
 
-/* ---------- persona, notice, scenarios ---------- */
-.railnote{font-size:var(--t-xs);color:var(--ink-3);line-height:var(--lh-snug);
-  margin-top:var(--sp-3)}
-/* An entitlement notice is an operational statement, not an error. It is marked
-   by a rule and a label rather than by alarm colour. */
-.notice{border:1px solid var(--flag);border-left-width:3px;
-  border-radius:var(--r-md);background:var(--flag-soft);
-  padding:var(--sp-5);margin-bottom:var(--sp-6)}
-.notice h3{font-family:var(--serif);font-size:var(--t-base);font-weight:600;
-  margin-bottom:var(--sp-2);color:var(--ink)}
-.notice p{font-size:var(--t-sm);color:var(--ink-2);margin-bottom:var(--sp-2)}
+/* ═══ notice ═════════════════════════════════════════════════════════════
+   An entitlement notice is an operational statement, not an error. It is
+   marked by a rule above and a label, which is how a document flags something
+   without shouting. */
+.notice{border-top:2px solid var(--flag);background:var(--flag-soft);
+  padding:var(--sp-4) var(--sp-5) var(--sp-4) 0;margin-bottom:var(--sp-6)}
+.notice h3{font-size:var(--t-2xs);font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;margin-bottom:var(--sp-2);color:var(--flag)}
+.notice p{font-size:var(--t-sm);color:var(--ink-2);margin-bottom:var(--sp-2);
+  max-width:var(--measure)}
 .notice p:last-child{margin-bottom:0}
 
+/* ═══ scenarios ══════════════════════════════════════════════════════════ */
 .scenario{border-top:1px solid var(--line);padding:var(--sp-5) 0}
-.scenario:first-of-type{border-top:none;padding-top:var(--sp-3)}
+.scenario:first-of-type{border-top:none;padding-top:0}
 .scenario h4{font-family:var(--serif);font-size:var(--t-base);font-weight:500;
-  color:var(--ink);letter-spacing:0;margin-bottom:var(--sp-3)}
-.scenario .figure{font-size:var(--t-lg);font-variant-numeric:tabular-nums;
-  margin-bottom:var(--sp-4)}
+  color:var(--ink);margin-bottom:var(--sp-3)}
+.scenario .figure{font-family:var(--serif);font-size:var(--t-lg);
+  margin-bottom:var(--sp-4);letter-spacing:-.01em}
 .scenario.off h4{color:var(--ink-3)}
 .scenario .bounded{margin-top:var(--sp-3);font-size:var(--t-sm)}
 
-/* ---------- drawer ---------- */
-.scrim{position:fixed;inset:0;background:rgba(20,18,14,.34);opacity:0;
+/* ═══ signal gap (answer 2) ══════════════════════════════════════════════
+   The product's differentiator, so it gets the strongest single device on the
+   page: the verdict set laid out horizontally with the reached one in ink and
+   the rest struck back. A reader sees at a glance that the engine could have
+   said four things and chose one. */
+.verdicts{display:flex;flex-wrap:wrap;gap:0;margin-bottom:var(--sp-5);
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.verdicts > div{padding:var(--sp-3) var(--sp-5) var(--sp-3) 0;
+  border-right:1px solid var(--line);margin-right:var(--sp-5);
+  font-size:var(--t-2xs);letter-spacing:.08em;text-transform:uppercase;
+  font-weight:600;color:var(--ink-4)}
+.verdicts > div:last-child{border-right:none;margin-right:0;padding-right:0}
+.verdicts > div[data-on="1"]{color:var(--ink)}
+.verdicts > div[data-on="1"]::before{content:"\25B8\2009";color:var(--accent)}
+.gapfacts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:var(--sp-5);margin:var(--sp-5) 0;padding:var(--sp-4) 0;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.gapfacts dt{font-size:var(--t-2xs);color:var(--ink-3);letter-spacing:.09em;
+  text-transform:uppercase;margin-bottom:var(--sp-2)}
+.gapfacts dd{font-family:var(--serif);font-size:var(--t-lg);line-height:1.1;
+  letter-spacing:-.015em}
+.gapfacts dd small{font-family:var(--sans);font-size:var(--t-xs);
+  color:var(--ink-3);letter-spacing:0;margin-left:6px}
+.consumed{display:flex;flex-wrap:wrap;gap:var(--sp-2) var(--sp-4);
+  font-family:var(--mono);font-size:var(--t-xs);color:var(--ink-2);
+  margin:var(--sp-3) 0}
+.consumed span{white-space:nowrap}
+.consumed .missing{color:var(--down);text-decoration:line-through;
+  text-decoration-color:var(--line-strong)}
+
+/* ═══ two-track ranking ══════════════════════════════════════════════════
+   Two columns that never merge, because merging them is the substitution this
+   product exists to prevent. The wall between them is a real rule. */
+.tracks{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.tracks > div{padding-right:var(--sp-6)}
+.tracks > div + div{padding-left:var(--sp-6);padding-right:0;
+  border-left:1px solid var(--line-heavy)}
+.tracks h4{font-size:var(--t-2xs);font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;margin-bottom:var(--sp-2)}
+.tracks .exactly{color:var(--up)}
+.tracks .merely{color:var(--flag)}
+.tracks .caption{font-size:var(--t-xs);color:var(--ink-3);margin-bottom:var(--sp-4);
+  line-height:var(--lh-snug)}
+@media (max-width:820px){
+  .tracks{grid-template-columns:1fr}
+  .tracks > div{padding-right:0}
+  .tracks > div + div{padding-left:0;border-left:none;border-top:1px solid var(--line-heavy);
+    padding-top:var(--sp-5);margin-top:var(--sp-5)}
+}
+
+/* ═══ narrative + validator ══════════════════════════════════════════════ */
+.written{font-family:var(--serif);font-size:var(--t-md);line-height:var(--lh-normal);
+  max-width:var(--measure);margin-bottom:var(--sp-5)}
+.written .s{display:inline}
+.written .s:hover{background:var(--evidence-soft)}
+/* Not a footnote index; there is no ordered note list to point at. It is a
+   count of the evidence rows the sentence is bound to, and hovering the
+   sentence names them. */
+.cites{font-family:var(--mono);font-size:var(--t-2xs);color:var(--ink-4);
+  vertical-align:super;margin-left:2px;letter-spacing:-.04em}
+.written .s:hover .cites{color:var(--evidence-ink)}
+.gate{display:flex;gap:var(--sp-6);flex-wrap:wrap;padding:var(--sp-4) 0;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  margin-bottom:var(--sp-4)}
+.gate div{font-size:var(--t-xs);color:var(--ink-3)}
+.gate b{display:block;font-family:var(--serif);font-size:var(--t-lg);
+  color:var(--ink);line-height:1.2;margin-bottom:2px}
+.gate b.no{color:var(--down)}
+
+/* ═══ feedback ═══════════════════════════════════════════════════════════ */
+.fb{display:flex;gap:var(--sp-3);flex-wrap:wrap;align-items:center;
+  margin-bottom:var(--sp-4)}
+.fb button{font:inherit;font-size:var(--t-xs);background:var(--surface);
+  border:1px solid var(--line-strong);border-radius:var(--r-sm);
+  padding:var(--sp-2) var(--sp-4);cursor:pointer;color:var(--ink-2);min-height:32px}
+.fb button:hover{border-color:var(--ink-3);color:var(--ink)}
+.fb button[aria-pressed="true"]{background:var(--ink);color:var(--paper);
+  border-color:var(--ink)}
+.fbnote{font-size:var(--t-sm);color:var(--ink-2);max-width:var(--measure)}
+
+/* ═══ drawer ═════════════════════════════════════════════════════════════ */
+.scrim{position:fixed;inset:0;background:rgba(18,16,12,.4);opacity:0;
   pointer-events:none;transition:opacity .14s;z-index:20}
 .scrim.on{opacity:1;pointer-events:auto}
-.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,94vw);z-index:21;
-  background:var(--surface);border-left:1px solid var(--line-strong);
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(580px,94vw);z-index:21;
+  background:var(--surface);border-left:1px solid var(--line-heavy);
   transform:translateX(100%);transition:transform .18s ease-out;
   overflow-y:auto;padding:var(--sp-6) var(--sp-6) var(--sp-9)}
 .drawer.on{transform:none}
 @media (prefers-reduced-motion:reduce){.drawer,.scrim{transition:none}}
 .drawer h3{font-family:var(--serif);font-size:var(--t-lg);font-weight:500;
-  line-height:var(--lh-snug);margin-bottom:var(--sp-1)}
+  line-height:var(--lh-snug);margin-bottom:var(--sp-1);max-width:34ch}
 .drawer .close{position:absolute;top:var(--sp-4);right:var(--sp-5);border:none;
-  background:none;font-size:var(--t-lg);color:var(--ink-3);padding:var(--sp-1) var(--sp-2);
-  width:auto;cursor:pointer}
-.field{margin:var(--sp-5) 0}
-.field dt{font-size:var(--t-xs);color:var(--ink-3);margin-bottom:var(--sp-1)}
-.field dd{font-size:var(--t-base)}
+  background:none;font-size:var(--t-lg);color:var(--ink-3);
+  padding:var(--sp-1) var(--sp-2);width:auto;cursor:pointer}
+.drawer .close:hover{color:var(--ink)}
+.field{margin:var(--sp-5) 0;padding-top:var(--sp-4);border-top:1px solid var(--line)}
+.field dt{font-size:var(--t-2xs);color:var(--ink-3);letter-spacing:.09em;
+  text-transform:uppercase;margin-bottom:var(--sp-2)}
+.field dd{font-size:var(--t-sm)}
 .quote{font-family:var(--serif);font-size:var(--t-base);line-height:var(--lh-snug);
-  color:var(--ink);border-left:2px solid var(--accent);padding:var(--sp-1) 0
-  var(--sp-1) var(--sp-3);margin:var(--sp-3) 0}
-.quote cite{display:block;font-family:var(--mono);font-size:var(--t-xs);
-  color:var(--ink-3);font-style:normal;margin-top:var(--sp-1)}
-pre{background:var(--sunk);border-radius:var(--r-sm);padding:var(--sp-3) var(--sp-4);
-  overflow-x:auto;font-family:var(--mono);font-size:var(--t-xs);
-  line-height:var(--lh-snug);color:var(--ink-2)}
+  color:var(--ink);border-left:2px solid var(--evidence);
+  padding:var(--sp-1) 0 var(--sp-1) var(--sp-4);margin:var(--sp-3) 0}
+.quote cite{display:block;font-family:var(--mono);font-size:var(--t-2xs);
+  color:var(--ink-3);font-style:normal;margin-top:var(--sp-2)}
+pre{background:var(--sunk);border-radius:var(--r-sm);
+  padding:var(--sp-3) var(--sp-4);overflow-x:auto;font-family:var(--mono);
+  font-size:var(--t-2xs);line-height:var(--lh-snug);color:var(--ink-2)}
 </style>
 </head>
 <body>
+<header class="masthead">
+  <a class="mark" href="/"><b>WhyChain</b><span>Diagnostic engine</span></a>
+  <div class="context" id="context"></div>
+  <div class="tools">
+    <span class="toollabel">Reading as</span>
+    <div class="seg" id="persona" role="group" aria-label="Persona">
+      <button data-persona="analyst" aria-pressed="true">Analyst</button>
+      <button data-persona="cfo" aria-pressed="false">CFO</button>
+      <button data-persona="ops" aria-pressed="false">Ops</button>
+    </div>
+    <div class="seg" id="theme" role="group" aria-label="Appearance">
+      <button data-theme="auto" aria-pressed="true">Auto</button>
+      <button data-theme="light" aria-pressed="false">Light</button>
+      <button data-theme="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+</header>
+
 <div class="shell">
   <nav class="rail" aria-label="Metrics and filters">
-    <a class="brand" href="/">WhyChain</a>
-    <p class="tagline">Why a business number moved, with the proof attached.</p>
-
     <div class="railgroup">
-      <h2>Metrics</h2>
+      <span class="label">Metric graph</span>
       <div id="nav"></div>
     </div>
 
     <div class="railgroup">
-      <h2>Filters</h2>
+      <span class="label">Scope</span>
       <div class="field-row">
         <label for="region">Region</label>
         <select id="region"><option value="">All regions</option></select>
@@ -422,37 +633,22 @@ pre{background:var(--sunk);border-radius:var(--r-sm);padding:var(--sp-3) var(--s
           <option value="0">Full history</option>
         </select>
       </div>
-    </div>
-
-    <div class="railgroup">
-      <h2>Reading as</h2>
-      <div class="seg" id="persona" role="group" aria-label="Persona">
-        <button data-persona="analyst" aria-pressed="true">Analyst</button>
-        <button data-persona="cfo" aria-pressed="false">CFO</button>
-        <button data-persona="ops" aria-pressed="false">Ops</button>
-      </div>
-      <p class="railnote">Same evidence, different projection. Nothing is
-        recomputed when this changes.</p>
-    </div>
-
-    <div class="railgroup">
-      <h2>Appearance</h2>
-      <div class="seg" id="theme" role="group" aria-label="Appearance">
-        <button data-theme="auto" aria-pressed="true">Auto</button>
-        <button data-theme="light" aria-pressed="false">Light</button>
-        <button data-theme="dark" aria-pressed="false">Dark</button>
-      </div>
+      <p class="railnote">Switching reader changes the projection, never the
+        evidence. Nothing is recomputed.</p>
     </div>
   </nav>
 
   <main class="content" id="main" aria-busy="true">
-    <div id="overview"></div>
-    <div id="diagnosis" hidden>
-      <p class="eyebrow" id="eyebrow"></p>
-      <h1 id="headline"></h1>
-      <div class="prose" id="story"></div>
-      <div id="rest"></div>
+    <div class="doc">
+      <div id="overview"></div>
+      <div id="diagnosis" hidden>
+        <p class="eyebrow" id="eyebrow"></p>
+        <h1 id="headline"></h1>
+        <div class="prose" id="story"></div>
+        <div id="rest"></div>
+      </div>
     </div>
+    <aside class="margin" id="margin" aria-label="Run metadata"></aside>
   </main>
 </div>
 
@@ -470,11 +666,11 @@ const inr = n => '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
    Every figure on the chart used to go through `inr`, whatever metric was being
    drawn. Checkout conversion is a ratio around 0.06, so it rendered as "₹0", and
-   on-time delivery around 0.94 rendered as "₹1" — the exact failure the design
+   on-time delivery around 0.94 rendered as "₹1", the exact failure the design
    checklist names, a rate reading as one rupee. The unit travels with the series
    and is used here. */
 const fmtValue = (v, unit) => {
-  if(v == null || !isFinite(v)) return '—';
+  if(v == null || !isFinite(v)) return '–';
   const n = Math.abs(v);
   if(unit === 'INR')   return inr(n);
   if(unit === 'ratio') return (n*100).toFixed(n < 0.1 ? 2 : 1) + '%';
@@ -499,11 +695,12 @@ const pct = n => (n*100).toFixed(1) + '%';
 
 /* Sentence case for anything that reaches a reader.
 
-   Several labels are field names carried straight through from the engine —
-   `causal_strength`, `release_rollback`, `ecommerce_lead` — and rendering them
+   Several labels are field names carried straight through from the engine,
+   `causal_strength`, `release_rollback`, `ecommerce_lead`, and rendering them
    raw put lowercase identifiers in the middle of prose. Underscores become
    spaces and the first letter is raised; nothing else is touched, so an
    acronym or a version number inside the label survives. */
+const words = t => String(t||'').replace(/_/g,' ');
 const sentence = t => {
   const clean = String(t == null ? '' : t).replace(/_/g,' ').trim();
   return clean ? clean[0].toUpperCase() + clean.slice(1) : clean;
@@ -576,7 +773,7 @@ async function boot(){
     route();
   }));
   addEventListener('popstate',route);
-  document.querySelector('.brand').addEventListener('click',e=>{
+  document.querySelector('.masthead .mark').addEventListener('click',e=>{
     e.preventDefault(); go('/');
   });
   route();
@@ -638,27 +835,53 @@ async function showOverview(){
   data.roots.forEach(r=>walk(r,0));
 
   const fmt=(k,v)=>fmtValue(v, k.unit);
+  const flagged = rows.reduce((n,{k})=>n+(k.material_drops||0),0);
+  const withFlags = rows.filter(({k})=>k.material_drops).length;
+
+  // A watchlist, not a stack of tiles. The figures share a right edge, the
+  // hierarchy is carried by indentation inside the first column, and the
+  // header row tells a reader what each column is, all three of which a grid
+  // of cards gives up in exchange for looking designed.
   $('#overview').innerHTML = `<div class="overview">
     <h1>${region||'All regions'}</h1>
-    <p class="sub">Five connected metrics. Revenue is orders times average order
-      value; orders come from sessions and conversion. A break in one shows up in
-      the others, which is why they are read together rather than one at a time.</p>
-    ${rows.map(({k,depth})=>`
-      <button class="kpi d${depth}" data-kpi="${k.kpi_id}">
-        <span><span class="name">${title(k.kpi_id)}</span>
-          <span class="meta">${k.owner_role.replace(/_/g,' ')} · ${k.grain.split(' by ')[0]}</span></span>
-        <span class="val">${fmt(k,k.latest)}
-          <span class="meta" style="display:block">latest</span></span>
-        <span class="chg ${k.period_change<0?'down':'up'}">${
-          k.period_change==null?'':(k.period_change>0?'+':'')+pct(k.period_change)}
-          <span class="meta" style="display:block;color:var(--ink-3)">7 days</span></span>
-        <span><canvas class="spark" data-kpi="${k.kpi_id}"></canvas>
-          <span class="flagcount">${k.material_drops
-            ? `<b>${k.material_drops}</b> flagged` : 'nothing flagged'}</span></span>
-      </button>`).join('')}
-    <p class="sub" style="margin-top:28px;font-size:14.5px">Select a metric to see
-      what moved it.</p></div>`;
+    <p class="sub">Five connected metrics across three sources. Revenue is orders
+      times average order value; orders come from sessions and conversion. A break
+      in one shows up in the others, which is why they are read together rather
+      than one at a time.</p>
 
+    <dl class="figures">
+      <div><dt>Metrics tracked</dt><dd>${rows.length}</dd></div>
+      <div><dt>Carrying flags</dt><dd>${withFlags}<small>of ${rows.length}</small></dd></div>
+      <div><dt>Material movements</dt><dd class="${flagged?'down':''}">${flagged.toLocaleString()}</dd></div>
+      <div><dt>Scope</dt><dd style="font-size:var(--t-md)">${region||'All regions'}</dd></div>
+    </dl>
+
+    <table class="watch"><thead><tr>
+      <th>Metric</th>
+      <th class="n">Latest</th>
+      <th class="n hide-sm">7-day</th>
+      <th class="hide-sm">Trend</th>
+      <th class="n">Flagged</th>
+    </tr></thead><tbody>
+    ${rows.map(({k,depth})=>`
+      <tr class="kpi d${depth}" data-kpi="${k.kpi_id}" tabindex="0">
+        <td><span class="name">${title(k.kpi_id)}</span>
+            <span class="owner">${k.owner_role.replace(/_/g,' ')} · ${k.grain.split(' by ')[0]}</span></td>
+        <td class="n"><span class="val">${fmt(k,k.latest)}</span></td>
+        <td class="n hide-sm"><span class="chg ${k.period_change<0?'down':'up'}">${
+          k.period_change==null?'–':(k.period_change>0?'+':'')+pct(k.period_change)}</span></td>
+        <td class="hide-sm"><canvas class="spark" data-kpi="${k.kpi_id}"></canvas></td>
+        <td class="n"><span class="flagcount">${k.material_drops
+            ? `<b>${k.material_drops}</b>` : '<span class="na">none</span>'}</span></td>
+      </tr>`).join('')}
+    </tbody></table>
+    <p class="sub" style="margin-top:var(--sp-5);font-size:var(--t-sm);font-family:var(--sans)">Select a metric to see what moved it,
+      what was ruled out, and whether anything warned about it first.</p></div>`;
+
+  $('#margin').innerHTML = marginBlock(null);
+  document.querySelectorAll('tr.kpi').forEach(b=>{
+    b.addEventListener('keydown', e=>{ if(e.key==='Enter') go('/kpi/'+b.dataset.kpi); });
+  });
   document.querySelectorAll('.kpi').forEach(b=>
     b.addEventListener('click',()=>go('/kpi/'+b.dataset.kpi)));
   drawSparks();
@@ -796,8 +1019,15 @@ function render(){
   const name = kpi.replace(/_/g,' ');
   const where = region || 'all regions';
 
+  resetSections();
   $('#eyebrow').textContent =
     `${title(kpi)} · ${where} · ${series.days[0]} to ${series.days.at(-1)}`;
+  // The masthead carries the current context so a reader always knows what
+  // they are looking at without scrolling back to the top of the document.
+  $('#context').innerHTML =
+    `${escapeHtml(title(kpi))} <em>/</em> ${escapeHtml(where)} <em>/</em> ${
+      escapeHtml(series.days[0])}\u2009\u2013\u2009${escapeHtml(series.days.at(-1))}`;
+  $('#margin').innerHTML = marginBlock(diagnosis);
 
   if(!drops.length){
     const grain = (series.grain || 'day') + (series.days.length === 1 ? '' : 's');
@@ -806,7 +1036,7 @@ function render(){
       ${grain}, no movement in ${name} passed both the statistical and the
       financial test. Ordinary variation, weekly rhythm and the retail calendar
       account for what happened.</p>`;
-    $('#rest').innerHTML = section('The metric', chartMarkup(), true) + freshnessBlock();
+    $('#rest').innerHTML = section('The movement', chartMarkup(), true) + freshnessBlock();
     drawChart(); bindChart(); return;
   }
 
@@ -827,19 +1057,27 @@ function render(){
   // Order is the reading order the product argues for: what to do, then the
   // working behind it, then what it cost to produce.
   const persona = (diagnosis && diagnosis.persona) || 'analyst';
+  // Reading order is the argument the product makes: what happened, what
+  // caused it, why nobody saw it coming, what to do, then the working and what
+  // it cost. Answer 2 sits third, above the decision, because it is what
+  // makes the decision a process finding rather than an incident report.
   $('#rest').innerHTML =
     entitlementBlock()
+    + section('The movement', chartMarkup(), true)
+    + narrativeBlock()
+    + signalGapBlock()
     + decisionsBlock()
     + simulatorBlock()
-    + section('The metric', chartMarkup(), true)
     + movementsBlock()
-    + (persona === 'analyst' ? decompositionBlock() + candidatesBlock() : '')
+    + (persona === 'analyst' ? rankingBlock() + decompositionBlock() + candidatesBlock() : '')
     + freshnessBlock()
     + (persona === 'analyst' ? receiptBlock() : '')
+    + feedbackBlock()
     + withheldBlock();
   drawChart();
   bindChart();
   wireClaims();
+  wireFeedback();
 }
 
 function explainedStory(d){
@@ -885,6 +1123,9 @@ function unknownStory(d){
     ${a.question ? `<p class="q"><strong>Clarification would help.</strong> ${a.question}</p>` : ''}`;
 }
 
+/* Strip the addressing prefix a candidate id carries. "rel-4.05: Release 4.05
+   broke card entry" is how the store finds the row; a reader wants the second
+   half of it. */
 function plain(c){
   const said = (c.description||c.candidate_id).split(':').pop().trim().replace(/\.$/,'');
   // Only add scope the description does not already carry, or the label reads
@@ -896,11 +1137,262 @@ function plain(c){
   return bits.length ? `${said} (${bits.join(', ')})` : said;
 }
 
+
+/* ═══ Answer 2 ═══════════════════════════════════════════════════════════
+   The engine could have said four things here and said one. Showing the
+   discarded three alongside the reached one is the difference between a
+   finding and an assertion, and it is the single most persuasive thing on the
+   page; a stage that can only ever return "gap found" is not detecting
+   anything, it is restating its own premise. */
+const GAP_VERDICTS = [
+  ['gap_found','Gap found'],
+  ['no_gap','No gap'],
+  ['not_foreseeable','Not foreseeable'],
+  ['coverage_unknown','Coverage unknown'],
+];
+
+function signalGapBlock(){
+  const g = STATE.diagnosis && STATE.diagnosis.signal_gap;
+  if(!g) return '';
+  const consumed = (g.consumed||[]).map(c=>
+    `<span>${escapeHtml(c.replace(/_/g,' '))}</span>`).join('');
+  const missing = g.signal_type && !(g.consumed||[]).includes(g.signal_type)
+    ? `<span class="missing">${escapeHtml(g.signal_type.replace(/_/g,' '))}</span>` : '';
+
+  const facts = [];
+  if(g.actionable_count) facts.push(['Actionable warnings', g.actionable_count, '']);
+  if(g.best_lead_time_hours != null)
+    facts.push(['Lead time', Math.round(g.best_lead_time_hours), 'hours']);
+  if(g.recurrence) facts.push(['Prior episodes', g.recurrence, 'in 24 months']);
+  if(g.owner_role) facts.push(['Accountable', sentence(g.owner_role.replace(/_/g,' ')), '']);
+
+  const m = g.monitoring;
+  const body = `
+    <div class="verdicts">${GAP_VERDICTS.map(([v,lab])=>
+      `<div data-on="${v===g.verdict?1:0}">${lab}</div>`).join('')}</div>
+    <p class="lede">${escapeHtml(g.reason)}</p>
+    ${facts.length?`<dl class="gapfacts">${facts.map(([k,v,u])=>
+      `<div><dt>${k}</dt><dd>${v}${u?`<small>${u}</small>`:''}</dd></div>`).join('')}</dl>`:''}
+    ${g.process_document?`
+      <p><strong>What the process reads.</strong> Extracted from
+      <code>${escapeHtml(g.process_document)}</code> at contract registration,
+      each with a character span back into the document.</p>
+      <div class="consumed">${consumed}${missing}</div>
+      ${missing?`<p class="muted">The struck entry is the signal that existed and
+        the cycle has no step for.</p>`:''}`:''}
+    ${m?`<div class="monitor"><h4 class="label">Proposed monitoring rule</h4>
+      <table class="chain">
+        <tr><th scope="row">Watch</th><td>${escapeHtml(words(m.watch))}</td></tr>
+        <tr><th scope="row">Threshold</th><td>${escapeHtml(m.threshold)}</td></tr>
+        <tr><th scope="row">Cadence</th><td>${escapeHtml(m.window)}</td></tr>
+        <tr><th scope="row">Route to</th><td>${escapeHtml(sentence(String(m.route_to).replace(/_/g,' ')))}</td></tr>
+        <!-- This row validates the proposed rule, it does not grade anybody.
+             It was labelled "would have fired", which reads as an accusation
+             that somebody failed to act; what it actually answers is whether
+             the rule above is worth adopting, or was written to fit a case it
+             could never have caught. -->
+        <tr><th scope="row">Tested on this case</th>
+            <td><span class="state ${m.would_have_fired?'ok':'off'}">${
+              m.would_have_fired
+                ? 'the rule would have caught this'
+                : 'the rule would not have caught this'}</span></td></tr>
+      </table></div>`:''}
+    ${(g.signals||[]).length?`<div class="scroll" style="margin-top:var(--sp-5)">
+      <table><thead><tr><th>Signal</th><th>Publisher</th><th>Severity</th>
+        <th class="n">Lead</th><th class="n">Actionable</th></tr></thead><tbody>
+      ${g.signals.slice(0,6).map(x=>`<tr>
+        <td><code>${escapeHtml(x.signal_id)}</code><br><span class="muted">${escapeHtml(x.city)}</span></td>
+        <td>${escapeHtml(x.publisher)}</td>
+        <td>${escapeHtml(x.severity)}</td>
+        <td class="n">${Math.round(x.lead_time_hours)} h</td>
+        <td class="n"><span class="state ${x.actionable?'ok':'off'}">${x.actionable?'yes':'no'}</span></td>
+      </tr>`).join('')}</tbody></table></div>`:''}`;
+
+  return section('Why it was not anticipated', body, true,
+    String(g.verdict).replace(/_/g,' '));
+}
+
+/* ═══ two-track ranking ══════════════════════════════════════════════════ */
+function rankingBlock(){
+  const r = STATE.diagnosis && STATE.diagnosis.ranking;
+  if(!r || (!r.exact.length && !r.associational.length)) return '';
+  const rowsOf = list => list.length
+    ? `<table><tbody>${list.map(x=>`<tr>
+         <td>${escapeHtml(x.label)}</td>
+         <td class="n ${x.value<0?'down':''}">${
+           x.unit==='INR'?(x.value<0?'\u2212':'')+inr(x.value):x.value.toFixed(2)}</td>
+         ${x.share!=null?`<td class="n muted">${pct(x.share)}</td>`:'<td class="n"></td>'}
+       </tr>`).join('')}</tbody></table>`
+    : '<p class="muted">Not run for this window.</p>';
+
+  return section('Ranking, in two tracks', `
+    <p>These are never merged. A strong correlation topping a weak identity is
+    the exact substitution this engine exists to prevent, so the two rankings
+    are computed separately and rendered side by side.</p>
+    <div class="tracks">
+      <div>
+        <h4 class="exactly">Track A · exact</h4>
+        <p class="caption">From the price/volume/mix identity. These sum to the
+          movement with no residual, so they are arithmetic about what happened
+          rather than a hypothesis about it.</p>
+        ${rowsOf(r.exact)}
+      </div>
+      <div>
+        <h4 class="merely">Track B · correlational</h4>
+        <p class="caption">A standardised ridge fit over the driver series. Useful
+          for generating candidates nobody thought to look at; worthless as an
+          answer. No row here may be stated as a cause until a causal test
+          promotes it.</p>
+        ${rowsOf(r.associational)}
+      </div>
+    </div>
+    ${(r.notes||[]).length?`<p class="muted" style="margin-top:var(--sp-4)">${
+      r.notes.map(n=>escapeHtml(n)).join(' · ')}</p>`:''}`,
+    false, `${r.exact.length} exact · ${r.associational.length} correlational`);
+}
+
+/* ═══ narrative and the gate it passed ═══════════════════════════════════ */
+function narrativeBlock(){
+  const n = STATE.diagnosis && STATE.diagnosis.narrative;
+  if(!n) return '';
+  const v = n.validation || {};
+  const rejected = v.rejected || [];
+  const sentences = (n.sentences||[]).map(x=>
+    `<span class="s" title="cites ${escapeHtml((x.cites||[]).join(', '))}">${
+      escapeHtml(x.text)}<span class="cites">\u25AA${(x.cites||[]).length}</span></span> `).join('');
+
+  return section('The summary, and what it had to pass', `
+    <p>Written from a flat table of already-computed facts and nothing else.
+    Every sentence carries the evidence ids it rests on, and a deterministic
+    validator checks each one before a reader sees it.</p>
+    <div class="written">${sentences || '<span class="muted">No sentence survived validation.</span>'}</div>
+    <div class="gate">
+      <div><b>${(n.sentences||[]).length}</b>sentences accepted</div>
+      <div><b class="${rejected.length?'no':''}">${rejected.length}</b>rejected by the validator</div>
+      <div><b>${n.model_calls}</b>model calls</div>
+      <div><b>${escapeHtml(n.writer)}</b>writer</div>
+    </div>
+    <p class="muted">${escapeHtml(n.note||'')}</p>
+    ${rejected.length?`<div class="scroll" style="margin-top:var(--sp-4)">
+      <table><thead><tr><th>Rejected sentence</th><th>Check</th><th>Why</th></tr></thead>
+      <tbody>${rejected.map(x=>`<tr>
+        <td>${escapeHtml(x.sentence)}</td>
+        <td><span class="state no">${escapeHtml(x.failure.replace(/_/g,' '))}</span></td>
+        <td class="muted">${escapeHtml(x.detail)}</td></tr>`).join('')}</tbody></table></div>`:''}
+    <p class="muted" style="margin-top:var(--sp-4)">Checks run:
+      ${(v.checks_run||[]).map(c=>escapeHtml(c.replace(/_/g,' '))).join(' · ')}.</p>`,
+    false, `${rejected.length} rejected`);
+}
+
+/* ═══ feedback ═══════════════════════════════════════════════════════════ */
+const JUDGEMENTS = [
+  ['confirmed','This was right'],
+  ['wrong_cause','Wrong cause'],
+  ['missed_cause','Missed a cause'],
+  ['not_material','Not worth flagging'],
+  ['wrong_owner','Wrong owner'],
+];
+
+function feedbackBlock(){
+  const d = STATE.diagnosis;
+  if(!d || !d.run_id) return '';
+  return section('Tell the engine it was wrong', `
+    <p>A correction never edits this run and never moves a computed number.
+    What it can change are the inputs the business owns, which candidates are
+    worth surfacing, which driver a description maps to, where a threshold sits: and only once two independent readers agree.</p>
+    <div class="fb" id="fb">
+      ${JUDGEMENTS.map(([k,lab])=>
+        `<button data-j="${k}" aria-pressed="false">${lab}</button>`).join('')}
+    </div>
+    <p class="fbnote" id="fbnote">Nothing recorded yet.</p>`,
+    false, '');
+}
+
+function wireFeedback(){
+  const box = document.getElementById('fb');
+  if(!box) return;
+  box.querySelectorAll('button').forEach(b=>b.addEventListener('click', async ()=>{
+    const d = STATE.diagnosis;
+    box.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true');
+    const note = document.getElementById('fbnote');
+    note.textContent = 'Recording…';
+    try{
+      const res = await fetch('/api/feedback',{
+        method:'POST', headers:{'content-type':'application/json'},
+        body: JSON.stringify({
+          run_id:d.run_id, kpi_id:d.kpi_id, persona:d.persona||'analyst',
+          judgement:b.dataset.j, submitted_by:'console-user', region:d.region,
+          candidate_id:(d.verified&&d.verified[0]||{}).candidate_id,
+        })
+      });
+      const out = await res.json();
+      const p = (out.summary&&out.summary.proposals||[]).filter(x=>x.applicable).length;
+      note.textContent = out.note + (p?` ${p} proposal(s) now have quorum.`:'');
+    }catch(e){ note.textContent = 'Could not record that.'; }
+  }));
+}
+
 /* ---------- disclosure sections ---------- */
+/* A section is numbered, and the numbering is not decoration: it gives the
+   page a spine a reader can scan in one pass and refer to out loud ("section
+   four says the owner is the ecommerce lead"). The counter is module state so
+   the ordinals are assigned in render order rather than hard-coded, which
+   means a section that does not apply to a persona simply is not numbered
+   rather than leaving a hole. */
+let SECTION_N = 0;
+function resetSections(){ SECTION_N = 0; }
 function section(title, body, open=false, count=''){
-  return `<details ${open?'open':''}><summary>${title}
-    ${count?`<span class="count">${count}</span>`:''}</summary>
+  const n = String(++SECTION_N).padStart(2,'0');
+  return `<details class="sec" ${open?'open':''}><summary>
+      <span class="num">${n}</span><span class="name">${title}</span>
+      ${count?`<span class="count">${count}</span>`:''}</summary>
     <div class="body">${body}</div></details>`;
+}
+
+/* Run metadata in the margin, the way a set of accounts carries its notes:
+   beside the argument, not beneath it, and never competing with it for the
+   reader's attention. */
+function marginBlock(d){
+  if(!d){
+    return `<section><span class="label">About</span>
+      <p>Every figure on this page resolves to the query or document behind it.
+         The quantitative layer is deterministic; a model reads, ranks and
+         writes, and never calculates.</p></section>`;
+  }
+  const t = d.telemetry || {};
+  const gap = d.signal_gap || {};
+  const nar = d.narrative || {};
+  const stale = (d.freshness||[]).filter?.(f=>!f.sla_met).length;
+  const rows = [];
+  if(t.total_seconds != null) rows.push(['Latency', t.total_seconds.toFixed(2)+' s']);
+  if(t.model_calls != null) rows.push(['Model calls', t.model_calls]);
+  if(t.tokens_in != null && (t.tokens_in||t.tokens_out))
+    rows.push(['Tokens', (t.tokens_in+t.tokens_out).toLocaleString()]);
+  if(t.cost_inr != null) rows.push(['Cost', '₹'+Number(t.cost_inr).toFixed(3)]);
+  return `
+    <section><span class="label">Run</span>
+      <dl>
+        <dt>Identifier</dt><dd class="mono">${escapeHtml(d.run_id||'–')}</dd>
+        <dt>Reader</dt><dd>${escapeHtml(sentence(d.persona||'analyst'))}</dd>
+        ${d.region?`<dt>Region</dt><dd>${escapeHtml(d.region)}</dd>`:''}
+      </dl>
+    </section>
+    ${rows.length?`<hr class="rule"><section><span class="label">Cost of this run</span>
+      <dl>${rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></section>`:''}
+    ${nar.writer?`<hr class="rule"><section><span class="label">Narrative</span>
+      <dl>
+        <dt>Written by</dt><dd>${escapeHtml(nar.writer)}</dd>
+        <dt>Sentences</dt><dd>${(nar.sentences||[]).length}</dd>
+        <dt>Rejected</dt><dd>${((nar.validation||{}).rejected||[]).length}</dd>
+      </dl></section>`:''}
+    ${gap.verdict?`<hr class="rule"><section><span class="label">Foreseeability</span>
+      <dl>
+        <dt>Verdict</dt><dd>${escapeHtml(String(gap.verdict).replace(/_/g,' '))}</dd>
+        ${gap.recurrence?`<dt>Prior episodes</dt><dd>${gap.recurrence}</dd>`:''}
+      </dl></section>`:''}
+    ${stale?`<hr class="rule"><section><span class="label">Freshness</span>
+      <p>${stale} source(s) past SLA.</p></section>`:''}`;
 }
 
 /* ---------- persona projections ---------- */
@@ -910,8 +1402,11 @@ function section(title, body, open=false, count=''){
    page says they are withheld, so their absence is a choice rather than a gap. */
 function cfoStory(d){
   const h = d.headline, o = d.recovery_outlook, dec = d.decision;
+  // Trailing full stops are stripped before joining, or the list reads
+  // "broke the checkout flow., Heavy rainfall suppressed footfall.".
   const causes = d.causes.map(c =>
-    `${escapeHtml(String(c.cause||'').split(':').pop().trim())}`).join(', ');
+    `${escapeHtml(String(c.cause||'').split(':').pop().trim().replace(/\.$/,''))}`
+  ).join('; ');
   return `
     <p>Net revenue fell <strong>${inr(h.change_inr_per_day)}</strong> per day.
     ${d.causes.length === 1 ? 'One verified cause accounts' :
@@ -939,7 +1434,7 @@ function opsStory(d){
     ${mine.length
       ? `<strong>${mine.length}</strong> of them ${mine.length===1?'sits':'sit'} behind a lever you can pull.`
       : `None of them sits behind a lever you hold.`}</p>
-    ${mine.map(a => `<p><strong>${escapeHtml(a.action)}</strong> —
+    ${mine.map(a => `<p><strong>${escapeHtml(a.action)}</strong>,
       ${sentence(escapeHtml(a.lever||''))}, owned by
       ${sentence(escapeHtml(a.owner||''))}. Expected recovery
       ${inr(a.expected_recovery_inr_per_day)} per day, awaiting approval.</p>`).join('')}
@@ -1021,7 +1516,7 @@ function decisionsBlock(){
     return section('Monitoring', watch.map(w => `
       <article class="decision">
         <h3>${escapeHtml(w.cause)}</h3>
-        <p class="verdictline"><span class="mark na">&middot;</span>
+        <p class="verdictline">
           Verified, but nothing to act on</p>
         <table class="chain">
           <tr><th scope="row">Watch</th><td>${escapeHtml(w.monitoring.watch)}</td></tr>
@@ -1041,7 +1536,7 @@ function decisionsBlock(){
     const chain = [
       ['Driver', c.driver ? sentence(c.driver) : '<span class="na">None matched</span>'],
       ['Lever', c.lever ? sentence(c.lever)
-        : '<span class="na">None — this cause cannot be acted on</span>'],
+        : '<span class="na">None; this cause cannot be acted on</span>'],
       ['Action', escapeHtml(c.action)],
       ['Measured loss', `<b>${inr(c.measured_loss_inr_per_day)}</b> per day`],
       ['Expected recovery', money],
@@ -1061,22 +1556,20 @@ function decisionsBlock(){
       </div>` : '';
 
     const caveats = c.caveats.length
-      ? `<ul class="caveats">${c.caveats.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`
+      ? `<ul class="caveats">${c.caveats.map(x=>`<li>${escapeHtml(words(x))}</li>`).join('')}</ul>`
       : '';
 
     return `
       <article class="decision">
-        <h3>${escapeHtml(c.cause)}</h3>
-        <p class="verdictline">
-          <span class="mark ${c.controllable?'ok':'na'}">${c.controllable?'●':'·'}</span>
-          ${c.controllable ? 'Verified and actionable' : 'Verified, but nothing to act on'}
-        </p>
+        <h3>${escapeHtml(plain({description:c.cause,candidate_id:c.candidate_id,scope:{}}))}</h3>
+        <p class="verdictline"><span class="state ${c.controllable?'ok':'off'}">${
+          c.controllable ? 'Verified and actionable' : 'Verified, no lever'}</span></p>
         <table class="chain">${chain}</table>
         ${caveats}
         <div class="monitor">
           <h4>Monitoring rule</h4>
           <table class="chain">
-            <tr><th scope="row">Watch</th><td>${escapeHtml(m.watch)}</td></tr>
+            <tr><th scope="row">Watch</th><td>${escapeHtml(words(m.watch))}</td></tr>
             <tr><th scope="row">Threshold</th><td>${escapeHtml(m.threshold)}</td></tr>
             <tr><th scope="row">Window</th><td>${escapeHtml(m.window)}</td></tr>
             <tr><th scope="row">Route to</th><td>${sentence(escapeHtml(m.route_to))}</td></tr>

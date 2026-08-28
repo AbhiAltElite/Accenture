@@ -40,14 +40,40 @@ EVENT_LENGTH = (4, 8)
 DECOY_SHARE = 0.34
 NOISE_SHARE = 0.12
 
+# Effect sizes are stated against the *slice*, but materiality is judged at the
+# region, so what matters is the product of the two. The first version of this
+# table planted 10-40% moves on slices worth 6-20% of a region, which lands at
+# 1-5% of regional revenue, below the contract's materiality floor by
+# construction. 152 of 160 cases produced no material movement and top-1
+# accuracy read 2.9%: the benchmark was measuring a generator bug.
+#
+# The floor is not the thing that was wrong. ~7.5% of a region-day is a
+# defensible bar for a finance director, and lowering it to make cases pass is
+# the trap in BUGS.md T-14. What was wrong is that no planted event was ever
+# big enough to be worth explaining. Each profile below now plants on a slice
+# wide enough that a plausible incident-sized effect clears the floor, and the
+# comment records the arithmetic so the next person can check it rather than
+# trust it.
+#
+#   scope                share of region   effect range   -> region movement
+#   app + mobile              34.6%        -28% .. -55%      -9.7% .. -19.0%
+#   web (all devices)         33.9%        -26% .. -50%      -8.8% .. -17.0%
+#   store                     27.6%        -34% .. -62%      -9.4% .. -17.1%
+#   packaged_foods            21.9%        -44% .. -78%      -9.6% .. -17.1%
+#   home_care                 23.5%        -42% .. -72%      -9.9% .. -16.9%
+#   personal_care             32.0%        -30% .. -58%      -9.6% .. -18.6%
+#
+# Shares are measured from the generated panel, not assumed; the test in
+# tests/test_bulk.py asserts each profile's floor still clears materiality, so
+# a future change to the catalog that shrinks a slice fails loudly.
 CAUSE_PROFILES: tuple[tuple[CauseKind, tuple[float, float], dict], ...] = (
-    (CauseKind.INTERNAL_BUG, (-0.40, -0.18), {"channel": "app", "device": "mobile"}),
-    (CauseKind.INTERNAL_BUG, (-0.35, -0.15), {"channel": "web", "device": "desktop"}),
-    (CauseKind.EXTERNAL_WEATHER, (-0.32, -0.14), {"channel": "store"}),
-    (CauseKind.STOCKOUT, (-0.28, -0.12), {"category": "packaged_foods"}),
-    (CauseKind.STOCKOUT, (-0.26, -0.11), {"category": "beverages"}),
-    (CauseKind.COMPETITOR_PROMO, (-0.24, -0.10), {"category": "personal_care"}),
-    (CauseKind.PRICE_CHANGE, (-0.22, -0.09), {"category": "home_care"}),
+    (CauseKind.INTERNAL_BUG, (-0.55, -0.28), {"channel": "app", "device": "mobile"}),
+    (CauseKind.INTERNAL_BUG, (-0.50, -0.26), {"channel": "web"}),
+    (CauseKind.EXTERNAL_WEATHER, (-0.62, -0.34), {"channel": "store"}),
+    (CauseKind.STOCKOUT, (-0.78, -0.44), {"category": "packaged_foods"}),
+    (CauseKind.STOCKOUT, (-0.72, -0.42), {"category": "home_care"}),
+    (CauseKind.COMPETITOR_PROMO, (-0.58, -0.30), {"category": "personal_care"}),
+    (CauseKind.PRICE_CHANGE, (-0.68, -0.38), {"category": "home_care"}),
 )
 
 DESCRIPTIONS = {

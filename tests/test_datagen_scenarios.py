@@ -18,7 +18,7 @@ class TestCalendar:
         assert peaks[date(2025, 10, 20)] == pytest.approx(0.85)
 
     def test_demand_builds_then_collapses(self):
-        """The shape is the point — a one-day bump would be a trivial decoy."""
+        """The shape is the point; a one-day bump would be a trivial decoy."""
         uplift = festival_uplift(date(2025, 10, 1), date(2025, 11, 5))
         peak, day_after = uplift[date(2025, 10, 20)], uplift[date(2025, 10, 21)]
         assert peak > 1.8, "Diwali should roughly double demand at its peak"

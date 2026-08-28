@@ -66,7 +66,7 @@ class PlantedEvent:
     """Something recorded in the operational data.
 
     `effect` is the multiplicative impact on the metric: -0.30 is a thirty per
-    cent reduction. A decoy carries effect 0.0 — it is recorded and therefore
+    cent reduction. A decoy carries effect 0.0; it is recorded and therefore
     correlates, but it changes nothing.
     """
 
@@ -92,7 +92,7 @@ class AvailableSignal:
 
     Answer 2 turns on all three fields together. A signal that was public but
     arrived ten minutes ahead, or one with a fourteen-day lead time that covered
-    the whole country rather than the affected region, is not actionable — and
+    the whole country rather than the affected region, is not actionable, and
     the engine is expected to say *not foreseeable* rather than manufacture a gap.
     """
 

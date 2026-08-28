@@ -26,7 +26,7 @@ SOURCE_LAG = {
 
 
 def emit_pos_txn(panel: pd.DataFrame, seed: int = 7) -> pd.DataFrame:
-    """Order lines — the finest grain in the system.
+    """Order lines, the finest grain in the system.
 
     Expanded from the panel so the transactions sum back to the series exactly.
     Two defects are injected on purpose: a handful of duplicated order ids, and
@@ -124,7 +124,7 @@ def emit_plan_ops(panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: i
         .agg(revenue=("revenue", "sum"), units=("units", "sum"))
     )
 
-    # Spend tracks revenue with noise — correlated enough to be a plausible
+    # Spend tracks revenue with noise, correlated enough to be a plausible
     # candidate driver, which is what makes ranking non-trivial.
     weekly["marketing_spend"] = (
         weekly["revenue"] * rng.uniform(0.05, 0.09, len(weekly))
@@ -133,7 +133,7 @@ def emit_plan_ops(panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: i
     weekly["competitor_price_index"] = np.round(rng.normal(100, 3.5, len(weekly)), 2)
 
     # Planted events are recorded here as operational facts. Causes and decoys
-    # are written identically — nothing marks which is which.
+    # are written identically; nothing marks which is which.
     weekly["promo_active"] = False
     weekly["promo_id"] = None
     for event in events:
@@ -154,7 +154,7 @@ def emit_plan_ops(panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: i
         if event.kind is CauseKind.COMPETITOR_PROMO:
             weekly.loc[mask, "competitor_price_index"] -= 6.5
 
-    # Missing weeks: the extract does not always land. Null, not zero — a zero
+    # Missing weeks: the extract does not always land. Null, not zero; a zero
     # would be read as "no spend" rather than "we do not know".
     drop = rng.random(len(weekly)) < 0.03
     weekly.loc[drop, ["marketing_spend", "planned_stock"]] = np.nan
@@ -208,7 +208,7 @@ def emit_voice_ops(
     """Support tickets, rep notes and the release log.
 
     Ticket volume tracks the events that actually happened. A decoy generates no
-    tickets, because nothing went wrong — which is one of the ways corroboration
+    tickets, because nothing went wrong, which is one of the ways corroboration
     separates a real cause from a coincidence.
     """
     rng = np.random.default_rng(seed)
@@ -378,6 +378,7 @@ def emit_ext_signals(
     panel: pd.DataFrame,
     events: tuple[PlantedEvent, ...],
     seed: int = 29,
+    declared: tuple = (),
 ) -> pd.DataFrame:
     """Public weather warnings, per city, as an external feed would deliver them.
 
@@ -447,7 +448,73 @@ def emit_ext_signals(
                     "source_url": "https://mausam.imd.gov.in/",
                 }
             )
+    rows.extend(_declared_rows(declared))
     return pd.DataFrame(rows).sort_values(["valid_from", "city"]).reset_index(drop=True)
+
+
+# Scenario-declared signals are not weather. The demo cases carry warnings from
+# other publishers, a carrier status page, a competitor price feed, and they
+# exist to make the non-weather verdicts reachable from the real feed rather
+# than only from the scenario definition. Without them `not_foreseeable` is a
+# state the engine can return and the data can never produce, which is the same
+# as not having it.
+_DECLARED_TYPE: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("carrier", "courier", "logistics", "3pl"), "carrier_disruption"),
+    (("imd", "weather", "rain", "flood", "storm", "cyclone"), "severe_weather"),
+    (("competitor", "price", "promo"), "competitor_action"),
+    (("supplier", "stock", "shortage"), "supply_disruption"),
+)
+
+
+def _declared_type(signal_id: str, publisher: str) -> str:
+    text = f"{signal_id} {publisher}".lower()
+    for words, mapped in _DECLARED_TYPE:
+        if any(w in text for w in words):
+            return mapped
+    return "external_advisory"
+
+
+def _declared_rows(declared: tuple) -> list[dict]:
+    """Emit each scenario's AvailableSignal into the feed's own schema.
+
+    Severity is derived from lead time and publication rather than declared:
+    the scenarios describe availability, and the feed's job is to describe
+    actionability. A public warning with three days of lead time is what a met
+    service issues at amber or above; forty minutes is an advisory nobody could
+    have planned around, and it is emitted as one.
+    """
+    rows: list[dict] = []
+    for signal in declared:
+        region = getattr(signal.covers, "region", None) or "All"
+        if signal.lead_time_hours >= 48:
+            severity = "red"
+        elif signal.lead_time_hours >= 24:
+            severity = "amber"
+        else:
+            severity = "yellow"
+        valid_from = signal.available_at + timedelta(hours=signal.lead_time_hours)
+        city = next((c for c in CITIES if c.region == region), CITIES[0])
+        rows.append(
+            {
+                "signal_id": signal.signal_id,
+                "signal_type": _declared_type(signal.signal_id, signal.publisher),
+                "city": city.name if region != "All" else "All India",
+                "region": region,
+                "lat": city.lat,
+                "lon": city.lon,
+                "severity": severity,
+                "intensity": round(min(1.0, signal.lead_time_hours / 96.0), 3),
+                "issued_at": signal.available_at,
+                "valid_from": valid_from,
+                "valid_to": valid_from + timedelta(hours=120),
+                "lead_time_hours": round(signal.lead_time_hours, 1),
+                "is_public": signal.is_public,
+                "publisher": signal.publisher,
+                "source": "generated",
+                "source_url": None,
+            }
+        )
+    return rows
 
 
 def _monsoon_intensity(days: pd.Series, region: str) -> np.ndarray:

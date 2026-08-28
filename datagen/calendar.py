@@ -2,7 +2,7 @@
 
 Holiday dates come from the `holidays` package rather than being hard-coded,
 because Diwali and Eid move each year and a wrong festival date would put the
-seasonal decoy in the wrong week — quietly turning the false-alarm test into a
+seasonal decoy in the wrong week, quietly turning the false-alarm test into a
 test of something else.
 
 Retail does not spike on the festival day itself. Demand builds over the weeks
@@ -75,8 +75,8 @@ def festival_peaks(start: date, end: date) -> dict[date, float]:
 def festival_uplift(start: date, end: date) -> dict[date, float]:
     """Multiplicative demand uplift per day: 1.0 is an ordinary day.
 
-    The curve rises quadratically into the festival — early interest is mild,
-    the last few days are frantic — then drops below baseline as households stop
+    The curve rises quadratically into the festival, early interest is mild,
+    the last few days are frantic, then drops below baseline as households stop
     buying. A detector that reacts to the raw series flags both the peak and the
     trough; one that models seasonality first flags neither.
     """

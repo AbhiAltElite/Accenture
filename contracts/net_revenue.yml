@@ -1,4 +1,4 @@
-# Net revenue — the master metric. Movements here cascade from orders and AOV,
+# Net revenue, the master metric. Movements here cascade from orders and AOV,
 # which is what lets a break be traced down the graph rather than guessed at.
 kpi_id: net_revenue
 version: 1
@@ -50,7 +50,7 @@ drivers:
     source: voice_ops
     controllable_lever: release_rollback
     owner_role: ecommerce_lead
-  # Observable but not actionable — no lever, so no owner.
+  # Observable but not actionable, no lever, so no owner.
   - id: competitor_price_index
     source: plan_ops
   - id: severe_weather
@@ -72,7 +72,7 @@ access_policy:
   column_masks: [unit_margin, customer_email]
   domain_restriction: [pii]
 
-# Derived at registration from a published S&OP process description — a document
+# Derived at registration from a published S&OP process description, a document
 # nobody on this team wrote. Note what the standard cycle consumes: sales history,
 # inventory, capacity, financials. No external risk signal. That absence is the
 # finding, and it is visible in the industry's own description of its own process.
@@ -81,10 +81,10 @@ signals_consumed:
   coverage: complete
   extracted_at: 2026-08-28T09:14:00Z
   extracted:
-    - {signal: historical_sales, span: [430, 526]}
-    - {signal: inventory_position, span: [527, 619]}
-    - {signal: capacity_metrics, span: [620, 693]}
-    - {signal: financial_plan, span: [694, 764]}
+    - {signal: historical_sales, span: [429, 525]}
+    - {signal: inventory_position, span: [526, 618]}
+    - {signal: capacity_metrics, span: [619, 692]}
+    - {signal: financial_plan, span: [693, 763]}
 
 # Revenue is a sum of priced units, so the price/volume/mix identity genuinely
 # applies and its three legs add back to the movement exactly. The other four

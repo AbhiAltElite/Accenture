@@ -1,10 +1,10 @@
-# WhyChain — Design Checklist
+# WhyChain, Design Checklist
 
 Derived from the UI design brief, with corrections and additions. **Sections 1–3 are principles; section 6 is the checklist you actually run before shipping.**
 
 ---
 
-## 1. The identity concept — keep this above everything else
+## 1. The identity concept, keep this above everything else
 
 **Claim → Proof.** The visual identity is not a colour scheme; it is the relationship between a sentence and its evidence. The reader should subconsciously learn:
 
@@ -15,7 +15,7 @@ Sentence → Evidence → Method → Result
 Two acceptance tests to run on every screen:
 
 - **Remove the logo.** Does it still read as a legitimate enterprise analytics system? If credibility depended on branding, the visual system is too thin.
-- **Remove every AI label.** Delete "AI", "LLM", "Copilot", "smart", "intelligent". Does the interface still make complete sense? WhyChain is valuable because of deterministic analysis, causal verification, evidence provenance and signal-gap detection — not because a model is present.
+- **Remove every AI label.** Delete "AI", "LLM", "Copilot", "smart", "intelligent". Does the interface still make complete sense? WhyChain is valuable because of deterministic analysis, causal verification, evidence provenance and signal-gap detection, not because a model is present.
 
 ---
 
@@ -35,9 +35,9 @@ Two acceptance tests to run on every screen:
 
 A reader must never mistake a hypothesis for a verified cause. This is the single most important information-design requirement in the product.
 
-**UNKNOWN, stale, sparse, entitlement-limited and validator-rejection are first-class states**, designed with the same care as the success path — never styled as errors.
+**UNKNOWN, stale, sparse, entitlement-limited and validator-rejection are first-class states**, designed with the same care as the success path, never styled as errors.
 
-**Density belongs in tables, not in the page.** Compact metadata, tight table rows, strong alignment, controlled line lengths — inside data. The page itself needs air between major blocks, or the reader has nothing to rest on and everything reads as urgent.
+**Density belongs in tables, not in the page.** Compact metadata, tight table rows, strong alignment, controlled line lengths, inside data. The page itself needs air between major blocks, or the reader has nothing to rest on and everything reads as urgent.
 
 *Correction, 2026-08-28: the first version of this line said "density over whitespace" without qualification, and the first build applied it to the whole page. The result was relentless. Density is a property of tables; a page made entirely of them is exhausting to look at whatever its information content.*
 
@@ -51,7 +51,7 @@ A reader must never mistake a hypothesis for a verified cause. This is the singl
 
 **Evidence opens in context.** Drawer, anchored panel or inline expansion. Never a page navigation, never a full-screen modal, never a lost scroll position.
 
-**Cards only for real conceptual boundaries** — the evidence drawer, the monitoring plan, an operational finding. Reach for borders, typography and hierarchy first.
+**Cards only for real conceptual boundaries**, the evidence drawer, the monitoring plan, an operational finding. Reach for borders, typography and hierarchy first.
 
 **Microcopy is factual.** Verified, hypothesis, rejected, evidence, method, freshness, owner, signal gap, blocking data. Never magic, smart, AI-powered, unlock, discover hidden insights.
 
@@ -66,7 +66,7 @@ Gradients of any kind · glassmorphism · glowing borders · neon · aurora back
 
 Four things in the brief conflict with how the engine actually works. Fix them before they reach a screen a judge sees.
 
-**Wireframes are information architecture, not visual style.** The brief's ASCII examples show *what appears and in what order*. Implementing them literally produces a monospace terminal aesthetic — which is its own kind of generated-looking design. Monospace belongs on evidence IDs, SQL, row counts and numeric columns. The narrative — the primary surface — must be set in a proper reading face.
+**Wireframes are information architecture, not visual style.** The brief's ASCII examples show *what appears and in what order*. Implementing them literally produces a monospace terminal aesthetic, which is its own kind of generated-looking design. Monospace belongs on evidence IDs, SQL, row counts and numeric columns. The narrative; the primary surface, must be set in a proper reading face.
 
 **The evidence-drawer example is wrong.** It shows `Method: price/volume/mix bridge → Result: -18.1K orders`. The bridge produces **currency effects**, not order counts. A method and its result unit must agree, or the first analytically literate judge catches it.
 
@@ -76,25 +76,25 @@ Four things in the brief conflict with how the engine actually works. Fix them b
 
 ---
 
-## 4. Gaps to fill — states the brief missed
+## 4. Gaps to fill, states the brief missed
 
-**The correlation trap needs its own treatment.** The brief covers rejected candidates generically. But the planted negative control — an event that correlates *perfectly* and caused nothing — is the anti-circularity proof and the strongest moment in the demo. Give it distinct presentation:
+**The correlation trap needs its own treatment.** The brief covers rejected candidates generically. But the planted negative control, an event that correlates *perfectly* and caused nothing, is the anti-circularity proof and the strongest moment in the demo. Give it distinct presentation:
 
 ```
-CORRELATION TRAP — REJECTED
+CORRELATION TRAP, REJECTED
 
 Promotional campaign · correlation 0.94 with the movement
 
 A correlation-ranking method would report this as the cause.
 
-Difference-in-differences        FAIL — campaign also ran in East;
+Difference-in-differences        FAIL, campaign also ran in East;
                                  East showed no comparable movement
 Verdict                          Not causal
 ```
 
 **Show that internal drivers come from an identity, not an estimate.** The two-track distinction is invisible unless designed. Internal structural drivers (price/volume/mix) are exact and sum to the total; external drivers (marketing, competitor, stock, weather) are regression estimates carrying intervals. Label the method on each, so the reader can see which numbers are arithmetic and which are inference.
 
-**Set a measure for the narrative.** The brief calls for density but never bounds line length. The narrative is read continuously and needs ~65–75 characters. Density applies to tables, metadata and chrome — not to the prose that carries the product.
+**Set a measure for the narrative.** The brief calls for density but never bounds line length. The narrative is read continuously and needs ~65–75 characters. Density applies to tables, metadata and chrome, not to the prose that carries the product.
 
 ---
 
@@ -170,6 +170,6 @@ If the eye lands first on a logo, KPI cards, or a decorative status row, the lay
 - [ ] Semantic headings, accessible tables and drawers
 - [ ] `prefers-reduced-motion` respected
 - [ ] No horizontal page overflow; wide tables scroll in their own container
-- [ ] Loading states name the actual stage running — never fake thinking animation
+- [ ] Loading states name the actual stage running, never fake thinking animation
 - [ ] Errors state what failed, what's affected, when it last worked, what to do
 - [ ] Empty states explain the analytical meaning, not "no data found"

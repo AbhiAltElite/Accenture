@@ -1,5 +1,5 @@
 # On-time delivery. Arrives from a third source on a T+1 cadence, so it is the
-# metric most likely to be stale when a diagnosis runs — which makes it the
+# metric most likely to be stale when a diagnosis runs, which makes it the
 # natural place to demonstrate the freshness gate.
 kpi_id: on_time_delivery
 version: 1
@@ -62,8 +62,21 @@ access_policy:
 
 # No process document registered for this metric yet, so coverage is unknown and
 # Answer 2 will decline to assert a gap rather than infer one from silence.
+# The same S&OP document governs this KPI: section 3 step 3 is the supply
+# reconciliation that plans distribution capacity, and on-time delivery is what
+# that plan delivers. The spans are the same four because they are the cycle's
+# whole input list, and that list is the finding. A process that plans
+# distribution against sales history, stock and capacity, and against no
+# external disruption signal at all, cannot anticipate a flood.
 signals_consumed:
-  coverage: unknown
+  derived_from: data/docs/sop/sop_demand_planning_v2.md
+  coverage: complete
+  extracted_at: 2026-08-28T09:14:00Z
+  extracted:
+    - {signal: historical_sales, span: [429, 525]}
+    - {signal: inventory_position, span: [526, 618]}
+    - {signal: capacity_metrics, span: [619, 692]}
+    - {signal: financial_plan, span: [693, 763]}
 
 lineage:
   upstream: [shipments]

@@ -29,7 +29,7 @@ class Embedder(Protocol):
 
 
 class TfidfSvdEmbedder:
-    """TF-IDF reduced by SVD — latent semantic indexing.
+    """TF-IDF reduced by SVD, latent semantic indexing.
 
     Chosen over a hosted embedding model for the local default because it is
     deterministic, needs no network, and at demo corpus size retrieves well
