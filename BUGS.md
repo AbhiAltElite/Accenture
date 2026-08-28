@@ -131,6 +131,25 @@ matrix width, and templated tickets have far fewer distinct terms than documents
 **Fix:** fit the vectorizer first and take the dimension from the vocabulary it
 found.
 
+### B-007 · `holidays` imported but never pinned
+**Found:** 2026-08-28 (by CI) · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** every test passed locally; CI failed on a clean runner.
+
+**Root cause:** the package was installed by hand while building the festival
+calendar and never added to `requirements.txt`. The local venv had it, so nothing
+locally could detect the gap. This is T-16 again, in a form the earlier fix did
+not cover: that one checked pins were *correct*, not that they were *complete*.
+
+**Fix:** pinned `holidays==0.103`.
+
+**Regression test:** `tests/test_dependencies.py` walks the AST of every module,
+collects top-level imports, and asserts each third-party name is declared. It
+fails the same way locally that CI would.
+
+**Lesson:** a green local suite says nothing about a clean machine when the
+local environment has drifted from the manifest.
+
 ### Template
 
 ```markdown

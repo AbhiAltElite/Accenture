@@ -48,7 +48,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
   buckets with ECE, and latency
 - Interface: sentence case throughout, warmer palette, tabbed panels so the
   answer is visible without scrolling past the working
-- 141 tests, 39 marked `invariant`
+- `tests/test_dependencies.py` — asserts every third-party import is pinned
+- 142 tests, 40 marked `invariant`
+
+### Fixed
+- `holidays` was imported by the calendar modules but missing from
+  `requirements.txt`, so CI failed on a clean runner while everything passed
+  locally (B-007)
 - GitHub Actions CI: lint, tests on Python 3.12 and 3.14, invariants as a
   separate check, and a job that fails the build on AI attribution in history
 - Pull request template
