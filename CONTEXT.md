@@ -35,14 +35,25 @@ corroborate (retrieval + span-cited extraction)   ← LLM call 1 of 2
    ↓
 confidence (deterministic score → isotonic calibration) → abstain if weak
    ↓
-signal gap (Answer 2) → monitoring plan
+actions (driver → lever → impact → owner → monitoring)  ← every field derived
    ↓
-narrate (constrained to the evidence table)       ← LLM call 2 of 2
+signal gap (Answer 2) → monitoring plan           ← NOT BUILT
    ↓
-validate (binding + numeral + entity checks)      ← rejects unbound sentences
+narrate (constrained to the evidence table)       ← NOT BUILT (LLM call 2 of 2)
+   ↓
+validate (binding + numeral + entity checks)      ← NOT BUILT
 ```
 
-**Exactly two model calls per diagnosis.** SOP parsing happens once at contract registration, offline.
+**Two model calls per diagnosis is the design.** The running system currently
+makes zero: the extractor behind the corroboration protocol is rule-based and
+there is no narrate stage, so the narrative comes from a deterministic template.
+The run receipt reports the count it observed rather than the count intended, so
+this is visible rather than assumed. SOP parsing happens once at contract
+registration, offline, and stays outside the per-diagnosis count either way.
+
+**The bridge applies to `net_revenue` alone.** It is an identity over priced
+units; a rate has no units to move and no price to change. Each contract
+declares whether it can be decomposed, and the other four decline.
 
 ## Where things live
 
@@ -79,8 +90,13 @@ Until then:
 
 ```bash
 make status    # read the real contracts through the real loader
-make test      # 52 tests; -m invariant for the hard correctness ones
+make test      # 142 tests; -m invariant for the hard correctness ones
+make audit     # 30 executable security, logic and design checks
+make bench     # accuracy, trap rejection, calibration, latency
 ```
+
+`make audit` and `make bench` both need `make gen` to have run. Without a
+warehouse the audit reports ten failures that are all the same missing file.
 
 `make status` is not a mock — if it prints the KPI graph, the governance layer
 genuinely loads and cross-validates.
@@ -90,15 +106,21 @@ genuinely loads and cross-validates.
 | Phase | Built | What you can see |
 |---|---|---|
 | 1 ✅ | evidence model, retrieval, contracts | `make status`, `make test` |
-| 2 | data generation | `make gen` then query the DuckDB file directly |
-| 3 | reconcile + detect | **first localhost** — metric chart, expected band, anomaly window |
-| 4 | decompose + rank + verify | contribution table, ranked candidates, rejected ones with the test that killed each |
-| 5 | corroborate + confidence + narrate + validate | the full diagnosis, click-to-evidence, UNKNOWN when weak |
-| 6 | Answer 2, personas, entitlements, telemetry | signal gap, monitoring plan, persona switch, receipt |
-| 7 | benchmark | published accuracy, calibration curve |
+| 2 ✅ | data generation | `make gen` then query the DuckDB file directly |
+| 3 ✅ | reconcile + detect | metric chart, expected band, anomaly window |
+| 4 ✅ | decompose + verify | contribution table, candidates, rejected ones with the test that killed each |
+| 5 ◐ | corroborate + confidence | the diagnosis, click-to-evidence, UNKNOWN when weak. **narrate and validate are not built**: the narrative is a deterministic template |
+| 6 ◐ | actions + telemetry | decision card with lever, owner, impact and monitoring rule; run receipt. **Answer 2, personas and entitlement projection are not built** |
+| 7 ✅ | benchmark | `make bench` — accuracy, trap rejection, calibration, latency |
 
-Phase 3 is the first point where opening a browser tells you anything. Before
-that, the tests and `make status` are the honest measure.
+**Where the honest line is.** `whychain/signalgap/`, `whychain/narrate/` and
+`whychain/rank/` are empty files. Answer 2, the model-written narrative and the
+two-track ranking are specified in `docs/` and do not exist in code. Everything
+else in the diagram above runs.
+
+Read a claim in `docs/PROTOTYPE-SPEC.md` or `docs/PRODUCT-OUTLINE.md` as a
+design intent, not a description of the running system. This file and
+`HANDOFF.md` are the ones kept honest about what is built.
 
 ## Current state
 

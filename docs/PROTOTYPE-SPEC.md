@@ -34,7 +34,19 @@ RunContext
 | `pos_txn` | order lines: SKU, price, discount, qty, city, channel, device | order-line | hourly | duplicate order ids, timezone drift |
 | `plan_ops` | marketing spend, planned stock, competitor price index | weekly × region × category | T+2 | nulls, late arrival, ₹ vs ₹-lakh unit mix |
 | `voice_ops` | support tickets, rep notes, release/deploy log | event, unstructured | near-real-time | free text, inconsistent tagging |
-| `ext_signals` | weather by city (real, Open-Meteo ERA5); festival/holiday calendar | daily × city | T+1 | genuine coverage gaps |
+| `ext_signals` | public severe-weather warnings by city; festival/holiday calendar | daily × city | T+1 | genuine coverage gaps |
+
+`ext_signals` carries `signal_id`, `severity`, `issued_at`, `valid_from`,
+`lead_time_hours`, `is_public`, `publisher` and `source`: the fields
+foreseeability is decided on, and no others.
+
+**On provenance, precisely.** The festival calendar is real, resolved through the
+`holidays` package. The weather warnings are **generated**, and every row says
+`source: generated`. Earlier drafts of this document and of `datagen/catalog.py`
+claimed an Open-Meteo ERA5 feed; no HTTP client existed in the codebase, and the
+claim was wrong. The schema is the one a cached real snapshot drops into
+unchanged, and D-004's "real external feeds" guard is not satisfied until that
+lands.
 
 `ext_signals` is a **feed**, not a peer source — it is consulted, never joined into the primary fact grain.
 
@@ -335,6 +347,14 @@ POST /contracts/register {kpi_id, sop_path}           → offline SOP parse → 
 
 ## 8. Stack
 
-DuckDB (analytics) · Postgres + pgvector (documents, feedback, case history) · FastAPI with Pydantic evidence types end to end · hand-rolled single-page front end · a small model for extraction and a frontier model for narration. Runs from a clone with one command, no cloud account in the path.
+DuckDB for analytics and documents · retrieval behind a `Retriever` protocol,
+brute-force NumPy by default and pgvector at scale (D-002) · FastAPI with
+Pydantic evidence types end to end · hand-rolled single-page front end · a small
+model for extraction and a frontier model for narration. Runs from a clone with
+one command, no cloud account and no database server in the path.
+
+*As built, 2026-08-28: the extractor is rule-based and the narration stage does
+not exist, so a diagnosis currently makes zero model calls and the run receipt
+says so. Postgres is not required for anything.*
 
 **Framing note:** this is an orchestrated agentic pipeline — tool use, retrieval, multi-step reasoning — with *deterministic control flow* rather than LLM-decided routing, chosen for auditability and replayability. The orchestration is agentic; the arithmetic is not.

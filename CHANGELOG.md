@@ -4,7 +4,68 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 
 ## [Unreleased]
 
+### Fixed — correctness
+
+- **Every diagnosis endpoint now executes the KPI contract it was asked for.**
+  `/api/diagnose`, `/api/decomposition` and `/api/candidates` resolved the
+  contract only to reject an unknown name, then read `_panel` — the generator's
+  own working frame, which carries revenue. A decomposition labelled
+  `checkout_conversion` was arithmetic over revenue. `Warehouse.bridge_facts`
+  reads each contract's own source with its own transforms, and `_panel` is no
+  longer readable through `Warehouse.table` at all
+- **The price/volume/mix bridge is declared per contract rather than assumed.**
+  It is an identity over priced units, so it applies to `net_revenue` and to
+  nothing else currently modelled. The four other KPIs decline with a reason
+  instead of returning a price effect on a percentage (T-03 in a second form)
+- **Ratios roll up as ratio-of-sums, not mean-of-means.** `aov`,
+  `checkout_conversion` and `on_time_delivery` declared `aggregation: mean`, so
+  a slice with three orders weighed as much as one with thirty thousand. On AOV
+  this understated the daily figure by 4.6% on average and 17.1% at worst. A
+  contract validator now rejects a ratio metric that declares `mean`
+- **Verification requires every mandatory gate, not only difference-in-differences.**
+  `event_time_isolation` and `placebo` were computed, reported, and then ignored
+  when deciding `VERIFIED`, so a candidate could be verified with its placebo
+  never run. SECURITY-LOGIC-CHECKLIST §1.1 specified all three
+- **`/api/candidates` applies `region`.** It accepted the parameter and dropped
+  it. It now filters which candidates are reported while still testing them
+  against the full panel, because difference-in-differences needs the unexposed
+  regions as a comparison group
+- **The retriever cache key is content-addressed.** It was the ticket row count:
+  a key that collides whenever one document replaces another and carries no
+  entitlement context, which is precisely the cache key T-06 warns is a P0
+- **Entitlement SQL is parameterised** and `Warehouse.table` takes an allowlist
+- **`ext_signals` exists.** All three contracts declared a `severe_weather`
+  driver sourced from it and a 36h SLA, and `source_freshness` reported a row
+  for it, but the generator never emitted the table — B-003 recurring
+- **The chart names its points by grain.** Hourly checkout conversion reported
+  "1,729 days", overstating the history twenty-four-fold
+
 ### Added
+
+- `whychain/telemetry/` — per-stage latency, method class, model calls, tokens
+  and cost, rendered as a run receipt. It reports the model-call count it
+  observed rather than asserting one: with no narrate stage yet that count is
+  zero, and the receipt says the narrative came from a deterministic template
+- `whychain/actions/` — decision cards carrying the brief's chain: driver, lever,
+  action, expected impact, owner, confidence, monitoring rule. Impact is a
+  declared share of the movement the causal test already measured, never an
+  estimate. Causes with no controllable lever return `controllable: false` with
+  no action and no recovery figure, which is what weather does
+- Approval drafts. Nothing executes; a card produces a request for a named human
+- `ext_signals` — public weather warnings per city with issue time, validity,
+  severity, lead time and publisher: the fields foreseeability is decided on.
+  Generated, and every row says so in `source`
+
+### Changed
+
+- A diagnosis takes 449ms rather than 2,317ms. Scans are bounded to the history
+  a diagnosis actually reads instead of the whole table, and the document corpus
+  is no longer rebuilt per candidate through `iterrows` to look up twelve rows
+- Interface: IBM Plex throughout, one superfamily rather than two chosen fonts;
+  a 17px base with the headline brought down from 40px; larger navigation and
+  controls; a second accent so a clickable claim and a verified one are no
+  longer the same colour. An hourly series opens on a readable window instead of
+  drawing two points per pixel
 - `whychain/evidence/` — `Evidence`, `Provenance`, `Freshness`, `EvidenceStore`.
   Append-only store, immutable records, unit/method agreement enforced at
   construction, acyclicity check on the support graph

@@ -28,10 +28,16 @@ You should see roughly:
 
 ```
 pos_txn              1,803,529 rows      order lines, hourly
+sessions               416,461 rows      hourly session counts, digital only
+shipments              300,324 rows      promised against delivered, T+1
 plan_ops                 3,160 rows      weekly plan, T+2 lag
 voice_ops                7,204 rows      tickets, notes, release log
+ext_signals                546 rows      public weather warnings, per city
 source_freshness             4 rows      when each source last landed
 ```
+
+`ext_signals` is the feed Answer 2 reads. Its rows are generated and say so; see
+`DECISIONS.md` D-004 for exactly which parts of the dataset are real.
 
 ## Step 3 — Check what the engine knows
 
@@ -111,9 +117,16 @@ event surfaces as five consecutive material drops of 10–16%. The seasonal deco
 is correctly ignored. Materiality genuinely filters on both axes. Freshness is
 tracked per source against contracted SLAs.
 
-**What it does not prove yet.** Nothing here explains *why* revenue fell. There
-is no decomposition, no causal testing, no evidence chain, no narrative. Those
-are the next phases — see `HANDOFF.md`.
+**What it does not prove yet.** There is no signal-gap stage and no
+model-written narrative: `whychain/signalgap/` and `whychain/narrate/` are empty
+files, so Answer 2 does not exist in code and the narrative you read is a
+deterministic template. A diagnosis therefore makes zero model calls, which the
+run receipt states rather than hides. See `HANDOFF.md`.
+
+**A full diagnosis is available for net revenue only.** The price/volume/mix
+bridge is an identity over priced units, so the other four metrics decline to be
+decomposed rather than returning revenue arithmetic under their own name. See
+`DECISIONS.md` D-008.
 
 **A number worth knowing.** About 2.6% of days are flagged as material across the
 full three years. Some are the planted scenarios; the rest are false positives.

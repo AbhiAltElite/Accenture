@@ -1,8 +1,9 @@
 """The business the generated data describes.
 
-An omnichannel Indian CPG retailer. City coordinates are real because weather is
-pulled from a real feed against them — an external cause the engine corroborates
-has to point at something that actually happened.
+An omnichannel Indian CPG retailer. City coordinates are real so that the weather
+feed can be pointed at somewhere that exists: `emit_ext_signals` generates
+warnings against these coordinates today, and a cached real snapshot replaces it
+without the rest of the system noticing.
 """
 
 from __future__ import annotations

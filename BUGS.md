@@ -150,6 +150,70 @@ fails the same way locally that CI would.
 **Lesson:** a green local suite says nothing about a clean machine when the
 local environment has drifted from the manifest.
 
+### B-008 · Every diagnosis was computed from revenue, whatever KPI was asked for
+**Found:** 2026-08-28 · **Severity:** P0 · **Status:** fixed
+
+**Symptom:** `/api/diagnose?kpi=checkout_conversion` returned a decomposition,
+causal tests and a confidence score, all correct-looking, all computed from
+revenue. Every endpoint returned 200 for all five KPIs.
+
+**Root cause:** the endpoints called `_contract(kpi)` only to 404 on an unknown
+name, then read `wh.table("_panel")`. `_panel` is the generator's convenience
+frame and carries `units` and `revenue`. Its own comment in `datagen/build.py`
+says the engine reads the source tables instead, which is what made the call
+look harmless.
+
+**Fix:** `Warehouse.bridge_facts` reads the contract's own source through its own
+declared transforms and expressions. `_panel` is off the `READABLE_TABLES`
+allowlist, so the old call now raises rather than returning the wrong number.
+
+**Regression test:** a decomposition of a non-currency KPI returns 422 with a
+reason; two KPIs over one window return different values.
+
+**Lesson:** a table kept "for inspection" beside the real ones will be read by
+something. The audit executed every contract's SQL and passed throughout,
+because the endpoints were not executing that SQL at all. Test the path the
+product takes, not the path the design describes.
+
+### B-009 · Ratios rolled up as the mean of slice rates
+**Found:** 2026-08-28 · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** daily AOV read about 4.6% low on average and 17.1% low on the worst
+day. Conversion and on-time delivery had the same error, unquantified.
+
+**Root cause:** the contracts declared `aggregation: mean` with a comment saying
+a ratio is averaged rather than summed. Half right: it is not summed, and it is
+not averaged either. The mean of slice rates weights a device with two hundred
+sessions like one with two hundred thousand.
+
+**Fix:** `ratio_of_sums`, with the numerator and denominator declared in the
+contract and emitted by its SQL, so a roll-up re-divides the summed parts.
+
+**Regression test:** a contract whose unit is a ratio and whose aggregation is
+`mean` is rejected at load.
+
+**Lesson:** the error was in a line of prose that sounded like a correctness
+note. A comment asserting the safe-looking half of a rule is worse than none.
+
+### B-010 · A candidate could be VERIFIED with its placebo never run
+**Found:** 2026-08-28 · **Severity:** P0 · **Status:** fixed
+
+**Symptom:** `_decide` treated only `difference_in_differences` as mandatory.
+Event-time isolation and placebo were computed, displayed with their outcomes,
+and then not consulted. A candidate whose placebo returned UNAVAILABLE reached
+VERIFIED.
+
+**Root cause:** the mandatory set was written as a single-element literal and
+never revisited as gates were added.
+
+**Fix:** `MANDATORY_GATES` requires event-time isolation, difference-in-differences
+and placebo to have actually passed. Exposure consistency stays optional: it is
+only meaningful where a cause touched more than one region.
+
+**Lesson:** this is T-11 and D-006 in the one place they both had to hold, and
+the narrative was already telling readers all three tests had run. Displaying a
+gate is not enforcing it.
+
 ### Template
 
 ```markdown

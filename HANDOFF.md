@@ -6,7 +6,17 @@
 
 ## Status as of 2026-08-28
 
-**Phase:** measured. First real benchmark numbers below. Answer 2 and calibration fitting are next.
+**Phase:** measured, and then corrected. The first benchmark numbers exposed a
+set of correctness bugs that a green test suite had not; those are fixed and the
+list below says what is genuinely built versus what the specs still only
+describe.
+
+**Read this before trusting an earlier version of this file.** It previously
+said the system "runs end to end". It does not: `whychain/signalgap/`,
+`whychain/rank/` and `whychain/narrate/` are empty files, so Answer 2, the
+two-track ranking and the model-written narrative do not exist in code. The
+pipeline from detect through decompose, verify, corroborate, confidence and now
+actions does run, and the console shows it.
 
 ### Done
 - **`whychain/evidence/` — the spine, and it is now frozen.** `Evidence`,
@@ -50,12 +60,23 @@
 - Specs written: prototype, product outline, design checklist, security/logic checklist, concepts
 
 ### Next — in dependency order
-1. **`datagen/`** — generator with planted causes, **correlation traps**, and
-   held-out labels. Must emit 150+ labelled cases, not only the demo scenarios,
-   or calibration has nothing to fit against later
-2. **`whychain/ingest/`** — reconciliation and the freshness scorecard
-3. **`whychain/detect/`** — MSTL then robust z on the residual
-4. Then decompose → rank → verify, at which point `bench/` produces real numbers
+1. **`whychain/signalgap/`** — still an empty file, and Answer 2 is the
+   differentiator. `ext_signals` now exists to read: `signals_available ∖
+   signals_consumed`, gated on public availability, lead time and slice
+   coverage. All four verdicts must be reachable in the demo: `gap_found`,
+   `no_gap`, `not_foreseeable`, `coverage_unknown`
+2. **Benchmark scale.** 152 of 160 cases produce no material movement, so top-1
+   is 2.9%. The planted effects in `datagen/bulk.py` are too small relative to
+   `min_abs_delta_inr` at region level. Fix the scale, not the threshold —
+   lowering the floor to pass is T-14
+3. **`whychain/narrate/`** — constrained call over the evidence table, with the
+   binding and numeral validator. Until it exists the receipt honestly reports
+   zero model calls
+4. **Personas** — CFO and regional manager as projections over a byte-identical
+   evidence set
+5. **A real weather feed.** `ext_signals` carries the right schema and says
+   `source: generated` on every row. One cached IMD or Open-Meteo snapshot drops
+   into it unchanged, and only then may the docs claim a real external feed
 
 ### Open question for the team
 `data/docs/sop/sop_demand_planning_v2.md` is a representative process document
