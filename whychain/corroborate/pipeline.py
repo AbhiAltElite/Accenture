@@ -97,6 +97,25 @@ def _complaint_query(description: str) -> str:
     return " ".join(words) or body
 
 
+def _as_documents(tickets: pd.DataFrame) -> list[Document]:
+    """Ticket rows as Documents, over column arrays rather than row objects.
+
+    `iterrows` builds a Series per row, which costs more than everything the
+    retriever then does with the result.
+    """
+    return [
+        Document(
+            doc_id=str(doc_id), source_id="voice_ops", text=str(text),
+            ts=pd.Timestamp(ts).to_pydatetime().replace(tzinfo=UTC),
+            metadata={"region": str(region)},
+        )
+        for doc_id, text, ts, region in zip(
+            tickets["doc_id"], tickets["text"], tickets["ts"], tickets["region"],
+            strict=True,
+        )
+    ]
+
+
 def corroborate(
     candidate: Candidate,
     documents: pd.DataFrame,
@@ -131,17 +150,12 @@ def corroborate(
     subject = described[0].issue if described else IssueType.OTHER
     expected = RELATED_ISSUES.get(subject, ())
 
-    corpus = [
-        Document(
-            doc_id=str(row["doc_id"]), source_id="voice_ops",
-            text=str(row["text"]),
-            ts=pd.Timestamp(row["ts"]).to_pydatetime().replace(tzinfo=UTC),
-            metadata={"region": str(row["region"])},
-        )
-        for _, row in tickets.iterrows()
-    ]
+    # Only the retrieved handful are ever read, so the whole corpus is
+    # materialised as Document objects only when this call has to index it.
+    # Building seven thousand of them per candidate in order to look up twelve
+    # was the slowest thing in a diagnosis, and none of it was analysis.
     if index:
-        retriever.index(corpus)
+        retriever.index(_as_documents(tickets))
 
     window = (
         datetime.combine(candidate.start, time.min, tzinfo=UTC),
@@ -150,8 +164,10 @@ def corroborate(
     query = _complaint_query(candidate.description)
     matches = retriever.search(query, k=k, window=window, min_score=0.15)
 
-    by_id = {d.doc_id: d for d in corpus}
-    quarantined = [quarantine(m.doc_id, by_id[m.doc_id].text) for m in matches]
+    text_by_id = dict(
+        zip(tickets["doc_id"].astype(str), tickets["text"].astype(str), strict=True)
+    )
+    quarantined = [quarantine(m.doc_id, text_by_id[m.doc_id]) for m in matches]
     extractions = extractor.extract(quarantined)
 
     supporting = tuple(e for e in extractions if e.issue in expected)
