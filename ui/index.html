@@ -6,7 +6,7 @@
 <title>WhyChain</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
   /* Paper and ink. Warmer and a shade deeper than before, so the page has a
@@ -16,25 +16,39 @@
   --line:#e0d9cb; --line-strong:#c4bcaa;
   --rail:#efeae0;
 
-  /* One accent, used deliberately: navigation state, links, selected metric. */
+  /* Two accents, each with one job. Evergreen marks navigation state and the
+     verified verdict: it means "this held up". Ochre marks a click that opens
+     evidence: it means "there is proof behind this". They were one colour, so
+     a clickable sentence and a verified one looked alike, and the reader had
+     to learn which green meant which. */
   --accent:#1f5c46; --accent-ink:#123d2e; --accent-soft:#dbe9e1;
+  --evidence:#8a5310; --evidence-ink:#6b400c; --evidence-soft:#f7e9d6;
   --down:#9c2b25; --down-soft:#f3e0dd;
   --up:#20674a;
   --flag:#8a5a12; --flag-soft:#f6e9d2;
 
-  /* Modular type scale, 1.2 ratio from a 16px base. Sizes are chosen from this
-     and nowhere else, so the page has a rhythm instead of arbitrary values. */
-  --t-xs:12.8px; --t-sm:14px; --t-base:16px; --t-md:19.2px;
-  --t-lg:23px; --t-xl:27.6px; --t-2xl:33.2px; --t-3xl:39.8px;
-  --lh-tight:1.22; --lh-snug:1.4; --lh-normal:1.62;
+  /* Sizes are chosen from this scale and nowhere else, so the page has a
+     rhythm instead of arbitrary values.
+     A 1.18 ratio from a 17px base. Tighter than the 1.2 it replaces, because
+     the old top end put the headline at 40px: display sizing for a working
+     tool, and the thing that made the page read as a landing page rather than
+     an analyst's screen. Reading text and controls go up; the headline comes
+     down, so the gap between them narrows from both ends. */
+  --t-xs:13px; --t-sm:15px; --t-base:17px; --t-md:20px;
+  --t-lg:23.5px; --t-xl:27.5px; --t-2xl:31px; --t-3xl:34px;
+  --lh-tight:1.24; --lh-snug:1.45; --lh-normal:1.65;
 
   --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px;
   --sp-6:32px; --sp-7:48px; --sp-8:64px; --sp-9:96px;
 
-  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  /* One superfamily across serif, sans and mono. IBM Plex was drawn for a
+     technology company's own products, so the three cuts share a skeleton and
+     the page reads as one system rather than two fonts chosen separately.
+     The serif carries the narrative; the sans carries data and chrome. */
+  --serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
   --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-  --rail-w:264px;
+  --rail-w:288px;
   /* Two radii only: controls and small marks, then panels. */
   --r-sm:4px; --r-md:6px;
 }
@@ -44,6 +58,7 @@
   --line:#2b2820; --line-strong:#443f33;
   --rail:#1b1a15;
   --accent:#7fc4a2; --accent-ink:#a8dcc0; --accent-soft:#1e3229;
+  --evidence:#d9a05b; --evidence-ink:#e8bd83; --evidence-soft:#33260f;
   --down:#e08b83; --down-soft:#33211f;
   --up:#7fc4a2;
   --flag:#d8ac63; --flag-soft:#332a17;
@@ -54,6 +69,7 @@
   --line:#2b2820; --line-strong:#443f33;
   --rail:#1b1a15;
   --accent:#7fc4a2; --accent-ink:#a8dcc0; --accent-soft:#1e3229;
+  --evidence:#d9a05b; --evidence-ink:#e8bd83; --evidence-soft:#33260f;
   --down:#e08b83; --down-soft:#33211f;
   --up:#7fc4a2;
   --flag:#d8ac63; --flag-soft:#332a17;
@@ -83,26 +99,31 @@ body{background:var(--paper);color:var(--ink);
 .railgroup{margin-bottom:var(--sp-7)}
 .railgroup > h2{font-size:var(--t-xs);font-weight:600;color:var(--ink-3);
   letter-spacing:.07em;margin-bottom:var(--sp-3)}
+/* Navigation and controls are sized to be hit and read, not to be compact.
+   Density belongs in the tables; the rail is chrome a reader returns to all
+   day, and a 28px target set in 14px type is neither comfortable nor obviously
+   interactive. Every control here clears a 40px row. */
 .navitem{display:block;width:100%;text-align:left;background:none;border:none;
-  font:inherit;font-size:var(--t-sm);color:var(--ink-2);padding:var(--sp-2) var(--sp-3);
+  font:inherit;font-size:var(--t-base);color:var(--ink-2);
+  padding:var(--sp-3) var(--sp-3);
   border-radius:var(--r-sm);cursor:pointer;line-height:var(--lh-snug)}
 .navitem:hover{background:var(--sunk);color:var(--ink)}
 .navitem[aria-current="true"]{background:var(--accent-soft);color:var(--accent-ink);
   font-weight:500}
-.navitem .flag{float:right;font-size:var(--t-xs);color:var(--down);
+.navitem .flag{float:right;font-size:var(--t-sm);color:var(--down);
   font-variant-numeric:tabular-nums}
 .navitem.d1{padding-left:var(--sp-5)}
 .navitem.d2{padding-left:var(--sp-6)}
-.field-row{margin-bottom:var(--sp-4)}
-.field-row label{display:block;font-size:var(--t-xs);color:var(--ink-3);
-  margin-bottom:var(--sp-1)}
-select,button.ctl{font:inherit;font-size:var(--t-sm);color:var(--ink);
+.field-row{margin-bottom:var(--sp-5)}
+.field-row label{display:block;font-size:var(--t-sm);color:var(--ink-3);
+  margin-bottom:var(--sp-2)}
+select,button.ctl{font:inherit;font-size:var(--t-base);color:var(--ink);
   background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r-sm);
-  padding:var(--sp-2) var(--sp-3);width:100%;cursor:pointer}
+  padding:var(--sp-3) var(--sp-4);width:100%;cursor:pointer;line-height:var(--lh-snug)}
 select:hover,button.ctl:hover{border-color:var(--ink-3)}
-.seg{display:flex;gap:2px;background:var(--sunk);padding:2px;border-radius:var(--r-sm)}
-.seg button{flex:1;font:inherit;font-size:var(--t-xs);border:none;background:none;
-  color:var(--ink-2);padding:var(--sp-1) var(--sp-2);border-radius:var(--r-sm);cursor:pointer}
+.seg{display:flex;gap:2px;background:var(--sunk);padding:3px;border-radius:var(--r-sm)}
+.seg button{flex:1;font:inherit;font-size:var(--t-sm);border:none;background:none;
+  color:var(--ink-2);padding:var(--sp-2) var(--sp-3);border-radius:var(--r-sm);cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);
   box-shadow:0 1px 2px rgba(0,0,0,.06)}
 
@@ -118,27 +139,41 @@ h1{font-family:var(--serif);font-size:var(--t-3xl);line-height:var(--lh-tight);
 .prose .q{color:var(--ink-2)}
 .prose strong{font-weight:600}
 
-.claim{color:var(--accent-ink);background:var(--accent-soft);border:none;font:inherit;
+/* A claim is ochre because it opens evidence, not because it is true. The
+   underline is the affordance; the chevron says it leads somewhere. Verified
+   states stay evergreen, so the two never trade places. */
+.claim{color:var(--evidence-ink);background:var(--evidence-soft);border:none;font:inherit;
   padding:2px 6px;border-radius:var(--r-sm);cursor:pointer;
-  box-shadow:inset 0 -1.5px 0 rgba(31,92,70,.28)}
-.claim:hover{background:var(--accent);color:var(--surface)}
+  box-shadow:inset 0 -1.5px 0 var(--evidence)}
+.claim:hover{background:var(--evidence);color:var(--surface)}
 .claim::after{content:"\2009\203A";opacity:.6}
 
 /* ---------- overview ---------- */
 .overview h1{font-size:var(--t-2xl)}
 .overview .sub{color:var(--ink-2);font-size:var(--t-base);max-width:58ch;
   margin-bottom:var(--sp-7)}
-.kpi{display:grid;grid-template-columns:minmax(0,1fr) 132px 92px 136px;gap:var(--sp-5);
+/* Four columns, and every one of them ends on the same right edge as the thing
+   above and below it. The sparkline used to be a fixed 132px inside a 136px
+   track, so it sat four pixels left of the flag count beneath it: not enough to
+   name, just enough to make the row look untidy. The canvas now fills its
+   track, and the numeric tracks are sized for the larger type rather than the
+   type they were drawn for. */
+.kpi{display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(128px,auto) 96px 140px;
+  gap:var(--sp-5);
   align-items:center;width:100%;text-align:left;background:none;border:none;
   border-top:1px solid var(--line);padding:var(--sp-5) var(--sp-3);cursor:pointer;
   font:inherit;color:inherit}
 .kpi:hover{background:var(--surface)}
 .kpi:last-of-type{border-bottom:1px solid var(--line)}
-.kpi .name{font-size:var(--t-md);font-weight:500;font-family:var(--serif)}
-.kpi .meta{font-size:var(--t-xs);color:var(--ink-3);margin-top:2px;display:block}
-.kpi .val{text-align:right;font-variant-numeric:tabular-nums;font-size:var(--t-md)}
-.kpi .chg{text-align:right;font-variant-numeric:tabular-nums;font-size:var(--t-sm)}
-.kpi canvas{width:132px;height:38px;display:block}
+.kpi .name{font-size:var(--t-md);font-weight:500;font-family:var(--serif);
+  line-height:var(--lh-snug)}
+.kpi .meta{font-size:var(--t-xs);color:var(--ink-3);margin-top:var(--sp-1);display:block}
+.kpi .val{text-align:right;font-variant-numeric:tabular-nums;font-size:var(--t-md);
+  line-height:var(--lh-snug);white-space:nowrap}
+.kpi .chg{text-align:right;font-variant-numeric:tabular-nums;font-size:var(--t-sm);
+  line-height:var(--lh-snug);white-space:nowrap}
+.kpi canvas{width:100%;height:38px;display:block}
 .kpi.d1{padding-left:var(--sp-6)}
 .kpi.d2{padding-left:var(--sp-8)}
 .kpi.d1 .name::before,.kpi.d2 .name::before{content:"\21B3";color:var(--ink-3);
@@ -214,6 +249,44 @@ code{font-family:var(--mono);font-size:var(--t-xs)}
   text-underline-offset:3px;width:auto}
 .linkback:hover{color:var(--ink)}
 .muted{color:var(--ink-3);font-size:var(--t-sm)}
+
+/* ---------- decision ---------- */
+/* One of the few places a card earns its border: a decision is a real
+   conceptual boundary, and there is one per verified cause. */
+.decision{border:1px solid var(--line-strong);border-radius:var(--r-md);
+  background:var(--surface);padding:var(--sp-5);margin-bottom:var(--sp-4)}
+.decision:last-child{margin-bottom:0}
+.decision h3{font-family:var(--serif);font-size:var(--t-md);font-weight:500;
+  line-height:var(--lh-snug);margin-bottom:var(--sp-2)}
+.decision h4{font-size:var(--t-xs);font-weight:600;color:var(--ink-3);
+  letter-spacing:.06em;margin-bottom:var(--sp-2)}
+.verdictline{font-size:var(--t-sm);color:var(--ink-2);margin-bottom:var(--sp-4)}
+.verdictline .mark{font-weight:600;margin-right:var(--sp-1)}
+.verdictline .mark.ok{color:var(--up)}
+.verdictline .mark.na{color:var(--ink-3)}
+/* Label column fixed so every value starts on the same edge down the card. */
+table.chain{width:100%;border-collapse:collapse;font-size:var(--t-sm);
+  table-layout:fixed}
+table.chain th[scope="row"]{width:11.5rem;text-align:left;font-weight:400;
+  color:var(--ink-3);font-size:var(--t-sm);letter-spacing:0;
+  padding:var(--sp-2) var(--sp-4) var(--sp-2) 0;border:none;vertical-align:top}
+table.chain td{padding:var(--sp-2) 0;border:none;vertical-align:top;
+  color:var(--ink);overflow-wrap:anywhere}
+table.chain td .q{color:var(--ink-2)}
+.na{color:var(--ink-3)}
+.monitor{margin-top:var(--sp-5);padding-top:var(--sp-4);
+  border-top:1px solid var(--line)}
+.caveats{margin:var(--sp-3) 0 0;padding-left:var(--sp-5);font-size:var(--t-sm);
+  color:var(--ink-2)}
+.caveats li{margin-bottom:var(--sp-1)}
+.approval{margin-top:var(--sp-5);padding-top:var(--sp-4);
+  border-top:1px solid var(--line);font-size:var(--t-sm)}
+.approval p{margin-bottom:var(--sp-2)}
+.approval .q{color:var(--ink-2)}
+.tag{display:inline-block;font-size:var(--t-xs);padding:2px var(--sp-2);
+  border-radius:var(--r-sm);background:var(--flag-soft);color:var(--flag);
+  border:1px solid var(--flag);margin-right:var(--sp-2)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 
 /* ---------- drawer ---------- */
 .scrim{position:fixed;inset:0;background:rgba(20,18,14,.34);opacity:0;
@@ -444,7 +517,10 @@ function drawSparks(){
   const byId=Object.fromEntries(STATE.overview.kpis.map(k=>[k.kpi_id,k]));
   document.querySelectorAll('canvas.spark').forEach(c=>{
     const k=byId[c.dataset.kpi]; if(!k||!k.spark.length) return;
-    const dpr=devicePixelRatio||1, w=120, h=34;
+    // Measure the box rather than assuming it. The width was hardcoded to 120
+    // while the CSS track was wider, so every sparkline was drawn small and
+    // then stretched to fit, which is why they read slightly soft.
+    const dpr=devicePixelRatio||1, w=c.clientWidth||132, h=38;
     c.width=w*dpr; c.height=h*dpr;
     const x=c.getContext('2d'); x.scale(dpr,dpr); x.clearRect(0,0,w,h);
     const all=[...k.spark,...k.spark_expected];
@@ -505,10 +581,34 @@ async function load(){
     ]);
     diagnosis=d; decomposition=dec; candidates=cand;
   }
-  VIEW = null;   // a new series means the previous zoom no longer refers to anything
+  // A new series means the previous zoom no longer refers to anything.
+  VIEW = openingView(series);
   STATE = {...STATE, series, drops, win, diagnosis, decomposition, candidates, region, kpi};
   render();
   $('#main').setAttribute('aria-busy','false');
+}
+
+/* How much of the series to show before the reader touches anything.
+
+   At a daily grain ninety points is a readable chart. At an hourly one the same
+   ninety days is one thousand seven hundred, and drawing all of them in eight
+   hundred pixels gives two points per pixel: a solid band of ink that hides the
+   very thing the chart exists to show. So an hourly series opens on its last
+   fortnight and the scrubber reaches the rest. Nothing is removed, only the
+   opening view is chosen. */
+const READABLE_POINTS = 400;
+
+function openingView(series){
+  const n = series.days.length;
+  if(n <= READABLE_POINTS) return null;          // the whole span is legible
+  // Prefer ending on the anomaly if there is one, so the opening view contains
+  // the thing worth looking at rather than merely the most recent days.
+  const flagged = series.anomalies && series.anomalies.length
+    ? series.days.indexOf(series.anomalies.at(-1).day) : -1;
+  const hi = flagged >= 0
+    ? Math.min(n - 1, flagged + Math.floor(READABLE_POINTS * 0.35))
+    : n - 1;
+  return {lo: Math.max(0, hi - READABLE_POINTS + 1), hi};
 }
 
 /* ---------- the finding, written out ---------- */
@@ -521,12 +621,14 @@ function render(){
     `${title(kpi)} · ${where} · ${series.days[0]} to ${series.days.at(-1)}`;
 
   if(!drops.length){
+    const grain = (series.grain || 'day') + (series.days.length === 1 ? '' : 's');
     $('#headline').textContent = `Nothing moved enough to explain`;
-    $('#story').innerHTML = `<p>Across ${series.days.length} days, no movement in
-      ${name} passed both the statistical and the financial test. Ordinary
-      variation, weekly rhythm and the retail calendar account for what happened.</p>`;
+    $('#story').innerHTML = `<p>Across ${series.days.length.toLocaleString()}
+      ${grain}, no movement in ${name} passed both the statistical and the
+      financial test. Ordinary variation, weekly rhythm and the retail calendar
+      account for what happened.</p>`;
     $('#rest').innerHTML = section('The metric', chartMarkup(), true) + freshnessBlock();
-    VIEW=null; drawChart(); bindChart(); return;
+    drawChart(); bindChart(); return;
   }
 
   const w = win.worst;
@@ -539,12 +641,16 @@ function render(){
     $('#story').innerHTML = explainedStory(diagnosis);
   }
 
+  // Order is the reading order the product argues for: what to do, then the
+  // working behind it, then what it cost to produce.
   $('#rest').innerHTML =
-    section('The metric', chartMarkup(), true)
+    decisionsBlock()
+    + section('The metric', chartMarkup(), true)
     + movementsBlock()
     + decompositionBlock()
     + candidatesBlock()
-    + freshnessBlock();
+    + freshnessBlock()
+    + receiptBlock();
   drawChart();
   bindChart();
   wireClaims();
@@ -598,6 +704,100 @@ function section(title, body, open=false, count=''){
   return `<details ${open?'open':''}><summary>${title}
     ${count?`<span class="count">${count}</span>`:''}</summary>
     <div class="body">${body}</div></details>`;
+}
+
+/* The decision the diagnosis implies. Sits directly under the narrative and
+   above the working, because a reader who stops after two panels should still
+   leave knowing what to do and who does it. Every field is derived; the card
+   says which are assumptions and refuses to show a recovery figure where the
+   cause has no lever. */
+function decisionsBlock(){
+  const cards = (STATE.diagnosis && STATE.diagnosis.decisions) || [];
+  if(!cards.length) return '';
+
+  const rows = cards.map(c => {
+    const money = c.expected_recovery_inr_per_day == null
+      ? `<span class="na">not applicable</span>`
+      : `<b>${inr(c.expected_recovery_inr_per_day)}</b> per day`;
+
+    const chain = [
+      ['Driver', c.driver ? c.driver.replace(/_/g,' ') : '<span class="na">none matched</span>'],
+      ['Lever', c.lever ? c.lever.replace(/_/g,' ')
+        : '<span class="na">none — this cause cannot be acted on</span>'],
+      ['Action', escapeHtml(c.action)],
+      ['Measured loss', `<b>${inr(c.measured_loss_inr_per_day)}</b> per day`],
+      ['Expected recovery', money],
+      ['Basis', `<span class="q">${escapeHtml(c.recovery_basis)}</span>`],
+      ['Owner', c.owner ? c.owner.replace(/_/g,' ')
+        : '<span class="na">unowned</span>'],
+      ['Confidence', escapeHtml(c.confidence_band)],
+    ].map(([k,v]) => `<tr><th scope="row">${k}</th><td>${v}</td></tr>`).join('');
+
+    const m = c.monitoring;
+    const approval = c.approval ? `
+      <div class="approval">
+        <p><span class="tag">Awaiting approval</span>
+        Drafted for <b>${escapeHtml(c.approval.assigned_to.replace(/_/g,' '))}</b>.
+        Nothing has been changed.</p>
+        <p class="q">${escapeHtml(c.approval.body)}</p>
+      </div>` : '';
+
+    const caveats = c.caveats.length
+      ? `<ul class="caveats">${c.caveats.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`
+      : '';
+
+    return `
+      <article class="decision">
+        <h3>${escapeHtml(c.cause)}</h3>
+        <p class="verdictline">
+          <span class="mark ${c.controllable?'ok':'na'}">${c.controllable?'●':'·'}</span>
+          ${c.controllable ? 'Verified and actionable' : 'Verified, but nothing to act on'}
+        </p>
+        <table class="chain">${chain}</table>
+        ${caveats}
+        <div class="monitor">
+          <h4>Monitoring rule</h4>
+          <table class="chain">
+            <tr><th scope="row">Watch</th><td>${escapeHtml(m.watch)}</td></tr>
+            <tr><th scope="row">Threshold</th><td>${escapeHtml(m.threshold)}</td></tr>
+            <tr><th scope="row">Window</th><td>${escapeHtml(m.window)}</td></tr>
+            <tr><th scope="row">Route to</th><td>${escapeHtml(m.route_to.replace(/_/g,' '))}</td></tr>
+          </table>
+        </div>
+        ${approval}
+      </article>`;
+  }).join('');
+
+  return section('The decision', rows, true,
+    `${cards.length} card${cards.length>1?'s':''}`);
+}
+
+/* The run as a receipt. It exists to make the architectural claim checkable:
+   how long each stage took, and how much of it a model did. */
+function receiptBlock(){
+  const t = STATE.diagnosis && STATE.diagnosis.telemetry;
+  if(!t) return '';
+  const rows = t.stages.map(s => `
+    <tr><td>${escapeHtml(s.stage)}</td>
+        <td>${escapeHtml(s.method_class)}</td>
+        <td class="num">${s.ms.toFixed(1)}</td>
+        <td class="num">${s.model_calls}</td>
+        <td class="q">${s.note ? escapeHtml(s.note) : ''}</td></tr>`).join('');
+  const tot = t.totals;
+  return section('Run receipt', `
+    <table>
+      <thead><tr><th>Stage</th><th>Method</th><th class="num">ms</th>
+        <th class="num">Model calls</th><th>Note</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><th>Total</th><th></th>
+        <th class="num">${tot.ms.toFixed(1)}</th>
+        <th class="num">${tot.model_calls}</th>
+        <th></th></tr></tfoot>
+    </table>
+    <p class="q">${(tot.deterministic_share*100).toFixed(1)}% of the time was
+    spent outside a model call. Narrative produced by:
+    ${escapeHtml(t.narrative_by)}. Cost ${inr(tot.cost_inr)}.</p>`,
+    false, `${tot.ms.toFixed(0)} ms · ${tot.model_calls} model calls`);
 }
 
 function chartMarkup(){
@@ -861,8 +1061,12 @@ function drawChart(){
   x.textAlign='right'; x.fillText(d.days[hi],w-PR,h-5);
 
   const note=$('#zoomnote'), reset=$('#zoomreset'), win=$('#scrubwin');
+  // Name the points by the contract's grain. Calling hourly conversion samples
+  // "days" overstates the history by a factor of twenty-four.
+  const unit = (d.grain || 'day') + (d.days.length === 1 ? '' : 's');
   if(note){ note.textContent = VIEW
-    ? `${d.days[lo]} to ${d.days[hi]} · ${span+1} of ${d.days.length} days` : ''; }
+    ? `${d.days[lo]} to ${d.days[hi]} · ${span+1} of ${d.days.length.toLocaleString()} ${unit}`
+    : ''; }
   if(reset){ reset.hidden = !VIEW; }
   if(win){
     const total=d.days.length-1 || 1;
