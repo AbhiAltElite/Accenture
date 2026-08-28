@@ -52,10 +52,10 @@ h1{font-family:var(--serif);font-size:38px;line-height:1.2;font-weight:500;
 .prose .q{color:var(--ink-2)}
 
 /* a clickable claim */
-.claim{color:inherit;background:linear-gradient(var(--accent-soft),var(--accent-soft))
-  bottom/100% .42em no-repeat;border:none;font:inherit;padding:0 1px;cursor:pointer;
-  border-bottom:1px solid var(--line-strong)}
-.claim:hover{background-size:100% 100%}
+.claim{color:inherit;background:var(--accent-soft);border:none;font:inherit;
+  padding:1px 4px;border-radius:3px;cursor:pointer;
+  box-shadow:inset 0 -1px 0 var(--line-strong)}
+.claim:hover{box-shadow:inset 0 -2px 0 var(--accent)}
 .claim::after{content:"›";color:var(--ink-3);font-size:.85em;margin-left:2px}
 
 /* small chart */
@@ -444,14 +444,20 @@ function chartMarkup(){
 function movementsBlock(){
   const rows = STATE.series.anomalies.slice().sort((a,b)=>a.day<b.day?1:-1).map(a=>`
     <tr><td><code>${a.day}</code></td>
-      <td class="n ${a.delta<0?'down':'up'}">${a.delta<0?'−':'+'}${inr(a.delta)}</td>
+      <td><span class="pill ${a.direction==='drop'?'no':'ok'}">${a.direction}</span></td>
+      <td class="n ${a.delta<0?'down':'up'}">${a.delta<0?'\u2212':'+'}${inr(a.delta)}</td>
       <td class="n ${a.delta<0?'down':'up'}">${pct(a.pct)}</td>
       <td class="n">${a.robust_z>0?'+':''}${a.robust_z.toFixed(2)}</td></tr>`).join('');
   return section('Days that passed both materiality tests',
-    `<p>A day appears here only if it is statistically unusual <em>and</em> the
-     movement is large enough in rupees to be worth acting on.</p>
-     <div class="scroll"><table><thead><tr><th>Day</th><th class="n">Shortfall</th>
-     <th class="n">Change</th><th class="n">Robust z</th></tr></thead>
+    `<p>The series is split by MSTL into trend, weekly rhythm and the retail
+     calendar, and anomalies are measured on what is left over using the median
+     and MAD rather than the mean, so an earlier shock does not raise the bar for
+     the next one. A day appears here only if it is statistically unusual
+     <em>and</em> the movement is large enough in rupees to be worth acting on.
+     Both tests must pass: significance alone surfaces movements too small to act
+     on, and size alone surfaces noise that happens to be large.</p>
+     <div class="scroll"><table><thead><tr><th>Day</th><th>Direction</th>
+     <th class="n">Shortfall</th><th class="n">Change</th><th class="n">Robust z</th></tr></thead>
      <tbody>${rows}</tbody></table></div>`, false, STATE.series.anomalies.length);
 }
 

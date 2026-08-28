@@ -124,7 +124,6 @@ def overview(region: str | None = None, days: int = Query(90, ge=30, le=730)) ->
                 if raw.empty:
                     continue
 
-                time_col = raw.columns[0]
                 frame = _roll_up(raw, contract)
                 if len(frame) < 60:
                     continue
