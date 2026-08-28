@@ -293,15 +293,18 @@ def _():
 def _():
     import re
     html = _ui()
-    radii = [int(v) for v in re.findall(r"border-radius:\s*(\d+)px", html)]
-    # Small controls stay tight; a panel may go slightly softer. Above this and
-    # the page starts reading as a card grid rather than a document.
-    assert all(r <= 6 for r in radii), f"oversized radius: {max(radii)}px"
-    # Count distinct radius values, not declarations: reusing one small radius
-    # across several elements is consistency, not a card grid.
-    distinct = len(set(radii))
-    assert distinct <= 3, f"{distinct} different corner radii in use"
-    return f"{len(radii)} radii, max {max(radii) if radii else 0}px"
+    # Radii must come from tokens, and there must be few of them. Four different
+    # literal values across one page is drift rather than design.
+    literals = re.findall(r"border-radius:\s*(\d+)px", html)
+    assert not literals, f"radii set outside the token scale: {sorted(set(literals))}"
+
+    declared = re.findall(r"--r-\w+:\s*(\d+)px", html)
+    values = [int(v) for v in declared]
+    assert values, "no radius tokens declared"
+    assert len(values) <= 3, f"{len(values)} radius tokens; two is usually enough"
+    assert max(values) <= 8, f"oversized radius token: {max(values)}px"
+    used = len(re.findall(r"border-radius:var\(--r-", html))
+    return f"{len(values)} tokens, {used} uses, max {max(values)}px"
 
 
 @check("design", "Figures use tabular numerals")
@@ -312,6 +315,8 @@ def _():
 
 @check("design", "Theme-aware with an explicit background")
 def _():
+    import re
+
     html = _ui()
     assert "prefers-color-scheme" in html, "dark theme not designed"
     # The token is matched by role rather than by name, so a rename does not turn
