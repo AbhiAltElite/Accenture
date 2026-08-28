@@ -9,20 +9,25 @@ from __future__ import annotations
 import warnings
 from datetime import date, timedelta
 from pathlib import Path
+from uuid import uuid4
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from whychain.actions import decision_cards
 from whychain.confidence import abstain, explained_movement, score
 from whychain.contracts import ContractError, ContractRegistry
 from whychain.corroborate import corroborate, scan
 from whychain.decompose import compute_bridge, contribution_by
 from whychain.decompose.bridge import BridgeError
 from whychain.detect import decompose, find_anomalies, material
+from whychain.evidence import MethodClass
 from whychain.ingest import IngestError, Warehouse
+from whychain.telemetry import Telemetry
 from whychain.verify import filter_relevant, from_operations, from_promotions, verify
+from whychain.verify.tests import PLACEBO_WINDOWS
 
 # statsmodels warns about period length on short slices; the guard is in decompose().
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
@@ -43,13 +48,27 @@ def ticket_retriever(documents: pd.DataFrame):
     the single slowest thing in a diagnosis and none of it is analysis.
     """
     global _retriever, _retriever_rows
+    import hashlib
     from datetime import UTC
 
     from whychain.corroborate.documents import Document
     from whychain.corroborate.retriever import NumpyRetriever
 
     tickets = documents[documents["doc_type"] == "support_ticket"]
-    if _retriever is not None and _retriever_rows == len(tickets):
+
+    # Keyed on the content, not the row count. A count collides whenever one
+    # document replaces another, and it carries no entitlement context at all:
+    # were this index ever built over a filtered corpus, a later request under a
+    # different entitlement would be served the first caller's documents.
+    # BUGS.md T-06 calls that a P0, and a row count is exactly the key it warns
+    # against.
+    digest = hashlib.sha256(
+        pd.util.hash_pandas_object(
+            tickets[["doc_id", "text"]], index=False
+        ).values.tobytes()
+    ).hexdigest()
+    key = (digest, len(tickets))
+    if _retriever is not None and _retriever_rows == key:
         return _retriever
 
     retriever = NumpyRetriever()
@@ -58,7 +77,7 @@ def ticket_retriever(documents: pd.DataFrame):
                  ts=pd.Timestamp(r["ts"]).to_pydatetime().replace(tzinfo=UTC))
         for _, r in tickets.iterrows()
     ])
-    _retriever, _retriever_rows = retriever, len(tickets)
+    _retriever, _retriever_rows = retriever, key
     return retriever
 
 
@@ -257,6 +276,10 @@ def series(
         "slice": {k: v for k, v in
                   (("region", region), ("channel", channel), ("device", device)) if v},
         "unit": contract.unit.value,
+        # What one point is. Checkout conversion is hourly, so a reader told it
+        # is looking at "1,729 days" of it is being told something false about
+        # three years of history that does not exist.
+        "grain": contract.grain.time,
         "days": [d.isoformat() for d in days[idx]],
         "observed": [round(float(v), 2) for v in decomposition.observed[idx]],
         "expected": [round(float(v), 2) for v in decomposition.expected[idx]],
@@ -298,10 +321,30 @@ def _roll_up(raw: pd.DataFrame, contract) -> pd.DataFrame:
     """Collapse a sliced series to one value per period, as the contract says.
 
     Summing a rate produces a number that looks like data and means nothing.
+    Averaging one is subtler and worse: it reads as the overall rate while
+    weighting every slice equally regardless of size, so a quiet device drags
+    the number as hard as the busy one. A ratio is rolled up by re-dividing its
+    summed parts, which the contract names.
     """
     time_col = raw.columns[0]
-    grouped = raw.groupby(time_col, as_index=False)["value"]
-    frame = (grouped.mean() if contract.grain.aggregation.value == "mean" else grouped.sum())
+    aggregation = contract.grain.aggregation.value
+
+    if aggregation == "ratio_of_sums":
+        num, den = contract.grain.numerator, contract.grain.denominator
+        missing = [c for c in (num, den) if c not in raw.columns]
+        if missing:
+            raise HTTPException(
+                500,
+                f"{contract.kpi_id} declares ratio_of_sums but its query does not "
+                f"emit {missing}; the rate cannot be rolled up without its parts",
+            )
+        parts = raw.groupby(time_col, as_index=False)[[num, den]].sum()
+        parts["value"] = parts[num] / parts[den].replace(0, pd.NA)
+        frame = parts[[time_col, "value"]]
+    else:
+        grouped = raw.groupby(time_col, as_index=False)["value"]
+        frame = grouped.mean() if aggregation == "mean" else grouped.sum()
+
     return frame.rename(columns={time_col: "d"}).sort_values("d").reset_index(drop=True)
 
 
@@ -310,6 +353,19 @@ def _contract(kpi: str):
         return registry().get(kpi)
     except ContractError as exc:
         raise HTTPException(404, str(exc)) from exc
+
+
+def _lookback(event_start: date, baseline_days: int) -> date:
+    """The earliest day a diagnosis of this window actually reads.
+
+    The bridge needs the baseline. Verification reaches further back: each of
+    the placebo windows sits a fortnight behind the last, and each carries its
+    own baseline. Reading from here covers all of it with a month to spare,
+    instead of scanning the whole history to answer a question about a fortnight.
+    """
+    return event_start - timedelta(
+        days=baseline_days * 2 + PLACEBO_WINDOWS * 14 + 30
+    )
 
 
 @app.get("/api/decomposition")
@@ -325,11 +381,25 @@ def decomposition(
     The baseline is the period immediately before the movement, normalised to a
     daily rate so a fortnight can be compared against a week.
     """
-    _contract(kpi)  # 404s on an unknown metric before touching the warehouse
+    contract = _contract(kpi)  # 404s on an unknown metric before touching the warehouse
+
+    # A bridge on a rate would be a price effect on a percentage. Decline rather
+    # than decomposing something else and labelling it with this metric.
+    if contract.decomposition.method != "pvm":
+        raise HTTPException(
+            422,
+            f"{kpi} is measured in {contract.unit.value} and is not a sum of "
+            "priced units, so a price/volume/mix bridge does not apply to it. "
+            "Dimensional contribution is available; the bridge is not.",
+        )
 
     try:
         with Warehouse() as wh:
-            panel = wh.table("_panel")
+            panel = wh.bridge_facts(
+                contract,
+                since=event_start - timedelta(days=baseline_days + 1),
+                until=event_end,
+            )
     except IngestError as exc:
         raise HTTPException(503, str(exc)) from exc
 
@@ -418,10 +488,12 @@ def candidates(
     real. Ranking them by association would promote whatever happened to
     coincide; that is exactly what the tests exist to prevent.
     """
-    _contract(kpi)
+    contract = _contract(kpi)
     try:
         with Warehouse() as wh:
-            panel = wh.table("_panel")
+            panel = wh.bridge_facts(
+                contract, since=_lookback(event_start, 14), until=event_end
+            )
             documents = wh.table("voice_ops")
             plan = wh.table("plan_ops")
     except IngestError as exc:
@@ -431,6 +503,18 @@ def candidates(
         plan, event_start, event_end
     )
     all_regions = tuple(sorted(panel["region"].unique()))
+
+    # `region` narrows which candidates are worth reporting, never the panel they
+    # are tested against. Difference-in-differences needs the unexposed regions
+    # to compare with, so filtering the data here would remove the control group
+    # and quietly turn every verdict into CANNOT_VERIFY.
+    if region:
+        if region not in all_regions:
+            raise HTTPException(404, f"no data for region {region!r}")
+        found = [
+            c for c in found
+            if not c.exposed_regions or region in c.exposed_regions
+        ]
 
     verified, rejected, untestable = [], [], []
     for candidate in found:
@@ -503,9 +587,24 @@ def diagnose(
     best guess dressed as the former.
     """
     contract = _contract(kpi)
+    if contract.decomposition.method != "pvm":
+        raise HTTPException(
+            422,
+            f"{kpi} is measured in {contract.unit.value} and cannot be "
+            "decomposed by the price/volume/mix identity, so a full diagnosis "
+            "is not yet available for it. Detection and freshness are.",
+        )
+
+    run_id = f"run-{uuid4().hex[:10]}"
+    tel = Telemetry(run_id=run_id)
+
     try:
-        with Warehouse() as wh:
-            panel = wh.table("_panel")
+        with tel.stage("read", MethodClass.DETERMINISTIC), Warehouse() as wh:
+            panel = wh.bridge_facts(
+                contract,
+                since=_lookback(event_start, baseline_days),
+                until=event_end,
+            )
             documents = wh.table("voice_ops")
             plan = wh.table("plan_ops")
             sources = wh.freshness(contract)
@@ -529,7 +628,8 @@ def diagnose(
     current = current.assign(units=current["units"] / event_days,
                              revenue=current["revenue"] / event_days)
     try:
-        bridge = compute_bridge(base, current)
+        with tel.stage("decompose", MethodClass.DETERMINISTIC):
+            bridge = compute_bridge(base, current)
     except BridgeError as exc:
         raise HTTPException(422, str(exc)) from exc
 
@@ -539,32 +639,49 @@ def diagnose(
         + from_promotions(plan, event_start, event_end),
         event_start, event_end, region,
     )
-    verifications = [verify(c, panel, all_regions) for c in found]
-    shared = ticket_retriever(documents)
-    corroborations = {
-        c.candidate_id: corroborate(c, documents, retriever=shared, index=False)
-        for c in found
-    }
+    with tel.stage("verify", MethodClass.CAUSAL) as t:
+        verifications = [verify(c, panel, all_regions) for c in found]
+        t.note = f"{len(found)} candidates tested"
+
+    with tel.stage("corroborate", MethodClass.RETRIEVAL) as t:
+        shared = ticket_retriever(documents)
+        corroborations = {
+            c.candidate_id: corroborate(c, documents, retriever=shared, index=False)
+            for c in found
+        }
+        # Retrieval and span extraction, not a model call. When the extractor
+        # behind this protocol becomes model-backed, the count it records here
+        # is what the receipt reports; nothing else changes.
+        t.note = "tf-idf retrieval with deterministic span extraction"
 
     supporting = sum(
         corroborations[v.candidate.candidate_id].support_count
         for v in verifications
         if v.state.value == "verified"
     )
-    explained, per_cause = explained_movement(
-        verifications, panel, event_start, event_end, baseline_days,
-        total_movement=bridge.total_change,
-    )
-    confidence = score(
-        verifications, explained=explained, total_movement=bridge.total_change,
-        supporting_documents=supporting, sources=sources,
-    )
+    with tel.stage("confidence", MethodClass.STATISTICAL):
+        explained, per_cause = explained_movement(
+            verifications, panel, event_start, event_end, baseline_days,
+            total_movement=bridge.total_change,
+        )
+        confidence = score(
+            verifications, explained=explained, total_movement=bridge.total_change,
+            supporting_documents=supporting, sources=sources,
+        )
+
+    with tel.stage("actions", MethodClass.DETERMINISTIC) as t:
+        cards = decision_cards(
+            verifications, per_cause, contract, confidence.band.value
+        )
+        t.note = f"{len(cards)} decision card(s), every field derived"
 
     stale = tuple(f"{f.source_id} is stale by {f.lag}" for f in sources.values()
                   if not f.sla_met)
     result = {
         "kpi_id": kpi,
+        "run_id": run_id,
         "region": region,
+        "decisions": [c.as_dict() for c in cards],
         "window": {"from": event_start.isoformat(), "to": event_end.isoformat()},
         "baseline": {"from": base_lo.isoformat(),
                      "to": (event_start - timedelta(days=1)).isoformat()},
@@ -631,6 +748,9 @@ def diagnose(
         }
     else:
         result["verdict"] = "explained"
+
+    # Last, so the receipt covers every stage that actually ran.
+    result["telemetry"] = tel.receipt()
     return result
 
 
