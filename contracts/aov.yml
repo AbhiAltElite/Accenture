@@ -3,6 +3,7 @@
 kpi_id: aov
 version: 1
 owner_role: category_manager
+unit: INR
 definition: >
   Net revenue divided by completed orders. Sensitive to product mix as well as
   price, which is why movements here are decomposed rather than read directly.
@@ -20,6 +21,8 @@ calculation:
 grain:
   time: day
   dims: [region, channel, category, device]
+  # A ratio: rolling up slices means averaging them, never adding.
+  aggregation: mean
 
 calendar: fiscal_in
 parents: [net_revenue]

@@ -3,6 +3,7 @@
 kpi_id: net_revenue
 version: 1
 owner_role: finance_director
+unit: INR
 definition: >
   Gross merchandise value net of returns and discounts, excluding tax.
   Cancelled orders are excluded; returns are netted in the period of the return,

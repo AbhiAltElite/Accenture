@@ -16,6 +16,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
+from whychain.evidence.types import Unit
+
 
 class Coverage(StrEnum):
     """How much of a process's signal consumption we could establish.
@@ -30,11 +32,24 @@ class Coverage(StrEnum):
     UNKNOWN = "unknown"
 
 
+class Aggregation(StrEnum):
+    """How a metric combines when slices are rolled up.
+
+    Revenue and order counts add. An average order value or a conversion rate
+    does not: summing the AOV of four regions produces a number with no meaning,
+    and it is the kind of error that looks like data rather than a bug.
+    """
+
+    SUM = "sum"
+    MEAN = "mean"
+
+
 class Grain(BaseModel):
     """The level of detail one row represents."""
 
     time: str  # hour | day | week
     dims: tuple[str, ...]
+    aggregation: Aggregation = Aggregation.SUM
 
 
 class Driver(BaseModel):
@@ -173,6 +188,10 @@ class KPIContract(BaseModel):
     version: int = Field(ge=1)
     owner_role: str
     definition: str
+    # What the metric is measured in. A rate rendered as currency reads as
+    # "on-time delivery: one rupee", which is the kind of error that survives
+    # review because it looks like a formatting slip rather than a wrong model.
+    unit: Unit = Unit.INR
     calculation: Calculation
     grain: Grain
     calendar: str = "gregorian"

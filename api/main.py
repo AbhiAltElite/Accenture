@@ -17,12 +17,12 @@ from fastapi.staticfiles import StaticFiles
 
 from whychain.confidence import abstain, explained_movement, score
 from whychain.contracts import ContractError, ContractRegistry
-from whychain.corroborate import corroborate
+from whychain.corroborate import corroborate, scan
 from whychain.decompose import compute_bridge, contribution_by
 from whychain.decompose.bridge import BridgeError
 from whychain.detect import decompose, find_anomalies, material
 from whychain.ingest import IngestError, Warehouse
-from whychain.verify import from_operations, from_promotions, verify
+from whychain.verify import filter_relevant, from_operations, from_promotions, verify
 
 # statsmodels warns about period length on short slices; the guard is in decompose().
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
@@ -31,6 +31,35 @@ app = FastAPI(title="WhyChain", docs_url="/api/docs")
 UI = Path("ui")
 
 _registry: ContractRegistry | None = None
+_retriever: object | None = None
+_retriever_rows: int = 0
+
+
+def ticket_retriever(documents: pd.DataFrame):
+    """One indexed retriever, reused across requests.
+
+    Fitting TF-IDF over every ticket takes over a second and produces the same
+    index every time, because the corpus does not change between requests. It is
+    the single slowest thing in a diagnosis and none of it is analysis.
+    """
+    global _retriever, _retriever_rows
+    from datetime import UTC
+
+    from whychain.corroborate.documents import Document
+    from whychain.corroborate.retriever import NumpyRetriever
+
+    tickets = documents[documents["doc_type"] == "support_ticket"]
+    if _retriever is not None and _retriever_rows == len(tickets):
+        return _retriever
+
+    retriever = NumpyRetriever()
+    retriever.index([
+        Document(doc_id=str(r["doc_id"]), source_id="voice_ops", text=str(r["text"]),
+                 ts=pd.Timestamp(r["ts"]).to_pydatetime().replace(tzinfo=UTC))
+        for _, r in tickets.iterrows()
+    ])
+    _retriever, _retriever_rows = retriever, len(tickets)
+    return retriever
 
 
 def registry() -> ContractRegistry:
@@ -73,6 +102,111 @@ def kpis() -> list[dict]:
     ]
 
 
+@app.get("/api/overview")
+def overview(region: str | None = None, days: int = Query(90, ge=30, le=730)) -> dict:
+    """Every KPI at once, with its current state and how the graph connects them.
+
+    A dropdown asks the reader to already know which metric moved. The point of a
+    KPI graph is that they usually do not, and that a break in one shows up in
+    its children.
+    """
+    reg = registry()
+    try:
+        with Warehouse() as wh:
+            rows = []
+            for contract in reg:
+                try:
+                    raw = wh.kpi_series(contract)
+                except IngestError:
+                    continue
+                if region and "region" in raw.columns:
+                    raw = raw[raw["region"] == region]
+                if raw.empty:
+                    continue
+
+                time_col = raw.columns[0]
+                frame = _roll_up(raw, contract)
+                if len(frame) < 60:
+                    continue
+                try:
+                    d = decompose(frame)
+                except ValueError:
+                    continue
+                anomalies = material(
+                    find_anomalies(d, contract.materiality.min_abs_robust_z), contract
+                )
+
+                tail = min(days, len(frame))
+                recent = frame.tail(tail)
+                observed = d.observed[-tail:]
+                expected = d.expected[-tail:]
+                drops = [a for a in anomalies if a.direction == "drop"]
+                worst = min(drops, key=lambda a: a.delta) if drops else None
+
+                # A compact shape for a sparkline: enough points to read, few
+                # enough to send for five metrics at once.
+                step = max(len(observed) // 60, 1)
+                rows.append({
+                    "kpi_id": contract.kpi_id,
+                    "owner_role": contract.owner_role,
+                    "grain": f"{contract.grain.time} by {'/'.join(contract.grain.dims)}",
+                    "parents": list(contract.parents),
+                    "children": list(contract.children),
+                    "unit": contract.unit.value,
+                    "latest": round(float(observed[-1]), 2),
+                    "expected": round(float(expected[-1]), 2),
+                    "period_change": round(
+                        float(recent["value"].tail(7).mean()
+                              / recent["value"].head(7).mean() - 1), 4
+                    ) if recent["value"].head(7).mean() else None,
+                    "material_movements": len(anomalies),
+                    "material_drops": len(drops),
+                    "worst": None if worst is None else {
+                        "day": worst.day.isoformat(),
+                        "pct": round(worst.observed / worst.expected - 1, 4),
+                        "delta": round(worst.delta, 2),
+                    },
+                    "spark": [round(float(v), 2) for v in observed[::step]],
+                    "spark_expected": [round(float(v), 2) for v in expected[::step]],
+                })
+    except IngestError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+    return {"region": region, "days": days, "kpis": rows,
+            "roots": reg.roots()}
+
+
+@app.get("/api/document/{doc_id}")
+def document(doc_id: str) -> dict:
+    """The full source record behind a citation.
+
+    A quotation with a character range is only checkable if the reader can open
+    the document and see the range in place.
+    """
+    try:
+        with Warehouse() as wh:
+            docs = wh.table("voice_ops")
+    except IngestError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+    match = docs[docs["doc_id"] == doc_id]
+    if match.empty:
+        raise HTTPException(404, f"no document {doc_id}")
+    row = match.iloc[0]
+    text = str(row["text"])
+    return {
+        "doc_id": doc_id,
+        "doc_type": str(row["doc_type"]),
+        "source_id": "voice_ops",
+        "ts": pd.Timestamp(row["ts"]).isoformat(),
+        "region": str(row["region"]),
+        "text": text,
+        "length": len(text),
+        # Stated rather than assumed: the reader is being shown untrusted text.
+        "injection_flags": list(scan(text)),
+    }
+
+
 @app.get("/api/series")
 def series(
     kpi: str = Query("net_revenue"),
@@ -97,9 +231,7 @@ def series(
     if raw.empty:
         raise HTTPException(404, "no data for that slice")
 
-    time_col = raw.columns[0]
-    frame = raw.groupby(time_col, as_index=False)["value"].sum().sort_values(time_col)
-    frame = frame.rename(columns={time_col: "d"})
+    frame = _roll_up(raw, contract)
 
     try:
         decomposition = decompose(frame)
@@ -125,7 +257,7 @@ def series(
         "kpi_id": contract.kpi_id,
         "slice": {k: v for k, v in
                   (("region", region), ("channel", channel), ("device", device)) if v},
-        "unit": "INR" if contract.kpi_id != "checkout_conversion" else "ratio",
+        "unit": contract.unit.value,
         "days": [d.isoformat() for d in days[idx]],
         "observed": [round(float(v), 2) for v in decomposition.observed[idx]],
         "expected": [round(float(v), 2) for v in decomposition.expected[idx]],
@@ -161,6 +293,17 @@ def series(
             "min_abs_delta_inr": contract.materiality.min_abs_delta_inr,
         },
     }
+
+
+def _roll_up(raw: pd.DataFrame, contract) -> pd.DataFrame:
+    """Collapse a sliced series to one value per period, as the contract says.
+
+    Summing a rate produces a number that looks like data and means nothing.
+    """
+    time_col = raw.columns[0]
+    grouped = raw.groupby(time_col, as_index=False)["value"]
+    frame = (grouped.mean() if contract.grain.aggregation.value == "mean" else grouped.sum())
+    return frame.rename(columns={time_col: "d"}).sort_values("d").reset_index(drop=True)
 
 
 def _contract(kpi: str):
@@ -293,7 +436,8 @@ def candidates(
     verified, rejected, untestable = [], [], []
     for candidate in found:
         v = verify(candidate, panel, all_regions)
-        corr = corroborate(candidate, documents)
+        corr = corroborate(candidate, documents,
+                           retriever=ticket_retriever(documents), index=False)
         row = {
             "candidate_id": candidate.candidate_id,
             "kind": candidate.kind,
@@ -391,11 +535,17 @@ def diagnose(
         raise HTTPException(422, str(exc)) from exc
 
     all_regions = tuple(sorted(panel["region"].unique()))
-    found = from_operations(documents, event_start, event_end) + from_promotions(
-        plan, event_start, event_end
+    found, set_aside = filter_relevant(
+        from_operations(documents, event_start, event_end)
+        + from_promotions(plan, event_start, event_end),
+        event_start, event_end, region,
     )
     verifications = [verify(c, panel, all_regions) for c in found]
-    corroborations = {c.candidate_id: corroborate(c, documents) for c in found}
+    shared = ticket_retriever(documents)
+    corroborations = {
+        c.candidate_id: corroborate(c, documents, retriever=shared, index=False)
+        for c in found
+    }
 
     supporting = sum(
         corroborations[v.candidate.candidate_id].support_count
@@ -437,6 +587,9 @@ def diagnose(
             ],
             "reasons": list(confidence.reasons),
         },
+        "set_aside": [
+            {"candidate_id": c.candidate_id, "reason": why} for c, why in set_aside
+        ],
         "verified": [
             {
                 "candidate_id": v.candidate.candidate_id,
@@ -444,6 +597,23 @@ def diagnose(
                 "effect_pct": round(v.effect_pct, 4) if v.effect_pct else None,
                 "contribution": round(per_cause.get(v.candidate.candidate_id, 0.0), 2),
                 "supporting_documents": corroborations[v.candidate.candidate_id].support_count,
+                "issue": next(
+                    (e.issue.value for e in
+                     corroborations[v.candidate.candidate_id].supporting), None
+                ),
+                "citations": [
+                    {"doc_id": e.doc_id, "span": list(e.span), "quote": e.quote,
+                     "issue": e.issue.value, "flags": list(e.flags)}
+                    for e in corroborations[v.candidate.candidate_id].supporting[:6]
+                ],
+                "tests": [
+                    {"name": t.name, "outcome": t.outcome.value, "detail": t.detail}
+                    for t in v.results
+                ],
+                "exposed_regions": list(v.candidate.exposed_regions),
+                "scope": {k: val for k, val in
+                          (("channel", v.candidate.channel), ("device", v.candidate.device),
+                           ("category", v.candidate.category)) if val},
             }
             for v in verifications
             if v.state.value == "verified"

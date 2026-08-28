@@ -105,8 +105,23 @@ PLACEBO_WINDOWS = 6
 PLACEBO_MARGIN = 1.25
 
 
-def _mean(panel: pd.DataFrame, day: pd.Series, lo: date, hi: date, regions=None) -> float:
-    frame = panel[(day >= lo) & (day <= hi)]
+def _daily_by_region(panel: pd.DataFrame) -> pd.DataFrame:
+    """Collapse the panel to one row per day and region, once.
+
+    Every window comparison below is a sum over a date range. Doing that against
+    the full row-level panel means filtering hundreds of thousands of rows for
+    each of the thirty-odd windows a single verification needs, which dominates
+    the runtime and computes the same daily totals over and over.
+    """
+    out = panel.groupby(
+        [pd.to_datetime(panel["d"]).dt.date, "region"], as_index=False
+    )["revenue"].sum()
+    out.columns = ["day", "region", "revenue"]
+    return out
+
+
+def _mean(daily: pd.DataFrame, lo: date, hi: date, regions=None) -> float:
+    frame = daily[(daily["day"] >= lo) & (daily["day"] <= hi)]
     if regions is not None:
         frame = frame[frame["region"].isin(regions)]
     if frame.empty:
@@ -115,19 +130,18 @@ def _mean(panel: pd.DataFrame, day: pd.Series, lo: date, hi: date, regions=None)
     return float(frame["revenue"].sum()) / days
 
 
-def _change(panel, day, candidate: Candidate, regions, baseline_days: int) -> float:
+def _change(daily, candidate: Candidate, regions, baseline_days: int) -> float:
     """Proportional change from the baseline into the event window."""
     base_lo = candidate.start - timedelta(days=baseline_days)
-    before = _mean(panel, day, base_lo, candidate.start - timedelta(days=1), regions)
-    during = _mean(panel, day, candidate.start, candidate.end, regions)
+    before = _mean(daily, base_lo, candidate.start - timedelta(days=1), regions)
+    during = _mean(daily, candidate.start, candidate.end, regions)
     if not np.isfinite(before) or before == 0 or not np.isfinite(during):
         return float("nan")
     return during / before - 1.0
 
 
 def _placebo_distribution(
-    scoped: pd.DataFrame,
-    day: pd.Series,
+    daily: pd.DataFrame,
     candidate: Candidate,
     exposed: tuple[str, ...],
     control: tuple[str, ...],
@@ -150,8 +164,8 @@ def _placebo_distribution(
             exposed_regions=exposed, channel=candidate.channel,
             device=candidate.device, category=candidate.category,
         )
-        treated = _change(scoped, day, window, exposed, baseline_days)
-        comparison = _change(scoped, day, window, control, baseline_days)
+        treated = _change(daily, window, exposed, baseline_days)
+        comparison = _change(daily, window, control, baseline_days)
         if np.isfinite(treated) and np.isfinite(comparison):
             out.append(treated - comparison)
     return out
@@ -173,14 +187,14 @@ def verify(
         if value is not None:
             scoped = scoped[scoped[column] == value]
 
-    day = pd.to_datetime(scoped["d"]).dt.date
+    daily = _daily_by_region(scoped)
     exposed = tuple(candidate.exposed_regions)
     control = tuple(r for r in all_regions if r not in exposed)
 
     results: list[TestResult] = []
 
     # --- effect in the exposed group -------------------------------------
-    treated_change = _change(scoped, day, candidate, exposed, baseline_days)
+    treated_change = _change(daily, candidate, exposed, baseline_days)
     if not np.isfinite(treated_change):
         return Verification(
             candidate, (TestResult("effect", Outcome.UNAVAILABLE, "no data in the window"),),
@@ -190,8 +204,8 @@ def verify(
     # --- event-time isolation --------------------------------------------
     pre_lo = candidate.start - timedelta(days=baseline_days * 2)
     pre_hi = candidate.start - timedelta(days=baseline_days + 1)
-    earlier = _mean(scoped, day, pre_lo, pre_hi, exposed)
-    baseline = _mean(scoped, day, candidate.start - timedelta(days=baseline_days),
+    earlier = _mean(daily, pre_lo, pre_hi, exposed)
+    baseline = _mean(daily, candidate.start - timedelta(days=baseline_days),
                      candidate.start - timedelta(days=1), exposed)
     if not np.isfinite(earlier) or earlier == 0:
         results.append(TestResult("event_time_isolation", Outcome.UNAVAILABLE,
@@ -217,7 +231,7 @@ def verify(
                                   "the cause was present everywhere, so no comparison group exists"))
         did = None
     else:
-        control_change = _change(scoped, day, candidate, control, baseline_days)
+        control_change = _change(daily, candidate, control, baseline_days)
         if not np.isfinite(control_change):
             results.append(TestResult("difference_in_differences", Outcome.UNAVAILABLE,
                                       "no data for the comparison group"))
@@ -236,7 +250,7 @@ def verify(
 
     # --- exposure consistency --------------------------------------------
     per_region = {
-        region: _change(scoped, day, candidate, (region,), baseline_days) for region in exposed
+        region: _change(daily, candidate, (region,), baseline_days) for region in exposed
     }
     usable = {r: v for r, v in per_region.items() if np.isfinite(v)}
     if len(usable) < 2:
@@ -265,7 +279,7 @@ def verify(
                                   "no comparison group, so there is nothing to permute"))
     else:
         placebos = _placebo_distribution(
-            scoped, day, candidate, exposed, control, baseline_days
+            daily, candidate, exposed, control, baseline_days
         )
         if len(placebos) < 3:
             results.append(TestResult("placebo", Outcome.UNAVAILABLE,

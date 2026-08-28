@@ -4,6 +4,7 @@
 kpi_id: checkout_conversion
 version: 1
 owner_role: ecommerce_lead
+unit: ratio
 definition: >
   Completed orders divided by checkout sessions started, digital channels only.
   Store transactions have no session and are excluded rather than counted as
@@ -29,6 +30,8 @@ calculation:
 grain:
   time: hour
   dims: [region, device]
+  # A ratio: rolling up slices means averaging them, never adding.
+  aggregation: mean
 
 calendar: fiscal_in
 parents: [orders]

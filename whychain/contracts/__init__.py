@@ -1,5 +1,6 @@
 from whychain.contracts.models import (
     AccessPolicy,
+    Aggregation,
     Calculation,
     Coverage,
     Driver,
@@ -11,9 +12,11 @@ from whychain.contracts.models import (
     SignalsConsumed,
 )
 from whychain.contracts.registry import ContractError, ContractRegistry, load_contract
+from whychain.evidence.types import Unit
 
 __all__ = [
     "AccessPolicy",
+    "Aggregation",
     "Calculation",
     "ContractError",
     "ContractRegistry",
@@ -25,5 +28,6 @@ __all__ = [
     "Lineage",
     "Materiality",
     "SignalsConsumed",
+    "Unit",
     "load_contract",
 ]

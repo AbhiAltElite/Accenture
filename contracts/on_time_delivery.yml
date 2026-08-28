@@ -4,6 +4,7 @@
 kpi_id: on_time_delivery
 version: 1
 owner_role: supply_planner
+unit: ratio
 definition: >
   Share of shipments delivered on or before the promised date. Undelivered
   shipments past their promise date count as late; shipments still within their
@@ -22,6 +23,8 @@ calculation:
 grain:
   time: day
   dims: [region, category]
+  # A ratio: rolling up slices means averaging them, never adding.
+  aggregation: mean
 
 calendar: fiscal_in
 parents: []

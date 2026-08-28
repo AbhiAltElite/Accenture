@@ -2,6 +2,7 @@
 kpi_id: orders
 version: 1
 owner_role: commercial_director
+unit: count
 definition: Count of completed orders, excluding cancellations and test accounts.
 
 calculation:

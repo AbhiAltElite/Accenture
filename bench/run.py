@@ -32,7 +32,7 @@ from whychain.corroborate.retriever import NumpyRetriever
 from whychain.decompose import BridgeError, compute_bridge
 from whychain.detect import decompose, find_anomalies, material
 from whychain.evidence import ClaimState, Freshness
-from whychain.verify import from_operations, from_promotions, verify
+from whychain.verify import filter_relevant, from_operations, from_promotions, verify
 
 warnings.filterwarnings("ignore")
 
@@ -135,8 +135,24 @@ def run_case(
                        material_detected, "unknown",
                        seconds=time.perf_counter() - started, error=str(exc)[:60])
 
-    candidates = from_operations(documents, case.window_start, case.window_end) + \
-        from_promotions(plan, case.window_start, case.window_end)
+    # Nothing material happened, so there is nothing to explain. Running the rest
+    # of the pipeline here is how an engine ends up naming a cause for a quiet
+    # week: real events elsewhere in the window verify perfectly well, they just
+    # are not explanations of a movement that did not occur.
+    if not material_detected:
+        return Outcome(
+            case.case_id, case.expected.value, case.tags, detected, material_detected,
+            "no_movement", top1=False if case.true_causes else None,
+            topk=False if case.true_causes else None,
+            decoy_rejected=True if case.decoys else None,
+            seconds=time.perf_counter() - started,
+        )
+
+    candidates, _aside = filter_relevant(
+        from_operations(documents, case.window_start, case.window_end)
+        + from_promotions(plan, case.window_start, case.window_end),
+        case.window_start, case.window_end, case.region,
+    )
     verifications = [verify(c, panel, regions) for c in candidates]
 
     supporting = 0
@@ -185,6 +201,7 @@ def run_case(
 def compute_metrics(outcomes: list[Outcome], bins: int = 5) -> Metrics:
     m = Metrics()
     explained = [o for o in outcomes if o.verdict == "explained"]
+    quiet = [o for o in outcomes if o.verdict == "no_movement"]
     with_cause = [o for o in outcomes if o.top1 is not None]
     noise = [o for o in outcomes if o.expected == ExpectedVerdict.NO_ANOMALY.value]
     with_decoy = [o for o in outcomes if o.decoy_rejected is not None]
@@ -195,7 +212,8 @@ def compute_metrics(outcomes: list[Outcome], bins: int = 5) -> Metrics:
         "noise_only": len(noise),
         "decoy_bearing": len(with_decoy),
         "reported_a_cause": len(explained),
-        "abstained": len(outcomes) - len(explained),
+        "no_material_movement": len(quiet),
+        "abstained": len(outcomes) - len(explained) - len(quiet),
         "errors": sum(1 for o in outcomes if o.error),
     }
 
