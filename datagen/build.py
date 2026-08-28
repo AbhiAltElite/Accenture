@@ -18,7 +18,14 @@ import duckdb
 from datagen.demo_cases import DEMO_SCENARIOS
 from datagen.scenarios import Scenario
 from datagen.series import build_panel
-from datagen.sources import emit_plan_ops, emit_pos_txn, emit_voice_ops, source_freshness
+from datagen.sources import (
+    emit_plan_ops,
+    emit_pos_txn,
+    emit_sessions,
+    emit_shipments,
+    emit_voice_ops,
+    source_freshness,
+)
 
 WAREHOUSE = Path("data/warehouse/whychain.duckdb")
 GROUND_TRUTH = Path("data/ground_truth")
@@ -49,6 +56,8 @@ def build(warehouse: Path = WAREHOUSE, scenarios: tuple[Scenario, ...] = DEMO_SC
 
     print("emitting sources...")
     pos_txn = emit_pos_txn(panel)
+    sessions = emit_sessions(panel)
+    shipments = emit_shipments(panel, events)
     plan_ops = emit_plan_ops(panel, events)
     voice_ops = emit_voice_ops(panel, events)
     freshness = source_freshness()
@@ -60,6 +69,8 @@ def build(warehouse: Path = WAREHOUSE, scenarios: tuple[Scenario, ...] = DEMO_SC
     con = duckdb.connect(str(warehouse))
     for name, frame in (
         ("pos_txn", pos_txn),
+        ("sessions", sessions),
+        ("shipments", shipments),
         ("plan_ops", plan_ops),
         ("voice_ops", voice_ops),
         ("source_freshness", freshness),

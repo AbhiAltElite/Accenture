@@ -47,6 +47,46 @@ runner, so a bad pin now fails the build.
 
 **Lesson — promoted to a trap below (T-16).**
 
+### B-002 · Rupee materiality floor applied to counts and ratios
+**Found:** 2026-08-28 · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** `orders` and `aov` reported zero material movements over three
+years. A KPI that never flags anything looks calm; it is actually broken.
+
+**Root cause:** `min_abs_delta_inr` was compared directly against the movement in
+the metric's own unit. Orders is a count of roughly 1,500/day and the floor was
+15,000, so no movement could ever pass. Same class of error as T-03.
+
+**Fix:** contracts declare `value_per_unit_inr`, and materiality converts the
+movement to business impact before applying the rupee test.
+
+**Regression test:** `audit.py` asserts a count metric carries a conversion
+factor and that revenue's is exactly 1.0.
+
+### B-003 · Two contracts referenced tables the generator never emitted
+**Found:** 2026-08-28 · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** `checkout_conversion` and `on_time_delivery` failed at query time.
+Nothing caught it, because contracts validate their own shape and the registry
+validates the graph — neither executes the SQL.
+
+**Fix:** generator emits `sessions` and `shipments`. `on_time_delivery` also
+declared `tz_normalise`, a transform that rewrites `order_ts`, which shipments
+does not have; a contract must not claim lineage its table cannot support.
+
+**Regression test:** `audit.py` executes every contract in the registry.
+
+### B-004 · Sessions materialised one row per session
+**Found:** 2026-08-28 · **Severity:** P2 · **Status:** fixed
+
+**Symptom:** 30 million rows generated for a metric that only ever consumes
+counts. Build time and file size for no analytical gain.
+
+**Root cause:** modelled sessions as events out of habit. Web analytics arrives
+pre-aggregated in practice.
+
+**Fix:** emit hourly session counts — 416k rows for the same information.
+
 ### Template
 
 ```markdown

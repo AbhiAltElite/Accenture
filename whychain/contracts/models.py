@@ -65,12 +65,29 @@ class Driver(BaseModel):
 class Materiality(BaseModel):
     """Both tests must pass before a movement is worth an analyst's attention.
 
-    Statistical significance alone surfaces clean but trivial movements; rupee
+    Statistical significance alone surfaces clean but trivial movements; business
     impact alone surfaces noise that happens to be large.
+
+    The business floor is in rupees, but most metrics are not. Orders is a count
+    and conversion is a ratio, so each contract declares what one unit of its
+    metric is worth. Applying a rupee threshold directly to a count is the same
+    class of error as a bridge reporting order volumes: the number passes type
+    checks and means nothing.
     """
 
     min_abs_robust_z: float = Field(gt=0)
     min_abs_delta_inr: float = Field(gt=0)
+    value_per_unit_inr: float = Field(default=1.0, gt=0)
+
+    def business_impact(self, delta: float) -> float:
+        """Rupee impact of a movement expressed in the metric's own unit."""
+        return abs(delta) * self.value_per_unit_inr
+
+    def is_material(self, delta: float, robust_z: float) -> bool:
+        return (
+            abs(robust_z) >= self.min_abs_robust_z
+            and self.business_impact(delta) >= self.min_abs_delta_inr
+        )
 
 
 class AccessPolicy(BaseModel):

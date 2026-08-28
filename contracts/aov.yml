@@ -41,7 +41,8 @@ drivers:
 
 materiality:
   min_abs_robust_z: 3.0
-  min_abs_delta_inr: 4000
+  min_abs_delta_inr: 15000
+  value_per_unit_inr: 1500.0
 
 freshness_sla:
   pos_txn: 6h

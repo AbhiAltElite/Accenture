@@ -42,7 +42,8 @@ drivers:
 
 materiality:
   min_abs_robust_z: 2.5
-  min_abs_delta_inr: 4000
+  min_abs_delta_inr: 15000
+  value_per_unit_inr: 450000.0
 
 freshness_sla:
   plan_ops: 72h
@@ -58,4 +59,4 @@ signals_consumed:
 
 lineage:
   upstream: [shipments]
-  transforms: [tz_normalise, exclude_in_flight]
+  transforms: [exclude_in_flight]

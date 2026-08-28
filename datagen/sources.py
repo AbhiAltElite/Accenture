@@ -280,3 +280,85 @@ def source_freshness(as_of: datetime | None = None) -> pd.DataFrame:
             for source, lag in SOURCE_LAG.items()
         ]
     )
+
+
+def emit_sessions(panel: pd.DataFrame, seed: int = 17) -> pd.DataFrame:
+    """Hourly session counts for the digital channels.
+
+    Emitted as counts, not one row per session. Web analytics arrives
+    pre-aggregated in practice, and materialising thirty million rows in order to
+    divide them straight back down is a costly way to store the same number.
+
+    Sessions are generated independently of orders, so conversion is not constant
+    by construction and a checkout regression can actually move it.
+    """
+    rng = np.random.default_rng(seed)
+    digital = panel[panel["channel"].isin(["web", "app"])]
+    grouped = digital.groupby(["d", "region", "channel", "device"], as_index=False)["orders"].sum()
+    grouped = grouped[grouped["orders"] > 0].reset_index(drop=True)
+
+    # Baseline conversion by device: mobile browses more and buys less.
+    base_rate = grouped["device"].map({"mobile": 0.041, "desktop": 0.068, "tablet": 0.052})
+    daily = (grouped["orders"] / base_rate * rng.normal(1.0, 0.05, len(grouped))).round()
+
+    frames = []
+    for hour, share in enumerate(_intraday_profile()):
+        if share < 0.005:
+            continue
+        frames.append(
+            pd.DataFrame(
+                {
+                    "session_ts": pd.to_datetime(grouped["d"]) + pd.Timedelta(hours=hour),
+                    "region": grouped["region"],
+                    "channel": grouped["channel"],
+                    "device": grouped["device"],
+                    "sessions": np.maximum((daily * share).round(), 0).astype(int),
+                }
+            )
+        )
+    out = pd.concat(frames, ignore_index=True)
+    return out[out["sessions"] > 0].reset_index(drop=True)
+
+
+def emit_shipments(panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: int = 23) -> pd.DataFrame:
+    """Delivery promises and outcomes, at T+1 from a separate system."""
+    rng = np.random.default_rng(seed)
+    grouped = panel.groupby(["d", "region", "category"], as_index=False)["orders"].sum()
+    grouped = grouped[grouped["orders"] > 0]
+
+    counts = np.maximum((grouped["orders"] / 6).round().astype(int), 1)
+    idx = np.repeat(np.arange(len(grouped)), counts)
+    total = len(idx)
+    src = grouped.iloc[idx]
+
+    promised = pd.to_datetime(src["d"].to_numpy()) + pd.to_timedelta(
+        rng.integers(2, 6, total), unit="D"
+    )
+    # Baseline on-time performance, before anything goes wrong.
+    late_risk = np.full(total, 0.09)
+
+    day = pd.Series(promised).dt.date.to_numpy()
+    region = src["region"].to_numpy()
+    for event in events:
+        if event.effect == 0.0 or event.kind not in (
+            CauseKind.EXTERNAL_WEATHER, CauseKind.STOCKOUT
+        ):
+            continue
+        hit = (day >= event.start) & (day <= event.end)
+        if event.target.region:
+            hit &= region == event.target.region
+        late_risk = np.where(hit, np.clip(late_risk + abs(event.effect), 0, 0.95), late_risk)
+
+    late = rng.random(total) < late_risk
+    delivered = promised + pd.to_timedelta(np.where(late, rng.integers(1, 5, total), 0), unit="D")
+
+    return pd.DataFrame(
+        {
+            "shipment_id": [f"SH{i:09d}" for i in range(total)],
+            "promised_date": promised,
+            "delivered_date": delivered,
+            "region": region,
+            "category": src["category"].to_numpy(),
+            "carrier": rng.choice(["BlueDart", "Delhivery", "Ecom", "InHouse"], total),
+        }
+    )

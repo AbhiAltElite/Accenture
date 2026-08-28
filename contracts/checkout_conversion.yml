@@ -11,14 +11,19 @@ definition: >
 
 calculation:
   canonical_sql: |
-    SELECT date_trunc('hour', s.session_ts) AS h,
-           s.region, s.device,
-           COUNT(DISTINCT o.order_id)::DOUBLE / NULLIF(COUNT(DISTINCT s.session_id), 0) AS value
-    FROM sessions s
-    LEFT JOIN pos_txn o
-      ON o.session_id = s.session_id AND o.status <> 'cancelled'
-    WHERE s.channel IN ('web', 'app')
-    GROUP BY 1, 2, 3
+    WITH sess AS (
+      SELECT date_trunc('hour', session_ts) AS h, region, device,
+             SUM(sessions) AS sessions
+      FROM sessions WHERE channel IN ('web','app') GROUP BY 1,2,3
+    ), ord AS (
+      SELECT date_trunc('hour', order_ts) AS h, region, device,
+             COUNT(DISTINCT order_id) AS orders
+      FROM pos_txn WHERE status <> 'cancelled' AND channel IN ('web','app')
+      GROUP BY 1,2,3
+    )
+    SELECT s.h AS h, s.region, s.device,
+           COALESCE(o.orders, 0)::DOUBLE / NULLIF(s.sessions, 0) AS value
+    FROM sess s LEFT JOIN ord o USING (h, region, device)
   dialect_targets: [duckdb, databricks, snowflake]
 
 grain:
@@ -49,7 +54,8 @@ materiality:
   # A rate metric, so the rupee floor is the revenue the shortfall represents
   # rather than a movement in the ratio itself.
   min_abs_robust_z: 3.0
-  min_abs_delta_inr: 8000
+  min_abs_delta_inr: 15000
+  value_per_unit_inr: 600000.0
 
 freshness_sla:
   pos_txn: 6h
@@ -60,5 +66,5 @@ access_policy:
   domain_restriction: [pii]
 
 lineage:
-  upstream: [sessions, pos_txn.orders]
-  transforms: [tz_normalise, digital_channels_only]
+  upstream: [sessions, pos_txn]
+  transforms: []

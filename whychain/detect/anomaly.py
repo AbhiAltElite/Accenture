@@ -192,12 +192,7 @@ def material(anomalies: list[Anomaly], contract: KPIContract) -> list[Anomaly]:
     impact alone surfaces noise that happens to be large. The brief asks for
     both, and the contract is where the thresholds live.
     """
-    return [
-        a
-        for a in anomalies
-        if abs(a.robust_z) >= contract.materiality.min_abs_robust_z
-        and abs(a.delta) >= contract.materiality.min_abs_delta_inr
-    ]
+    return [a for a in anomalies if contract.materiality.is_material(a.delta, a.robust_z)]
 
 
 def detect(
