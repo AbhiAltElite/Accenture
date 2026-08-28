@@ -415,6 +415,30 @@ pre{background:var(--sunk);border-radius:var(--r-sm);padding:var(--sp-3) var(--s
 <script>
 const $ = s => document.querySelector(s);
 const inr = n => '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
+
+/* Format a value in the unit its contract declares.
+
+   Every figure on the chart used to go through `inr`, whatever metric was being
+   drawn. Checkout conversion is a ratio around 0.06, so it rendered as "₹0", and
+   on-time delivery around 0.94 rendered as "₹1" — the exact failure the design
+   checklist names, a rate reading as one rupee. The unit travels with the series
+   and is used here. */
+const fmtValue = (v, unit) => {
+  if(v == null || !isFinite(v)) return '—';
+  const n = Math.abs(v);
+  if(unit === 'INR')   return inr(n);
+  if(unit === 'ratio') return (n*100).toFixed(n < 0.1 ? 2 : 1) + '%';
+  if(unit === 'count') return Math.round(n).toLocaleString('en-IN');
+  return n.toLocaleString('en-IN', {maximumFractionDigits:2});
+};
+
+/* The gap between two rates is measured in percentage points, never per cent:
+   6% against 8% is two points apart, not two per cent and not twenty-five.
+   BUGS.md T-02 treats confusing the two as a distinct claim, so the unit says
+   which one this is. */
+const fmtDelta = (v, unit) => unit === 'ratio'
+  ? (Math.abs(v)*100).toFixed(2) + ' pp'
+  : fmtValue(v, unit);
 const ACRONYM = {aov:'AOV', kpi:'KPI', sla:'SLA'};
 const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
 const title = id => {
@@ -524,9 +548,7 @@ async function showOverview(){
   };
   data.roots.forEach(r=>walk(r,0));
 
-  const fmt=(k,v)=> k.unit==='ratio' ? (v*100).toFixed(1)+'%'
-    : k.unit==='count' ? Math.round(v).toLocaleString('en-IN')
-    : inr(v);
+  const fmt=(k,v)=>fmtValue(v, k.unit);
   $('#overview').innerHTML = `<div class="overview">
     <h1>${region||'All regions'}</h1>
     <p class="sub">Five connected metrics. Revenue is orders times average order
@@ -881,7 +903,8 @@ function movementsBlock(){
   const rows = STATE.series.anomalies.slice().sort((a,b)=>a.day<b.day?1:-1).map(a=>`
     <tr><td><code>${a.day}</code></td>
       <td><span class="pill ${a.direction==='drop'?'no':'ok'}">${a.direction}</span></td>
-      <td class="n ${a.delta<0?'down':'up'}">${a.delta<0?'\u2212':'+'}${inr(a.delta)}</td>
+      <td class="n ${a.delta<0?'down':'up'}">${a.delta<0?'\u2212':'+'}${
+        fmtDelta(a.delta, STATE.series.unit)}</td>
       <td class="n ${a.delta<0?'down':'up'}">${pct(a.pct)}</td>
       <td class="n">${a.robust_z>0?'+':''}${a.robust_z.toFixed(2)}</td></tr>`).join('');
   return section('Days that passed both materiality tests',
@@ -1237,11 +1260,11 @@ function showTip(mouseY){
   const observed=d.observed[HOVER], expected=d.expected[HOVER];
   const gap=observed-expected, z=d.robust_z[HOVER];
   const flagged=d.anomalies.find(a=>a.day===d.days[HOVER]);
-  const money=v=>STATE.overview && false ? v : inr(v);
+  const unit = d.unit;
   t.innerHTML = `<b>${d.days[HOVER]}</b><br>
-    observed <b>${money(observed)}</b><br>
-    expected <b>${money(expected)}</b><br>
-    <span class="${gap<0?'down':'up'}">${gap<0?'\u2212':'+'}${money(gap)}
+    observed <b>${fmtValue(observed, unit)}</b><br>
+    expected <b>${fmtValue(expected, unit)}</b><br>
+    <span class="${gap<0?'down':'up'}">${gap<0?'\u2212':'+'}${fmtDelta(gap, unit)}
     · z ${z>0?'+':''}${z.toFixed(2)}</span>
     ${flagged?'<br><span class="pill no">flagged</span>':''}`;
   const px=CHART.X(HOVER);
