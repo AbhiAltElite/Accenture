@@ -12,7 +12,9 @@ calculation:
   canonical_sql: |
     SELECT date_trunc('day', order_ts) AS d,
            region, channel, category, device,
-           SUM(qty * unit_price - discount) / NULLIF(COUNT(DISTINCT order_id), 0) AS value
+           SUM(qty * unit_price - discount) / NULLIF(COUNT(DISTINCT order_id), 0) AS value,
+           SUM(qty * unit_price - discount) AS net_revenue,
+           COUNT(DISTINCT order_id)::DOUBLE AS orders
     FROM pos_txn
     WHERE status <> 'cancelled'
     GROUP BY 1, 2, 3, 4, 5
@@ -21,8 +23,12 @@ calculation:
 grain:
   time: day
   dims: [region, channel, category, device]
-  # A ratio: rolling up slices means averaging them, never adding.
-  aggregation: mean
+  # Currency, but structurally a ratio: revenue over orders. Rolling up means
+  # total revenue over total orders, never the mean of slice AOVs — a category
+  # with three orders would otherwise weigh as much as one with thirty thousand.
+  aggregation: ratio_of_sums
+  numerator: net_revenue
+  denominator: orders
 
 calendar: fiscal_in
 parents: [net_revenue]

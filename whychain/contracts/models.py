@@ -35,13 +35,19 @@ class Coverage(StrEnum):
 class Aggregation(StrEnum):
     """How a metric combines when slices are rolled up.
 
-    Revenue and order counts add. An average order value or a conversion rate
-    does not: summing the AOV of four regions produces a number with no meaning,
-    and it is the kind of error that looks like data rather than a bug.
+    Revenue and order counts add. A ratio does not, and it does not average
+    either: the mean of four regional conversion rates weights a region that
+    took two hundred sessions equally with one that took two hundred thousand.
+    The overall rate is the ratio of the summed parts, so a ratio metric must
+    carry its numerator and denominator to be rolled up at all.
+
+    MEAN is retained only for a genuinely unweighted average. A ratio declaring
+    it is rejected at load, because the resulting number looks like data.
     """
 
     SUM = "sum"
     MEAN = "mean"
+    RATIO_OF_SUMS = "ratio_of_sums"
 
 
 class Grain(BaseModel):
@@ -50,6 +56,48 @@ class Grain(BaseModel):
     time: str  # hour | day | week
     dims: tuple[str, ...]
     aggregation: Aggregation = Aggregation.SUM
+    # For RATIO_OF_SUMS: the columns the canonical SQL emits alongside `value`,
+    # so a roll-up can re-divide the summed parts rather than average the rates.
+    numerator: str | None = None
+    denominator: str | None = None
+
+    @model_validator(mode="after")
+    def _ratio_carries_its_parts(self) -> Grain:
+        if self.aggregation is Aggregation.RATIO_OF_SUMS and not (
+            self.numerator and self.denominator
+        ):
+            raise ValueError(
+                "a ratio_of_sums metric must declare numerator and denominator "
+                "columns; without them a roll-up can only average rates, which "
+                "silently weights a small slice equally with a large one"
+            )
+        return self
+
+
+class DecompositionSpec(BaseModel):
+    """Whether a price/volume/mix bridge applies to this metric, and over what.
+
+    The bridge is an identity over `revenue = units x price`. It is meaningful
+    for a currency metric that is a sum of priced units, and meaningless for a
+    rate: a conversion percentage has no units and no price, so "the price
+    effect on checkout conversion" is a category error rather than a hard sum.
+    Metrics that cannot be bridged declare so, and the engine declines to
+    decompose them instead of returning a number computed from something else.
+    """
+
+    method: str = "none"          # "pvm" | "none"
+    key: str = "sku"              # the product dimension the bridge sums over
+    units: str | None = None      # SQL expression for units sold
+    revenue: str | None = None    # SQL expression for revenue realised
+
+    @model_validator(mode="after")
+    def _pvm_declares_its_inputs(self) -> DecompositionSpec:
+        if self.method == "pvm" and not (self.units and self.revenue):
+            raise ValueError(
+                "a pvm decomposition must declare the units and revenue "
+                "expressions it sums over"
+            )
+        return self
 
 
 class Driver(BaseModel):
@@ -203,7 +251,33 @@ class KPIContract(BaseModel):
     freshness_sla: dict[str, timedelta]
     access_policy: AccessPolicy = AccessPolicy()
     signals_consumed: SignalsConsumed = SignalsConsumed()
+    decomposition: DecompositionSpec = DecompositionSpec()
     lineage: Lineage
+
+    @model_validator(mode="after")
+    def _bridge_only_where_it_is_an_identity(self) -> KPIContract:
+        # T-03 in a second form: the bridge yields currency summed over priced
+        # units. Declaring it on a rate or a count would let the engine report
+        # a "price effect" on a percentage.
+        if self.decomposition.method == "pvm" and self.unit is not Unit.INR:
+            raise ValueError(
+                f"{self.kpi_id}: a price/volume/mix bridge produces currency, but "
+                f"this metric is measured in {self.unit.value}. The bridge is an "
+                "identity over priced units and does not apply here."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _a_rate_is_not_averaged(self) -> KPIContract:
+        # A rate rolled up by MEAN is the mean-of-means error: it reads as the
+        # overall rate and is not one. Ratios must re-divide their summed parts.
+        if self.unit is Unit.RATIO and self.grain.aggregation is Aggregation.MEAN:
+            raise ValueError(
+                f"{self.kpi_id}: a ratio metric declares aggregation 'mean'. "
+                "The mean of slice rates is not the overall rate; declare "
+                "'ratio_of_sums' with the numerator and denominator columns."
+            )
+        return self
 
     @model_validator(mode="after")
     def _every_driver_source_has_an_sla(self) -> KPIContract:

@@ -14,7 +14,9 @@ calculation:
   canonical_sql: |
     SELECT date_trunc('day', promised_date) AS d,
            region, category,
-           AVG(CASE WHEN delivered_date <= promised_date THEN 1.0 ELSE 0.0 END) AS value
+           AVG(CASE WHEN delivered_date <= promised_date THEN 1.0 ELSE 0.0 END) AS value,
+           SUM(CASE WHEN delivered_date <= promised_date THEN 1.0 ELSE 0.0 END) AS on_time,
+           COUNT(*)::DOUBLE AS shipments
     FROM shipments
     WHERE delivered_date IS NOT NULL OR promised_date < CURRENT_DATE
     GROUP BY 1, 2, 3
@@ -23,8 +25,11 @@ calculation:
 grain:
   time: day
   dims: [region, category]
-  # A ratio: rolling up slices means averaging them, never adding.
-  aggregation: mean
+  # A rate. Rolling up re-divides the summed parts: a category with nine
+  # shipments must not weigh as much as one with nine thousand.
+  aggregation: ratio_of_sums
+  numerator: on_time
+  denominator: shipments
 
 calendar: fiscal_in
 parents: []

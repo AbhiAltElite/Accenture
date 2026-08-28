@@ -23,15 +23,20 @@ calculation:
       GROUP BY 1,2,3
     )
     SELECT s.h AS h, s.region, s.device,
-           COALESCE(o.orders, 0)::DOUBLE / NULLIF(s.sessions, 0) AS value
+           COALESCE(o.orders, 0)::DOUBLE / NULLIF(s.sessions, 0) AS value,
+           COALESCE(o.orders, 0)::DOUBLE AS converted,
+           s.sessions::DOUBLE AS sessions
     FROM sess s LEFT JOIN ord o USING (h, region, device)
   dialect_targets: [duckdb, databricks, snowflake]
 
 grain:
   time: hour
   dims: [region, device]
-  # A ratio: rolling up slices means averaging them, never adding.
-  aggregation: mean
+  # A rate. Rolling up re-divides the summed parts: the mean of slice rates
+  # would weight a device that took 200 sessions like one that took 200,000.
+  aggregation: ratio_of_sums
+  numerator: converted
+  denominator: sessions
 
 calendar: fiscal_in
 parents: [orders]
