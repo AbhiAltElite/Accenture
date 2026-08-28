@@ -38,7 +38,7 @@ drivers:
 
 materiality:
   min_abs_robust_z: 3.0
-  min_abs_delta_inr: 250000
+  min_abs_delta_inr: 6000
 
 freshness_sla:
   pos_txn: 6h

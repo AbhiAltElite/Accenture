@@ -8,7 +8,7 @@ setup:            ## create venv and install dependencies
 gen:              ## generate the synthetic dataset + ground truth
 	.venv/bin/python -m datagen.build
 
-demo:             ## run the API and serve the console
+demo:             ## run the console at http://localhost:8000
 	.venv/bin/uvicorn api.main:app --reload --port 8000
 
 test:             ## run the test suite (includes the invariant tests)

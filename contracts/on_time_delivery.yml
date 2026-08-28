@@ -42,7 +42,7 @@ drivers:
 
 materiality:
   min_abs_robust_z: 2.5
-  min_abs_delta_inr: 100000
+  min_abs_delta_inr: 4000
 
 freshness_sla:
   plan_ops: 72h

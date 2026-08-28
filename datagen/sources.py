@@ -1,0 +1,282 @@
+"""Turn the demand panel into the source systems the engine reads.
+
+Each source gets its own grain, its own refresh cadence and its own defects,
+because reconciling them is part of what the engine is being asked to do. A
+generator that emits three clean tables at the same grain removes the problem
+rather than modelling it.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+
+import numpy as np
+import pandas as pd
+
+from datagen.catalog import CITIES
+from datagen.scenarios import CauseKind, PlantedEvent
+
+# Refresh lag per source, as the engine will observe it.
+SOURCE_LAG = {
+    "pos_txn": timedelta(hours=3),
+    "plan_ops": timedelta(days=2),      # T+2 by design; often breaches its 72h SLA
+    "voice_ops": timedelta(minutes=20),
+    "ext_signals": timedelta(hours=20),
+}
+
+
+def emit_pos_txn(panel: pd.DataFrame, seed: int = 7) -> pd.DataFrame:
+    """Order lines — the finest grain in the system.
+
+    Expanded from the panel so the transactions sum back to the series exactly.
+    Two defects are injected on purpose: a handful of duplicated order ids, and
+    timestamps written in local time for one region while the rest are UTC.
+    """
+    rng = np.random.default_rng(seed)
+    counts = np.maximum(panel["orders"].to_numpy().round().astype(int), 0)
+    keep = counts > 0
+    rows = panel.loc[keep]
+    counts = counts[keep]
+
+    idx = np.repeat(np.arange(len(rows)), counts)
+    total = len(idx)
+
+    src = rows.iloc[idx]
+    # Spread orders through the trading day rather than stacking them at midnight;
+    # the hourly conversion metric needs a real intraday shape.
+    hours = rng.choice(
+        np.arange(24), size=total, p=_intraday_profile()
+    )
+    minutes = rng.integers(0, 60, total)
+
+    order_ts = (
+        pd.to_datetime(src["d"].to_numpy())
+        + pd.to_timedelta(hours, unit="h")
+        + pd.to_timedelta(minutes, unit="m")
+    )
+
+    qty = np.maximum(rng.poisson(1.4, total), 1)
+    unit_price = src["unit_price"].to_numpy()
+    # Most orders carry no discount; a minority carry a real one.
+    discount = np.where(rng.random(total) < 0.22, unit_price * qty * rng.uniform(0.05, 0.25, total), 0.0)
+
+    txn = pd.DataFrame(
+        {
+            "order_id": [f"O{i:09d}" for i in range(total)],
+            "order_ts": order_ts,
+            "region": src["region"].to_numpy(),
+            "channel": src["channel"].to_numpy(),
+            "device": src["device"].to_numpy(),
+            "category": src["category"].to_numpy(),
+            "sku": src["sku"].to_numpy(),
+            "qty": qty,
+            "unit_price": unit_price.round(2),
+            "discount": discount.round(2),
+            "status": "completed",
+            "is_test": False,
+        }
+    )
+
+    # Cancellations, so the contract's status filter has something to exclude.
+    cancelled = rng.random(total) < 0.018
+    txn.loc[cancelled, "status"] = "cancelled"
+
+    # Test accounts, which the orders contract filters and the revenue one does not.
+    txn.loc[rng.random(total) < 0.004, "is_test"] = True
+
+    return _inject_defects(txn, rng)
+
+
+def _intraday_profile() -> np.ndarray:
+    """Hourly order distribution: quiet overnight, peaks at lunch and late evening."""
+    shape = np.array(
+        [0.4, 0.2, 0.1, 0.1, 0.1, 0.2, 0.5, 1.0, 1.8, 2.6, 3.4, 4.2,
+         4.8, 4.4, 3.8, 3.6, 4.0, 4.8, 6.0, 7.2, 7.6, 6.4, 3.8, 1.6]
+    )
+    return shape / shape.sum()
+
+
+def _inject_defects(txn: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
+    """Real extracts are not clean. These are the two the reconciler must handle."""
+    # Duplicate order ids: the same order delivered twice by an upstream feed.
+    # A naive count(*) inflates volume; count(distinct order_id) does not.
+    dupes = txn.sample(n=max(1, len(txn) // 4000), random_state=int(rng.integers(1e6)))
+    txn = pd.concat([txn, dupes], ignore_index=True)
+
+    # One region's extract arrives in local time rather than UTC. Left uncorrected
+    # it shifts orders across the day boundary and smears the hourly metric.
+    east = txn["region"] == "East"
+    txn.loc[east, "order_ts"] = txn.loc[east, "order_ts"] + timedelta(hours=5, minutes=30)
+
+    return txn.sort_values("order_ts").reset_index(drop=True)
+
+
+def emit_plan_ops(panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: int = 11) -> pd.DataFrame:
+    """Weekly planning extract: marketing spend, stock cover, competitor index.
+
+    Coarser grain and a two-day lag, so a diagnosis run early in the week is
+    working with numbers that predate the movement it is explaining.
+    """
+    rng = np.random.default_rng(seed)
+    weekly = (
+        panel.assign(week=panel["d"].dt.to_period("W").dt.start_time)
+        .groupby(["week", "region", "category"], as_index=False)
+        .agg(revenue=("revenue", "sum"), units=("units", "sum"))
+    )
+
+    # Spend tracks revenue with noise — correlated enough to be a plausible
+    # candidate driver, which is what makes ranking non-trivial.
+    weekly["marketing_spend"] = (
+        weekly["revenue"] * rng.uniform(0.05, 0.09, len(weekly))
+    ).round(0)
+    weekly["planned_stock"] = (weekly["units"] * rng.uniform(1.05, 1.35, len(weekly))).round(0)
+    weekly["competitor_price_index"] = np.round(rng.normal(100, 3.5, len(weekly)), 2)
+
+    # Planted events are recorded here as operational facts. Causes and decoys
+    # are written identically — nothing marks which is which.
+    weekly["promo_active"] = False
+    weekly["promo_id"] = None
+    for event in events:
+        if event.kind not in (CauseKind.MARKETING_CUT, CauseKind.COMPETITOR_PROMO):
+            continue
+        regions = {event.target.region} if event.target.region else set(weekly["region"])
+        regions |= set(event.also_in)
+        mask = (
+            weekly["week"].dt.date.between(
+                event.start - timedelta(days=6), event.end
+            )
+            & weekly["region"].isin(regions)
+        )
+        if event.target.category:
+            mask &= weekly["category"] == event.target.category
+        weekly.loc[mask, "promo_active"] = True
+        weekly.loc[mask, "promo_id"] = event.event_id
+        if event.kind is CauseKind.COMPETITOR_PROMO:
+            weekly.loc[mask, "competitor_price_index"] -= 6.5
+
+    # Missing weeks: the extract does not always land. Null, not zero — a zero
+    # would be read as "no spend" rather than "we do not know".
+    drop = rng.random(len(weekly)) < 0.03
+    weekly.loc[drop, ["marketing_spend", "planned_stock"]] = np.nan
+
+    return weekly.drop(columns=["revenue", "units"])
+
+
+TICKET_TEMPLATES = {
+    CauseKind.INTERNAL_BUG: [
+        "Cannot complete checkout on the app. The card entry page is blank after the update.",
+        "Payment step crashes every time on Android. Tried four times, no order placed.",
+        "App checkout broken since the last release. It spins and then fails.",
+        "Unable to pay on mobile. The card form does not load at all.",
+    ],
+    CauseKind.EXTERNAL_WEATHER: [
+        "Delivery delayed due to flooding in the area. No update for two days.",
+        "Store was shut because of the rain, could not collect my order.",
+        "Shipment stuck, courier says roads are closed after heavy rainfall.",
+    ],
+    CauseKind.STOCKOUT: [
+        "The item I wanted has been out of stock for a week now.",
+        "Order cancelled by the seller citing unavailability.",
+        "Cannot find the product in my area any more.",
+    ],
+    CauseKind.COMPETITOR_PROMO: [
+        "Found the same pack cheaper elsewhere, cancelling this order.",
+        "Your price went up compared to the other app.",
+    ],
+    CauseKind.PRICE_CHANGE: [
+        "The price of this item changed between adding it and checking out.",
+        "Introductory offer seems to have ended without notice.",
+    ],
+    CauseKind.MARKETING_CUT: [
+        "Was the monsoon sale extended? The banner disappeared.",
+    ],
+}
+
+BACKGROUND_TICKETS = [
+    "Delivery arrived on time, no issues.",
+    "Requesting a refund for a damaged item.",
+    "How do I change my delivery address?",
+    "Product quality was good but packaging was torn.",
+    "Please cancel my subscription renewal.",
+    "The invoice shows the wrong GST number.",
+]
+
+
+def emit_voice_ops(
+    panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: int = 13
+) -> pd.DataFrame:
+    """Support tickets, rep notes and the release log.
+
+    Ticket volume tracks the events that actually happened. A decoy generates no
+    tickets, because nothing went wrong — which is one of the ways corroboration
+    separates a real cause from a coincidence.
+    """
+    rng = np.random.default_rng(seed)
+    rows: list[dict] = []
+    doc_id = 0
+
+    start = panel["d"].min().date()
+    end = panel["d"].max().date()
+
+    # Background noise across the whole period.
+    day = start
+    while day <= end:
+        for _ in range(rng.poisson(6)):
+            rows.append(
+                {
+                    "doc_id": f"TK{doc_id:06d}",
+                    "doc_type": "support_ticket",
+                    "ts": datetime(day.year, day.month, day.day, int(rng.integers(6, 22)), tzinfo=UTC),
+                    "region": rng.choice([c.region for c in CITIES]),
+                    "text": rng.choice(BACKGROUND_TICKETS),
+                }
+            )
+            doc_id += 1
+        day += timedelta(days=1)
+
+    # Event-driven tickets. Volume scales with how much the event actually moved
+    # the metric, so a large regression produces a visible spike.
+    for event in events:
+        if event.effect == 0.0:
+            continue  # a decoy breaks nothing, so nobody complains about it
+        templates = TICKET_TEMPLATES.get(event.kind, BACKGROUND_TICKETS)
+        per_day = int(abs(event.effect) * 90)
+        day = event.start
+        while day <= event.end:
+            for _ in range(rng.poisson(per_day)):
+                rows.append(
+                    {
+                        "doc_id": f"TK{doc_id:06d}",
+                        "doc_type": "support_ticket",
+                        "ts": datetime(day.year, day.month, day.day, int(rng.integers(6, 22)), tzinfo=UTC),
+                        "region": event.target.region or rng.choice([c.region for c in CITIES]),
+                        "text": rng.choice(templates),
+                    }
+                )
+                doc_id += 1
+            day += timedelta(days=1)
+
+        # The corresponding operational record: a release note, a supplier email.
+        rows.append(
+            {
+                "doc_id": f"OPS{doc_id:06d}",
+                "doc_type": "release_log" if event.kind is CauseKind.INTERNAL_BUG else "ops_note",
+                "ts": datetime(event.start.year, event.start.month, event.start.day, 8, tzinfo=UTC),
+                "region": event.target.region or "All",
+                "text": f"{event.event_id}: {event.description}",
+            }
+        )
+        doc_id += 1
+
+    return pd.DataFrame(rows).sort_values("ts").reset_index(drop=True)
+
+
+def source_freshness(as_of: datetime | None = None) -> pd.DataFrame:
+    """When each source last landed, as the engine would observe it."""
+    now = as_of or datetime.now(UTC)
+    return pd.DataFrame(
+        [
+            {"source_id": source, "as_of": now - lag, "observed_at": now}
+            for source, lag in SOURCE_LAG.items()
+        ]
+    )

@@ -24,3 +24,8 @@ select = [
     "RUF",
 ]
 ignore = ["E501"]    # line length is formatted, not linted
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI declares request metadata through argument defaults; that is the
+# framework's interface, not the mutable-default bug B008 is written for.
+"api/*.py" = ["B008"]

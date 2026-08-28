@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WhyChain</title>
+<style>
+:root{
+  --bg:#fbfbfa; --surface:#fff; --raised:#f4f4f2;
+  --ink:#16181d; --ink-2:#5a6069; --ink-3:#8b9199;
+  --line:#e2e3e0; --line-strong:#c9cbc7;
+  --accent:#1f4e5f;
+  --drop:#9b2c2c; --spike:#1f6f4a; --warn:#8a6116; --ok:#2f6b46;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#16181b; --surface:#1c1f23; --raised:#23262b;
+  --ink:#e8e9e6; --ink-2:#a4aab2; --ink-3:#767d86;
+  --line:#2c3036; --line-strong:#3d434b;
+  --accent:#7fb3c4; --drop:#e08585; --spike:#7fc4a0; --warn:#d4b06a; --ok:#7fc4a0;
+}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);
+  -webkit-font-smoothing:antialiased;padding:0 0 60px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+
+header{border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:10}
+.bar{display:flex;align-items:baseline;gap:22px;padding:12px 0;flex-wrap:wrap}
+.brand{font-weight:600;letter-spacing:-.01em}
+.brand span{color:var(--ink-3);font-weight:400}
+.ctrl{margin-left:auto;display:flex;gap:8px;align-items:center}
+select,button{font:inherit;font-size:13px;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line-strong);border-radius:3px;padding:4px 8px}
+button{cursor:pointer}
+button:hover{background:var(--raised)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+.head{padding:22px 0 16px;border-bottom:1px solid var(--line)}
+h1{font-size:23px;font-weight:600;letter-spacing:-.02em;line-height:1.25}
+.sub{color:var(--ink-2);font-size:13px;margin-top:5px}
+.defn{color:var(--ink-2);font-size:13px;margin-top:10px;max-width:66ch}
+
+section{padding:22px 0;border-bottom:1px solid var(--line)}
+h2{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3);margin-bottom:12px}
+.chart{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:3px}
+canvas{display:block;width:100%;height:300px}
+.legend{display:flex;gap:18px;font-size:12px;color:var(--ink-2);margin-top:9px;flex-wrap:wrap}
+.key{display:inline-flex;align-items:center;gap:6px}
+.swatch{width:14px;height:2px;background:var(--ink)}
+.swatch.exp{background:var(--ink-3)}
+.swatch.band{height:9px;background:var(--raised);border:1px solid var(--line-strong)}
+.swatch.an{height:9px;width:9px;border-radius:50%;background:var(--drop)}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:600;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-3);padding:0 12px 7px 0;border-bottom:1px solid var(--line-strong)}
+td{padding:6px 12px 6px 0;border-bottom:1px solid var(--line);
+  font-variant-numeric:tabular-nums}
+th.n,td.n{text-align:right;padding-right:20px}
+tbody tr:hover{background:var(--raised)}
+.neg{color:var(--drop)}.pos{color:var(--spike)}
+.tag{display:inline-block;font-size:11px;font-family:var(--mono);padding:1px 5px;
+  border:1px solid var(--line-strong);border-radius:2px;color:var(--ink-2)}
+.scroll{overflow-x:auto}
+.empty{color:var(--ink-2);font-size:13px;padding:14px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0 26px}
+.fact{padding:9px 0;border-bottom:1px solid var(--line)}
+.fact dt{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.fact dd{font-size:15px;margin-top:2px;font-variant-numeric:tabular-nums}
+.note{font-size:12px;color:var(--ink-2);margin-top:10px;max-width:72ch}
+code{font-family:var(--mono);font-size:12px}
+</style>
+</head>
+<body>
+<header><div class="wrap bar">
+  <div class="brand">WhyChain <span>· diagnosis</span></div>
+  <div class="ctrl">
+    <select id="kpi"></select>
+    <select id="region"><option value="">All regions</option></select>
+    <select id="range">
+      <option value="90">Last 90 days</option>
+      <option value="180">Last 180 days</option>
+      <option value="365">Last year</option>
+      <option value="0">Full history</option>
+    </select>
+    <button id="reload">Reload</button>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <div class="head">
+    <h1 id="title">Loading…</h1>
+    <div class="sub" id="subtitle"></div>
+    <p class="defn" id="definition"></p>
+  </div>
+
+  <section>
+    <h2>Observed against seasonally adjusted expectation</h2>
+    <div class="chart"><canvas id="c"></canvas></div>
+    <div class="legend">
+      <span class="key"><i class="swatch"></i>Observed</span>
+      <span class="key"><i class="swatch exp"></i>Expected</span>
+      <span class="key"><i class="swatch band"></i>Normal range (±3σ on the residual)</span>
+      <span class="key"><i class="swatch an"></i>Material anomaly</span>
+    </div>
+    <p class="note">The expectation already contains trend, weekly rhythm and the retail
+      calendar. Festival weeks are removed before anything is measured, so a Diwali
+      collapse does not register as a break.</p>
+  </section>
+
+  <section>
+    <h2>Material movements</h2>
+    <div class="scroll"><table>
+      <thead><tr>
+        <th>Day</th><th>Direction</th><th class="n">Observed</th><th class="n">Expected</th>
+        <th class="n">Shortfall</th><th class="n">Change</th><th class="n">Robust z</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <p class="empty" id="none" hidden>No movement passed both materiality tests in this window.</p>
+    <p class="note" id="matnote"></p>
+  </section>
+
+  <section>
+    <h2>Source freshness</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Source</th><th>Last landed</th><th class="n">Lag</th>
+        <th class="n">SLA</th><th>Status</th></tr></thead>
+      <tbody id="fresh"></tbody>
+    </table></div>
+  </section>
+
+  <section style="border-bottom:none">
+    <h2>Run</h2>
+    <dl class="grid" id="meta"></dl>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const inr = n => '₹' + Math.round(n).toLocaleString('en-IN');
+let DATA = null;
+
+async function boot(){
+  const kpis = await (await fetch('/api/kpis')).json();
+  $('#kpi').innerHTML = kpis.map(k=>`<option value="${k.kpi_id}">${k.kpi_id.replace(/_/g,' ')}</option>`).join('');
+  const dims = new Set(kpis.flatMap(k=>k.dimensions));
+  if(dims.has('region'))
+    $('#region').innerHTML += ['North','South','East','West'].map(r=>`<option>${r}</option>`).join('');
+  $('#kpi').value='net_revenue'; $('#region').value='West';
+  window.KPIS = kpis;
+  load();
+}
+
+async function load(){
+  const kpi=$('#kpi').value, region=$('#region').value, days=+$('#range').value;
+  const p = new URLSearchParams({kpi}); if(region) p.set('region',region);
+  if(days){ const to=new Date('2026-08-31'); const from=new Date(to); from.setDate(to.getDate()-days);
+    p.set('from',from.toISOString().slice(0,10)); p.set('to',to.toISOString().slice(0,10)); }
+  const r = await fetch('/api/series?'+p);
+  if(!r.ok){ $('#title').textContent='No data for that slice'; return; }
+  DATA = await r.json(); render();
+}
+
+function render(){
+  const d=DATA, meta=window.KPIS.find(k=>k.kpi_id===d.kpi_id);
+  const drops=d.anomalies.filter(a=>a.direction==='drop');
+  const worst=drops.slice().sort((a,b)=>a.delta-b.delta)[0];
+
+  $('#title').textContent = worst
+    ? `${d.kpi_id.replace(/_/g,' ')} fell ${Math.abs(worst.pct*100).toFixed(1)}% on ${worst.day}`
+    : `${d.kpi_id.replace(/_/g,' ')} — no material break`;
+  const sl = Object.entries(d.slice).map(([k,v])=>`${v}`).join(' · ') || 'All regions';
+  $('#subtitle').textContent = `${sl} · ${d.days[0]} to ${d.days.at(-1)} · ${d.days.length} days · compared with seasonally adjusted baseline`;
+  $('#definition').textContent = meta ? meta.definition : '';
+
+  const tb=$('#rows'); tb.innerHTML='';
+  d.anomalies.slice().sort((a,b)=>a.day<b.day?1:-1).forEach(a=>{
+    const neg=a.delta<0;
+    tb.insertAdjacentHTML('beforeend',`<tr>
+      <td><code>${a.day}</code></td>
+      <td><span class="tag">${a.direction}</span></td>
+      <td class="n">${inr(a.observed)}</td>
+      <td class="n">${inr(a.expected)}</td>
+      <td class="n ${neg?'neg':'pos'}">${neg?'−':'+'}${inr(Math.abs(a.delta))}</td>
+      <td class="n ${neg?'neg':'pos'}">${(a.pct*100).toFixed(1)}%</td>
+      <td class="n">${a.robust_z>0?'+':''}${a.robust_z.toFixed(2)}</td></tr>`);
+  });
+  $('#none').hidden = d.anomalies.length>0;
+  $('#matnote').textContent = `Both tests must pass: robust z at or beyond ${d.materiality.min_abs_robust_z}, and an absolute movement of at least ${inr(d.materiality.min_abs_delta_inr)}. Statistical significance alone surfaces movements too small to act on.`;
+
+  $('#fresh').innerHTML = d.freshness.map(f=>`<tr>
+    <td><code>${f.source_id}</code></td>
+    <td>${f.as_of.slice(0,16).replace('T',' ')}</td>
+    <td class="n">${f.lag_hours}h</td><td class="n">${f.sla_hours}h</td>
+    <td>${f.sla_met?'within SLA':'<span class="neg">breached</span>'}</td></tr>`).join('');
+
+  $('#meta').innerHTML = [
+    ['Days analysed', d.days.length],
+    ['Material movements', d.anomalies.length],
+    ['Method', 'MSTL + robust z'],
+    ['LLM calls so far', '0'],
+  ].map(([k,v])=>`<div class="fact"><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+
+  draw();
+}
+
+function draw(){
+  const c=$('#c'), dpr=devicePixelRatio||1;
+  const w=c.clientWidth, h=300; c.width=w*dpr; c.height=h*dpr;
+  const x=c.getContext('2d'); x.scale(dpr,dpr); x.clearRect(0,0,w,h);
+  const css=getComputedStyle(document.documentElement);
+  const col=n=>css.getPropertyValue(n).trim();
+
+  const d=DATA, n=d.days.length, PL=64,PR=14,PT=12,PB=26;
+  const W=w-PL-PR, H=h-PT-PB;
+  const all=[...d.observed,...d.band_low,...d.band_high];
+  let lo=Math.min(...all), hi=Math.max(...all); const pad=(hi-lo)*0.08; lo-=pad; hi+=pad;
+  const X=i=>PL+(i/(n-1))*W, Y=v=>PT+H-((v-lo)/(hi-lo))*H;
+
+  // grid + axis
+  x.strokeStyle=col('--line'); x.fillStyle=col('--ink-3');
+  x.font='11px '+col('--mono'); x.lineWidth=1;
+  for(let g=0;g<=4;g++){ const v=lo+(hi-lo)*g/4, y=Y(v);
+    x.beginPath(); x.moveTo(PL,y); x.lineTo(w-PR,y); x.stroke();
+    x.textAlign='right'; x.fillText('₹'+Math.round(v/1000)+'k',PL-8,y+3); }
+  x.textAlign='center';
+  for(let g=0;g<=5;g++){ const i=Math.round((n-1)*g/5);
+    x.fillText(d.days[i].slice(5),X(i),h-8); }
+
+  // normal range
+  x.fillStyle=col('--raised'); x.beginPath();
+  d.band_high.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v)));
+  for(let i=n-1;i>=0;i--) x.lineTo(X(i),Y(d.band_low[i]));
+  x.closePath(); x.fill();
+
+  // expected
+  x.strokeStyle=col('--ink-3'); x.setLineDash([3,3]); x.beginPath();
+  d.expected.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v)));
+  x.stroke(); x.setLineDash([]);
+
+  // observed
+  x.strokeStyle=col('--ink'); x.lineWidth=1.4; x.beginPath();
+  d.observed.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v)));
+  x.stroke();
+
+  // anomalies
+  const idx=new Map(d.days.map((day,i)=>[day,i]));
+  d.anomalies.forEach(a=>{ const i=idx.get(a.day); if(i==null)return;
+    x.fillStyle=col(a.direction==='drop'?'--drop':'--spike');
+    x.beginPath(); x.arc(X(i),Y(a.observed),3.2,0,7); x.fill(); });
+}
+
+addEventListener('resize',()=>DATA&&draw());
+['kpi','region','range'].forEach(id=>$('#'+id).addEventListener('change',load));
+$('#reload').addEventListener('click',load);
+boot();
+</script>
+</body>
+</html>

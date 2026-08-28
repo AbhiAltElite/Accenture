@@ -72,7 +72,7 @@ PRODUCTS: tuple[Product, ...] = (
     # Launched late in the window on purpose: three weeks of history is not
     # enough to build a comparison group, and the engine must say so rather
     # than manufacture confidence. This is the sparse-history scenario.
-    Product("PC-1099", "personal_care", 899.0, -0.7, launched_month=23),
+    Product("PC-1099", "personal_care", 899.0, -0.7, launched_month=35),
 )
 
 

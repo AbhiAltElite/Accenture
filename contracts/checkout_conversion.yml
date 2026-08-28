@@ -49,7 +49,7 @@ materiality:
   # A rate metric, so the rupee floor is the revenue the shortfall represents
   # rather than a movement in the ratio itself.
   min_abs_robust_z: 3.0
-  min_abs_delta_inr: 200000
+  min_abs_delta_inr: 8000
 
 freshness_sla:
   pos_txn: 6h
