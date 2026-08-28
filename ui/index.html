@@ -123,6 +123,11 @@ code{font-family:var(--mono);font-size:13.5px}
     <p class="note" id="matnote"></p>
   </section>
 
+  <section id="verdict" hidden>
+    <h2>Diagnosis</h2>
+    <div id="verdictbody"></div>
+  </section>
+
   <section id="decomp" hidden>
     <h2>What kind of change was it</h2>
     <p class="sub" id="decompwin" style="margin:-8px 0 16px"></p>
@@ -232,6 +237,7 @@ function render(){
 
   loadDecomposition(drops);
   loadCandidates(drops);
+  loadDiagnosis(drops);
 
   $('#meta').innerHTML = [
     ['Days analysed', d.days.length],
@@ -297,6 +303,75 @@ function eventWindow(drops){
   while(lo>0 && gap(sorted[lo-1].day,sorted[lo].day)<=2) lo--;
   while(hi<sorted.length-1 && gap(sorted[hi].day,sorted[hi+1].day)<=2) hi++;
   return [sorted[lo].day, sorted[hi].day];
+}
+
+async function loadDiagnosis(drops){
+  const sec=$('#verdict');
+  if(!drops.length){ sec.hidden=true; return; }
+  const [start,end]=eventWindow(drops);
+  const p=new URLSearchParams({kpi:DATA.kpi_id,start,end});
+  if(DATA.slice.region) p.set('region',DATA.slice.region);
+  const r=await fetch('/api/diagnose?'+p);
+  if(!r.ok){ sec.hidden=true; return; }
+  const d=await r.json(), c=d.confidence, m=d.movement;
+
+  const bar = c.components.map(x=>`
+    <tr><td style="width:190px">${x.name.replace(/_/g,' ')}</td>
+        <td class="n" style="width:70px">${(x.value*100).toFixed(0)}%</td>
+        <td style="color:var(--ink-2)">${x.detail}</td></tr>`).join('');
+
+  if(d.verdict==='unknown'){
+    const a=d.abstention;
+    $('#verdictbody').innerHTML=`
+      <div style="display:flex;gap:12px;align-items:baseline;margin-bottom:14px">
+        <span class="tag" style="border-color:var(--warn);font-size:13px">? UNKNOWN</span>
+        <span style="font-size:18px;font-weight:600">No cause can be established</span>
+      </div>
+      <p style="max-width:70ch;margin-bottom:16px">The metric moved
+        ${m.total_change<0?'down':'up'} ${inr(Math.abs(m.total_change))} per day, and
+        nothing in the operational record survives testing as an explanation. This is
+        reported as unknown rather than as the closest available guess.</p>
+      <h3 style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:20px 0 10px">Why</h3>
+      <ul style="margin:0 0 18px 18px">${c.reasons.map(x=>`<li>${x}</li>`).join('')}</ul>
+      <h3 style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:20px 0 10px">What was ruled out</h3>
+      <div class="scroll"><table><thead><tr><th>Candidate</th><th>Verdict</th><th>Reason</th></tr></thead>
+        <tbody>${a.ruled_out.map(x=>`<tr><td><code>${x.candidate}</code></td>
+          <td><span class="tag">${x.verdict.replace(/_/g,' ')}</span></td>
+          <td style="color:var(--ink-2)">${x.reason}</td></tr>`).join('')}</tbody></table></div>
+      ${a.blocking.length?`<h3 style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:20px 0 10px">Blocking</h3>
+        <ul style="margin:0 0 18px 18px">${a.blocking.map(x=>`<li>${x}</li>`).join('')}</ul>`:''}
+      <h3 style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:20px 0 10px">Next check</h3>
+      <p style="max-width:70ch">${a.next_check}</p>
+      ${a.question?`<p style="margin-top:14px;padding:12px 14px;background:var(--raised);border-radius:3px;max-width:70ch">
+        <strong>Clarification needed.</strong> ${a.question}</p>`:''}
+      <h3 style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:24px 0 10px">Confidence inputs</h3>
+      <div class="scroll"><table><tbody>${bar}</tbody></table></div>`;
+  } else {
+    $('#verdictbody').innerHTML=`
+      <div style="display:flex;gap:12px;align-items:baseline;margin-bottom:14px;flex-wrap:wrap">
+        <span class="tag" style="border-color:var(--ok);font-size:13px">\u25CF ${c.band.toUpperCase()} CONFIDENCE</span>
+        <span style="font-size:18px;font-weight:600">${d.verified.length} verified cause${d.verified.length===1?'':'s'}</span>
+        <span style="color:var(--ink-3);font-variant-numeric:tabular-nums">score ${c.score}</span>
+      </div>
+      <p style="max-width:70ch;margin-bottom:18px">Revenue fell
+        ${inr(Math.abs(m.total_change))} per day against the baseline.
+        Verified causes account for ${inr(Math.abs(m.explained))} of that.</p>
+      <div class="scroll"><table><thead><tr><th>Cause</th><th class="n">Effect in its slice</th>
+        <th class="n">Contribution</th><th class="n">Supporting documents</th></tr></thead>
+        <tbody>${d.verified.map(v=>`<tr>
+          <td><code>${v.candidate_id}</code><div style="color:var(--ink-2);font-size:13.5px;margin-top:2px">${v.description}</div></td>
+          <td class="n neg">${(v.effect_pct*100).toFixed(1)}%</td>
+          <td class="n neg">\u2212${inr(Math.abs(v.contribution))}</td>
+          <td class="n">${v.supporting_documents}</td></tr>`).join('')}</tbody></table></div>
+      <h3 style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:24px 0 10px">How the score was reached</h3>
+      <div class="scroll"><table><tbody>${bar}</tbody></table></div>
+      <p class="note">The score is arithmetic over evidence already established, not a
+        judgement and not written by a model. It is deliberately not presented as a
+        probability: turning it into one requires held-out cases to calibrate against,
+        and stating a probability without them would be the failure this engine exists
+        to avoid.</p>`;
+  }
+  sec.hidden=false;
 }
 
 async function loadCandidates(drops){

@@ -6,7 +6,7 @@
 
 ## Status as of 2026-08-28
 
-**Phase:** causal verification working. Corroboration and confidence are next.
+**Phase:** the pipeline runs end to end and abstains when it should. Calibration and Answer 2 are next.
 
 ### Done
 - **`whychain/evidence/` — the spine, and it is now frozen.** `Evidence`,

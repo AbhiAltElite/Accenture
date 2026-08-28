@@ -15,6 +15,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from whychain.confidence import abstain, explained_movement, score
 from whychain.contracts import ContractError, ContractRegistry
 from whychain.corroborate import corroborate
 from whychain.decompose import compute_bridge, contribution_by
@@ -343,6 +344,125 @@ def candidates(
         "rejected": rejected,
         "cannot_verify": untestable,
     }
+
+
+@app.get("/api/diagnose")
+def diagnose(
+    kpi: str = Query("net_revenue"),
+    region: str | None = None,
+    event_start: date = Query(..., alias="start"),
+    event_end: date = Query(..., alias="end"),
+    baseline_days: int = Query(14, ge=7, le=90),
+) -> dict:
+    """The whole pipeline for one movement: decompose, test, corroborate, score.
+
+    Returns either a diagnosis or an abstention. Never both, and never a
+    best guess dressed as the former.
+    """
+    contract = _contract(kpi)
+    try:
+        with Warehouse() as wh:
+            panel = wh.table("_panel")
+            documents = wh.table("voice_ops")
+            plan = wh.table("plan_ops")
+            sources = wh.freshness(contract)
+    except IngestError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+    scoped = panel[panel["region"] == region] if region else panel
+    if scoped.empty:
+        raise HTTPException(404, "no data for that slice")
+
+    day = pd.to_datetime(scoped["d"]).dt.date
+    base_lo = event_start - timedelta(days=baseline_days)
+    base = scoped[(day >= base_lo) & (day < event_start)]
+    current = scoped[(day >= event_start) & (day <= event_end)]
+    if base.empty or current.empty:
+        raise HTTPException(404, "no data in the baseline or the event window")
+
+    event_days = max((event_end - event_start).days + 1, 1)
+    base = base.assign(units=base["units"] / baseline_days,
+                       revenue=base["revenue"] / baseline_days)
+    current = current.assign(units=current["units"] / event_days,
+                             revenue=current["revenue"] / event_days)
+    try:
+        bridge = compute_bridge(base, current)
+    except BridgeError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+    all_regions = tuple(sorted(panel["region"].unique()))
+    found = from_operations(documents, event_start, event_end) + from_promotions(
+        plan, event_start, event_end
+    )
+    verifications = [verify(c, panel, all_regions) for c in found]
+    corroborations = {c.candidate_id: corroborate(c, documents) for c in found}
+
+    supporting = sum(
+        corroborations[v.candidate.candidate_id].support_count
+        for v in verifications
+        if v.state.value == "verified"
+    )
+    explained, per_cause = explained_movement(
+        verifications, panel, event_start, event_end, baseline_days,
+        total_movement=bridge.total_change,
+    )
+    confidence = score(
+        verifications, explained=explained, total_movement=bridge.total_change,
+        supporting_documents=supporting, sources=sources,
+    )
+
+    stale = tuple(f"{f.source_id} is stale by {f.lag}" for f in sources.values()
+                  if not f.sla_met)
+    result = {
+        "kpi_id": kpi,
+        "region": region,
+        "window": {"from": event_start.isoformat(), "to": event_end.isoformat()},
+        "baseline": {"from": base_lo.isoformat(),
+                     "to": (event_start - timedelta(days=1)).isoformat()},
+        "movement": {
+            "base_revenue": round(bridge.base_revenue, 2),
+            "current_revenue": round(bridge.current_revenue, 2),
+            "total_change": round(bridge.total_change, 2),
+            "pct": round(bridge.current_revenue / bridge.base_revenue - 1, 4)
+            if bridge.base_revenue else None,
+            "explained": round(explained, 2),
+            "per_cause": {k: round(v2, 2) for k, v2 in per_cause.items()},
+        },
+        "confidence": {
+            "score": confidence.score,
+            "band": confidence.band.value,
+            "components": [
+                {"name": c.name, "value": round(c.value, 3), "detail": c.detail}
+                for c in confidence.components
+            ],
+            "reasons": list(confidence.reasons),
+        },
+        "verified": [
+            {
+                "candidate_id": v.candidate.candidate_id,
+                "description": v.candidate.description,
+                "effect_pct": round(v.effect_pct, 4) if v.effect_pct else None,
+                "contribution": round(per_cause.get(v.candidate.candidate_id, 0.0), 2),
+                "supporting_documents": corroborations[v.candidate.candidate_id].support_count,
+            }
+            for v in verifications
+            if v.state.value == "verified"
+        ],
+    }
+
+    if confidence.abstained:
+        a = abstain(verifications, confidence, blocking=stale)
+        result["verdict"] = "unknown"
+        result["abstention"] = {
+            "coverage": round(a.coverage, 3),
+            "ruled_out": list(a.ruled_out),
+            "blocking": list(a.blocking),
+            "next_check": a.next_check,
+            "question": a.question,
+        }
+    else:
+        result["verdict"] = "explained"
+    return result
 
 
 @app.get("/")
