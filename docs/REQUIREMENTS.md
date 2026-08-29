@@ -75,12 +75,12 @@ planted unanswerable cases (`make bench`).
 | | |
 |---|---|
 | **Top-1 among movements worth explaining** | **78.6%** (55 of 70) |
-| Top-1 over the whole population | 38.2% |
-| True cause verified at all | 47.9% |
+| Top-1 over the whole population | 38.9% |
+| True cause verified at all | 48.6% |
 | **False alarms on noise-only cases** | **0.0%** |
 | Planted correlation traps rejected | 87.5% |
-| **Cases needing an abstention that got one** | **94.1%** (1 missed of 17) |
-| Abstentions that were right | 86.4% |
+| **Cases needing an abstention that got one** | **88.2%** (2 missed of 17) |
+| Abstentions that were right | 85.7% |
 | Expected calibration error | 0.1171 raw, **0.1043 calibrated** on held out |
 | Latency p50 / p95 | 0.080s / 0.178s |
 

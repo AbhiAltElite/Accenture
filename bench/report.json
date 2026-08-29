@@ -4,19 +4,19 @@
     "with_planted_cause": 144,
     "noise_only": 16,
     "decoy_bearing": 64,
-    "reported_a_cause": 67,
+    "reported_a_cause": 68,
     "no_material_movement": 71,
-    "abstained": 22,
+    "abstained": 21,
     "errors": 0
   },
   "rates": {
-    "top1_accuracy": 0.382,
-    "topk_accuracy": 0.479,
+    "top1_accuracy": 0.389,
+    "topk_accuracy": 0.486,
     "false_alarm_rate": 0.0,
     "negative_control_rejection": 0.875,
-    "abstention_precision": 0.864,
-    "abstention_recall": 0.941,
-    "missed_abstentions": 1,
+    "abstention_precision": 0.857,
+    "abstention_recall": 0.882,
+    "missed_abstentions": 2,
     "detection_rate": 0.882,
     "material_detection_rate": 0.604
   },
@@ -49,13 +49,13 @@
     "split": "panels 0-4 of 10",
     "evaluated_on": 71,
     "ece_before": 0.1171,
-    "ece_after": 0.1043,
+    "ece_after": 0.0993,
     "improved": true
   },
   "latency": {
-    "p50_seconds": 0.077,
+    "p50_seconds": 0.066,
     "p95_seconds": 0.18,
-    "total_seconds": 12.9
+    "total_seconds": 12.2
   },
   "cases": [
     {
@@ -154,11 +154,13 @@
         "unanswerable",
         "no_control_group"
       ],
-      "verdict": "unknown",
-      "confidence": 0.15,
-      "top1": false,
+      "verdict": "explained",
+      "confidence": 0.8,
+      "top1": true,
       "decoy_rejected": null,
-      "verified": [],
+      "verified": [
+        "bench-00-south-2-nationwide"
+      ],
       "error": null
     },
     {

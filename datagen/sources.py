@@ -8,6 +8,7 @@ rather than modelling it.
 
 from __future__ import annotations
 
+import random
 from datetime import UTC, datetime, timedelta
 
 import numpy as np
@@ -15,6 +16,7 @@ import pandas as pd
 
 from datagen.catalog import CITIES
 from datagen.scenarios import CauseKind, PlantedEvent
+from datagen.voices import Voice, chain, customer_ticket
 
 # Refresh lag per source, as the engine will observe it.
 SOURCE_LAG = {
@@ -205,68 +207,90 @@ BACKGROUND_TICKETS = [
 def emit_voice_ops(
     panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: int = 13
 ) -> pd.DataFrame:
-    """Support tickets, rep notes and the release log.
+    """The document estate: tickets, agent notes, field reports, incidents.
 
     Ticket volume tracks the events that actually happened. A decoy generates no
-    tickets, because nothing went wrong, which is one of the ways corroboration
-    separates a real cause from a coincidence.
+    documents at all, because nothing went wrong, which is one of the ways
+    corroboration separates a real cause from a coincidence.
+
+    Every document is composed rather than drawn from a list, so the same
+    complaint is never written twice, and roughly two in five event-driven
+    tickets use vocabulary the rule-based extractor does not contain. That
+    proportion is deliberate: it is what makes the model extractor worth having,
+    and what turns the with-model comparison into a measurement rather than a
+    difference of prose style. See `datagen/voices.py`.
     """
-    rng = np.random.default_rng(seed)
+    rng = random.Random(seed)
     rows: list[dict] = []
     doc_id = 0
+    regions = [c.region for c in CITIES]
 
-    start = panel["d"].min().date()
-    end = panel["d"].max().date()
+    start_day = panel["d"].min().date()
+    end_day = panel["d"].max().date()
 
-    # Background noise across the whole period.
-    day = start
-    while day <= end:
-        for _ in range(rng.poisson(6)):
-            rows.append(
-                {
-                    "doc_id": f"TK{doc_id:06d}",
-                    "doc_type": "support_ticket",
-                    "ts": datetime(day.year, day.month, day.day, int(rng.integers(6, 22)), tzinfo=UTC),
-                    "region": rng.choice([c.region for c in CITIES]),
-                    "text": rng.choice(BACKGROUND_TICKETS),
-                }
+    def add(voice, prefix="TK") -> None:
+        nonlocal doc_id
+        rows.append({
+            "doc_id": f"{prefix}{doc_id:06d}",
+            "doc_type": voice.doc_type,
+            "ts": voice.ts,
+            "region": voice.region,
+            "text": voice.text,
+        })
+        doc_id += 1
+
+    # Background contact volume across the whole period. Ordinary business:
+    # refunds, address changes, invoice queries. None of it is a cause, and it
+    # is what an explanation has to be found against.
+    day = start_day
+    while day <= end_day:
+        for _ in range(rng.randint(3, 9)):
+            when = datetime(
+                day.year, day.month, day.day, rng.randint(6, 21), tzinfo=UTC
             )
-            doc_id += 1
+            add(customer_ticket(None, when, rng.choice(regions), rng))
         day += timedelta(days=1)
 
-    # Event-driven tickets. Volume scales with how much the event actually moved
-    # the metric, so a large regression produces a visible spike.
     for event in events:
         if event.effect == 0.0:
             continue  # a decoy breaks nothing, so nobody complains about it
-        templates = TICKET_TEMPLATES.get(event.kind, BACKGROUND_TICKETS)
-        per_day = int(abs(event.effect) * 90)
+
+        region = event.target.region or rng.choice(regions)
+        per_day = max(int(abs(event.effect) * 90), 1)
+        raised = 0
+
         day = event.start
         while day <= event.end:
-            for _ in range(rng.poisson(per_day)):
-                rows.append(
-                    {
-                        "doc_id": f"TK{doc_id:06d}",
-                        "doc_type": "support_ticket",
-                        "ts": datetime(day.year, day.month, day.day, int(rng.integers(6, 22)), tzinfo=UTC),
-                        "region": event.target.region or rng.choice([c.region for c in CITIES]),
-                        "text": rng.choice(templates),
-                    }
+            for _ in range(max(int(rng.gauss(per_day, per_day / 3)), 0)):
+                when = datetime(
+                    day.year, day.month, day.day, rng.randint(6, 21), tzinfo=UTC
                 )
-                doc_id += 1
+                add(customer_ticket(event.kind, when, region, rng))
+                raised += 1
             day += timedelta(days=1)
 
-        # The corresponding operational record: a release note, a supplier email.
-        rows.append(
-            {
-                "doc_id": f"OPS{doc_id:06d}",
-                "doc_type": "release_log" if event.kind is CauseKind.INTERNAL_BUG else "ops_note",
-                "ts": datetime(event.start.year, event.start.month, event.start.day, 8, tzinfo=UTC),
-                "region": event.target.region or "All",
-                "text": f"{event.event_id}: {event.description}",
-            }
+        # The chain: agent summary, field report, incident record, then the
+        # external or formal notice. Each later than the last, because the
+        # sequence is how the business found out and is the part worth showing.
+        for voice in chain(
+            event.kind, event.start, event.end, region, raised, rng
+        ):
+            add(voice, prefix="OPS")
+
+        # The candidate scanner keys on the planted identifier, so it has to
+        # appear verbatim in the operational record.
+        add(
+            Voice(
+                "release_log" if event.kind is CauseKind.INTERNAL_BUG else "ops_note",
+                f"{event.event_id}: {event.description}",
+                datetime(
+                    event.start.year, event.start.month, event.start.day, 8,
+                    tzinfo=UTC,
+                ),
+                region,
+            ),
+            prefix="OPS",
         )
-        doc_id += 1
 
     return pd.DataFrame(rows).sort_values("ts").reset_index(drop=True)
 

@@ -701,7 +701,7 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
     <div class="railgroup">
       <span class="label">Model backend</span>
       <div class="field-row">
-        <label for="backend">Where inference runs</label>
+        <label for="backend">Which model reads and writes</label>
         <select id="backend"></select>
       </div>
       <p class="railnote" id="backendnote">Model choice is a governance decision
@@ -711,19 +711,20 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
     </div>
 
     <div class="railgroup">
-      <span class="label">Entitlement</span>
+      <span class="label">Access</span>
       <div class="field-row">
-        <label for="entitled">Regions this reader may see</label>
+        <label for="entitled">Which regions is this reader allowed to see?</label>
         <select id="entitled">
-          <option value="">Unrestricted</option>
+          <option value="">Everything</option>
           <option value="West">West only</option>
           <option value="South">South only</option>
           <option value="North,East">North and East only</option>
         </select>
       </div>
-      <p class="railnote">Rows outside the scope are removed before the answer is
-        assembled, not hidden afterwards. When the removal changes the answer,
-        the response says so and names the role to escalate to.</p>
+      <p class="railnote">Try picking a region you are <em>not</em> looking at.
+        Any cause outside that reader's access is dropped before the answer is
+        written, rather than written and then hidden. If that changes the
+        answer, the page says how much was left out and who to ask for it.</p>
     </div>
   </nav>
 
@@ -862,12 +863,17 @@ async function boot(){
   try{
     const cat = await (await fetch('/api/models')).json();
     STATE.backends = cat.backends || [];
-    $('#backend').innerHTML = STATE.backends.map(b=>
-      `<option value="${b.id}" ${b.available?'':'disabled'}>${escapeHtml(b.label)}${
-        b.available?'':' \u2014 not reachable'}</option>`).join('');
-    const active = STATE.backends.find(b=>b.id===cat.active_id) || STATE.backends.at(-2);
-    $('#backend').value = active ? active.id : 'none';
-    STATE.backend = $('#backend').value;
+    // Auto first, and selected by default. Pinning a backend is what makes the
+    // choice demonstrable; leaving it on Auto is what a deployment actually
+    // does, and the two should not be the same control setting.
+    $('#backend').innerHTML =
+      `<option value="">Auto \u2014 whatever is configured</option>` +
+      STATE.backends.map(b=>
+        `<option value="${b.id}" ${b.available?'':'disabled'}>${escapeHtml(b.label)}${
+          b.available?'':' \u2014 not reachable'}</option>`).join('');
+    $('#backend').value = '';
+    STATE.backend = null;
+    STATE.activeBackend = cat.active_id;
     describeBackend();
   }catch(e){ /* the rail control is a convenience; the engine runs without it */ }
 
@@ -900,9 +906,19 @@ async function boot(){
 /* What the chosen backend means, in the two terms that decide it: what the
    weights may be used for, and where the inference happens. */
 function describeBackend(){
-  const b = (STATE.backends||[]).find(x=>x.id===STATE.backend);
   const note = document.getElementById('backendnote');
-  if(!b || !note) return;
+  if(!note) return;
+  // Auto is not a backend, it is the absence of a pin, so it describes what is
+  // actually running rather than pretending to be a fourth option.
+  const chosen = STATE.backend || STATE.activeBackend;
+  const b = (STATE.backends||[]).find(x=>x.id===chosen);
+  if(!b) return;
+  if(!STATE.backend){
+    note.innerHTML = `<strong>Auto</strong>: currently
+      ${escapeHtml(b.label.toLowerCase())} (<strong>${escapeHtml(b.model)}</strong>).<br>
+      ${escapeHtml(b.sovereignty)}.<br>Pick one to pin it for the next run.`;
+    return;
+  }
   note.innerHTML = `<strong>${escapeHtml(b.model)}</strong> \u00b7 licence
     ${escapeHtml(b.licence)}.<br>${escapeHtml(b.sovereignty)}.<br>
     ${escapeHtml(b.note)}`;
