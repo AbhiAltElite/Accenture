@@ -54,4 +54,10 @@ access_policy:
 
 lineage:
   upstream: [pos_txn.orders]
-  transforms: [dedupe_order_id, exclude_test_accounts]
+  # tz_normalise as well as the other two. The East extract lands in local time,
+  # and without the correction its last few hours fall into a day after the
+  # series ends -- a partial day holding roughly half the usual count, which the
+  # detector reads as a collapse. `net_revenue` is built from the same
+  # timestamps and has always corrected it; a count derived from them has to as
+  # well (B-019 defect 6, found in the other two verticals first).
+  transforms: [dedupe_order_id, tz_normalise, exclude_test_accounts]

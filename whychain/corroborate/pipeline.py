@@ -240,7 +240,7 @@ def record_corroboration(
                     id=store.next_id(),
                     kind=EvidenceKind.CORROBORATION,
                     claim=(
-                        f"A customer reported {extraction.issue.value.replace('_', ' ')}"
+                        f"A customer reported {str(extraction.issue).replace('_', ' ')}"
                         + (f" on {extraction.channel}" if extraction.channel else "")
                         + " during the window."
                     ),
@@ -257,7 +257,7 @@ def record_corroboration(
                     ),
                     run_id=store.run_id,
                     extra={
-                        "issue": extraction.issue.value,
+                        "issue": str(extraction.issue),
                         "candidate_id": corroboration.candidate_id,
                         # Carried through so a reader can see the source contained
                         # instruction-like text, even though it was treated as data.

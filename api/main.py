@@ -935,7 +935,7 @@ def candidates(
                 "citations": [
                     {
                         "doc_id": e.doc_id,
-                        "issue": e.issue.value,
+                        "issue": str(e.issue),
                         "span": list(e.span),
                         "quote": e.quote,
                         "flags": list(e.flags),
@@ -1273,12 +1273,12 @@ def diagnose(
                 "contribution": round(per_cause.get(v.candidate.candidate_id, 0.0), 2),
                 "supporting_documents": corroborations[v.candidate.candidate_id].support_count,
                 "issue": next(
-                    (e.issue.value for e in
+                    (str(e.issue) for e in
                      corroborations[v.candidate.candidate_id].supporting), None
                 ),
                 "citations": [
                     {"doc_id": e.doc_id, "span": list(e.span), "quote": e.quote,
-                     "issue": e.issue.value, "flags": list(e.flags)}
+                     "issue": str(e.issue), "flags": list(e.flags)}
                     for e in corroborations[v.candidate.candidate_id].supporting[:6]
                 ],
                 "tests": [

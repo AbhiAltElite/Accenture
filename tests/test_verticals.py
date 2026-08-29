@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -348,3 +349,82 @@ class TestRecovery:
             f"{vertical.id}: {vertical.plan.kind!r} candidates are excluded from "
             f"the sustained-pressure projection"
         )
+
+
+@pytest.mark.invariant
+class TestEveryVerticalAnswers:
+    """One pass down the whole pipeline for each industry.
+
+    The unit tests all passed while `/api/candidates` raised on the power
+    vertical, because an issue code is a plain string there and one serialiser
+    still called `.value` on it -- a method only retail's StrEnum has. Nothing
+    below the API noticed, and nothing above it was exercised. This is the
+    cheapest guard against that: actually ask each industry a question.
+
+    Skipped rather than failed when a warehouse has not been generated, because
+    `make gen` builds retail alone and that is a legitimate way to work.
+    """
+
+    WINDOWS: ClassVar[dict[str, tuple[str, str, str, str]]] = {
+        "retail": ("net_revenue", "checkout_conversion", "2026-08-13", "2026-08-15"),
+        "petroleum": ("net_realisation", "gantry_throughput", "2026-08-13", "2026-08-15"),
+        "power": ("dispatch_realisation", "dispatch_fulfilment", "2026-08-12", "2026-08-16"),
+    }
+
+    @pytest.fixture(scope="class")
+    def client(self):
+        from fastapi.testclient import TestClient
+
+        import api.main as main
+
+        return TestClient(main.app)
+
+    @pytest.mark.parametrize("vertical", ALL, ids=lambda v: v.id)
+    def test_the_whole_pipeline_answers(self, client, vertical):
+        if not vertical.is_generated():
+            pytest.skip(f"{vertical.id} warehouse not generated; run make gen-all")
+        kpi, hourly, start, end = self.WINDOWS[vertical.id]
+        window = f"region=West&start={start}&end={end}"
+        urls = [
+            f"/api/health?industry={vertical.id}",
+            f"/api/kpis?industry={vertical.id}",
+            f"/api/overview?industry={vertical.id}&region=West",
+            f"/api/triage?industry={vertical.id}&limit=5",
+            f"/api/series?industry={vertical.id}&kpi={kpi}&region=West",
+            f"/api/series?industry={vertical.id}&kpi={hourly}&region=West",
+            f"/api/decomposition?industry={vertical.id}&kpi={kpi}&{window}",
+            f"/api/candidates?industry={vertical.id}&kpi={kpi}&{window}",
+            f"/api/diagnose?industry={vertical.id}&kpi={kpi}&{window}",
+            f"/api/diagnose?industry={vertical.id}&kpi={kpi}&{window}&persona=cfo",
+            f"/api/diagnose?industry={vertical.id}&kpi={kpi}&{window}&entitled=South",
+        ]
+        failed = [(u, client.get(u).status_code) for u in urls]
+        failed = [(u, code) for u, code in failed if code != 200]
+        assert not failed, f"{vertical.id}: {failed}"
+
+    @pytest.mark.parametrize("vertical", ALL, ids=lambda v: v.id)
+    def test_the_headline_movement_reaches_a_decision(self, vertical):
+        """Detection to a named owner, which is the chain the brief asks for."""
+        if not vertical.is_generated():
+            pytest.skip(f"{vertical.id} warehouse not generated")
+        from fastapi.testclient import TestClient
+
+        import api.main as main
+
+        kpi, _, start, end = self.WINDOWS[vertical.id]
+        body = TestClient(main.app).get(
+            f"/api/diagnose?industry={vertical.id}&kpi={kpi}"
+            f"&region=West&start={start}&end={end}"
+        ).json()
+        cards = body.get("decisions") or []
+        assert cards, f"{vertical.id}: the demo window produced no decision card"
+        actionable = [c for c in cards if c["controllable"]]
+        assert actionable, f"{vertical.id}: no card carries a lever"
+        for card in actionable:
+            assert card["owner"], (
+                f"{vertical.id}: {card['lever']!r} is controllable with no owner"
+            )
+            assert card["expected_recovery_inr_per_day"] is not None, (
+                f"{vertical.id}: {card['lever']!r} reports no expected impact, "
+                f"which is the link the brief names explicitly"
+            )
