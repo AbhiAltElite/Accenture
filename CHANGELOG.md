@@ -34,6 +34,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 
 ### Fixed, correctness
 
+- **The hourly KPI was detected on a daily seasonal cycle.** `decompose`
+  defaulted to `periods=(7,)`, which means "day of week" on the four daily
+  contracts and "seven hours" on `checkout_conversion`, a cycle nothing has.
+  Periods now come from `SEASONAL_PERIODS[contract.grain.time]` and the
+  minimum-history guard is four cycles in the series' own units, not sixty rows
+  (B-018)
+- **A rate was judged at one volume across a twentyfold swing in volume.** A
+  single MAD scale held a conversion read off 49 midnight sessions to the spread
+  of one read off 925 evening sessions. The scale is now per observation — the
+  standard error of the rate, binomial for a proportion and `1/sqrt(n)` for an
+  average — normalised so the median observation keeps the scale the MAD already
+  fitted, so the calibration is corrected rather than loosened. Together with
+  the period fix this took West `checkout_conversion` from 1,393 flags at
+  z >= 3 to 62, a rate of 0.30% against a nominal 0.27%, without moving the
+  benchmark by a digit (B-018)
+- **An empty hour was a guaranteed anomaly.** Flooring a zero rate to take its
+  logarithm flagged all 226 hours in which West took no conversions, though at
+  4.3% over ~50 sessions an empty hour happens about one time in nine. A
+  half-count correction gives it a finite logarithm without moving a populated
+  one; 226 flags became 1
+- **The rate charts were quantised to two decimal places.** `/api/series`
+  rounded rupees and ratios alike, so three months of hourly conversion reached
+  the browser as seven distinct levels between 0.01 and 0.07 and the lower band
+  sat flat on zero. Precision comes off the contract's unit; the same window now
+  arrives as 56 distinct levels across 57 points (B-018)
+- **`decompose_for(series, contract)` is the entry point.** Grain, denominator
+  and noise model are read off the contract rather than passed by hand, because
+  the defect above was every caller taking a default that was right for the
+  metric they had in mind
 - **The signal gap is scoped to the verified cause, not to the window.** Weather
   warnings are in the feed most weeks of the monsoon, so assessing the window
   alone reported a gap on an internal release regression: a real warning, real

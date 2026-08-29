@@ -95,7 +95,7 @@ a cause. Rejected sentences are dropped and counted on the receipt.
 ```
 sources (3 grains + 1 external feed)
    ↓ reconcile · freshness gate
-detect (MSTL → robust z on the residual)
+detect (MSTL → robust z on the residual, per the contract's grain)
    ↓ materiality (statistical AND ₹)
 decompose (price/volume/mix bridge — exact identity)
    ↓
@@ -136,6 +136,15 @@ they are read together.
 
 Plus `plan_ops` (72h SLA), `voice_ops` (2h) and the `ext_signals` external feed
 (36h).
+
+The grain is consumed, not just declared. It picks the seasonal cycle the
+detector fits — a day-of-week rhythm for the daily metrics, a trading-day one
+for the hourly — sets how much history is required, and decides the unit every
+rupee threshold is compared in. Detecting the hourly metric on the daily
+default was a real defect that survived until the triage queue put all five
+side by side; it is written up as B-018, and the argument for the fix is one
+test: the same 60% conversion collapse, flagged across the evening peak and
+correctly ignored across the small hours, where it amounts to one order.
 
 **The semantic contract is executable governance, not documentation.** Each
 `contracts/*.yml` declares its definition, canonical SQL with dialect targets,
@@ -203,7 +212,7 @@ reject it.**
 
 | Job | Method | Why |
 |---|---|---|
-| Detection | MSTL + robust z | seasonality is a solved statistical problem |
+| Detection | MSTL + robust z, configured per grain | seasonality is a solved statistical problem; which seasonality, and how wide the noise is, are not — both come off the contract, see B-018 |
 | Decomposition | price/volume/mix identity | an identity, not an estimate |
 | Ranking, track A | dimensional contribution | exact, reconciles to the total |
 | Ranking, track B | ridge regression | generates candidates; never states one |

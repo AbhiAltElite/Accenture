@@ -25,8 +25,8 @@ from whychain.corroborate import corroborate, scan
 from whychain.corroborate.model_extract import ModelExtractor
 from whychain.decompose import compute_bridge, contribution_by
 from whychain.decompose.bridge import BridgeError
-from whychain.detect import decompose, find_anomalies, material
-from whychain.evidence import MethodClass
+from whychain.detect import decompose_for, find_anomalies, material
+from whychain.evidence import MethodClass, Unit
 from whychain.feedback import FeedbackStore, Judgement, new_feedback
 from whychain.ingest import DEFAULT_WAREHOUSE, IngestError, Warehouse
 from whychain.llm import Task, catalogue, default_model, describe, model_for, routing
@@ -268,14 +268,15 @@ def overview(region: str | None = None, days: int = Query(90, ge=30, le=730)) ->
                     continue
 
                 frame = _roll_up(raw, contract)
-                if len(frame) < 60:
-                    continue
                 try:
                     # MSTL over three years is the other half of the cost, and it
-                    # is a pure function of the frame it is given.
+                    # is a pure function of the frame it is given. How much
+                    # history it needs depends on the grain, so the check lives
+                    # in decompose and arrives here as a ValueError rather than
+                    # as a row count this caller would have to know how to read.
                     d = _cached(
                         ("decompose", contract.kpi_id, region),
-                        lambda f=frame: decompose(f),
+                        lambda f=frame, c=contract: decompose_for(f, c),
                     )
                 except ValueError:
                     continue
@@ -376,12 +377,10 @@ def triage(
                     if scoped.empty:
                         continue
                     frame = _roll_up(scoped, contract)
-                    if len(frame) < 60:
-                        continue
                     try:
                         d = _cached(
                             ("decompose", contract.kpi_id, region),
-                            lambda f=frame: decompose(f),
+                            lambda f=frame, c=contract: decompose_for(f, c),
                         )
                     except ValueError:
                         continue
@@ -526,7 +525,7 @@ def series(
     frame = _roll_up(raw, contract)
 
     try:
-        decomposition = decompose(frame)
+        decomposition = decompose_for(frame, contract)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
 
@@ -545,6 +544,15 @@ def series(
         keep = pd.Series(True, index=days.index)
 
     idx = keep.to_numpy()
+    # Two decimals is right for rupees and destroys a rate: 4.3% conversion and
+    # 4.4% both render as 0.04, so the chart becomes a staircase of seven levels
+    # and the lower band sits at zero. The precision comes off the unit for the
+    # same reason the seasonal period comes off the grain (B-018).
+    places = 5 if contract.unit is Unit.RATIO else 2
+
+    def at_precision(values) -> list[float]:
+        return [round(float(v), places) for v in values]
+
     return {
         "kpi_id": contract.kpi_id,
         "slice": {k: v for k, v in
@@ -555,18 +563,18 @@ def series(
         # three years of history that does not exist.
         "grain": contract.grain.time,
         "days": [d.isoformat() for d in days[idx]],
-        "observed": [round(float(v), 2) for v in decomposition.observed[idx]],
-        "expected": [round(float(v), 2) for v in decomposition.expected[idx]],
-        "band_low": [round(float(v), 2) for v in decomposition.band_low[idx]],
-        "band_high": [round(float(v), 2) for v in decomposition.band_high[idx]],
+        "observed": at_precision(decomposition.observed[idx]),
+        "expected": at_precision(decomposition.expected[idx]),
+        "band_low": at_precision(decomposition.band_low[idx]),
+        "band_high": at_precision(decomposition.band_high[idx]),
         "festival": [round(float(v), 3) for v in decomposition.festival[idx]],
         "robust_z": [round(float(v), 2) for v in decomposition.robust_z[idx]],
         "anomalies": [
             {
                 "day": a.day.isoformat(),
-                "observed": round(a.observed, 2),
-                "expected": round(a.expected, 2),
-                "delta": round(a.delta, 2),
+                "observed": round(a.observed, places),
+                "expected": round(a.expected, places),
+                "delta": round(a.delta, places),
                 "pct": round(a.observed / a.expected - 1, 4) if a.expected else None,
                 "robust_z": round(a.robust_z, 2),
                 "direction": a.direction,
@@ -614,7 +622,11 @@ def _roll_up(raw: pd.DataFrame, contract) -> pd.DataFrame:
             )
         parts = raw.groupby(time_col, as_index=False)[[num, den]].sum()
         parts["value"] = parts[num] / parts[den].replace(0, pd.NA)
-        frame = parts[[time_col, "value"]]
+        # The denominator travels with the rate. How firm a four per cent is
+        # depends entirely on whether it came off fifty sessions or nine
+        # hundred, and dropping the count here is what left the detector
+        # judging a quiet hour by a busy hour's spread (see B-018).
+        frame = parts[[time_col, "value", den]].rename(columns={den: "n"})
     else:
         grouped = raw.groupby(time_col, as_index=False)["value"]
         frame = grouped.mean() if aggregation == "mean" else grouped.sum()

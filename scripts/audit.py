@@ -117,14 +117,14 @@ def _():
 @check("logic", "I-25 determinism: identical inputs, identical output")
 def _():
     from whychain.contracts import ContractRegistry
-    from whychain.detect import decompose, find_anomalies, material
+    from whychain.detect import decompose_for, find_anomalies, material
     from whychain.ingest import Warehouse
     c = ContractRegistry.from_directory("contracts").get("net_revenue")
     def run():
         with Warehouse() as wh:
             raw = wh.kpi_series(c)
         s = raw[raw.region == "West"].groupby("d", as_index=False)["value"].sum().sort_values("d")
-        d = decompose(s)
+        d = decompose_for(s, c)
         return [(a.day, round(a.robust_z, 9)) for a in material(find_anomalies(d, 3.0), c)]
     a, b = run(), run()
     assert a == b, "two runs disagreed"
@@ -195,13 +195,13 @@ def _():
     import datetime as dt
 
     from whychain.contracts import ContractRegistry
-    from whychain.detect import decompose, find_anomalies, material
+    from whychain.detect import decompose_for, find_anomalies, material
     from whychain.ingest import Warehouse
     c = ContractRegistry.from_directory("contracts").get("net_revenue")
     with Warehouse() as wh:
         raw = wh.kpi_series(c)
     s = raw[raw.region == "West"].groupby("d", as_index=False)["value"].sum().sort_values("d")
-    m = material(find_anomalies(decompose(s), 3.0), c)
+    m = material(find_anomalies(decompose_for(s, c), 3.0), c)
     hits = [a for a in m if dt.date(2025, 10, 20) <= a.day <= dt.date(2025, 10, 27)]
     assert not hits, f"flagged post-Diwali: {[str(a.day) for a in hits]}"
     return "57.5% overnight fall correctly ignored"
@@ -211,13 +211,13 @@ def _():
     import datetime as dt
 
     from whychain.contracts import ContractRegistry
-    from whychain.detect import decompose, find_anomalies, material
+    from whychain.detect import decompose_for, find_anomalies, material
     from whychain.ingest import Warehouse
     c = ContractRegistry.from_directory("contracts").get("net_revenue")
     with Warehouse() as wh:
         raw = wh.kpi_series(c)
     s = raw[raw.region == "West"].groupby("d", as_index=False)["value"].sum().sort_values("d")
-    m = material(find_anomalies(decompose(s), 3.0), c)
+    m = material(find_anomalies(decompose_for(s, c), 3.0), c)
     hits = [a for a in m if dt.date(2026, 8, 12) <= a.day <= dt.date(2026, 8, 18)
             and a.direction == "drop"]
     assert len(hits) >= 3, f"only {len(hits)} days of a week-long event surfaced"

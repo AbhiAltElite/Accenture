@@ -25,12 +25,87 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 | T-15 | Naive datetimes in freshness arithmetic | ingest, evidence | All timestamps are timezone-aware UTC. `Freshness` rejects naive input, and ruff `DTZ` enforces it at the source. Sources sit in different zones; a naive/aware mix raises mid-diagnosis |
 | T-16 | Writing a version, path or command from memory | everywhere | Read it from the environment. Pins come from `pip freeze`, not recollection, see B-001 |
 | T-17 | A verification command that passes on empty output | scripts, CI | `cmd \| tail && echo OK` reports success when `cmd` never ran. Check the exit status of the command itself, and confirm the check can actually fail |
-| T-19 | A threshold or conversion that ignores the metric's grain | contracts | `value_per_unit_inr` must be what one unit is worth *at the grain anomalies are detected on*, and `min_abs_delta_inr` is compared per observation. A daily figure applied to hourly data is twenty-four times wrong, and a national figure applied to regional detection is wrong by the number of regions. Check that the floor is reachable given the metric's range: conversion runs at 6%, so a floor needing 11.9 points can never be met (see B-017) |
+| T-19 | A threshold, conversion or seasonal period that ignores the metric's grain | contracts, detect | `value_per_unit_inr` must be what one unit is worth *at the grain anomalies are detected on*, and `min_abs_delta_inr` is compared per observation. A daily figure applied to hourly data is twenty-four times wrong, and a national figure applied to regional detection is wrong by the number of regions. Check that the floor is reachable given the metric's range: conversion runs at 6%, so a floor needing 11.9 points can never be met (see B-017). The same applies to anything else measured in observations: a seasonal period of 7 means "day of week" on a daily series and "seven hours" on an hourly one, and a minimum of 60 rows is sixty days of one and two and a half days of the other (see B-018) |
 | T-18 | A benchmark result that improved for a reason nobody checked | bench, datagen | Numbers that move the flattering way get accepted; numbers that move the other way get investigated. A harness defect usually shows up as the former. Any invariant the generator depends on is executed by a test, never only stated in a docstring (see B-014) |
 
 ---
 
 ## Defects
+
+### B-018 · An hourly metric detected on a daily cycle, and a rate judged at one volume
+**Found:** 2026-08-29 · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** `checkout_conversion` flagged 1,393 of West's 20,824 hours at
+z >= 3, a rate of 6.7% where a calibrated robust z should give well under one
+per cent. 385 of those survived materiality. The queue absorbed it because the
+rupee ranking kept them off the top, so the working assumption was that hourly
+conversion is simply noisy. It is not; the detector was misconfigured for it in
+two independent ways, and "raise the z threshold" would have hidden both.
+
+**Root cause 1 — the seasonal period is a daily constant.** `decompose` defaulted
+to `periods=(7,)` and every caller took the default. For the four daily KPIs 7
+means "day of week". For the hourly one it means *seven hours*, a cycle nothing
+has, which beats against the real 24-hour day on a 168-hour period and leaves
+the intraday shape in the residual for the detector to find. The fingerprint was
+a flag rate that swung with the hour for no volume-related reason: 14.7% at
+00:00 and 12.2% at 12:00 against 0.1% at 15:00. The 60-row minimum-history guard
+was the same mistake in miniature — sixty rows of hourly data is two and a half
+days — and it was duplicated in two API callers on top of `decompose`'s own.
+
+**Root cause 2 — one noise scale across a twentyfold swing in volume.** The MAD
+fits a single spread for the whole series, so a rate read off 49 sessions at
+midnight is judged against the spread of one read off 925 in the evening. The
+binomial standard error at those two volumes differs by a factor of four. The
+thinnest decile of hours flagged at 14.4% against about 5% for the rest, and all
+226 hours in which West took no conversions at all were flagged — though at a
+4.3% rate over ~50 sessions an empty hour is roughly a one-in-nine event, and
+flooring a zero rate to take its logarithm makes it a guaranteed outlier.
+
+**Why it stayed hidden:** the four daily KPIs are the ones anybody looks at, and
+for them the defaults were right. The hourly contract exists to prove the engine
+reconciles grains, and it was the one thing detected at the wrong grain. B-017
+found the same class of error in `materiality`; this is the same error one stage
+upstream, which is why fixing the conversions did not touch the flag count.
+
+**Fix:** seasonal periods come from `SEASONAL_PERIODS[contract.grain.time]`, the
+history minimum is four cycles stated in the series' own units, and the scale is
+per-observation — the standard error of the rate, binomial for a proportion and
+`1/sqrt(n)` for an average, normalised so the median observation keeps the scale
+the MAD already fitted. A half-count (Jeffreys) correction gives an empty period
+a finite logarithm without moving a populated one. `decompose_for(series,
+contract)` is now the entry point and reads all four off the contract, because
+a caller that passes them by hand is a caller that can get them wrong for a
+metric it was not thinking about. `_roll_up` carries the denominator alongside
+the rate so the noise model has it.
+
+**Result:** 1,393 flags to 62 (0.30%, against a nominal 0.27% for z >= 3), 226
+flagged empty hours to 1, 385 material drops to 58. Nothing else moved: the
+benchmark is identical to the digit on every rate, because a daily sum has no
+denominator and its periods were already right.
+
+**Cost, and what was traded away.** The obvious period set for hourly is
+`(24, 168)` — trading day and trading week. It was measured rather than assumed:
+it moved the flag rate from 0.35% to 0.30% and the decomposition from 0.50s to
+10.23s per region, twenty times the cost for eleven flags in 20,824
+observations, which objective 8 does not allow. Hourly fits `(24,)` and the
+weekly rhythm is deliberately not fitted; the comment on `SEASONAL_PERIODS`
+carries the numbers.
+
+**Found alongside, same shape, one line:** `/api/series` rounded every figure
+to two decimal places, which is right for rupees and destroys a rate. The whole
+hourly conversion chart arrived at the browser as seven distinct levels between
+0.01 and 0.07, with the lower band flat on zero — so the band this fix makes
+vary with volume could not have been seen. The precision now comes off the
+contract's unit, and the same three months of West conversion arrive as 56
+distinct levels across 57 points.
+
+**Regression test:** `TestGrainAwareness` and `TestVolumeWeightedNoise` in
+`tests/test_detect.py`, nine tests. The one that carries the argument is
+`test_the_same_fall_is_an_event_when_busy_and_noise_when_quiet`: one gateway
+outage, the same 60% fall planted twice, flagged across the evening peak and
+silent across the small hours. Raising the z threshold would have silenced both.
+
+---
 
 ### B-017 · Rupee conversions costed at the wrong grain, four times over
 **Found:** 2026-08-29 · **Severity:** P1 · **Status:** fixed

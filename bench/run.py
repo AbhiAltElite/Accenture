@@ -32,7 +32,7 @@ from whychain.corroborate import corroborate
 from whychain.corroborate.documents import Document
 from whychain.corroborate.retriever import NumpyRetriever
 from whychain.decompose import BridgeError, compute_bridge
-from whychain.detect import decompose, find_anomalies, material
+from whychain.detect import decompose_for, find_anomalies, material
 from whychain.evidence import ClaimState, Freshness
 from whychain.verify import filter_relevant, from_operations, from_promotions, verify
 
@@ -117,7 +117,9 @@ def run_case(
     # the movement large enough to be worth an analyst's morning? Reporting only
     # the second makes a working detector look broken, because most events
     # planted on a single channel are genuinely immaterial at region level.
-    statistical = find_anomalies(decompose(series), contract.materiality.min_abs_robust_z)
+    statistical = find_anomalies(
+        decompose_for(series, contract), contract.materiality.min_abs_robust_z
+    )
     in_window = [
         a for a in statistical
         if case.window_start <= a.day <= case.window_end and a.direction == "drop"
