@@ -111,20 +111,42 @@ native, configured, custom-built and externally integrated capabilities.
 
 ## What is submitted
 
-Four deliverables. The prototype itself is judged on how the solution works in
-practice, how AI enables or enhances it, its potential scalability, and the
-impact it can create.
+**Five uploads, not four.** The business proposal is required twice, as a PDF
+and again as a deck. An earlier version of this file said four and was wrong,
+which is the drift this document exists to catch.
 
-| Deliverable | Format | State |
+These are the portal's own field names, so they can be checked off against the
+form rather than against anyone's recollection of it.
+
+| Portal field | Format | State |
 |---|---|---|
-| README document: approach, architecture, implementation, key features | PDF, ≤20 MB | `README.md` exists; not yet rendered to PDF |
-| Prototype demonstration video | mp4 or mov, ≤20 MB | **not started** |
-| Public GitHub repository: source, dependencies, config, resources | repo | exists; confirm it is public before submitting |
-| Business proposal: problem framing, solution design, target users, business case and impact, phased roadmap, key risks with mitigations | PDF, ≤20 MB | **does not exist** |
+| Public GitHub link | URL, 500 characters | repo exists; **confirm it is public before submitting** |
+| Prototype video | mp4 or mov | **not started** |
+| README document | PDF, ≤20 MB | `README.md` is written; **not yet rendered to PDF** |
+| Detailed Business Proposal in PDF | PDF, ≤20 MB | **does not exist** |
+| Detailed Business Proposal in PPT | pptx | **does not exist** |
+
+**The deck must use the same presentation template as Round 1.** Not a new one,
+however much better a new one might look. A judge who saw the Round 1 deck reads
+a changed template as a different team, and the instruction is explicit. The
+template file is held by the team and is not in this repository, so it has to be
+dropped in before the deck can be built. Content first, template applied to it,
+never the other way round.
+
+The proposal must cover: problem framing, solution design, target users,
+business case and impact, a phased roadmap, and key risks with mitigations. The
+same content in both formats, so it is one piece of work rendered twice rather
+than two pieces of work.
 
 The README reference template is the Drupal project README template.
 
----
+**What the prototype itself is judged on**, which is not the same list as the
+eight objectives:
+
+- How the solution works in practice
+- How AI enables or enhances the solution
+- The potential scalability of the idea
+- The impact the solution can create
 
 ## Reading this against the build
 
