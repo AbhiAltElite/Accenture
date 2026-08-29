@@ -12,7 +12,13 @@
   /* Paper and ink. The page has a ground rather than being white with grey
      text on it, which is what stops long tabular reading from glaring. */
   --paper:#f5f1e9; --surface:#fffdf8; --raised:#efeade; --sunk:#e7e1d3;
-  --ink:#191713; --ink-2:#524d45; --ink-3:#877f72; --ink-4:#a89f8f;
+  /* Every step clears WCAG AA against the paper above it, which the previous
+     scale did not: --ink-3 is the most-used colour on the page after --ink and
+     it sat at 3.51:1, under the 4.5 small text needs, with --ink-4 at 2.32:1.
+     That is what made the secondary text read as washed out. The warmth is kept
+     but reduced, so these register as considered grey rather than muddy brown,
+     and hierarchy is carried by weight and size rather than by fading out. */
+  --ink:#141210; --ink-2:#3a3631; --ink-3:#5b554d; --ink-4:#7c7568;
   --line:#ded7c8; --line-strong:#c3baa7; --line-heavy:#8f8672;
 
   /* Two accents, each with exactly one job, because a page where colour means
@@ -48,7 +54,7 @@
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --paper:#131210; --surface:#1a1815; --raised:#22201b; --sunk:#292620;
-  --ink:#f2eee5; --ink-2:#b0a99b; --ink-3:#847c6f; --ink-4:#635c52;
+  --ink:#f4f1ea; --ink-2:#bdb6a8; --ink-3:#968e80; --ink-4:#726a5d;
   --line:#2a2721; --line-strong:#413c33; --line-heavy:#6b6455;
   --accent:#79c09e; --accent-ink:#a4d9bc; --accent-soft:#1a3128;
   --evidence:#d69d57; --evidence-ink:#e8bd83; --evidence-soft:#31240e;
@@ -58,7 +64,7 @@
 }}
 :root[data-theme="dark"]{
   --paper:#131210; --surface:#1a1815; --raised:#22201b; --sunk:#292620;
-  --ink:#f2eee5; --ink-2:#b0a99b; --ink-3:#847c6f; --ink-4:#635c52;
+  --ink:#f4f1ea; --ink-2:#bdb6a8; --ink-3:#968e80; --ink-4:#726a5d;
   --line:#2a2721; --line-strong:#413c33; --line-heavy:#6b6455;
   --accent:#79c09e; --accent-ink:#a4d9bc; --accent-soft:#1a3128;
   --evidence:#d69d57; --evidence-ink:#e8bd83; --evidence-soft:#31240e;
