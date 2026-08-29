@@ -20,14 +20,17 @@ from whychain.actions import decision_cards, simulate
 from whychain.confidence import abstain, explained_movement, score
 from whychain.confidence.calibrate import Calibration
 from whychain.contracts import ContractError, ContractRegistry
-from whychain.corroborate import corroborate, default_extractor, scan
+from whychain.corroborate import corroborate, scan
+from whychain.corroborate.model_extract import ModelExtractor
 from whychain.decompose import compute_bridge, contribution_by
 from whychain.decompose.bridge import BridgeError
 from whychain.detect import decompose, find_anomalies, material
 from whychain.evidence import MethodClass
 from whychain.feedback import FeedbackStore, Judgement, new_feedback
 from whychain.ingest import DEFAULT_WAREHOUSE, IngestError, Warehouse
+from whychain.llm import catalogue, default_model, describe
 from whychain.narrate import narrate
+from whychain.narrate.writer import ModelWriter
 from whychain.personas import Persona, project
 from whychain.rank import rank
 from whychain.signalgap import PRECEDENT_LOOKBACK_DAYS, find_gap
@@ -146,6 +149,29 @@ def registry() -> ContractRegistry:
         except ContractError as exc:
             raise HTTPException(500, f"contracts failed to load: {exc}") from exc
     return _registry
+
+
+@app.get("/api/models")
+def models() -> dict:
+    """Which model backends exist, which are reachable, and what each implies.
+
+    Exposed so the console can make model choice a visible, switchable thing.
+    An engine whose model is set by an environment variable nobody can see is
+    one where a governance decision has been made invisibly.
+    """
+    rows = catalogue()
+    active = default_model()
+    return {
+        "backends": rows,
+        "active": describe(active),
+        "active_id": active.backend if active else "none",
+        "note": (
+            "The engine depends on a protocol, not a vendor. Every backend "
+            "produces text that the same deterministic validator then checks, "
+            "so switching one changes what is read and written, never what is "
+            "computed."
+        ),
+    }
 
 
 @app.get("/api/health")
@@ -709,6 +735,10 @@ def diagnose(
     ),
     price_delta: float = Query(-0.05, ge=-0.5, le=0.5),
     horizon_days: int = Query(14, ge=1, le=90),
+    backend: str | None = Query(
+        None, description="model backend for this run: ollama, openai, none"
+    ),
+    llm_model: str | None = Query(None, description="model id for this run"),
 ) -> dict:
     """The whole pipeline for one movement: decompose, test, corroborate, score.
 
@@ -808,7 +838,12 @@ def diagnose(
         shared = ticket_retriever(documents)
         # One extractor across the whole run, so its token cost is counted once
         # and the receipt reports the reading it actually did.
-        reader = default_extractor()
+        # The request may pin a backend, which is what makes the choice
+        # demonstrable rather than merely configurable. With none pinned the
+        # environment decides, and with nothing reachable `ModelExtractor`
+        # falls through to the rule table on its own.
+        chosen = default_model(llm_model, backend)
+        reader = ModelExtractor(backend=chosen)
         corroborations = {
             c.candidate_id: corroborate(
                 c, documents, retriever=shared, index=False, extractor=reader
@@ -977,7 +1012,11 @@ def diagnose(
         } | {d.id for d in contract.drivers} | {
             d.owner_role for d in contract.drivers if d.owner_role
         } | {contract.owner_role, contract.kpi_id}
-        story = narrate(result, known_entities=frozenset(k for k in known if k))
+        story = narrate(
+            result,
+            writer=ModelWriter(backend=chosen) if chosen else None,
+            known_entities=frozenset(k for k in known if k),
+        )
         t.model_calls = story.model_calls
         t.tokens_in, t.tokens_out = story.tokens_in, story.tokens_out
         t.note = (
@@ -985,6 +1024,7 @@ def diagnose(
             f"{len(story.validation.rejected)} rejected by the validator"
         )
     result["narrative"] = story.as_dict()
+    result["llm"] = {"active": describe(chosen), "backend": chosen.backend if chosen else "none"}
 
     # Last, so the receipt covers every stage that actually ran.
     result["telemetry"] = tel.receipt()

@@ -168,3 +168,42 @@ RESULT = {
     "set_aside": [],
     "decisions": [],
 }
+
+
+class TestTheCatalogueIsHonest:
+    """What the console offers must be what the server can actually reach."""
+
+    def test_every_backend_declares_licence_and_sovereignty(self):
+        """The two terms a model choice is actually decided on."""
+        from whychain.llm import catalogue
+
+        for row in catalogue():
+            assert row["licence"], f"{row['id']} declares no licence"
+            assert row["sovereignty"], f"{row['id']} does not say where inference runs"
+
+    @pytest.mark.invariant
+    def test_an_unimplemented_backend_never_reports_available(self):
+        """A platform backend nobody has run is a claim, not a capability.
+
+        Listing it is useful: it shows where an enterprise platform attaches.
+        Listing it as reachable would be the kind of unearned claim this
+        project exists to argue against.
+        """
+        from whychain.llm import catalogue
+
+        enterprise = next(r for r in catalogue() if r["id"] == "enterprise")
+        assert enterprise["available"] is False
+        assert "not implemented" in enterprise["note"].lower()
+
+    def test_the_no_model_option_is_always_reachable(self):
+        """The deterministic path is the floor and can never be unavailable."""
+        from whychain.llm import catalogue
+
+        assert next(r for r in catalogue() if r["id"] == "none")["available"] is True
+
+    def test_a_request_can_pin_a_backend(self, monkeypatch):
+        """Per-request selection is what makes the choice demonstrable."""
+        from whychain.llm import default_model
+
+        monkeypatch.setenv("WHYCHAIN_LLM_BACKEND", "ollama")
+        assert default_model(backend="none") is None

@@ -78,7 +78,9 @@ class ChatModel(Protocol):
     ) -> Completion: ...
 
 
-def default_model(model: str | None = None) -> ChatModel | None:
+def default_model(
+    model: str | None = None, backend: str | None = None
+) -> ChatModel | None:
     """The backend to use, decided once and explained.
 
     `WHYCHAIN_LLM_BACKEND` forces one (`ollama`, `openai`, `none`). Otherwise an
@@ -90,7 +92,7 @@ def default_model(model: str | None = None) -> ChatModel | None:
     Forcing `none` is what a benchmark run wants: measuring the engine against a
     model that changes underneath it is measuring two things at once.
     """
-    forced = os.environ.get("WHYCHAIN_LLM_BACKEND", "").strip().lower()
+    forced = (backend or os.environ.get("WHYCHAIN_LLM_BACKEND", "")).strip().lower()
     if forced == "none":
         return None
 
@@ -113,6 +115,74 @@ def default_model(model: str | None = None) -> ChatModel | None:
     return None
 
 
+# Where an enterprise platform would attach. Named rather than implemented,
+# because a backend nobody has run is a claim rather than a capability, and
+# this project's whole argument is against those.
+#
+# Accenture's own platforms are the obvious candidates: GenWizard, which is
+# built on myWizard, myNav and myConcerto and states conformance to Responsible
+# AI principles, and AI Refinery. Neither is implemented here and neither is
+# claimed to be. The point of the protocol above is that adding one is a file
+# implementing three methods, not a change to the engine: the same argument
+# that makes the local and hosted backends interchangeable makes a platform
+# backend interchangeable with both.
+ENTERPRISE_BACKENDS = ("genwizard", "ai-refinery")
+
+
+def catalogue() -> list[dict]:
+    """Every backend, whether it is reachable, and what it implies.
+
+    Rendered by the console so the choice of model is visible and switchable at
+    run time rather than buried in an environment variable. Model choice is a
+    governance decision, and a governance decision nobody can see is not one.
+    """
+    from whychain.llm.hosted import DEFAULT_MODEL as HOSTED_MODEL
+    from whychain.llm.local import DEFAULT_MODEL as LOCAL_MODEL
+    from whychain.llm.local import OllamaModel
+
+    local = OllamaModel()
+    return [
+        {
+            "id": "ollama",
+            "label": "Local, open weights",
+            "model": LOCAL_MODEL,
+            "licence": "Apache 2.0",
+            "available": local.available,
+            "sovereignty": "inference inside the boundary; no data leaves",
+            "note": "Default. No account, no key, no egress.",
+        },
+        {
+            "id": "openai",
+            "label": "Hosted, same open weights",
+            "model": HOSTED_MODEL,
+            "licence": "Apache 2.0",
+            "available": bool(os.environ.get("WHYCHAIN_LLM_BASE_URL")),
+            "sovereignty": "inference leaves the boundary",
+            "note": "Groq, Together, OpenRouter, vLLM or LM Studio.",
+        },
+        {
+            "id": "none",
+            "label": "No model",
+            "model": "deterministic",
+            "licence": "n/a",
+            "available": True,
+            "sovereignty": "nothing leaves; nothing is read",
+            "note": "Rule-based extraction and the template writer. The "
+                    "benchmark is produced in this mode.",
+        },
+        {
+            "id": "enterprise",
+            "label": "Enterprise platform",
+            "model": " / ".join(ENTERPRISE_BACKENDS),
+            "licence": "per platform",
+            "available": False,
+            "sovereignty": "per platform",
+            "note": "Not implemented. A platform backend is three methods "
+                    "against the protocol; nothing in the engine changes.",
+        },
+    ]
+
+
 def describe(backend: ChatModel | None) -> str:
     """A line for the receipt. Says what ran, or that nothing did and why."""
     if backend is None:
@@ -124,4 +194,11 @@ def describe(backend: ChatModel | None) -> str:
     return f"{backend.backend} · {backend.name}"
 
 
-__all__ = ["ChatModel", "Completion", "default_model", "describe"]
+__all__ = [
+    "ENTERPRISE_BACKENDS",
+    "ChatModel",
+    "Completion",
+    "catalogue",
+    "default_model",
+    "describe",
+]

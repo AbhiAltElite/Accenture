@@ -638,6 +638,18 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
     </div>
 
     <div class="railgroup">
+      <span class="label">Model backend</span>
+      <div class="field-row">
+        <label for="backend">Where inference runs</label>
+        <select id="backend"></select>
+      </div>
+      <p class="railnote" id="backendnote">Model choice is a governance decision
+        before it is a quality one, so it is shown rather than buried in an
+        environment variable. Switching it changes what is read and written,
+        never what is computed.</p>
+    </div>
+
+    <div class="railgroup">
       <span class="label">Entitlement</span>
       <div class="field-row">
         <label for="entitled">Regions this reader may see</label>
@@ -781,6 +793,25 @@ async function boot(){
   const params = new URLSearchParams(location.search);
   if(params.get('region')) $('#region').value = params.get('region');
   if(params.get('range')) $('#range').value = params.get('range');
+  // The backend list is fetched rather than hard-coded, so what the console
+  // offers is what the server can actually reach.
+  try{
+    const cat = await (await fetch('/api/models')).json();
+    STATE.backends = cat.backends || [];
+    $('#backend').innerHTML = STATE.backends.map(b=>
+      `<option value="${b.id}" ${b.available?'':'disabled'}>${escapeHtml(b.label)}${
+        b.available?'':' \u2014 not reachable'}</option>`).join('');
+    const active = STATE.backends.find(b=>b.id===cat.active_id) || STATE.backends.at(-2);
+    $('#backend').value = active ? active.id : 'none';
+    STATE.backend = $('#backend').value;
+    describeBackend();
+  }catch(e){ /* the rail control is a convenience; the engine runs without it */ }
+
+  $('#backend').addEventListener('change',()=>{
+    STATE.backend = $('#backend').value;
+    describeBackend();
+    route();
+  });
   $('#entitled').addEventListener('change',()=>{
     STATE.entitled = $('#entitled').value || null;
     route();
@@ -797,6 +828,17 @@ async function boot(){
     e.preventDefault(); go('/');
   });
   route();
+}
+
+/* What the chosen backend means, in the two terms that decide it: what the
+   weights may be used for, and where the inference happens. */
+function describeBackend(){
+  const b = (STATE.backends||[]).find(x=>x.id===STATE.backend);
+  const note = document.getElementById('backendnote');
+  if(!b || !note) return;
+  note.innerHTML = `<strong>${escapeHtml(b.model)}</strong> \u00b7 licence
+    ${escapeHtml(b.licence)}.<br>${escapeHtml(b.sovereignty)}.<br>
+    ${escapeHtml(b.note)}`;
 }
 
 /* Real URLs, so a diagnosis can be sent to someone rather than described. */
@@ -991,6 +1033,7 @@ async function load(){
     // the row filter is a claim in a README rather than something a reader can
     // trigger and watch happen.
     if(STATE.entitled) p.set('entitled', STATE.entitled);
+    if(STATE.backend) p.set('backend', STATE.backend);
     stage('Testing candidate causes');
     // Keep the reason a request declined. "Could not be built" tells a reader
     // nothing; the server already knows why and says so.

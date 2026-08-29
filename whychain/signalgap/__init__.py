@@ -12,6 +12,7 @@ from whychain.signalgap.gap import (
     find_precedents,
     read_signals,
 )
+from whychain.signalgap.process import ProcessReading, read_process
 
 __all__ = [
     "ACTIONABLE_SEVERITY",
@@ -19,11 +20,13 @@ __all__ = [
     "PRECEDENT_LOOKBACK_DAYS",
     "GapVerdict",
     "Precedent",
+    "ProcessReading",
     "SignalGap",
     "WarningSignal",
     "as_evidence",
     "assess",
     "find_gap",
     "find_precedents",
+    "read_process",
     "read_signals",
 ]
