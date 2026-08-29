@@ -1,4 +1,4 @@
-.PHONY: setup gen demo test bench status audit guardrails lint clean
+.PHONY: setup gen demo test bench status audit guardrails verify-ai lint clean
 
 setup:            ## create venv and install dependencies
 	python3 -m venv .venv
@@ -22,6 +22,9 @@ status:           ## show what the engine currently knows
 
 guardrails:       ## watch the guardrails refuse bad input
 	PYTHONPATH=. .venv/bin/python scripts/guardrails.py
+
+verify-ai:        ## prove both model stages work before a demo depends on them
+	PYTHONPATH=. .venv/bin/python scripts/verify_ai.py
 
 audit:            ## run the security and logic checklists
 	PYTHONPATH=. .venv/bin/python scripts/audit.py

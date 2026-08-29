@@ -20,7 +20,7 @@ from whychain.actions import decision_cards, simulate
 from whychain.confidence import abstain, explained_movement, score
 from whychain.confidence.calibrate import Calibration
 from whychain.contracts import ContractError, ContractRegistry
-from whychain.corroborate import corroborate, scan
+from whychain.corroborate import corroborate, default_extractor, scan
 from whychain.decompose import compute_bridge, contribution_by
 from whychain.decompose.bridge import BridgeError
 from whychain.detect import decompose, find_anomalies, material
@@ -806,14 +806,24 @@ def diagnose(
 
     with tel.stage("corroborate", MethodClass.RETRIEVAL) as t:
         shared = ticket_retriever(documents)
+        # One extractor across the whole run, so its token cost is counted once
+        # and the receipt reports the reading it actually did.
+        reader = default_extractor()
         corroborations = {
-            c.candidate_id: corroborate(c, documents, retriever=shared, index=False)
+            c.candidate_id: corroborate(
+                c, documents, retriever=shared, index=False, extractor=reader
+            )
             for c in found
         }
-        # Retrieval and span extraction, not a model call. When the extractor
-        # behind this protocol becomes model-backed, the count it records here
-        # is what the receipt reports; nothing else changes.
-        t.note = "tf-idf retrieval with deterministic span extraction"
+        t.model_calls = getattr(reader, "calls", 0)
+        t.tokens_in = getattr(reader, "tokens_in", 0)
+        t.tokens_out = getattr(reader, "tokens_out", 0)
+        # Retrieval is deterministic either way. What varies is who reads the
+        # tickets: a keyword table, or a model whose every citation is checked
+        # back against the source text before it is allowed to ship.
+        t.note = "tf-idf retrieval; " + (
+            getattr(reader, "note", "") or "deterministic span extraction"
+        )
 
     supporting = sum(
         corroborations[v.candidate.candidate_id].support_count
