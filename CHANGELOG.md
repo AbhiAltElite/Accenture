@@ -32,8 +32,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
   is producible from the feed rather than only from a fixture; a verdict the
   data can never reach is a verdict the demo does not have
 
+### Added, two externally-driven industries and a switcher
+
+- **Petroleum marketing and power generation, beside the original retail
+  vertical.** Both were chosen because their metrics move for reasons the
+  business does not control: crude benchmarks, excise notifications, refinery
+  turnarounds, pipeline integrity and port closures on one side; regulatory
+  tariff orders, fuel supply, grid constraints and weather-driven load on the
+  other. Retail is the contrast — mostly moved by things it did to itself
+- **A national policy event is a first-class scenario, not an oversight.** An
+  excise revision or a tariff order lands on every region on the same morning,
+  so there is no unexposed region and difference-in-differences genuinely cannot
+  verify it. Both verticals plant one deliberately, labelled `cannot_verify`,
+  alongside regional events that must verify. An engine returning a confident
+  cause for the national ones would be wrong
+- **An industry switcher in the console header.** Contracts, warehouse, labels,
+  personas and the dimension names all re-scope beneath it. The industry leads
+  the cache key: a key that omitted it would serve one vertical's rows under
+  another's heading, which T-06 calls a P0
+- **The engine's three retail vocabularies are now per-industry configuration.**
+  The issue terms and scope terms in corroboration, the driver mappings in the
+  action stage, and the plan-candidate column names in the candidate scanner.
+  Same algorithms, same ordering rules; the tables are supplied rather than
+  literal, and every default is retail's
+- **`Grain.noise_model`, declared per contract.** `binomial` when the numerator
+  is a subset of the denominator, `counting` when it is metered separately and
+  keeps its own variance. Below a tenth the two agree; at 91 per cent they
+  differ by three and a half, which is one observation in fifteen flagged
+- **`make gen-all` builds every industry.** Retail's warehouse regenerates byte
+  for byte after the generator was parameterised, and the benchmark is identical
+  on every rate
+
 ### Fixed, correctness
 
+- **Eight defects the second and third industry exposed in the first one's
+  assumptions**, written up as B-019: a rate of zero divided by, two planted
+  causes that could not move their own metric, a sparse product priced the wrong
+  side of the average, materiality floors derived from the generator's panel
+  rather than the KPI series, a noise model three and a half times too tight at
+  high rates, a phantom boundary day from an uncorrected timezone, an
+  off-vocabulary phrase the rule table could match, and an optional that leaked
+  a `None` into the candidate scanner
 - **The hourly KPI was detected on a daily seasonal cycle.** `decompose`
   defaulted to `periods=(7,)`, which means "day of week" on the four daily
   contracts and "seven hours" on `checkout_conversion`, a cycle nothing has.

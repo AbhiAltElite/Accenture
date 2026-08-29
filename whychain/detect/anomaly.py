@@ -116,6 +116,7 @@ def decompose(
     denominator: pd.Series | np.ndarray | None = None,
     grain: str = "day",
     proportion: bool = False,
+    noise_model: str = "binomial",
 ) -> Decomposition:
     """Split a series into calendar effect, trend, seasonal rhythm and residual.
 
@@ -125,8 +126,9 @@ def decompose(
     trial count behind each reading of a rate, which is what makes one hour's
     four per cent a firmer number than another's, and `proportion` says whether
     that rate is a share of trials or an average over them, because the two
-    have different noise. `decompose_for` reads all four off a contract, and is
-    what callers should use.
+    have different noise, and `noise_model` says which of the two rate forms
+    applies. `decompose_for` reads all five off a contract, and is what callers
+    should use.
 
     Two deliberate choices, both there to stop the decomposition swallowing the
     event it is meant to reveal:
@@ -208,7 +210,7 @@ def decompose(
     seasonal = expected - trend
     residual = values - expected
 
-    scale = fitted_scale * _noise_profile(trials, expected, proportion)
+    scale = fitted_scale * _noise_profile(trials, expected, proportion, noise_model)
     robust_z = (log_residual - median) / scale
     band_low = expected * np.exp(-3.0 * scale)
     band_high = expected * np.exp(3.0 * scale)
@@ -229,7 +231,10 @@ def decompose(
 
 
 def _noise_profile(
-    trials: np.ndarray | None, expected: np.ndarray, proportion: bool
+    trials: np.ndarray | None,
+    expected: np.ndarray,
+    proportion: bool,
+    noise_model: str = "binomial",
 ) -> np.ndarray:
     """How much wider or narrower each observation's noise is than the typical one.
 
@@ -249,12 +254,19 @@ def _noise_profile(
     along with the noise.
 
     Which standard error depends on what kind of rate it is, and the contract
-    says. A **proportion** — conversions per session, parcels on time per parcel
-    shipped — has binomial error `sqrt((1 - p) / (n * p))`. An **average** over
-    n items, such as order value, has error in `1 / sqrt(n)`; its coefficient of
-    variation is a constant the MAD has already absorbed. Deciding this by
-    looking at the numbers instead would mean reading 447 rupees as a
-    probability, which is how a clamp turns a wrong model into a silent one.
+    says. An **average** over n items, such as order value, has error in
+    `1 / sqrt(n)`; its coefficient of variation is a constant the MAD has
+    already absorbed. Deciding this by looking at the numbers instead would mean
+    reading 447 rupees as a probability, which is how a clamp turns a wrong
+    model into a silent one.
+
+    A **rate** takes one of the two forms the contract's `noise_model` names.
+    `binomial`, `sqrt((1 - p) / (n * p))`, is right when the numerator is a
+    subset of the denominator, and its variance correctly falls away as the rate
+    approaches one. `counting`, `sqrt(1 / (n * p))`, is right when the numerator
+    is measured separately and keeps its own variance however high the rate
+    runs. Below about a tenth they agree; near one they differ by a factor of
+    `1 / sqrt(1 - p)`, which at 91% is three and a half.
 
     Returns a flat 1.0 when there is no trial count to weight by, which is every
     metric that is a sum rather than a rate.
@@ -264,7 +276,8 @@ def _noise_profile(
     n = np.maximum(np.asarray(trials, dtype=float), 1e-9)
     if proportion:
         p = np.clip(np.asarray(expected, dtype=float), 1e-9, 1.0 - 1e-9)
-        relative_se = np.sqrt((1.0 - p) / (n * p))
+        headroom = (1.0 - p) if noise_model == "binomial" else 1.0
+        relative_se = np.sqrt(headroom / (n * p))
     else:
         relative_se = 1.0 / np.sqrt(n)
     typical = float(np.median(relative_se))
@@ -292,6 +305,7 @@ def decompose_for(series: pd.DataFrame, contract: KPIContract) -> Decomposition:
         denominator=series["n"] if "n" in series.columns else None,
         grain=contract.grain.time,
         proportion=contract.unit is Unit.RATIO,
+        noise_model=contract.grain.noise_model,
     )
 
 

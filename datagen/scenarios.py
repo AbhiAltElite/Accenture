@@ -23,12 +23,46 @@ from enum import StrEnum
 
 
 class CauseKind(StrEnum):
+    """What kind of thing happened, across every industry the console serves.
+
+    One enum rather than one per world, because a scenario, a panel and a
+    document estate all have to agree about a kind and splitting it would mean
+    three places to keep in step. Which kinds a given world actually plants, and
+    which record each lands in, is the world's business: see `datagen.world`.
+
+    Retail's are mostly things the business did to itself. The two externally
+    driven verticals below are mostly things done to them, which is the whole
+    reason for having them.
+    """
+
+    # Retail
     INTERNAL_BUG = "internal_bug"        # release regression on one channel/device
     PRICE_CHANGE = "price_change"
     STOCKOUT = "stockout"
     MARKETING_CUT = "marketing_cut"
     COMPETITOR_PROMO = "competitor_promo"
     EXTERNAL_WEATHER = "external_weather"
+
+    # Petroleum marketing. DUTY_CHANGE and CRUDE_SPIKE are national by nature:
+    # an excise notification lands on every marketing region on the same
+    # morning, so there is no unexposed region to compare against and the
+    # correct verdict is `cannot_verify` rather than a cause. That is not a
+    # weakness of the scenario, it is the scenario.
+    DUTY_CHANGE = "duty_change"
+    CRUDE_SPIKE = "crude_spike"
+    REFINERY_TURNAROUND = "refinery_turnaround"
+    PIPELINE_OUTAGE = "pipeline_outage"
+    PORT_CLOSURE = "port_closure"
+    CARRIER_SHORTAGE = "carrier_shortage"
+
+    # Power generation. TARIFF_ORDER is the same shape as DUTY_CHANGE: a
+    # regulator moves a number for everyone at once.
+    TARIFF_ORDER = "tariff_order"
+    MERIT_ORDER_SHIFT = "merit_order_shift"
+    PLANT_OUTAGE = "plant_outage"
+    FUEL_SHORTAGE = "fuel_shortage"
+    GRID_CONSTRAINT = "grid_constraint"
+    HEAT_WAVE = "heat_wave"
 
 
 class ExpectedVerdict(StrEnum):

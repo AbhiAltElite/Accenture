@@ -1,0 +1,65 @@
+# Scheduled block count. Half of the realisation identity:
+# dispatch_realisation = scheduled blocks x average realised tariff.
+kpi_id: scheduled_blocks
+version: 1
+owner_role: trading_head
+unit: count
+definition: Count of despatched blocks, excluding revisions to zero and test declarations.
+
+calculation:
+  canonical_sql: |
+    SELECT date_trunc('day', order_ts) AS d,
+           region, channel, category, device,
+           COUNT(DISTINCT order_id) AS value
+    FROM pos_txn
+    WHERE status <> 'cancelled' AND is_test = FALSE
+    GROUP BY 1, 2, 3, 4, 5
+  dialect_targets: [duckdb, databricks, snowflake]
+
+grain:
+  time: day
+  dims: [region, channel, category, device]
+
+calendar: fiscal_in
+parents: [dispatch_realisation]
+children: [dispatch_fulfilment]
+dimensions: [region, channel, category, device]
+
+drivers:
+  - id: fuel_supply
+    source: voice_ops
+    controllable_lever: fuel_sourcing
+    owner_role: fuel_manager
+  - id: grid_constraint
+    source: plan_ops
+    controllable_lever: corridor_booking
+    owner_role: trading_head
+  - id: weather_load
+    source: ext_signals
+
+materiality:
+  min_abs_robust_z: 3.0
+  min_abs_delta_inr: 350000
+  # One block realises the average tariff over its energy, Rs 6,399 on this
+  # data, and detection runs regionally so this is the regional figure.
+  value_per_unit_inr: 6399.0
+
+freshness_sla:
+  pos_txn: 6h
+  plan_ops: 72h
+  voice_ops: 2h
+  ext_signals: 36h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+  domain_restriction: [pii]
+
+lineage:
+  upstream: [pos_txn.orders]
+  # tz_normalise as well as the other two. The East extract lands in local
+  # time, and without the correction its last few hours fall into a day
+  # after the series ends -- a partial day holding a fraction of the usual
+  # count, which the detector reads as a collapse and the queue then ranks
+  # near the top. The parent realisation contract already corrects it, and a
+  # count derived from the same timestamps has to correct it too.
+  transforms: [dedupe_order_id, tz_normalise, exclude_test_accounts]

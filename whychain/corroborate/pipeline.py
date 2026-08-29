@@ -14,14 +14,21 @@ number is not proof that the number was caused by what the text describes.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, time
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from whychain.corroborate.documents import Document
-from whychain.corroborate.extract import Extraction, IssueType, RuleExtractor, summarise
+from whychain.corroborate.extract import (
+    RETAIL_VOCABULARY,
+    Extraction,
+    IssueType,
+    RuleExtractor,
+    Vocabulary,
+    summarise,
+)
 from whychain.corroborate.quarantine import quarantine
 from whychain.corroborate.retriever import NumpyRetriever
 from whychain.evidence import (
@@ -41,7 +48,7 @@ if TYPE_CHECKING:
 # Which complaints would corroborate which cause. A checkout regression should
 # produce checkout complaints; if it produced only delivery complaints, the
 # tickets are describing something else entirely.
-RELATED_ISSUES: dict[IssueType, tuple[IssueType, ...]] = {
+RELATED_ISSUES: dict[str, tuple[str, ...]] = {
     IssueType.CHECKOUT_FAILURE: (IssueType.CHECKOUT_FAILURE, IssueType.PAYMENT_FAILURE),
     IssueType.PAYMENT_FAILURE: (IssueType.PAYMENT_FAILURE, IssueType.CHECKOUT_FAILURE),
     IssueType.DELIVERY_DELAY: (IssueType.DELIVERY_DELAY, IssueType.STOCKOUT),
@@ -57,6 +64,37 @@ _NOT_IN_COMPLAINTS = (
     "release", "deployment", "rollout", "competitor", "supplier", "carrier",
     "distribution centre", "sop", "process", "planning",
 )
+
+
+@dataclass(frozen=True)
+class Corpus:
+    """What a candidate's own words are expected to be echoed by, in one industry.
+
+    Two facts, neither of them a rule: which issue codes would corroborate which
+    (a checkout regression should produce checkout complaints, and if it produced
+    only delivery complaints the tickets are describing something else), and
+    which words belong to the operational note rather than to the people
+    affected by it — a customer writes about a broken payment page, never about
+    a release identifier, and a consignee writes about a container nobody will
+    release, never about the tariff notification that stopped it.
+
+    Defaults to retail's, so every existing caller behaves exactly as before.
+    """
+
+    related_issues: dict[str, tuple[str, ...]] = field(
+        default_factory=lambda: dict(RELATED_ISSUES)
+    )
+    not_in_complaints: tuple[str, ...] = _NOT_IN_COMPLAINTS
+    # Always a vocabulary, never None. An optional here would mean callers have
+    # to remember that "unset" means "retail's", and one that forgot passed None
+    # straight into the candidate scanner.
+    vocabulary: Vocabulary = RETAIL_VOCABULARY
+
+    def extractor(self) -> RuleExtractor:
+        return RuleExtractor(self.vocabulary)
+
+
+RETAIL_CORPUS = Corpus()
 
 
 @dataclass(frozen=True)
@@ -78,7 +116,9 @@ class Corroboration:
         return summarise([*self.supporting, *self.unrelated])
 
 
-def _complaint_query(description: str) -> str:
+def _complaint_query(
+    description: str, not_in_complaints: tuple[str, ...] = _NOT_IN_COMPLAINTS
+) -> str:
     """Turn a note about a cause into words a customer might have used.
 
     Two things are dropped. The leading identifier, because an event id appears
@@ -91,7 +131,7 @@ def _complaint_query(description: str) -> str:
         w.strip(".,;")
         for w in body.lower().split()
         if len(w) > 3
-        and not any(term in w for term in _NOT_IN_COMPLAINTS)
+        and not any(term in w for term in not_in_complaints)
         and not re.search(r"[\d_]|-\w+-", w)   # identifiers, not language
     ]
     return " ".join(words) or body
@@ -122,6 +162,7 @@ def corroborate(
     *,
     retriever: Retriever | None = None,
     extractor: Extractor | None = None,
+    corpus: Corpus = RETAIL_CORPUS,
     k: int = 12,
     index: bool = True,
 ) -> Corroboration:
@@ -134,9 +175,13 @@ def corroborate(
     Pass `index=False` with an already-indexed retriever when running many
     candidates over one corpus; refitting per candidate is the slowest thing the
     engine does and changes nothing.
+
+    `corpus` carries the industry's own vocabulary and the words that belong to
+    an operational note rather than to the people affected by it. It defaults to
+    retail's, which is what every existing caller gets.
     """
     retriever = retriever or NumpyRetriever()
-    extractor = extractor or RuleExtractor()
+    extractor = extractor or corpus.extractor()
 
     tickets = documents[documents["doc_type"] == "support_ticket"]
     if tickets.empty:
@@ -147,8 +192,8 @@ def corroborate(
     # the window, which is how a weather event ends up corroborated by pricing
     # complaints. Searching on what the note says retrieves what it describes.
     described = extractor.extract([quarantine(candidate.candidate_id, candidate.description)])
-    subject = described[0].issue if described else IssueType.OTHER
-    expected = RELATED_ISSUES.get(subject, ())
+    subject = described[0].issue if described else corpus.vocabulary.residual_issue
+    expected = corpus.related_issues.get(subject, ())
 
     # Only the retrieved handful are ever read, so the whole corpus is
     # materialised as Document objects only when this call has to index it.
@@ -161,7 +206,7 @@ def corroborate(
         datetime.combine(candidate.start, time.min, tzinfo=UTC),
         datetime.combine(candidate.end, time.max, tzinfo=UTC),
     )
-    query = _complaint_query(candidate.description)
+    query = _complaint_query(candidate.description, corpus.not_in_complaints)
     matches = retriever.search(query, k=k, window=window, min_score=0.15)
 
     text_by_id = dict(

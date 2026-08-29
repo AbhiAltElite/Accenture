@@ -17,6 +17,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from whychain import verticals
 from whychain.actions import decision_cards, simulate
 from whychain.confidence import abstain, explained_movement, score
 from whychain.confidence.calibrate import Calibration
@@ -28,7 +29,7 @@ from whychain.decompose.bridge import BridgeError
 from whychain.detect import decompose_for, find_anomalies, material
 from whychain.evidence import MethodClass, Unit
 from whychain.feedback import FeedbackStore, Judgement, new_feedback
-from whychain.ingest import DEFAULT_WAREHOUSE, IngestError, Warehouse
+from whychain.ingest import IngestError, Warehouse
 from whychain.llm import Task, catalogue, default_model, describe, model_for, routing
 from whychain.narrate import narrate
 from whychain.narrate.writer import ModelWriter
@@ -38,6 +39,7 @@ from whychain.signalgap import PRECEDENT_LOOKBACK_DAYS, find_gap
 from whychain.telemetry import Telemetry
 from whychain.verify import filter_relevant, from_operations, from_promotions, verify
 from whychain.verify.tests import PLACEBO_WINDOWS
+from whychain.verticals import RETAIL_PLAN_COLUMNS, PlanColumns, Vertical
 
 # statsmodels warns about period length on short slices; the guard is in decompose().
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
@@ -45,8 +47,6 @@ warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 app = FastAPI(title="WhyChain", docs_url="/api/docs")
 UI = Path("ui")
 
-_registry: ContractRegistry | None = None
-_registry_stamp: tuple | None = None
 _retriever: object | None = None
 _retriever_rows: int = 0
 _feedback = FeedbackStore()
@@ -109,9 +109,10 @@ def ticket_retriever(documents: pd.DataFrame):
 
 
 _series_cache: dict[tuple, tuple[tuple, object]] = {}
+_registries: dict[str, tuple[tuple, ContractRegistry]] = {}
 
 
-def _snapshot() -> tuple:
+def _snapshot(vertical: Vertical) -> tuple:
     """What the cached answers are answers about.
 
     T-06 requires a cache key to carry the data snapshot, the contract version
@@ -121,27 +122,31 @@ def _snapshot() -> tuple:
     reader another reader's rows, which the same trap calls a P0.
     """
     try:
-        stamp = DEFAULT_WAREHOUSE.stat().st_mtime_ns
+        stamp = vertical.warehouse.stat().st_mtime_ns
     except OSError:
         stamp = 0
     # Contract *content*, not just id and version. A threshold edited without a
     # version bump is exactly the change a developer makes while iterating, and
     # keying on the version alone meant the console kept serving figures from
     # before the edit with nothing to indicate it.
-    contracts = tuple(sorted(
-        (p.name, p.stat().st_mtime) for p in Path("contracts").glob("*.yml")
-    ))
-    return (stamp, contracts)
+    # The industry id leads the key. Two verticals have their own warehouse and
+    # their own contracts, so a key that omitted it would let a cached
+    # `("kpi_series", "net_revenue")` answer a petroleum request -- one metric id
+    # standing for two different metrics over two different warehouses. T-06
+    # calls a cache key missing its context a P0, and an industry is context in
+    # exactly the way an entitlement is.
+    return (vertical.id, stamp, _contract_stamp(vertical))
 
 
-def _cached(key: tuple, build):
+def _cached(vertical: Vertical, key: tuple, build):
     """Memoise against the current snapshot.
 
     The warehouse is read-only and only `make gen` changes it, so recomputing a
     three-year series on every request re-derives an answer that cannot have
     moved. Entries for a previous snapshot are dropped rather than served.
     """
-    snapshot = _snapshot()
+    snapshot = _snapshot(vertical)
+    key = (vertical.id, *key)
     hit = _series_cache.get(key)
     if hit is not None and hit[0] == snapshot:
         return hit[1]
@@ -150,20 +155,51 @@ def _cached(key: tuple, build):
     return value
 
 
-def registry() -> ContractRegistry:
-    global _registry, _registry_stamp
-    stamp = tuple(sorted(
-        (p.name, p.stat().st_mtime) for p in Path("contracts").glob("*.yml")
+def _vertical(industry: str | None) -> Vertical:
+    """Resolve the industry for this request, defaulting to retail.
+
+    Refuses an unknown id rather than falling back. Serving retail's numbers
+    under a petroleum heading because of a typo is the same class of failure as
+    a cache key that omits its context: the answer looks right and is about
+    something else.
+    """
+    try:
+        return verticals.get(industry)
+    except verticals.UnknownVertical as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+def registry(industry: str | None = None) -> ContractRegistry:
+    """This industry's contracts, reloaded when any of them changes on disk."""
+    vertical = _vertical(industry) if not isinstance(industry, Vertical) else industry
+    stamp = _contract_stamp(vertical)
+    cached = _registries.get(vertical.id)
+    if cached is not None and cached[0] == stamp:
+        return cached[1]
+    try:
+        loaded = ContractRegistry.from_directory(vertical.contracts_dir)
+    except ContractError as exc:
+        raise HTTPException(500, f"contracts failed to load: {exc}") from exc
+    _registries[vertical.id] = (stamp, loaded)
+    return loaded
+
+
+def _contract_stamp(vertical: Vertical) -> tuple:
+    return tuple(sorted(
+        (p.name, p.stat().st_mtime) for p in vertical.contracts_dir.glob("*.yml")
     ))
-    if _registry is not None and stamp != _registry_stamp:
-        _registry = None          # a contract changed on disk; reload it
-    _registry_stamp = stamp
-    if _registry is None:
-        try:
-            _registry = ContractRegistry.from_directory("contracts")
-        except ContractError as exc:
-            raise HTTPException(500, f"contracts failed to load: {exc}") from exc
-    return _registry
+
+
+def warehouse(vertical: Vertical) -> Warehouse:
+    """This industry's warehouse, with a readable error when it is not built."""
+    try:
+        return Warehouse(vertical.warehouse)
+    except IngestError as exc:
+        raise HTTPException(
+            503,
+            f"{vertical.label} has no warehouse at {vertical.warehouse}: {exc}. "
+            f"Run `make gen-all` to build every industry.",
+        ) from exc
 
 
 @app.get("/api/models")
@@ -213,17 +249,55 @@ def contrast() -> dict:
 
 
 @app.get("/api/health")
-def health() -> dict:
+def health(industry: str | None = Query(None)) -> dict:
     try:
-        with Warehouse() as wh:
+        vertical = _vertical(industry)
+        with warehouse(vertical) as wh:
             rows = len(wh.table("pos_txn", limit=1))
-        return {"status": "ok", "warehouse": "connected", "contracts": len(registry()), "rows": rows}
+        return {
+            "status": "ok",
+            "industry": vertical.id,
+            "warehouse": "connected",
+            "contracts": len(registry(vertical)),
+            "rows": rows,
+        }
     except IngestError as exc:
         return {"status": "degraded", "detail": str(exc)}
 
 
+@app.get("/api/industries")
+def industries() -> dict:
+    """Which industries this deployment can be pointed at, and what moves each.
+
+    The switcher reads this. `generated` says whether that industry's warehouse
+    has been built, so the console can grey out one that has not rather than
+    offering a link that returns a 503.
+
+    The contrast is the point of having more than one. Retail's metrics move
+    mostly because of things the business did to itself -- a release, a price
+    change, a stockout. The other two move because of things done to them, and
+    the same engine has to answer the same eight questions in both cases.
+    """
+    return {
+        "default": verticals.DEFAULT_VERTICAL.id,
+        "industries": [
+            {
+                "id": v.id,
+                "label": v.label,
+                "tagline": v.tagline,
+                "driven_by": v.driven_by,
+                "graph_summary": v.graph_summary,
+                "headline_kpi": v.headline_kpi,
+                "dimensions": v.dimensions,
+                "generated": v.is_generated(),
+            }
+            for v in verticals.VERTICALS
+        ],
+    }
+
+
 @app.get("/api/kpis")
-def kpis() -> list[dict]:
+def kpis(industry: str | None = Query(None)) -> list[dict]:
     return [
         {
             "kpi_id": c.kpi_id,
@@ -238,25 +312,31 @@ def kpis() -> list[dict]:
                 "min_abs_delta_inr": c.materiality.min_abs_delta_inr,
             },
         }
-        for c in registry()
+        for c in registry(_vertical(industry))
     ]
 
 
 @app.get("/api/overview")
-def overview(region: str | None = None, days: int = Query(90, ge=30, le=730)) -> dict:
+def overview(
+    region: str | None = None,
+    days: int = Query(90, ge=30, le=730),
+    industry: str | None = Query(None, description="which industry to read"),
+) -> dict:
     """Every KPI at once, with its current state and how the graph connects them.
 
     A dropdown asks the reader to already know which metric moved. The point of a
     KPI graph is that they usually do not, and that a break in one shows up in
     its children.
     """
-    reg = registry()
+    vertical = _vertical(industry)
+    reg = registry(vertical)
     try:
-        with Warehouse() as wh:
+        with warehouse(vertical) as wh:
             rows = []
             for contract in reg:
                 try:
                     raw = _cached(
+                        vertical,
                         ("kpi_series", contract.kpi_id),
                         lambda c=contract: wh.kpi_series(c),
                     )
@@ -275,6 +355,7 @@ def overview(region: str | None = None, days: int = Query(90, ge=30, le=730)) ->
                     # in decompose and arrives here as a ValueError rather than
                     # as a row count this caller would have to know how to read.
                     d = _cached(
+                        vertical,
                         ("decompose", contract.kpi_id, region),
                         lambda f=frame, c=contract: decompose_for(f, c),
                     )
@@ -328,6 +409,7 @@ def overview(region: str | None = None, days: int = Query(90, ge=30, le=730)) ->
 def triage(
     limit: int = Query(12, ge=1, le=50),
     entitled: str | None = Query(None, description="comma-separated regions"),
+    industry: str | None = Query(None, description="which industry to read"),
 ) -> dict:
     """What to look at first, across every KPI and every region at once.
 
@@ -354,16 +436,18 @@ def triage(
     cause. Running twenty-five diagnoses to build a landing page would spend a
     reader's first ten seconds on questions they have not asked yet.
     """
-    reg = registry()
+    vertical = _vertical(industry)
+    reg = registry(vertical)
     scope = tuple(r.strip() for r in entitled.split(",") if r.strip()) if entitled else None
     regions = list(scope) if scope else ["North", "South", "East", "West"]
 
     findings: list[dict] = []
     try:
-        with Warehouse() as wh:
+        with warehouse(vertical) as wh:
             for contract in reg:
                 try:
                     raw = _cached(
+                        vertical,
                         ("kpi_series", contract.kpi_id),
                         lambda c=contract: wh.kpi_series(c),
                     )
@@ -379,6 +463,7 @@ def triage(
                     frame = _roll_up(scoped, contract)
                     try:
                         d = _cached(
+                            vertical,
                             ("decompose", contract.kpi_id, region),
                             lambda f=frame, c=contract: decompose_for(f, c),
                         )
@@ -464,14 +549,15 @@ def _episodes(drops, contract, region: str) -> list[dict]:
 
 
 @app.get("/api/document/{doc_id}")
-def document(doc_id: str) -> dict:
+def document(doc_id: str, industry: str | None = Query(None)) -> dict:
     """The full source record behind a citation.
 
     A quotation with a character range is only checkable if the reader can open
     the document and see the range in place.
     """
+    vertical = _vertical(industry)
     try:
-        with Warehouse() as wh:
+        with warehouse(vertical) as wh:
             docs = wh.table("voice_ops")
     except IngestError as exc:
         raise HTTPException(503, str(exc)) from exc
@@ -502,12 +588,15 @@ def series(
     device: str | None = None,
     frm: date | None = Query(None, alias="from"),
     to: date | None = None,
+    industry: str | None = Query(None, description="which industry to read"),
 ) -> dict:
-    contract = _contract(kpi)
+    vertical = _vertical(industry)
+    contract = _contract(kpi, vertical)
 
     try:
-        with Warehouse() as wh:
+        with warehouse(vertical) as wh:
             raw = _cached(
+                vertical,
                 ("kpi_series", contract.kpi_id),
                 lambda: wh.kpi_series(contract),
             )
@@ -634,9 +723,9 @@ def _roll_up(raw: pd.DataFrame, contract) -> pd.DataFrame:
     return frame.rename(columns={time_col: "d"}).sort_values("d").reset_index(drop=True)
 
 
-def _contract(kpi: str):
+def _contract(kpi: str, vertical: Vertical):
     try:
-        return registry().get(kpi)
+        return registry(vertical).get(kpi)
     except ContractError as exc:
         raise HTTPException(404, str(exc)) from exc
 
@@ -661,13 +750,15 @@ def decomposition(
     event_start: date = Query(..., alias="start"),
     event_end: date = Query(..., alias="end"),
     baseline_days: int = Query(14, ge=7, le=90),
+    industry: str | None = Query(None, description="which industry to read"),
 ) -> dict:
     """Split a movement into price, volume and mix, and locate it by dimension.
 
     The baseline is the period immediately before the movement, normalised to a
     daily rate so a fortnight can be compared against a week.
     """
-    contract = _contract(kpi)  # 404s on an unknown metric before touching the warehouse
+    vertical = _vertical(industry)
+    contract = _contract(kpi, vertical)  # 404s on an unknown metric before touching the warehouse
 
     # A bridge on a rate would be a price effect on a percentage. Decline rather
     # than decomposing something else and labelling it with this metric.
@@ -680,7 +771,7 @@ def decomposition(
         )
 
     try:
-        with Warehouse() as wh:
+        with warehouse(vertical) as wh:
             panel = wh.bridge_facts(
                 contract,
                 since=event_start - timedelta(days=baseline_days + 1),
@@ -767,6 +858,7 @@ def candidates(
     region: str | None = None,
     event_start: date = Query(..., alias="start"),
     event_end: date = Query(..., alias="end"),
+    industry: str | None = Query(None, description="which industry to read"),
 ) -> dict:
     """Every candidate cause in the record, and whether it survives testing.
 
@@ -774,7 +866,8 @@ def candidates(
     real. Ranking them by association would promote whatever happened to
     coincide; that is exactly what the tests exist to prevent.
     """
-    contract = _contract(kpi)
+    vertical = _vertical(industry)
+    contract = _contract(kpi, vertical)
     # Candidate testing runs difference-in-differences over a revenue panel, so
     # it needs the same facts the bridge does. Say so plainly: a metric with no
     # bridge is a 422 with a reason, not a 503, which would claim the service is
@@ -786,7 +879,7 @@ def candidates(
             "so causal verification is not available for it yet.",
         )
     try:
-        with Warehouse() as wh:
+        with warehouse(vertical) as wh:
             panel = wh.bridge_facts(
                 contract, since=_lookback(event_start, 14), until=event_end
             )
@@ -795,9 +888,9 @@ def candidates(
     except IngestError as exc:
         raise HTTPException(503, str(exc)) from exc
 
-    found = from_operations(documents, event_start, event_end) + from_promotions(
-        plan, event_start, event_end
-    )
+    found = from_operations(
+        documents, event_start, event_end, vocabulary=vertical.corpus.vocabulary
+    ) + from_promotions(plan, event_start, event_end, vertical.plan)
     all_regions = tuple(sorted(panel["region"].unique()))
 
     # `region` narrows which candidates are worth reporting, never the panel they
@@ -815,7 +908,7 @@ def candidates(
     verified, rejected, untestable = [], [], []
     for candidate in found:
         v = verify(candidate, panel, all_regions)
-        corr = corroborate(candidate, documents,
+        corr = corroborate(candidate, documents, corpus=vertical.corpus,
                            retriever=ticket_retriever(documents), index=False)
         row = {
             "candidate_id": candidate.candidate_id,
@@ -876,6 +969,7 @@ def _driver_series(
     region: str | None,
     event_start: date,
     baseline_days: int,
+    plan_columns: PlanColumns = RETAIL_PLAN_COLUMNS,
 ) -> pd.DataFrame:
     """Daily series for each driver the contract names, on the metric's index.
 
@@ -897,12 +991,18 @@ def _driver_series(
             p = p[p["region"] == region]
         if not p.empty:
             p["week"] = pd.to_datetime(p["week"])
-            weekly = p.groupby("week")[
-                ["marketing_spend", "planned_stock", "competitor_price_index"]
-            ].sum(numeric_only=True)
-            weekly["competitor_price_index"] = p.groupby("week")[
-                "competitor_price_index"
-            ].mean()
+            # Levels are summed and the index is averaged. The mean of a week of
+            # index readings is an index; their sum is nothing. Which columns
+            # are which is a property of the industry's planning extract, so the
+            # names come from the vertical rather than from here.
+            levels = [c for c in plan_columns.levels if c in p.columns]
+            index_col = plan_columns.index if plan_columns.index in p.columns else None
+            wanted = levels + ([index_col] if index_col else [])
+            if not wanted:
+                return frame.dropna(axis=1, how="all")
+            weekly = p.groupby("week")[wanted].sum(numeric_only=True)
+            if index_col:
+                weekly[index_col] = p.groupby("week")[index_col].mean()
             index = pd.to_datetime(pd.Series(sorted(frame.index)))
             daily = weekly.reindex(
                 weekly.index.union(index)
@@ -930,13 +1030,15 @@ def diagnose(
         None, description="model backend for this run: ollama, openai, none"
     ),
     llm_model: str | None = Query(None, description="model id for this run"),
+    industry: str | None = Query(None, description="which industry to read"),
 ) -> dict:
     """The whole pipeline for one movement: decompose, test, corroborate, score.
 
     Returns either a diagnosis or an abstention. Never both, and never a
     best guess dressed as the former.
     """
-    contract = _contract(kpi)
+    vertical = _vertical(industry)
+    contract = _contract(kpi, vertical)
     if contract.decomposition.method != "pvm":
         raise HTTPException(
             422,
@@ -949,7 +1051,7 @@ def diagnose(
     tel = Telemetry(run_id=run_id)
 
     try:
-        with tel.stage("read", MethodClass.DETERMINISTIC), Warehouse() as wh:
+        with tel.stage("read", MethodClass.DETERMINISTIC), warehouse(vertical) as wh:
             panel = wh.bridge_facts(
                 contract,
                 since=_lookback(event_start, baseline_days),
@@ -986,8 +1088,10 @@ def diagnose(
 
     all_regions = tuple(sorted(panel["region"].unique()))
     found, set_aside = filter_relevant(
-        from_operations(documents, event_start, event_end)
-        + from_promotions(plan, event_start, event_end),
+        from_operations(
+            documents, event_start, event_end, vocabulary=vertical.corpus.vocabulary
+        )
+        + from_promotions(plan, event_start, event_end, vertical.plan),
         event_start, event_end, region,
     )
 
@@ -1006,7 +1110,9 @@ def diagnose(
         # property of this warehouse, not of the method: `plan_ops` is weekly
         # and regional, the price and volume series come off the panel, and a
         # ranker that knew that could not be pointed at a different warehouse.
-        drivers = _driver_series(scoped, plan, region, event_start, baseline_days)
+        drivers = _driver_series(
+            scoped, plan, region, event_start, baseline_days, vertical.plan_columns
+        )
         metric = (
             scoped.assign(d=pd.to_datetime(scoped["d"]).dt.date)
             .groupby("d")["revenue"].sum()
@@ -1041,7 +1147,8 @@ def diagnose(
         )
         corroborations = {
             c.candidate_id: corroborate(
-                c, documents, retriever=shared, index=False, extractor=reader
+                c, documents, corpus=vertical.corpus,
+                retriever=shared, index=False, extractor=reader
             )
             for c in found
         }
@@ -1073,7 +1180,8 @@ def diagnose(
 
     with tel.stage("actions", MethodClass.DETERMINISTIC) as t:
         cards = decision_cards(
-            verifications, per_cause, contract, confidence.band.value
+            verifications, per_cause, contract, confidence.band.value,
+            drivers=vertical.drivers,
         )
         scenarios = simulate(
             verifications, per_cause, contract,
@@ -1095,7 +1203,7 @@ def diagnose(
         # returns "cannot tell" for almost every episode, and a recurrence
         # figure where most rows are unknown is not worth showing.
         try:
-            with Warehouse() as wh:
+            with warehouse(vertical) as wh:
                 deep = wh.bridge_facts(
                     contract,
                     since=event_start - timedelta(days=PRECEDENT_LOOKBACK_DAYS),
@@ -1203,7 +1311,7 @@ def diagnose(
     # decided, because "we could not tell" is one of the things it has to say.
     with tel.stage("narrate", MethodClass.LLM) as t:
         known = set(all_regions) | {
-            c.kpi_id for c in registry()
+            c.kpi_id for c in registry(vertical)
         } | {d.id for d in contract.drivers} | {
             d.owner_role for d in contract.drivers if d.owner_role
         } | {contract.owner_role, contract.kpi_id}

@@ -10,15 +10,16 @@ the failure the whole design exists to avoid.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import date, timedelta
 
 import pandas as pd
 
-from whychain.corroborate.extract import _SCOPE_TERMS, _first_term
+from whychain.corroborate.extract import RETAIL_VOCABULARY, Vocabulary, _first_term
 from whychain.verify.tests import Candidate
 
 
-def _scope(text: str) -> dict[str, str | None]:
+def _scope(text: str, vocabulary: Vocabulary = RETAIL_VOCABULARY) -> dict[str, str | None]:
     """Which slice of the business a note is about.
 
     Shares the extractor's vocabulary rather than keeping a second, smaller copy.
@@ -28,12 +29,17 @@ def _scope(text: str) -> dict[str, str | None]:
     and a real cause gets rejected for the wrong reason.
     """
     return {
-        dimension: _first_term(text, terms) for dimension, terms in _SCOPE_TERMS.items()
+        dimension: _first_term(text, terms)
+        for dimension, terms in vocabulary.scope_terms.items()
     }
 
 
 def from_operations(
-    documents: pd.DataFrame, start: date, end: date, window_days: int = 10
+    documents: pd.DataFrame,
+    start: date,
+    end: date,
+    window_days: int = 10,
+    vocabulary: Vocabulary = RETAIL_VOCABULARY,
 ) -> list[Candidate]:
     """Candidates from release logs and operational notes."""
     if documents.empty:
@@ -50,7 +56,7 @@ def from_operations(
         text = str(row["text"])
         identifier = re.split(r"[:\s]", text, maxsplit=1)[0] or f"doc-{row['doc_id']}"
         region = row["region"]
-        scope = _scope(text)
+        scope = _scope(text, vocabulary)
         out.append(
             Candidate(
                 candidate_id=identifier,
@@ -67,17 +73,43 @@ def from_operations(
     return out
 
 
-def from_promotions(plan_ops: pd.DataFrame, start: date, end: date) -> list[Candidate]:
-    """Candidates from the weekly plan: promotions and competitor activity.
+@dataclass(frozen=True)
+class PlanSpec:
+    """What the weekly planning extract calls its planned interventions.
 
-    A promotion that ran in several regions arrives here with all of them
-    attached, which is what later makes exposure consistency testable.
+    Every industry writes down things it intends to do to some of its regions
+    for some weeks, and each one is a candidate that a movement in those weeks
+    might be explained by. Retail calls them promotions; a fuel marketer calls
+    them refinery turnarounds and price revision cycles; a generator calls them
+    outage schedules. The shape is identical -- an id, an active flag, a set of
+    exposed regions -- so only the column names and the wording differ, and both
+    are facts about the source system rather than about the method.
+
+    Defaults to retail's, so every existing caller is unaffected.
     """
-    if plan_ops.empty or "promo_id" not in plan_ops.columns:
+
+    id_column: str = "promo_id"
+    active_column: str = "promo_active"
+    kind: str = "promotion"
+    noun: str = "Promotion"
+
+
+RETAIL_PLAN = PlanSpec()
+
+
+def from_promotions(
+    plan_ops: pd.DataFrame, start: date, end: date, spec: PlanSpec = RETAIL_PLAN
+) -> list[Candidate]:
+    """Candidates from the weekly plan: planned interventions and competitor activity.
+
+    One that ran in several regions arrives here with all of them attached,
+    which is what later makes exposure consistency testable.
+    """
+    if plan_ops.empty or spec.id_column not in plan_ops.columns:
         return []
     week = pd.to_datetime(plan_ops["week"]).dt.date
     active = plan_ops[
-        plan_ops["promo_active"].fillna(False)
+        plan_ops[spec.active_column].fillna(False)
         & (week >= start - timedelta(days=14))
         & (week <= end)
     ]
@@ -85,17 +117,17 @@ def from_promotions(plan_ops: pd.DataFrame, start: date, end: date) -> list[Cand
         return []
 
     out: list[Candidate] = []
-    for promo_id, group in active.groupby("promo_id"):
+    for plan_id, group in active.groupby(spec.id_column):
         weeks = pd.to_datetime(group["week"]).dt.date
         categories = group["category"].unique()
         out.append(
             Candidate(
-                candidate_id=str(promo_id),
-                kind="promotion",
+                candidate_id=str(plan_id),
+                kind=spec.kind,
                 start=max(min(weeks), start - timedelta(days=14)),
                 end=end,
                 exposed_regions=tuple(sorted(group["region"].unique())),
-                description=f"Promotion {promo_id} active in "
+                description=f"{spec.noun} {plan_id} active in "
                             f"{', '.join(sorted(group['region'].unique()))}",
                 category=str(categories[0]) if len(categories) == 1 else None,
             )

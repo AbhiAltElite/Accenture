@@ -25,12 +25,86 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 | T-15 | Naive datetimes in freshness arithmetic | ingest, evidence | All timestamps are timezone-aware UTC. `Freshness` rejects naive input, and ruff `DTZ` enforces it at the source. Sources sit in different zones; a naive/aware mix raises mid-diagnosis |
 | T-16 | Writing a version, path or command from memory | everywhere | Read it from the environment. Pins come from `pip freeze`, not recollection, see B-001 |
 | T-17 | A verification command that passes on empty output | scripts, CI | `cmd \| tail && echo OK` reports success when `cmd` never ran. Check the exit status of the command itself, and confirm the check can actually fail |
+| T-20 | An assumption that is true of one industry and taken for a property of the method | everywhere | A conversion rate below one, a numerator drawn from its denominator, a column name, a festival calendar, a weekday shape. Each was correct for retail and wrong elsewhere, and none was visible until a second industry consumed the same code. When two places have to name the same thing, a test asserts it; a comment asking someone to remember is not a mechanism (see B-019) |
 | T-19 | A threshold, conversion or seasonal period that ignores the metric's grain | contracts, detect | `value_per_unit_inr` must be what one unit is worth *at the grain anomalies are detected on*, and `min_abs_delta_inr` is compared per observation. A daily figure applied to hourly data is twenty-four times wrong, and a national figure applied to regional detection is wrong by the number of regions. Check that the floor is reachable given the metric's range: conversion runs at 6%, so a floor needing 11.9 points can never be met (see B-017). The same applies to anything else measured in observations: a seasonal period of 7 means "day of week" on a daily series and "seven hours" on an hourly one, and a minimum of 60 rows is sixty days of one and two and a half days of the other (see B-018) |
 | T-18 | A benchmark result that improved for a reason nobody checked | bench, datagen | Numbers that move the flattering way get accepted; numbers that move the other way get investigated. A harness defect usually shows up as the former. Any invariant the generator depends on is executed by a test, never only stated in a docstring (see B-014) |
 
 ---
 
 ## Defects
+
+### B-019 · Eight defects a second and third industry found in the first one's assumptions
+**Found:** 2026-08-29 · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** the petroleum and power verticals were built on the existing
+engine without changing a calculation. Standing three industries side by side
+immediately produced eight failures, every one of them a retail assumption that
+had been true by accident rather than by design.
+
+**The eight, and what each was:**
+
+1. **A rate of zero, divided by.** The session emitter derived scheduled volume
+   as `orders / conversion_rate`. Petroleum's pipeline movement never crosses a
+   loading gantry, so it was declared at a rate of nought, and the division
+   produced infinities. A device with no rate is not a device with a rate of
+   zero; it now emits no scheduling rows at all.
+2. **Two causes that could not move their own metric.** Power's signal-gap and
+   not-foreseeable cases were planted against `grid_availability`, which is
+   built from the delivery outcomes -- and neither `heat_wave` nor
+   `plant_outage` was in that world's `delivery_event_kinds`. Both cases were
+   undetectable by construction.
+3. **A sparse grade priced the wrong side of the average.** The petroleum
+   sparse-history case withdrew a grade priced *below* the book average, so the
+   shortfall *raised* average consignment value. The case was testing the
+   opposite of what it claimed.
+4. **Thresholds derived from the wrong basis.** Every materiality floor was
+   computed from the generator's panel, where revenue is `orders x
+   units_per_order x price`. The KPI series comes from the order lines, where
+   quantity is a Poisson draw -- a six-fold difference. Two headline metrics
+   could not produce a single material movement. This is B-017 exactly: a
+   number derived at the wrong grain, caught this time because the queue ranked
+   it against something else.
+5. **A noise model three and a half times too tight.** The binomial standard
+   error assumes the numerator is a subset of the denominator, so its variance
+   vanishes as the rate approaches one. Power's fulfilment runs at 91 per cent
+   and its numerator is metered separately: measured relative spread 0.164, of
+   which binomial predicts 0.046. One observation in fifteen flagged. The
+   contract now declares `noise_model: binomial | counting` and the default is
+   the original, so retail is untouched.
+6. **A phantom day at the end of the series.** The East extract lands in local
+   time. The realisation contracts correct it; the *count* contracts inherited
+   retail's transform list, which does not. Five and a half hours of orders
+   fell into a day after the series ends, and that partial day -- a fraction of
+   the usual count -- ranked near the top of two queues as a collapse.
+7. **Off-vocabulary that was not off-vocabulary.** A petroleum complaint written
+   to be unmatched by the rule table contained the word "margin", which is in
+   that table. The rule extractor would have scored better than it is, and the
+   with-model contrast would have measured less than it claims to.
+8. **An optional that leaked.** `Corpus.vocabulary` was `Vocabulary | None`,
+   where `None` meant "retail's". The API passed it straight into the candidate
+   scanner and every diagnosis returned a 500. The field is no longer optional.
+
+**Why they stayed hidden:** four of the eight are assumptions that are true of
+retail and of nothing else -- a conversion rate well below one, a numerator
+drawn from its denominator, an internally-driven event that always lands in the
+delivery table, a sparse product priced above the mean. Nothing had ever asked
+whether they were properties of the method or properties of the business. The
+second and third industry are what asked.
+
+**Fix:** each listed above. Six of the eight are data or contract changes; two
+(`noise_model`, and making the vocabulary non-optional) are engine changes that
+leave every default at the original value, which is why the retail warehouse
+still regenerates byte for byte and the benchmark is identical on every rate.
+
+**Regression test:** `tests/test_verticals.py`, 45 tests, parameterised over all
+three industries. They check the pairs of places that have to agree: the column
+names the generator writes against the ones the scanner looks for, the plan
+candidate kind against the driver map, the scope terms against values the data
+actually contains, the off-vocabulary against the rule table, the materiality
+floor against what a rate can physically do, and the hourly floor against the
+daily one. Defect 7 was found by the test rather than by a reader.
+
+---
 
 ### B-018 · An hourly metric detected on a daily cycle, and a rate judged at one volume
 **Found:** 2026-08-29 · **Severity:** P1 · **Status:** fixed

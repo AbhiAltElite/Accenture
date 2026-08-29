@@ -41,7 +41,11 @@ class Extraction:
     """One structured reading of one passage."""
 
     doc_id: str
-    issue: IssueType
+    # An issue *code*, not necessarily a member of `IssueType`. Retail's codes
+    # are that enum and compare exactly as before, because a StrEnum member is
+    # a string; a vertical whose operational notes are about customs holds and
+    # berth congestion supplies its own codes through `Vocabulary`.
+    issue: str
     span: tuple[int, int]
     quote: str
     channel: str | None = None
@@ -56,9 +60,33 @@ class Extractor(Protocol):
     def extract(self, documents: Sequence[Quarantined]) -> list[Extraction]: ...
 
 
-# Vocabulary. Ordered most specific first, because "payment page will not load"
+@dataclass(frozen=True)
+class Vocabulary:
+    """What one industry's operational notes are about.
+
+    The matching *algorithm* does not vary by industry and is not part of this:
+    most specific term first, longest scope phrase wins, cite the sentence the
+    phrase sits in, fall back to the residual code with a lower confidence. What
+    varies is which words mean which thing, and that is a fact about the
+    business rather than about the method — a note reading "berth window missed,
+    vessel on outer anchorage" is a delivery problem in exactly the way "courier
+    never showed" is, and only the phrasing differs.
+
+    Held as data so a second industry does not require a second extractor. The
+    retail vocabulary below is the original one, unchanged, and is the default
+    everywhere so nothing that does not ask for another behaves differently.
+    """
+
+    issue_terms: tuple[tuple[str, tuple[str, ...]], ...]
+    scope_terms: dict[str, dict[str, str]]
+    # Returned when nothing matches. Visible in the output rather than smoothed
+    # over, which is the honest limitation of vocabulary matching.
+    residual_issue: str = "other"
+
+
+# Ordered most specific first, because "payment page will not load"
 # is a checkout failure rather than a generic payment complaint.
-_ISSUE_TERMS: tuple[tuple[IssueType, tuple[str, ...]], ...] = (
+_ISSUE_TERMS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (IssueType.CHECKOUT_FAILURE,
      ("checkout fails", "checkout broken", "cannot complete checkout", "card entry",
       "card form", "card page", "unable to complete purchase", "cannot complete",
@@ -103,6 +131,13 @@ _SCOPE_TERMS: dict[str, dict[str, str]] = {
 }
 
 
+RETAIL_VOCABULARY = Vocabulary(
+    issue_terms=_ISSUE_TERMS,
+    scope_terms=_SCOPE_TERMS,
+    residual_issue=IssueType.OTHER,
+)
+
+
 def _first_term(text: str, terms: dict[str, str]) -> str | None:
     """Longest match wins, so 'mobile app' beats 'app'."""
     lowered = text.lower()
@@ -120,7 +155,15 @@ class RuleExtractor:
     which is a real limitation: a complaint phrased in a way the vocabulary does
     not cover reads as `other`. That is visible in the output rather than being
     smoothed over, and it is the gap a model-based extractor closes.
+
+    The vocabulary is supplied rather than compiled in, so the same matching
+    rules serve an industry whose notes are about berth windows and customs
+    holds. It defaults to retail's, which is the vocabulary this class was
+    written against.
     """
+
+    def __init__(self, vocabulary: Vocabulary = RETAIL_VOCABULARY) -> None:
+        self.vocabulary = vocabulary
 
     def extract(self, documents: Sequence[Quarantined]) -> list[Extraction]:
         out: list[Extraction] = []
@@ -134,7 +177,9 @@ class RuleExtractor:
         text = doc.text
         spans = sentence_spans(text)
 
-        for issue, terms in _ISSUE_TERMS:
+        scope = self.vocabulary.scope_terms
+
+        for issue, terms in self.vocabulary.issue_terms:
             for term in terms:
                 match = re.search(re.escape(term), text, re.IGNORECASE)
                 if not match:
@@ -149,9 +194,9 @@ class RuleExtractor:
                     issue=issue,
                     span=span,
                     quote=text[span[0]:span[1]],
-                    channel=_first_term(text, _SCOPE_TERMS["channel"]),
-                    device=_first_term(text, _SCOPE_TERMS["device"]),
-                    category=_first_term(text, _SCOPE_TERMS["category"]),
+                    channel=_first_term(text, scope["channel"]),
+                    device=_first_term(text, scope["device"]),
+                    category=_first_term(text, scope["category"]),
                     flags=doc.flags,
                     # A vocabulary match is a weaker reading than a model's, and
                     # saying so keeps the confidence layer honest.
@@ -160,11 +205,11 @@ class RuleExtractor:
 
         span = spans[0]
         return Extraction(
-            doc_id=doc.doc_id, issue=IssueType.OTHER, span=span,
+            doc_id=doc.doc_id, issue=self.vocabulary.residual_issue, span=span,
             quote=text[span[0]:span[1]],
-            channel=_first_term(text, _SCOPE_TERMS["channel"]),
-            device=_first_term(text, _SCOPE_TERMS["device"]),
-            category=_first_term(text, _SCOPE_TERMS["category"]),
+            channel=_first_term(text, scope["channel"]),
+            device=_first_term(text, scope["device"]),
+            category=_first_term(text, scope["category"]),
             flags=doc.flags, confidence=0.3,
         )
 
@@ -173,5 +218,5 @@ def summarise(extractions: Sequence[Extraction]) -> dict[str, int]:
     """How many documents support each kind of issue."""
     counts: dict[str, int] = {}
     for e in extractions:
-        counts[e.issue.value] = counts.get(e.issue.value, 0) + 1
+        counts[str(e.issue)] = counts.get(str(e.issue), 0) + 1
     return dict(sorted(counts.items(), key=lambda kv: -kv[1]))

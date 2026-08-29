@@ -1,0 +1,87 @@
+# Grid availability. Arrives from the energy accounts on a T+1 cadence, so it is
+# the metric most likely to be stale when a diagnosis runs, which makes it the
+# natural place to demonstrate the freshness gate.
+kpi_id: grid_availability
+version: 1
+owner_role: system_operator
+unit: ratio
+definition: >
+  Share of declared blocks despatched at or above declaration. Blocks curtailed
+  below declaration count as unavailable; blocks still inside the settlement
+  window are excluded rather than assumed available.
+
+calculation:
+  canonical_sql: |
+    SELECT date_trunc('day', promised_date) AS d,
+           region, category,
+           AVG(CASE WHEN delivered_date <= promised_date THEN 1.0 ELSE 0.0 END) AS value,
+           SUM(CASE WHEN delivered_date <= promised_date THEN 1.0 ELSE 0.0 END) AS available,
+           COUNT(*)::DOUBLE AS declared
+    FROM shipments
+    WHERE delivered_date IS NOT NULL OR promised_date < CURRENT_DATE
+    GROUP BY 1, 2, 3
+  dialect_targets: [duckdb, databricks, snowflake]
+
+grain:
+  time: day
+  dims: [region, category]
+  aggregation: ratio_of_sums
+  numerator: available
+  denominator: declared
+  # Availability runs at about 94 per cent, where the binomial form is nearly
+  # four times too tight. The available count is metered, not drawn from the
+  # declared count, so `counting` is the right form.
+  noise_model: counting
+
+calendar: fiscal_in
+parents: []
+children: []
+dimensions: [region, category, carrier]
+
+drivers:
+  - id: fuel_supply
+    source: voice_ops
+    controllable_lever: fuel_sourcing
+    owner_role: fuel_manager
+  - id: grid_constraint
+    source: plan_ops
+    controllable_lever: corridor_booking
+    owner_role: trading_head
+  - id: weather_load
+    source: ext_signals
+
+materiality:
+  min_abs_robust_z: 2.5
+  min_abs_delta_inr: 350000
+  # One whole unit is every declared block moving from available to curtailed.
+  # Costed at a third of a region-day of realisation, covering the energy not
+  # sold now and the deviation settlement exposure that follows. A twenty-five
+  # point fall is then worth Rs 5.65 lakh, which clears the floor.
+  value_per_unit_inr: 2260000.0
+
+freshness_sla:
+  plan_ops: 72h
+  voice_ops: 2h
+  ext_signals: 36h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+
+# The same scheduling procedure governs this metric: section 4 step three
+# applies corridor limits to derive the schedulable quantity, and availability
+# is what that schedule delivers. A cycle that schedules against generation
+# history, fuel stock, declared capacity and the financial plan, and against no
+# external signal at all, cannot anticipate a heat wave.
+signals_consumed:
+  derived_from: data/docs/sop/generation_scheduling_v2.md
+  coverage: complete
+  extracted_at: 2026-08-29T09:14:00Z
+  extracted:
+    - {signal: historical_generation, span: [829, 1031]}
+    - {signal: fuel_stock_position, span: [1033, 1219]}
+    - {signal: capacity_metrics, span: [1221, 1407]}
+    - {signal: financial_plan, span: [1409, 1562]}
+
+lineage:
+  upstream: [shipments]
+  transforms: [exclude_in_flight]

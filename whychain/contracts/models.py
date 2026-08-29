@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from whychain.evidence.types import Unit
 
@@ -60,6 +60,36 @@ class Grain(BaseModel):
     # so a roll-up can re-divide the summed parts rather than average the rates.
     numerator: str | None = None
     denominator: str | None = None
+    # How wide the noise on this rate is, per observation. Both forms scale with
+    # the denominator; they differ in whether the numerator is bounded by it.
+    #
+    #   binomial  sqrt((1 - p) / (n * p))   the numerator is a subset of the
+    #                                       denominator, so the variance goes to
+    #                                       zero as the rate approaches one
+    #   counting  sqrt(1 / (n * p))         the numerator is a count measured
+    #                                       separately, so it keeps its own
+    #                                       Poisson variance at any rate
+    #
+    # Below about ten per cent the two are indistinguishable and the default is
+    # right either way. Near one they are not: measured on this data, a rate
+    # running at 91.4% has a relative spread of 0.164, which the counting form
+    # puts at 0.158 and the binomial form at 0.046 -- three and a half times too
+    # tight, and a detector calibrated three and a half times too tight flags
+    # roughly one observation in fifteen. Which one applies is a fact about how
+    # the two columns are produced, so the contract declares it rather than the
+    # detector guessing from the value of p.
+    noise_model: str = "binomial"
+
+    @field_validator("noise_model")
+    @classmethod
+    def _known_noise_model(cls, value: str) -> str:
+        if value not in ("binomial", "counting"):
+            raise ValueError(
+                f"unknown noise_model {value!r}; expected 'binomial' (the "
+                f"numerator is a subset of the denominator) or 'counting' (the "
+                f"numerator is measured separately and keeps its own variance)"
+            )
+        return value
 
     @model_validator(mode="after")
     def _ratio_carries_its_parts(self) -> Grain:

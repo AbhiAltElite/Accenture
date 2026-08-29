@@ -57,6 +57,31 @@ NOTE_TO_DRIVER: tuple[tuple[tuple[str, ...], str], ...] = (
 
 
 @dataclass(frozen=True)
+class DriverMap:
+    """How one industry's operational records name the drivers its contracts declare.
+
+    The rule does not vary: a candidate's kind names its driver where the kind is
+    unambiguous, and an ops note is matched on what it says because a note is not
+    one kind of thing. What varies is the words, and they are a fact about the
+    industry rather than about the method. Declared rather than inferred for the
+    reason the retail map already gives: a model guessing that a release note is
+    a pricing problem puts the wrong owner's name on a decision, and a model
+    guessing that a berth advisory is a tariff problem does the same.
+
+    Defaults to retail's, so every existing caller is unaffected.
+    """
+
+    kind_to_driver: dict[str, str] = field(default_factory=lambda: dict(KIND_TO_DRIVER))
+    note_to_driver: tuple[tuple[tuple[str, ...], str], ...] = NOTE_TO_DRIVER
+    # The candidate kind whose driver is read off the note text rather than the
+    # kind itself.
+    note_kind: str = "ops_note"
+
+
+RETAIL_DRIVERS = DriverMap()
+
+
+@dataclass(frozen=True)
 class MonitoringRule:
     """What to watch so this is caught earlier next time."""
 
@@ -138,12 +163,14 @@ class DecisionCard:
         }
 
 
-def _driver_for(candidate, contract: KPIContract) -> Driver | None:
+def _driver_for(
+    candidate, contract: KPIContract, drivers: DriverMap = RETAIL_DRIVERS
+) -> Driver | None:
     """Which contract driver this candidate belongs to, if any."""
-    driver_id = KIND_TO_DRIVER.get(candidate.kind)
-    if driver_id is None and candidate.kind == "ops_note":
+    driver_id = drivers.kind_to_driver.get(candidate.kind)
+    if driver_id is None and candidate.kind == drivers.note_kind:
         text = f"{candidate.description}".lower()
-        for words, mapped in NOTE_TO_DRIVER:
+        for words, mapped in drivers.note_to_driver:
             if any(w in text for w in words):
                 driver_id = mapped
                 break
@@ -224,6 +251,7 @@ def decision_cards(
     contract: KPIContract,
     confidence_band: str,
     *,
+    drivers: DriverMap = RETAIL_DRIVERS,
     now: datetime | None = None,
 ) -> list[DecisionCard]:
     """A card for every verified cause, ranked by what it cost.
@@ -241,7 +269,7 @@ def decision_cards(
             continue
         candidate = v.candidate
         loss = abs(per_cause.get(candidate.candidate_id, 0.0))
-        driver = _driver_for(candidate, contract)
+        driver = _driver_for(candidate, contract, drivers)
         monitoring = _monitoring_for(driver, candidate, contract)
         caveats: list[str] = []
 
@@ -336,8 +364,10 @@ def decision_cards(
 __all__ = [
     "KIND_TO_DRIVER",
     "RECOVERY_SHARE",
+    "RETAIL_DRIVERS",
     "ApprovalDraft",
     "DecisionCard",
+    "DriverMap",
     "MonitoringRule",
     "Scenario",
     "decision_cards",

@@ -1,0 +1,88 @@
+# Gantry throughput. Deliberately at a different grain and cadence from its
+# parent: hourly, road and rail lifting only. Comparing it to a daily
+# all-route metric is exactly the reconciliation the engine has to get right.
+kpi_id: gantry_throughput
+version: 1
+owner_role: terminal_manager
+unit: ratio
+definition: >
+  Consignments loaded divided by consignments scheduled at the loading gantry,
+  road and rail lifting only. Pipeline movement never crosses a gantry and is
+  excluded rather than counted as loaded.
+
+calculation:
+  canonical_sql: |
+    WITH sched AS (
+      SELECT date_trunc('hour', session_ts) AS h, region, device,
+             SUM(sessions) AS scheduled
+      FROM sessions WHERE channel IN ('retail','direct') GROUP BY 1,2,3
+    ), loaded AS (
+      SELECT date_trunc('hour', order_ts) AS h, region, device,
+             COUNT(DISTINCT order_id) AS lifted
+      FROM pos_txn
+      WHERE status <> 'cancelled' AND channel IN ('retail','direct')
+      GROUP BY 1,2,3
+    )
+    SELECT s.h AS h, s.region, s.device,
+           COALESCE(l.lifted, 0)::DOUBLE / NULLIF(s.scheduled, 0) AS value,
+           COALESCE(l.lifted, 0)::DOUBLE AS lifted,
+           s.scheduled::DOUBLE AS scheduled
+    FROM sched s LEFT JOIN loaded l USING (h, region, device)
+  dialect_targets: [duckdb, databricks, snowflake]
+
+grain:
+  time: hour
+  dims: [region, device]
+  # A rate. Rolling up re-divides the summed parts: the mean of slice rates
+  # would weight a rail siding that scheduled twelve liftings like a road
+  # gantry that scheduled twelve hundred.
+  aggregation: ratio_of_sums
+  numerator: lifted
+  denominator: scheduled
+
+calendar: fiscal_in
+parents: [consignments]
+children: []
+dimensions: [region, device, channel]
+
+drivers:
+  - id: carrier_capacity
+    source: plan_ops
+    controllable_lever: fleet_augmentation
+    owner_role: logistics_lead
+  - id: refinery_availability
+    source: voice_ops
+    controllable_lever: alternate_sourcing
+    owner_role: supply_manager
+  - id: port_closure
+    source: ext_signals
+
+materiality:
+  # A rate metric, so the rupee floor is the realisation the shortfall
+  # represents rather than a movement in the ratio itself.
+  min_abs_robust_z: 3.0
+  # Per observation, and this contract's observations are hours. The 2.5 crore
+  # used by the daily KPIs is a day's worth, so a day's floor is divided across
+  # a day's hours (T-19).
+  min_abs_delta_inr: 208333
+  # A ratio at an *hourly* grain, so one whole unit is every scheduled lifting
+  # in one hour completing rather than none: about 320 regional liftings at an
+  # Rs 8.81 lakh average consignment value. Valuing it against a whole day's
+  # scheduling would overstate it twenty-four-fold and flood any ranking this
+  # feeds. Reachability check: the floor needs a fall of 0.37 points on a metric
+  # that runs at about 5.8 per cent, which is comfortably possible.
+  value_per_unit_inr: 61451125.0
+
+freshness_sla:
+  pos_txn: 6h
+  plan_ops: 72h
+  voice_ops: 2h
+  ext_signals: 36h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+  domain_restriction: [pii]
+
+lineage:
+  upstream: [sessions, pos_txn]
+  transforms: []

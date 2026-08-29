@@ -19,50 +19,55 @@ import numpy as np
 import pandas as pd
 
 from datagen.calendar import festival_uplift, weekday_uplift
-from datagen.catalog import CHANNEL_DEVICES, PRODUCTS, REGIONS
-from datagen.scenarios import CauseKind, PlantedEvent
+from datagen.scenarios import PlantedEvent
+from datagen.world import RETAIL_WORLD, World
 
-START = date(2023, 9, 1)
-END = date(2026, 8, 31)
+# Retail's window and shares, under their original names. Read off the world
+# rather than restated, so there is one place each number lives.
+START = RETAIL_WORLD.start
+END = RETAIL_WORLD.end
+REGION_SCALE = RETAIL_WORLD.region_scale
+CHANNEL_SHARE = RETAIL_WORLD.channel_share
+DEVICE_SHARE = RETAIL_WORLD.device_share
 
-# Baseline daily order volume per region, before any other effect.
-REGION_SCALE = {"West": 1.00, "North": 0.86, "South": 0.78, "East": 0.44}
-CHANNEL_SHARE = {"app": 0.44, "web": 0.31, "store": 0.25}
-DEVICE_SHARE = {"mobile": 0.72, "desktop": 0.20, "tablet": 0.08, "pos": 1.00}
-
-BASE_DAILY_ORDERS = 520.0
-ANNUAL_GROWTH = 0.11
-NOISE_SD = 0.045
+BASE_DAILY_ORDERS = RETAIL_WORLD.base_daily_orders
+ANNUAL_GROWTH = RETAIL_WORLD.annual_growth
+NOISE_SD = RETAIL_WORLD.noise_sd
 
 
-def _valid_cells() -> list[tuple[str, str, str, str]]:
+def _valid_cells(world: World) -> list[tuple[str, str, str, str]]:
     """Region x channel x device x SKU, excluding impossible combinations."""
     cells = []
-    for region, channel in itertools.product(REGIONS, CHANNEL_SHARE):
-        for device in CHANNEL_DEVICES[channel]:
-            for product in PRODUCTS:
+    for region, channel in itertools.product(world.regions, world.channel_share):
+        for device in world.channel_devices[channel]:
+            for product in world.products:
                 cells.append((region, channel, device, product.sku))
     return cells
 
 
-def _monsoon_factor(days: pd.Series, region: str) -> np.ndarray:
+def _seasonal_factor(days: pd.Series, region: str, world: World) -> np.ndarray:
     """Regional weather seasonality.
 
     The West monsoon is sharp and suppresses store traffic; the South is milder
     and later. This exists so that a real weather event has to be separated from
     ordinary seasonal wetness rather than standing out trivially.
+
+    Depth may be negative, which is a season that lifts rather than suppresses:
+    a fuel marketer sells more diesel through the harvest, and a generator's
+    whole year is shaped by the summer peak.
     """
     day_of_year = days.dt.dayofyear.to_numpy()
-    phase = {"West": 190, "South": 250, "East": 200, "North": 210}[region]
-    depth = {"West": 0.10, "South": 0.05, "East": 0.07, "North": 0.03}[region]
+    phase = world.seasonal_phase[region]
+    depth = world.seasonal_depth[region]
     return 1.0 - depth * np.exp(-(((day_of_year - phase) / 32.0) ** 2))
 
 
 def build_panel(
-    start: date = START,
-    end: date = END,
+    start: date | None = None,
+    end: date | None = None,
     events: tuple[PlantedEvent, ...] = (),
-    seed: int = 20260828,
+    seed: int | None = None,
+    world: World = RETAIL_WORLD,
 ) -> pd.DataFrame:
     """Daily panel with planted effects applied.
 
@@ -70,33 +75,37 @@ def build_panel(
     `revenue`. Revenue is computed from the other three rather than modelled
     separately, so the KPI identity holds exactly and the bridge can reconcile.
     """
-    rng = np.random.default_rng(seed)
+    start = start or world.start
+    end = end or world.end
+    rng = np.random.default_rng(world.seed if seed is None else seed)
     days = pd.date_range(start, end, freq="D")
-    cells = _valid_cells()
-    products = {p.sku: p for p in PRODUCTS}
+    cells = _valid_cells(world)
+    products = {p.sku: p for p in world.products}
 
-    uplift = festival_uplift(start, end)
+    uplift = festival_uplift(start, end, world.calendar)
     festival = np.array([uplift.get(d.date(), 1.0) for d in days])
-    weekday = np.array([weekday_uplift(d.date()) for d in days])
+    weekday = np.array([weekday_uplift(d.date(), world.calendar) for d in days])
     elapsed_years = np.arange(len(days)) / 365.25
-    trend = (1.0 + ANNUAL_GROWTH) ** elapsed_years
+    trend = (1.0 + world.annual_growth) ** elapsed_years
 
     frames = []
     for region, channel, device, sku in cells:
         product = products[sku]
 
         scale = (
-            BASE_DAILY_ORDERS
-            * REGION_SCALE[region]
-            * CHANNEL_SHARE[channel]
-            * DEVICE_SHARE[device]
-            / len(PRODUCTS)
+            world.base_daily_orders
+            * world.region_scale[region]
+            * world.channel_share[channel]
+            * world.device_share[device]
+            / len(world.products)
         )
-        orders = scale * trend * weekday * festival * _monsoon_factor(days.to_series(), region)
+        seasonal = _seasonal_factor(days.to_series(), region, world)
+        orders = scale * trend * weekday * festival * seasonal
 
-        # Store channels feel weather; digital channels barely do.
-        if channel == "store":
-            orders = orders * (2.0 - _monsoon_factor(days.to_series(), region))
+        # Physically exposed channels feel weather twice: once through demand
+        # and once through being shut. Digital channels barely do.
+        if channel in world.weather_exposed_channels:
+            orders = orders * (2.0 - seasonal)
 
         price = np.full(len(days), product.base_price, dtype=float)
 
@@ -122,15 +131,19 @@ def build_panel(
         frames.append(frame)
 
     panel = pd.concat(frames, ignore_index=True)
-    panel = _apply_events(panel, events, products)
+    panel = _apply_events(panel, events, products, world)
 
     # Noise last, so planted effects are not smoothed by it.
-    noise = rng.normal(1.0, NOISE_SD, len(panel))
+    noise = rng.normal(1.0, world.noise_sd, len(panel))
     panel["orders"] = np.maximum(panel["orders"] * noise, 0.0)
 
     # Units per order varies a little by category; premium lines sell singly.
     basket = panel["unit_price"].to_numpy()
-    panel["units_per_order"] = np.clip(3.2 - basket / 260.0, 1.0, 3.5)
+    panel["units_per_order"] = np.clip(
+        world.basket_intercept - basket / world.basket_divisor,
+        world.basket_min,
+        world.basket_max,
+    )
 
     panel["orders"] = panel["orders"].round(3)
     panel["units"] = (panel["orders"] * panel["units_per_order"]).round(3)
@@ -139,7 +152,10 @@ def build_panel(
 
 
 def _apply_events(
-    panel: pd.DataFrame, events: tuple[PlantedEvent, ...], products: dict
+    panel: pd.DataFrame,
+    events: tuple[PlantedEvent, ...],
+    products: dict,
+    world: World = RETAIL_WORLD,
 ) -> pd.DataFrame:
     """Apply each planted event to the rows its slice targets.
 
@@ -156,7 +172,7 @@ def _apply_events(
 
         # `also_in` regions receive the event record but never its effect. That
         # is what a comparison group is: the same thing happened, nothing moved.
-        regions = [event.target.region] if event.target.region else list(REGIONS)
+        regions = [event.target.region] if event.target.region else list(world.regions)
         target_regions = set(regions) | set(event.also_in)
 
         mask = in_window & panel["region"].isin(target_regions)
@@ -172,7 +188,7 @@ def _apply_events(
         if event.effect == 0.0:
             continue
 
-        if event.kind is CauseKind.PRICE_CHANGE:
+        if event.kind in world.price_event_kinds:
             # A price move changes price directly and volume through elasticity,
             # so it lands in the price and volume legs of the bridge rather than
             # showing up as unexplained demand.

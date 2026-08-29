@@ -668,6 +668,8 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
   <a class="mark" href="/"><b>WhyChain</b><span>Diagnostic engine</span></a>
   <div class="context" id="context"></div>
   <div class="tools">
+    <span class="toollabel">Industry</span>
+    <div class="seg" id="industry" role="group" aria-label="Industry"></div>
     <span class="toollabel">Reading as</span>
     <div class="seg" id="persona" role="group" aria-label="Persona">
       <button data-persona="analyst" aria-pressed="true">Analyst</button>
@@ -813,7 +815,51 @@ const sentence = t => {
   const clean = String(t == null ? '' : t).replace(/_/g,' ').trim();
   return clean ? clean[0].toUpperCase() + clean.slice(1) : clean;
 };
-let STATE = {persona:'analyst'};
+let STATE = {persona:'analyst', industry:'retail'};
+
+/* Every /api/ call carries the selected industry.
+   Wrapping fetch rather than editing twenty call sites is deliberate: a console
+   that forgets the industry on one request would render one vertical's figures
+   under another's heading, which is the same failure as a cache key that omits
+   its context. One place to get right, and it cannot be missed. */
+const rawFetch = window.fetch.bind(window);
+window.fetch = (input, init) => {
+  // Only when the caller has not named one. Appending a second `industry=` to a
+  // URL that already carries one leaves the server picking between them, and
+  // whichever it picks the caller did not ask for.
+  if(typeof input === 'string' && input.startsWith('/api/') && STATE.industry
+     && !/[?&]industry=/.test(input)){
+    input += (input.includes('?') ? '&' : '?') + 'industry=' + encodeURIComponent(STATE.industry);
+  }
+  return rawFetch(input, init);
+};
+
+function initIndustry(){
+  try{
+    const saved = localStorage.getItem('whychain-industry');
+    if(saved) STATE.industry = saved;
+  }catch{ /* private browsing; the default stands */ }
+}
+
+/* Switching industry replaces the whole question, not the filter on it: the
+   metrics, the regions and the contracts all change together. So it reloads
+   rather than patching the view in place, which would leave one vertical's
+   selected metric on another vertical's rail. */
+function renderIndustries(list){
+  const seg = document.querySelector('#industry');
+  if(!seg) return;
+  seg.innerHTML = list.map(v => {
+    const on = v.id === STATE.industry;
+    const dis = v.generated ? '' : ' disabled';
+    const why = v.generated ? v.driven_by : 'Not generated yet: run make gen-all';
+    return `<button data-industry="${v.id}" aria-pressed="${on}"${dis} title="${why}">${v.label}</button>`;
+  }).join('');
+  seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    if(b.dataset.industry === STATE.industry) return;
+    try{ localStorage.setItem('whychain-industry', b.dataset.industry); }catch{ /* ignore */ }
+    location.href = '/';
+  }));
+}
 
 /* ---------- persona ----------
    The switch re-requests the same run under a different projection. It does not
@@ -866,7 +912,27 @@ function initTheme(){
 async function boot(){
   initTheme();
   initPersona();
+  initIndustry();
+  try{
+    const inds = await (await fetch('/api/industries')).json();
+    STATE.industries = inds.industries || [];
+    // A saved industry whose warehouse has since been removed would 503 every
+    // request, so fall back to the default rather than to a blank console.
+    const chosen = STATE.industries.find(v => v.id === STATE.industry);
+    if(!chosen || !chosen.generated) STATE.industry = inds.default;
+    const active = STATE.industries.find(v => v.id === STATE.industry) || {};
+    STATE.dimensions = active.dimensions || {};
+    STATE.graphSummary = active.graph_summary || '';
+    renderIndustries(STATE.industries);
+  }catch(e){ /* single-industry deployment; the switcher stays empty */ }
   STATE.kpis = await (await fetch('/api/kpis')).json();
+  const regionLabel = STATE.dimensions && STATE.dimensions.region;
+  if(regionLabel){
+    const lab = document.querySelector('label[for="region"]');
+    if(lab) lab.textContent = regionLabel;
+    const opt = document.querySelector('#region option[value=""]');
+    if(opt) opt.textContent = 'All ' + regionLabel.toLowerCase() + 's';
+  }
   $('#region').innerHTML += ['North','South','East','West']
     .map(r=>`<option>${r}</option>`).join('');
   $('#region').value='West';
@@ -1027,10 +1093,7 @@ async function showOverview(){
   // of cards gives up in exchange for looking designed.
   $('#overview').innerHTML = `<div class="overview">
     <h1>${region||'All regions'}</h1>
-    <p class="sub">Five connected metrics across three sources. Revenue is orders
-      times average order value; orders come from sessions and conversion. A break
-      in one shows up in the others, which is why they are read together rather
-      than one at a time.</p>
+    <p class="sub">${STATE.graphSummary || ''}</p>
 
     <dl class="figures">
       <div><dt>Metrics tracked</dt><dd>${rows.length}</dd></div>

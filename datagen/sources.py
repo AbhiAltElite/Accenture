@@ -14,20 +14,25 @@ from datetime import UTC, datetime, timedelta
 import numpy as np
 import pandas as pd
 
-from datagen.catalog import CITIES
 from datagen.scenarios import CauseKind, PlantedEvent
 from datagen.voices import Voice, chain, customer_ticket
+from datagen.world import RETAIL_WORLD, SOURCE_LAG, World
 
-# Refresh lag per source, as the engine will observe it.
-SOURCE_LAG = {
-    "pos_txn": timedelta(hours=3),
-    "plan_ops": timedelta(days=2),      # T+2 by design; often breaches its 72h SLA
-    "voice_ops": timedelta(minutes=20),
-    "ext_signals": timedelta(hours=20),
-}
+__all__ = [
+    "SOURCE_LAG",
+    "emit_ext_signals",
+    "emit_plan_ops",
+    "emit_pos_txn",
+    "emit_sessions",
+    "emit_shipments",
+    "emit_voice_ops",
+    "source_freshness",
+]
 
 
-def emit_pos_txn(panel: pd.DataFrame, seed: int = 7) -> pd.DataFrame:
+def emit_pos_txn(
+    panel: pd.DataFrame, seed: int = 7, world: World = RETAIL_WORLD
+) -> pd.DataFrame:
     """Order lines, the finest grain in the system.
 
     Expanded from the panel so the transactions sum back to the series exactly.
@@ -47,7 +52,7 @@ def emit_pos_txn(panel: pd.DataFrame, seed: int = 7) -> pd.DataFrame:
     # Spread orders through the trading day rather than stacking them at midnight;
     # the hourly conversion metric needs a real intraday shape.
     hours = rng.choice(
-        np.arange(24), size=total, p=_intraday_profile()
+        np.arange(24), size=total, p=_intraday_profile(world)
     )
     minutes = rng.integers(0, 60, total)
 
@@ -86,19 +91,22 @@ def emit_pos_txn(panel: pd.DataFrame, seed: int = 7) -> pd.DataFrame:
     # Test accounts, which the orders contract filters and the revenue one does not.
     txn.loc[rng.random(total) < 0.004, "is_test"] = True
 
-    return _inject_defects(txn, rng)
+    return _inject_defects(txn, rng, world)
 
 
-def _intraday_profile() -> np.ndarray:
-    """Hourly order distribution: quiet overnight, peaks at lunch and late evening."""
-    shape = np.array(
-        [0.4, 0.2, 0.1, 0.1, 0.1, 0.2, 0.5, 1.0, 1.8, 2.6, 3.4, 4.2,
-         4.8, 4.4, 3.8, 3.6, 4.0, 4.8, 6.0, 7.2, 7.6, 6.4, 3.8, 1.6]
-    )
+def _intraday_profile(world: World = RETAIL_WORLD) -> np.ndarray:
+    """Hourly order distribution, normalised.
+
+    Retail's is quiet overnight and peaks at lunch and late evening. A loading
+    gantry and a grid have completely different days, and both are flatter.
+    """
+    shape = np.array(world.intraday, dtype=float)
     return shape / shape.sum()
 
 
-def _inject_defects(txn: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
+def _inject_defects(
+    txn: pd.DataFrame, rng: np.random.Generator, world: World = RETAIL_WORLD
+) -> pd.DataFrame:
     """Real extracts are not clean. These are the two the reconciler must handle."""
     # Duplicate order ids: the same order delivered twice by an upstream feed.
     # A naive count(*) inflates volume; count(distinct order_id) does not.
@@ -107,13 +115,18 @@ def _inject_defects(txn: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame
 
     # One region's extract arrives in local time rather than UTC. Left uncorrected
     # it shifts orders across the day boundary and smears the hourly metric.
-    east = txn["region"] == "East"
-    txn.loc[east, "order_ts"] = txn.loc[east, "order_ts"] + timedelta(hours=5, minutes=30)
+    local = txn["region"] == world.local_time_region
+    txn.loc[local, "order_ts"] = txn.loc[local, "order_ts"] + timedelta(hours=5, minutes=30)
 
     return txn.sort_values("order_ts").reset_index(drop=True)
 
 
-def emit_plan_ops(panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: int = 11) -> pd.DataFrame:
+def emit_plan_ops(
+    panel: pd.DataFrame,
+    events: tuple[PlantedEvent, ...],
+    seed: int = 11,
+    world: World = RETAIL_WORLD,
+) -> pd.DataFrame:
     """Weekly planning extract: marketing spend, stock cover, competitor index.
 
     Coarser grain and a two-day lag, so a diagnosis run early in the week is
@@ -126,20 +139,21 @@ def emit_plan_ops(panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: i
         .agg(revenue=("revenue", "sum"), units=("units", "sum"))
     )
 
-    # Spend tracks revenue with noise, correlated enough to be a plausible
-    # candidate driver, which is what makes ranking non-trivial.
-    weekly["marketing_spend"] = (
-        weekly["revenue"] * rng.uniform(0.05, 0.09, len(weekly))
-    ).round(0)
-    weekly["planned_stock"] = (weekly["units"] * rng.uniform(1.05, 1.35, len(weekly))).round(0)
-    weekly["competitor_price_index"] = np.round(rng.normal(100, 3.5, len(weekly)), 2)
+    # Each level tracks a panel quantity with noise, correlated enough to be a
+    # plausible candidate driver, which is what makes ranking non-trivial.
+    for level in world.plan_levels:
+        weekly[level.name] = (
+            weekly[level.basis] * rng.uniform(level.low, level.high, len(weekly))
+        ).round(0)
+    index = world.plan_index
+    weekly[index.name] = np.round(rng.normal(index.mean, index.sd, len(weekly)), 2)
 
     # Planted events are recorded here as operational facts. Causes and decoys
     # are written identically; nothing marks which is which.
-    weekly["promo_active"] = False
-    weekly["promo_id"] = None
+    weekly[world.plan_active_column] = False
+    weekly[world.plan_id_column] = None
     for event in events:
-        if event.kind not in (CauseKind.MARKETING_CUT, CauseKind.COMPETITOR_PROMO):
+        if event.kind not in world.plan_event_kinds:
             continue
         regions = {event.target.region} if event.target.region else set(weekly["region"])
         regions |= set(event.also_in)
@@ -151,15 +165,15 @@ def emit_plan_ops(panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: i
         )
         if event.target.category:
             mask &= weekly["category"] == event.target.category
-        weekly.loc[mask, "promo_active"] = True
-        weekly.loc[mask, "promo_id"] = event.event_id
-        if event.kind is CauseKind.COMPETITOR_PROMO:
-            weekly.loc[mask, "competitor_price_index"] -= 6.5
+        weekly.loc[mask, world.plan_active_column] = True
+        weekly.loc[mask, world.plan_id_column] = event.event_id
+        if event.kind in world.index_shock_kinds:
+            weekly.loc[mask, index.name] += index.shock
 
     # Missing weeks: the extract does not always land. Null, not zero; a zero
     # would be read as "no spend" rather than "we do not know".
     drop = rng.random(len(weekly)) < 0.03
-    weekly.loc[drop, ["marketing_spend", "planned_stock"]] = np.nan
+    weekly.loc[drop, [level.name for level in world.plan_levels]] = np.nan
 
     return weekly.drop(columns=["revenue", "units"])
 
@@ -205,7 +219,10 @@ BACKGROUND_TICKETS = [
 
 
 def emit_voice_ops(
-    panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: int = 13
+    panel: pd.DataFrame,
+    events: tuple[PlantedEvent, ...],
+    seed: int = 13,
+    world: World = RETAIL_WORLD,
 ) -> pd.DataFrame:
     """The document estate: tickets, agent notes, field reports, incidents.
 
@@ -223,7 +240,7 @@ def emit_voice_ops(
     rng = random.Random(seed)
     rows: list[dict] = []
     doc_id = 0
-    regions = [c.region for c in CITIES]
+    regions = [c.region for c in world.cities]
 
     start_day = panel["d"].min().date()
     end_day = panel["d"].max().date()
@@ -248,7 +265,7 @@ def emit_voice_ops(
             when = datetime(
                 day.year, day.month, day.day, rng.randint(6, 21), tzinfo=UTC
             )
-            add(customer_ticket(None, when, rng.choice(regions), rng))
+            add(customer_ticket(None, when, rng.choice(regions), rng, world.voices))
         day += timedelta(days=1)
 
     for event in events:
@@ -265,7 +282,7 @@ def emit_voice_ops(
                 when = datetime(
                     day.year, day.month, day.day, rng.randint(6, 21), tzinfo=UTC
                 )
-                add(customer_ticket(event.kind, when, region, rng))
+                add(customer_ticket(event.kind, when, region, rng, world.voices))
                 raised += 1
             day += timedelta(days=1)
 
@@ -273,7 +290,7 @@ def emit_voice_ops(
         # external or formal notice. Each later than the last, because the
         # sequence is how the business found out and is the part worth showing.
         for voice in chain(
-            event.kind, event.start, event.end, region, raised, rng
+            event.kind, event.start, event.end, region, raised, rng, world.voices
         ):
             add(voice, prefix="OPS")
 
@@ -281,7 +298,7 @@ def emit_voice_ops(
         # appear verbatim in the operational record.
         add(
             Voice(
-                "release_log" if event.kind is CauseKind.INTERNAL_BUG else "ops_note",
+                "release_log" if event.kind == world.release_kind else "ops_note",
                 f"{event.event_id}: {event.description}",
                 datetime(
                     event.start.year, event.start.month, event.start.day, 8,
@@ -306,7 +323,9 @@ def source_freshness(as_of: datetime | None = None) -> pd.DataFrame:
     )
 
 
-def emit_sessions(panel: pd.DataFrame, seed: int = 17) -> pd.DataFrame:
+def emit_sessions(
+    panel: pd.DataFrame, seed: int = 17, world: World = RETAIL_WORLD
+) -> pd.DataFrame:
     """Hourly session counts for the digital channels.
 
     Emitted as counts, not one row per session. Web analytics arrives
@@ -317,16 +336,24 @@ def emit_sessions(panel: pd.DataFrame, seed: int = 17) -> pd.DataFrame:
     by construction and a checkout regression can actually move it.
     """
     rng = np.random.default_rng(seed)
-    digital = panel[panel["channel"].isin(["web", "app"])]
+    # Both filters matter. A channel with no session concept is excluded, and
+    # so is a *device* with no declared conversion: petroleum's bulk pipeline
+    # movement runs on a direct-offtake channel but never crosses a loading
+    # gantry, so it has no scheduled-versus-loaded rate at all. Declaring it as
+    # a rate of zero instead would divide by it.
+    digital = panel[
+        panel["channel"].isin(world.digital_channels)
+        & panel["device"].isin(world.conversion_by_device)
+    ]
     grouped = digital.groupby(["d", "region", "channel", "device"], as_index=False)["orders"].sum()
     grouped = grouped[grouped["orders"] > 0].reset_index(drop=True)
 
     # Baseline conversion by device: mobile browses more and buys less.
-    base_rate = grouped["device"].map({"mobile": 0.041, "desktop": 0.068, "tablet": 0.052})
+    base_rate = grouped["device"].map(world.conversion_by_device)
     daily = (grouped["orders"] / base_rate * rng.normal(1.0, 0.05, len(grouped))).round()
 
     frames = []
-    for hour, share in enumerate(_intraday_profile()):
+    for hour, share in enumerate(_intraday_profile(world)):
         if share < 0.005:
             continue
         frames.append(
@@ -344,13 +371,20 @@ def emit_sessions(panel: pd.DataFrame, seed: int = 17) -> pd.DataFrame:
     return out[out["sessions"] > 0].reset_index(drop=True)
 
 
-def emit_shipments(panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: int = 23) -> pd.DataFrame:
+def emit_shipments(
+    panel: pd.DataFrame,
+    events: tuple[PlantedEvent, ...],
+    seed: int = 23,
+    world: World = RETAIL_WORLD,
+) -> pd.DataFrame:
     """Delivery promises and outcomes, at T+1 from a separate system."""
     rng = np.random.default_rng(seed)
     grouped = panel.groupby(["d", "region", "category"], as_index=False)["orders"].sum()
     grouped = grouped[grouped["orders"] > 0]
 
-    counts = np.maximum((grouped["orders"] / 6).round().astype(int), 1)
+    counts = np.maximum(
+        (grouped["orders"] / world.orders_per_shipment).round().astype(int), 1
+    )
     idx = np.repeat(np.arange(len(grouped)), counts)
     total = len(idx)
     src = grouped.iloc[idx]
@@ -359,14 +393,12 @@ def emit_shipments(panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: 
         rng.integers(2, 6, total), unit="D"
     )
     # Baseline on-time performance, before anything goes wrong.
-    late_risk = np.full(total, 0.09)
+    late_risk = np.full(total, world.late_risk_base)
 
     day = pd.Series(promised).dt.date.to_numpy()
     region = src["region"].to_numpy()
     for event in events:
-        if event.effect == 0.0 or event.kind not in (
-            CauseKind.EXTERNAL_WEATHER, CauseKind.STOCKOUT
-        ):
+        if event.effect == 0.0 or event.kind not in world.delivery_event_kinds:
             continue
         hit = (day >= event.start) & (day <= event.end)
         if event.target.region:
@@ -383,7 +415,7 @@ def emit_shipments(panel: pd.DataFrame, events: tuple[PlantedEvent, ...], seed: 
             "delivered_date": delivered,
             "region": region,
             "category": src["category"].to_numpy(),
-            "carrier": rng.choice(["BlueDart", "Delhivery", "Ecom", "InHouse"], total),
+            "carrier": rng.choice(list(world.carriers), total),
         }
     )
 
@@ -403,6 +435,7 @@ def emit_ext_signals(
     events: tuple[PlantedEvent, ...],
     seed: int = 29,
     declared: tuple = (),
+    world: World = RETAIL_WORLD,
 ) -> pd.DataFrame:
     """Public weather warnings, per city, as an external feed would deliver them.
 
@@ -427,18 +460,18 @@ def emit_ext_signals(
     rng = np.random.default_rng(seed)
     days = pd.to_datetime(panel["d"]).drop_duplicates().sort_values()
 
-    weather_windows = {
+    hazard_windows = {
         (e.target.region, d.date())
         for e in events
-        if e.kind is CauseKind.EXTERNAL_WEATHER and not e.is_decoy
+        if e.kind == world.hazard_kind and not e.is_decoy
         for d in pd.date_range(e.start, e.end, freq="D")
     }
 
     rows = []
-    for city in CITIES:
-        seasonal = _monsoon_intensity(days, city.region)
+    for city in world.cities:
+        seasonal = _hazard_intensity(days, city.region, world)
         for day, base in zip(days, seasonal, strict=True):
-            planted = (city.region, day.date()) in weather_windows
+            planted = (city.region, day.date()) in hazard_windows
             # A planted event is a genuine severe-weather episode; the rest is
             # ordinary monsoon variation, which is what stops the feed being a
             # perfect oracle for the events.
@@ -455,7 +488,7 @@ def emit_ext_signals(
             rows.append(
                 {
                     "signal_id": f"wx-{city.name.lower()}-{day.date():%Y%m%d}",
-                    "signal_type": "severe_weather",
+                    "signal_type": world.hazard_signal_type,
                     "city": city.name,
                     "region": city.region,
                     "lat": city.lat,
@@ -467,12 +500,12 @@ def emit_ext_signals(
                     "valid_to": valid_from + timedelta(hours=24),
                     "lead_time_hours": round(lead_hours, 1),
                     "is_public": True,
-                    "publisher": "India Meteorological Department",
+                    "publisher": world.hazard_publisher,
                     "source": "generated",
-                    "source_url": "https://mausam.imd.gov.in/",
+                    "source_url": world.hazard_url,
                 }
             )
-    rows.extend(_declared_rows(declared))
+    rows.extend(_declared_rows(declared, world))
     return pd.DataFrame(rows).sort_values(["valid_from", "city"]).reset_index(drop=True)
 
 
@@ -498,7 +531,7 @@ def _declared_type(signal_id: str, publisher: str) -> str:
     return "external_advisory"
 
 
-def _declared_rows(declared: tuple) -> list[dict]:
+def _declared_rows(declared: tuple, world: World = RETAIL_WORLD) -> list[dict]:
     """Emit each scenario's AvailableSignal into the feed's own schema.
 
     Severity is carried from the scenario rather than derived from lead time.
@@ -514,7 +547,9 @@ def _declared_rows(declared: tuple) -> list[dict]:
         region = getattr(signal.covers, "region", None) or "All"
         severity = getattr(signal, "severity", "amber")
         valid_from = signal.available_at + timedelta(hours=signal.lead_time_hours)
-        city = next((c for c in CITIES if c.region == region), CITIES[0])
+        city = next(
+            (c for c in world.cities if c.region == region), world.cities[0]
+        )
         rows.append(
             {
                 "signal_id": signal.signal_id,
@@ -538,13 +573,17 @@ def _declared_rows(declared: tuple) -> list[dict]:
     return rows
 
 
-def _monsoon_intensity(days: pd.Series, region: str) -> np.ndarray:
-    """Ordinary seasonal wetness, on the same curve the panel is built from.
+def _hazard_intensity(
+    days: pd.Series, region: str, world: World = RETAIL_WORLD
+) -> np.ndarray:
+    """Ordinary seasonal hazard, on the same curve the panel is built from.
 
-    Shares its shape with `series._monsoon_factor` so the feed and the demand it
-    is meant to explain agree about when the monsoon is.
+    Shares its phase with `series._seasonal_factor` so the feed and the demand
+    it is meant to explain agree about when the season is. Only the amplitude
+    differs: the feed reports how wet it is, the panel how much that suppressed
+    trade, and those are not the same number.
     """
     day_of_year = days.dt.dayofyear.to_numpy()
-    phase = {"West": 190, "South": 250, "East": 200, "North": 210}[region]
-    depth = {"West": 0.62, "South": 0.34, "East": 0.45, "North": 0.20}[region]
+    phase = world.seasonal_phase[region]
+    depth = world.hazard_intensity[region]
     return depth * np.exp(-(((day_of_year - phase) / 32.0) ** 2))

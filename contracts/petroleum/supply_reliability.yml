@@ -1,0 +1,89 @@
+# Supply reliability. Arrives from a third source on a T+1 cadence, so it is the
+# metric most likely to be stale when a diagnosis runs, which makes it the
+# natural place to demonstrate the freshness gate.
+kpi_id: supply_reliability
+version: 1
+owner_role: supply_manager
+unit: ratio
+definition: >
+  Share of consignments delivered on or before the committed date. Consignments
+  undelivered past their commitment count as late; those still within their
+  window are excluded rather than assumed on time.
+
+calculation:
+  canonical_sql: |
+    SELECT date_trunc('day', promised_date) AS d,
+           region, category,
+           AVG(CASE WHEN delivered_date <= promised_date THEN 1.0 ELSE 0.0 END) AS value,
+           SUM(CASE WHEN delivered_date <= promised_date THEN 1.0 ELSE 0.0 END) AS on_time,
+           COUNT(*)::DOUBLE AS consignments
+    FROM shipments
+    WHERE delivered_date IS NOT NULL OR promised_date < CURRENT_DATE
+    GROUP BY 1, 2, 3
+  dialect_targets: [duckdb, databricks, snowflake]
+
+grain:
+  time: day
+  dims: [region, category]
+  aggregation: ratio_of_sums
+  numerator: on_time
+  denominator: consignments
+  # Reliability runs at about 93 per cent, where the two noise forms differ
+  # by a factor of nearly four. The on-time count is measured against the
+  # commitment rather than drawn from the consignment count, so it keeps its
+  # own variance and `counting` is the right form (see Grain.noise_model).
+  noise_model: counting
+
+calendar: fiscal_in
+parents: []
+children: []
+dimensions: [region, category, carrier]
+
+drivers:
+  - id: carrier_capacity
+    source: plan_ops
+    controllable_lever: fleet_augmentation
+    owner_role: logistics_lead
+  - id: pipeline_integrity
+    source: voice_ops
+    controllable_lever: mode_switch
+    owner_role: logistics_lead
+  - id: port_closure
+    source: ext_signals
+
+materiality:
+  min_abs_robust_z: 2.5
+  min_abs_delta_inr: 5000000
+  # One whole unit is every consignment moving from on time to late. Costed at
+  # a third of a region-day of realisation, covering the liftings lost now and
+  # the industrial contracts that do not renew afterwards. Costing it at only
+  # the immediate credits understates a metric whose damage is mostly deferred.
+  # A twenty-five point fall is then worth Rs 4.8 crore, which clears the floor.
+  value_per_unit_inr: 32000000.0
+
+freshness_sla:
+  plan_ops: 72h
+  voice_ops: 2h
+  ext_signals: 36h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+
+# The same supply planning procedure governs this metric: section 4 step three
+# applies evacuation capacity to derive the allocable quantity, and reliability
+# is what that allocation delivers. A cycle that plans distribution against
+# offtake history, inventory, refinery capacity and the financial plan, and
+# against no external disruption signal at all, cannot anticipate a cyclone.
+signals_consumed:
+  derived_from: data/docs/sop/product_supply_planning_v3.md
+  coverage: complete
+  extracted_at: 2026-08-29T09:14:00Z
+  extracted:
+    - {signal: historical_offtake, span: [859, 1068]}
+    - {signal: inventory_position, span: [1070, 1233]}
+    - {signal: capacity_metrics, span: [1235, 1415]}
+    - {signal: financial_plan, span: [1417, 1560]}
+
+lineage:
+  upstream: [shipments]
+  transforms: [exclude_in_flight]

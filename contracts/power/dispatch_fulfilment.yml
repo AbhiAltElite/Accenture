@@ -1,0 +1,90 @@
+# Dispatch fulfilment. Hourly, and unlike the other two verticals this is not a
+# contrivance: a grid schedules and settles block by block, so the hour is the
+# grain the industry actually reports on. Reconciling it against a daily
+# realisation figure is exactly what the engine has to get right.
+kpi_id: dispatch_fulfilment
+version: 1
+owner_role: system_operator
+unit: ratio
+definition: >
+  Energy despatched divided by energy scheduled, contracted and exchange routes
+  only. Banked energy is settled in kind later and has no block-level schedule,
+  so it is excluded rather than counted as fulfilled.
+
+calculation:
+  canonical_sql: |
+    WITH sched AS (
+      SELECT date_trunc('hour', session_ts) AS h, region, device,
+             SUM(sessions) AS scheduled
+      FROM sessions WHERE channel IN ('ppa','exchange') GROUP BY 1,2,3
+    ), despatched AS (
+      SELECT date_trunc('hour', order_ts) AS h, region, device,
+             COUNT(DISTINCT order_id) AS delivered
+      FROM pos_txn
+      WHERE status <> 'cancelled' AND channel IN ('ppa','exchange')
+      GROUP BY 1,2,3
+    )
+    SELECT s.h AS h, s.region, s.device,
+           COALESCE(d.delivered, 0)::DOUBLE / NULLIF(s.scheduled, 0) AS value,
+           COALESCE(d.delivered, 0)::DOUBLE AS delivered,
+           s.scheduled::DOUBLE AS scheduled
+    FROM sched s LEFT JOIN despatched d USING (h, region, device)
+  dialect_targets: [duckdb, databricks, snowflake]
+
+grain:
+  time: hour
+  dims: [region, device]
+  # A rate. Rolling up re-divides the summed parts: the mean of slice rates
+  # would weight a peaking unit that scheduled four blocks like a base-load
+  # unit that scheduled four hundred.
+  aggregation: ratio_of_sums
+  numerator: delivered
+  denominator: scheduled
+  # Fulfilment runs at about 71 per cent. The despatched energy is metered
+  # separately from the declared schedule rather than drawn out of it, so it
+  # keeps its own variance: measured here the relative spread is 0.164, which
+  # `counting` puts at 0.158 and `binomial` at 0.085 (see Grain.noise_model).
+  noise_model: counting
+
+calendar: fiscal_in
+parents: [scheduled_blocks]
+children: []
+dimensions: [region, device, channel]
+
+drivers:
+  - id: plant_availability
+    source: voice_ops
+    controllable_lever: outage_rescheduling
+    owner_role: station_head
+  - id: fuel_supply
+    source: voice_ops
+    controllable_lever: fuel_sourcing
+    owner_role: fuel_manager
+  - id: weather_load
+    source: ext_signals
+
+materiality:
+  min_abs_robust_z: 3.0
+  # Per observation, and this contract's observations are hours. The Rs 3.5 lakh
+  # used by the daily KPIs is a day's worth, so a day's floor is divided across
+  # a day's hours (T-19).
+  min_abs_delta_inr: 14583
+  # A ratio at an *hourly* grain, so one whole unit is every scheduled block in
+  # one hour despatching rather than none: about 56 regional blocks at an
+  # Rs 6,399 average. Reachability check: the floor needs a fall of 4.1
+  # points on a metric that runs at about 71 per cent, which is well inside
+  # what a fuel shortfall or a corridor constraint actually does.
+  value_per_unit_inr: 360265.0
+
+freshness_sla:
+  pos_txn: 6h
+  voice_ops: 2h
+  ext_signals: 36h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+  domain_restriction: [pii]
+
+lineage:
+  upstream: [sessions, pos_txn]
+  transforms: []

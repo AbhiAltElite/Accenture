@@ -1,0 +1,69 @@
+# Average realised tariff. The other half of the identity, and where a
+# regulatory order shows up most directly.
+kpi_id: avg_realised_tariff
+version: 1
+owner_role: regulatory_lead
+unit: INR
+definition: >
+  Dispatch realisation divided by despatched blocks. Sensitive to fuel mix as
+  well as to the regulated tariff, which is why movements here are decomposed
+  rather than read directly.
+
+calculation:
+  canonical_sql: |
+    SELECT date_trunc('day', order_ts) AS d,
+           region, channel, category, device,
+           SUM(qty * unit_price - discount) / NULLIF(COUNT(DISTINCT order_id), 0) AS value,
+           SUM(qty * unit_price - discount) AS dispatch_realisation,
+           COUNT(DISTINCT order_id)::DOUBLE AS blocks
+    FROM pos_txn
+    WHERE status <> 'cancelled'
+    GROUP BY 1, 2, 3, 4, 5
+  dialect_targets: [duckdb, databricks, snowflake]
+
+grain:
+  time: day
+  dims: [region, channel, category, device]
+  # Currency, but structurally a ratio. Rolling up means total over total, never
+  # the mean of slice tariffs; a peaking station that cleared two blocks would
+  # otherwise weigh as much as a base-load station that cleared two hundred.
+  aggregation: ratio_of_sums
+  numerator: dispatch_realisation
+  denominator: blocks
+
+calendar: fiscal_in
+parents: [dispatch_realisation]
+children: []
+dimensions: [region, channel, category, device, sku]
+
+drivers:
+  - id: tariff_order
+    source: plan_ops
+    controllable_lever: regulatory_filing
+    owner_role: regulatory_lead
+    elasticity_prior: -0.3
+  - id: fuel_mix
+    source: pos_txn
+    controllable_lever: despatch_mix
+    owner_role: trading_head
+  - id: demand_shift
+    source: plan_ops
+
+materiality:
+  min_abs_robust_z: 3.0
+  min_abs_delta_inr: 350000
+  # A one-rupee change in average realised tariff applies across every block
+  # despatched in the region that day, which is about 1,060.
+  value_per_unit_inr: 1060.0
+
+freshness_sla:
+  pos_txn: 6h
+  plan_ops: 72h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+  column_masks: [variable_cost]
+
+lineage:
+  upstream: [pos_txn.orders, pos_txn.order_items]
+  transforms: [dedupe_order_id, net_returns]

@@ -1,0 +1,107 @@
+# Dispatch realisation, the master metric. Movements cascade from scheduled
+# blocks and average realised tariff, which is what lets a break be traced down
+# the graph rather than guessed at.
+#
+# The reason this vertical exists: neither leg of the bridge below is set here.
+# The tariff comes from a regulatory order and the volume comes from a merit
+# order the load despatch centre applies. A generator's revenue is decided for
+# it, and the bridge says which half of it moved.
+kpi_id: dispatch_realisation
+version: 1
+owner_role: finance_director
+unit: INR
+definition: >
+  Realised value of energy despatched, net of rebates, excluding deviation
+  settlement charges. Blocks revised to zero before the block boundary are
+  excluded; curtailed energy is netted in the block of the curtailment.
+
+calculation:
+  canonical_sql: |
+    SELECT date_trunc('day', order_ts) AS d,
+           region, channel, category, device,
+           SUM(qty * unit_price - discount) AS value
+    FROM pos_txn
+    WHERE status <> 'cancelled'
+    GROUP BY 1, 2, 3, 4, 5
+  dialect_targets: [duckdb, databricks, snowflake]
+
+grain:
+  time: day
+  dims: [region, channel, category, device]
+
+calendar: fiscal_in
+parents: []
+children: [scheduled_blocks, avg_realised_tariff]
+dimensions: [region, channel, category, device, sku]
+
+drivers:
+  - id: tariff_order
+    source: plan_ops
+    controllable_lever: regulatory_filing
+    owner_role: regulatory_lead
+    elasticity_prior: -0.3
+  - id: fuel_supply
+    source: voice_ops
+    controllable_lever: fuel_sourcing
+    owner_role: fuel_manager
+  - id: plant_availability
+    source: voice_ops
+    controllable_lever: outage_rescheduling
+    owner_role: station_head
+  - id: grid_constraint
+    source: plan_ops
+    controllable_lever: corridor_booking
+    owner_role: trading_head
+  # Observable, not actionable. Nobody here owns a lever that moves the merit
+  # order stack or the weather.
+  - id: demand_shift
+    source: plan_ops
+  - id: weather_load
+    source: ext_signals
+
+materiality:
+  min_abs_robust_z: 3.0
+  # Detection runs per grid region, and a West region-day of the metric series realises about
+  # Rs 67.8 lakh. A floor of Rs 3.5 lakh is 5.2 per cent of that, the
+  # same share of a region-day the other two verticals use.
+  min_abs_delta_inr: 350000
+  # The metric is already rupees, so a rupee of movement is a rupee of impact.
+  value_per_unit_inr: 1.0
+
+freshness_sla:
+  pos_txn: 6h
+  plan_ops: 72h
+  voice_ops: 2h
+  ext_signals: 36h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+  column_masks: [variable_cost, station_contact]
+  domain_restriction: [pii]
+
+# Derived at registration from the published scheduling procedure. The cycle
+# consumes generation history, fuel stock, declared capacity and the financial
+# plan. No external signal at all -- not a heat wave warning, not a corridor
+# advisory. That absence is the finding, in a business where demand is a
+# weather variable.
+signals_consumed:
+  derived_from: data/docs/sop/generation_scheduling_v2.md
+  coverage: complete
+  extracted_at: 2026-08-29T09:14:00Z
+  extracted:
+    - {signal: historical_generation, span: [829, 1031]}
+    - {signal: fuel_stock_position, span: [1033, 1219]}
+    - {signal: capacity_metrics, span: [1221, 1407]}
+    - {signal: financial_plan, span: [1409, 1562]}
+
+# Realisation is a sum of priced energy, so the price/volume/mix identity
+# applies exactly and its three legs add back to the movement.
+decomposition:
+  method: pvm
+  key: sku
+  units: qty
+  revenue: qty * unit_price - discount
+
+lineage:
+  upstream: [pos_txn.orders, pos_txn.order_items]
+  transforms: [dedupe_order_id, tz_normalise, net_returns]

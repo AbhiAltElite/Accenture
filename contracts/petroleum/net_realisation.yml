@@ -1,0 +1,111 @@
+# Net realisation, the master metric. Movements here cascade from consignments
+# and average consignment value, which is what lets a break be traced down the
+# graph rather than guessed at.
+#
+# The reason this vertical exists: the price leg of the bridge below is an
+# administered number. It follows a crude benchmark and an excise notification,
+# neither of which anyone in this business decides. A fall that decomposes into
+# price is therefore a fall caused from outside, and the bridge says so exactly.
+kpi_id: net_realisation
+version: 1
+owner_role: finance_director
+unit: INR
+definition: >
+  Realised value of product lifted, net of discounts, excluding duty recovered
+  on behalf of the exchequer. Cancelled indents are excluded; short-lifted
+  quantities are netted in the period of the short lift, not the original indent.
+
+calculation:
+  canonical_sql: |
+    SELECT date_trunc('day', order_ts) AS d,
+           region, channel, category, device,
+           SUM(qty * unit_price - discount) AS value
+    FROM pos_txn
+    WHERE status <> 'cancelled'
+    GROUP BY 1, 2, 3, 4, 5
+  dialect_targets: [duckdb, databricks, snowflake]
+
+grain:
+  time: day
+  dims: [region, channel, category, device]
+
+calendar: fiscal_in
+parents: []
+children: [consignments, avg_consignment_value]
+dimensions: [region, channel, category, device, sku]
+
+drivers:
+  - id: excise_duty
+    source: plan_ops
+    controllable_lever: pricing_revision
+    owner_role: pricing_manager
+    elasticity_prior: -0.2
+  - id: refinery_availability
+    source: voice_ops
+    controllable_lever: alternate_sourcing
+    owner_role: supply_manager
+  - id: pipeline_integrity
+    source: voice_ops
+    controllable_lever: mode_switch
+    owner_role: logistics_lead
+  - id: carrier_capacity
+    source: plan_ops
+    controllable_lever: fleet_augmentation
+    owner_role: logistics_lead
+  # Observable but not actionable. Nobody in this business owns a lever that
+  # moves the crude benchmark or reopens a port, and manufacturing one would put
+  # the wrong name on a decision.
+  - id: crude_benchmark
+    source: plan_ops
+  - id: port_closure
+    source: ext_signals
+
+materiality:
+  min_abs_robust_z: 3.0
+  # Detection runs per marketing region, and a West region-day of the metric series realises about
+  # Rs 9.57 crore. A floor of Rs 50 lakh is 5.2 per cent of that, the same
+  # share of a region-day the retail vertical's floor represents.
+  min_abs_delta_inr: 5000000
+  # The metric is already rupees, so a rupee of movement is a rupee of impact.
+  value_per_unit_inr: 1.0
+
+freshness_sla:
+  pos_txn: 6h
+  plan_ops: 72h
+  voice_ops: 2h
+  ext_signals: 36h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+  column_masks: [unit_margin, dealer_contact]
+  domain_restriction: [pii]
+
+# Derived at registration from the published supply planning procedure. Note
+# what the cycle consumes: offtake history, inventory, refinery capacity,
+# financial plan. No external disruption signal at all. That absence is the
+# finding, and it is visible in the industry's own description of its own
+# process -- the same shape of gap as the retail S&OP, in a business where the
+# disruptions are almost entirely external.
+signals_consumed:
+  derived_from: data/docs/sop/product_supply_planning_v3.md
+  coverage: complete
+  extracted_at: 2026-08-29T09:14:00Z
+  extracted:
+    - {signal: historical_offtake, span: [859, 1068]}
+    - {signal: inventory_position, span: [1070, 1233]}
+    - {signal: capacity_metrics, span: [1235, 1415]}
+    - {signal: financial_plan, span: [1417, 1560]}
+
+# Realisation is a sum of priced volume, so the price/volume/mix identity
+# genuinely applies and its three legs add back to the movement exactly. The
+# other four KPIs leave this unset: a rate has no volume to move and no price
+# to change.
+decomposition:
+  method: pvm
+  key: sku
+  units: qty
+  revenue: qty * unit_price - discount
+
+lineage:
+  upstream: [pos_txn.orders, pos_txn.order_items]
+  transforms: [dedupe_order_id, tz_normalise, net_returns]

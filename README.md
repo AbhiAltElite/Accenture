@@ -121,6 +121,37 @@ project (persona + entitlement, applied before assembly)
 feedback (bounded: business inputs only, never a computed value)
 ```
 
+## Three industries, one engine
+
+The console opens on an industry switcher. The same engine answers the same
+eight questions about three businesses whose metrics move for entirely different
+reasons, and that contrast is the point of having more than one.
+
+| Industry | What moves it | Headline metric |
+|---|---|---|
+| **Retail CPG** | Mostly internal: releases, pricing, stock, marketing, with weather and competitors at the edges | `net_revenue` |
+| **Petroleum marketing** | Almost entirely external: crude benchmarks, excise notifications, refinery turnarounds, pipeline integrity, port closures | `net_realisation` |
+| **Power generation** | Set from outside: regulatory tariff orders, fuel supply, grid constraints, merit order, weather-driven load | `dispatch_realisation` |
+
+Switching industry changes the contracts, the warehouse, the labels and the
+dimension names together. It changes no calculation: detection, the price/volume/
+mix bridge, both ranking tracks, the causal tests, confidence and every threshold
+are the contract's job in all three. What each industry supplies is its own
+vocabulary — which words in an operational note name which driver, which
+complaint codes corroborate which cause, what its planning extract calls a
+planned intervention.
+
+**The externally-driven verticals make a refusal demonstrable that retail
+cannot.** A national excise revision or a regulatory tariff order lands on every
+region on the same morning. There is no unexposed region, difference-in-
+differences has nothing to compare against, and the correct answer is
+`cannot_verify` rather than a cause. Both verticals plant one deliberately
+alongside regional events that must verify, because a vertical made only of
+national policy events would abstain on everything and demonstrate half the
+engine.
+
+Build them with `make gen-all`. Retail alone is `make gen`.
+
 **Five connected KPIs across four sources at three grains and four refresh
 cadences.** Revenue is orders times average order value; orders come from
 sessions times conversion. A break in one shows up in the others, which is why

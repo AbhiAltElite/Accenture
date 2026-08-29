@@ -1,0 +1,70 @@
+# Average consignment value. The other half of the identity, and where an
+# externally administered price shows up most directly.
+kpi_id: avg_consignment_value
+version: 1
+owner_role: pricing_manager
+unit: INR
+definition: >
+  Net realisation divided by completed consignments. Sensitive to product mix as
+  well as to the administered price, which is why movements here are decomposed
+  rather than read directly.
+
+calculation:
+  canonical_sql: |
+    SELECT date_trunc('day', order_ts) AS d,
+           region, channel, category, device,
+           SUM(qty * unit_price - discount) / NULLIF(COUNT(DISTINCT order_id), 0) AS value,
+           SUM(qty * unit_price - discount) AS net_realisation,
+           COUNT(DISTINCT order_id)::DOUBLE AS consignments
+    FROM pos_txn
+    WHERE status <> 'cancelled'
+    GROUP BY 1, 2, 3, 4, 5
+  dialect_targets: [duckdb, databricks, snowflake]
+
+grain:
+  time: day
+  dims: [region, channel, category, device]
+  # Currency, but structurally a ratio: realisation over consignments. Rolling
+  # up means total over total, never the mean of slice averages; an aviation
+  # slice with three liftings would otherwise weigh as much as a retail slice
+  # with three thousand.
+  aggregation: ratio_of_sums
+  numerator: net_realisation
+  denominator: consignments
+
+calendar: fiscal_in
+parents: [net_realisation]
+children: []
+dimensions: [region, channel, category, device, sku]
+
+drivers:
+  - id: excise_duty
+    source: plan_ops
+    controllable_lever: pricing_revision
+    owner_role: pricing_manager
+    elasticity_prior: -0.2
+  - id: product_mix
+    source: pos_txn
+    controllable_lever: allocation_mix
+    owner_role: supply_manager
+  - id: crude_benchmark
+    source: plan_ops
+
+materiality:
+  min_abs_robust_z: 3.0
+  min_abs_delta_inr: 5000000
+  # A one-rupee change in average consignment value applies across every
+  # consignment lifted in the region that day, which is about 646.
+  value_per_unit_inr: 646.0
+
+freshness_sla:
+  pos_txn: 6h
+  plan_ops: 72h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+  column_masks: [unit_margin]
+
+lineage:
+  upstream: [pos_txn.orders, pos_txn.order_items]
+  transforms: [dedupe_order_id, net_returns]

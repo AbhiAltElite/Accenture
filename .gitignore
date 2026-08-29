@@ -17,8 +17,10 @@ data/raw/*.parquet
 data/raw/*.csv
 !data/raw/.gitkeep
 
-# GROUND TRUTH — engine must never read this; kept out of the package entirely
-data/ground_truth/*.json
+# GROUND TRUTH — engine must never read this; kept out of the package entirely.
+# The `**` matters: each industry keeps its labels in its own subdirectory, and
+# a top-level-only pattern would have committed two of the three.
+data/ground_truth/**/*.json
 !data/ground_truth/.gitkeep
 
 # Secrets

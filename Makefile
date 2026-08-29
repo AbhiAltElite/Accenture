@@ -5,6 +5,9 @@ setup:            ## create venv and install dependencies
 	.venv/bin/pip install --upgrade pip
 	.venv/bin/pip install -r requirements.txt
 
+gen-all:          ## generate every industry's dataset + ground truth
+	PYTHONPATH=. .venv/bin/python -m datagen.build all
+
 gen:              ## generate the synthetic dataset + ground truth
 	.venv/bin/python -m datagen.build
 

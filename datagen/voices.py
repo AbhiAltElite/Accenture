@@ -159,6 +159,41 @@ TYPOS = (
 
 
 @dataclass(frozen=True)
+class VoicePack:
+    """Everything one industry's people say, and how they say it.
+
+    Four speakers and one shape. Customers (or dealers, or discoms) write in
+    their own words; an agent summarises the pattern across contacts; the field
+    or the supplier confirms it; an incident record exists only once somebody
+    has decided it is one thing rather than several. That sequence is the same
+    everywhere and lives in `chain`. Only the words are here.
+
+    `off_vocabulary` is the part that has to survive the move to a new industry
+    intact: roughly two in five event-driven complaints must use phrasing the
+    rule table does not contain, or the with-model comparison stops measuring
+    anything. A pack whose off-vocabulary accidentally overlaps its own
+    industry's `Vocabulary` terms would quietly make the rule extractor look
+    better than it is, which is why a test checks the overlap rather than
+    trusting the prose.
+    """
+
+    openers: tuple[str, ...]
+    closers: tuple[str, ...]
+    background: tuple[str, ...]
+    typos: tuple[tuple[str, str], ...]
+    in_vocabulary: dict[str, tuple[str, ...]]
+    off_vocabulary: dict[str, tuple[str, ...]]
+    agent_summaries: dict[str, str]
+    field_reports: dict[str, str]
+    incidents: dict[str, str]
+    external_records: dict[str, str]
+    # Which cause kind's closing record is filed as a deployment log rather than
+    # an external notice, and the identifier that appears in it.
+    release_kind: str = "internal_bug"
+    release_label: str = "4.05"
+
+
+@dataclass(frozen=True)
 class Voice:
     """One document, and what kind of speaker produced it."""
 
@@ -168,10 +203,10 @@ class Voice:
     region: str
 
 
-def _distort(text: str, rng: random.Random) -> str:
+def _distort(text: str, rng: random.Random, typos: tuple = TYPOS) -> str:
     """Ordinary human mangling: a typo, a lost capital, a stray full stop."""
     if rng.random() < 0.11:
-        wrong, right = rng.choice(TYPOS)
+        wrong, right = rng.choice(typos)
         text = text.replace(wrong, right, 1)
     if rng.random() < 0.30:
         text = text[0].upper() + text[1:] if text else text
@@ -181,7 +216,11 @@ def _distort(text: str, rng: random.Random) -> str:
 
 
 def customer_ticket(
-    kind: CauseKind | None, when: datetime, region: str, rng: random.Random
+    kind: CauseKind | None,
+    when: datetime,
+    region: str,
+    rng: random.Random,
+    pack: VoicePack | None = None,
 ) -> Voice:
     """A ticket in the customer's own words.
 
@@ -190,15 +229,16 @@ def customer_ticket(
     reading visibly under-counts, low enough that the rules are not useless and
     the comparison stays honest.
     """
+    pack = pack or RETAIL_VOICES
     if kind is None:
-        body = rng.choice(BACKGROUND)
-    elif rng.random() < 0.4 and kind in OFF_VOCABULARY:
-        body = rng.choice(OFF_VOCABULARY[kind])
+        body = rng.choice(pack.background)
+    elif rng.random() < 0.4 and kind in pack.off_vocabulary:
+        body = rng.choice(pack.off_vocabulary[kind])
     else:
-        body = rng.choice(IN_VOCABULARY.get(kind, BACKGROUND))
+        body = rng.choice(pack.in_vocabulary.get(kind, pack.background))
 
-    text = rng.choice(OPENERS) + body + rng.choice(CLOSERS)
-    return Voice("support_ticket", _distort(text, rng), when, region)
+    text = rng.choice(pack.openers) + body + rng.choice(pack.closers)
+    return Voice("support_ticket", _distort(text, rng, pack.typos), when, region)
 
 
 # ---------------------------------------------------------------------------
@@ -296,7 +336,8 @@ def chain(
     region: str,
     ticket_count: int,
     rng: random.Random,
-    release: str = "4.05",
+    pack: VoicePack | None = None,
+    release: str | None = None,
 ) -> list[Voice]:
     """The operational record of one event, as four documents in sequence.
 
@@ -314,31 +355,33 @@ def chain(
     fix being blamed for the fault. A remediation completes when the impact
     does, so dating it truthfully also stops it being mistaken for a cause.
     """
+    pack = pack or RETAIL_VOICES
+    release = release or pack.release_label
     out: list[Voice] = []
     day = datetime(start.year, start.month, start.day, tzinfo=UTC)
 
-    if kind in AGENT_SUMMARIES:
+    if kind in pack.agent_summaries:
         out.append(Voice(
             "agent_note",
-            AGENT_SUMMARIES[kind].format(
+            pack.agent_summaries[kind].format(
                 n=max(ticket_count // 3, 2), region=region
             ),
             day + timedelta(hours=13),
             region,
         ))
 
-    if kind in FIELD_REPORTS:
+    if kind in pack.field_reports:
         out.append(Voice(
             "field_report",
-            FIELD_REPORTS[kind].format(region=region),
+            pack.field_reports[kind].format(region=region),
             day + timedelta(hours=17),
             region,
         ))
 
-    if kind in INCIDENTS:
+    if kind in pack.incidents:
         out.append(Voice(
             "incident",
-            INCIDENTS[kind].format(
+            pack.incidents[kind].format(
                 num=rng.randint(4000, 4999), region=region, release=release,
                 n=max(ticket_count, 1), calls=max(ticket_count // 3, 1),
             ),
@@ -346,13 +389,31 @@ def chain(
             region,
         ))
 
-    if kind in EXTERNAL_RECORDS:
+    if kind in pack.external_records:
         closed = datetime(end.year, end.month, end.day, tzinfo=UTC)
         out.append(Voice(
-            "release_log" if kind is CauseKind.INTERNAL_BUG else "external_notice",
-            EXTERNAL_RECORDS[kind].format(region=region, release=release),
+            "release_log" if kind == pack.release_kind else "external_notice",
+            pack.external_records[kind].format(region=region, release=release),
             closed + timedelta(days=1, hours=15),
             region,
         ))
 
     return out
+
+
+# Retail's pack, assembled from the tables above rather than restating them, so
+# there is one place each phrase lives.
+RETAIL_VOICES = VoicePack(
+    openers=OPENERS,
+    closers=CLOSERS,
+    background=BACKGROUND,
+    typos=TYPOS,
+    in_vocabulary=IN_VOCABULARY,
+    off_vocabulary=OFF_VOCABULARY,
+    agent_summaries=AGENT_SUMMARIES,
+    field_reports=FIELD_REPORTS,
+    incidents=INCIDENTS,
+    external_records=EXTERNAL_RECORDS,
+    release_kind=CauseKind.INTERNAL_BUG,
+    release_label="4.05",
+)
