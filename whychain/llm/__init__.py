@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
 
@@ -76,6 +77,77 @@ class ChatModel(Protocol):
     def complete(
         self, *, system: str, user: str, schema: dict, max_tokens: int = 4096
     ) -> Completion: ...
+
+
+class Task(StrEnum):
+    """The two jobs a model does here, which are not equally hard.
+
+    Naming them lets each be routed to the cheapest model that can do it, which
+    is how Accenture's Spotlight platform describes its own architecture:
+    dynamic selection between task-specific models and foundation models
+    according to task complexity and latency. The principle is sound and cheap
+    to adopt, and it is the opposite of sending every request to the largest
+    model available because that is the one in the config.
+    """
+
+    EXTRACT = "extract"
+    NARRATE = "narrate"
+
+
+# What each task actually demands, and therefore what it should be given. These
+# are statements about the work, not about any vendor's tiers, so they survive a
+# change of backend.
+TASK_PROFILE: dict[Task, dict] = {
+    Task.EXTRACT: {
+        "needs": "classification against a closed vocabulary over short passages",
+        "tier": "small",
+        "env": "WHYCHAIN_EXTRACTION_MODEL",
+        "why_small": (
+            "the output space is seven issue types and a verbatim quote, both "
+            "constrained by schema and both checked afterwards against the "
+            "source, so a larger model buys accuracy the validator already "
+            "guarantees"
+        ),
+    },
+    Task.NARRATE: {
+        "needs": "constrained writing over a table of facts, with citations",
+        "tier": "standard",
+        "env": "WHYCHAIN_NARRATIVE_MODEL",
+        "why": (
+            "the harder of the two: it has to select what matters, order it, "
+            "and copy every figure exactly. Sentences that fail are dropped, so "
+            "a weaker model costs coverage rather than correctness"
+        ),
+    },
+}
+
+
+def model_for(task: Task, backend: str | None = None) -> ChatModel | None:
+    """The model this task should use, routed by what the task needs.
+
+    A per-task environment variable overrides the default, so a deployment can
+    put extraction on a small local model and the narrative on something larger
+    without either stage knowing it happened.
+    """
+    override = os.environ.get(str(TASK_PROFILE[task]["env"]), "").strip()
+    return default_model(override or None, backend)
+
+
+def routing() -> list[dict]:
+    """How each task is currently routed. Rendered on the receipt."""
+    out = []
+    for task, profile in TASK_PROFILE.items():
+        chosen = model_for(task)
+        out.append(
+            {
+                "task": task.value,
+                "needs": profile["needs"],
+                "tier": profile["tier"],
+                "model": chosen.name if chosen else "deterministic fallback",
+                "backend": chosen.backend if chosen else "none",
+            }
+        )
+    return out
 
 
 def default_model(
@@ -116,16 +188,28 @@ def default_model(
 
 
 # Where an enterprise platform would attach. Named rather than implemented,
-# because a backend nobody has run is a claim rather than a capability, and
-# this project's whole argument is against those.
+# because a backend nobody has run is a claim rather than a capability, and this
+# project's whole argument is against those.
 #
-# Accenture's own platforms are the obvious candidates: GenWizard, which is
-# built on myWizard, myNav and myConcerto and states conformance to Responsible
-# AI principles, and AI Refinery. Neither is implemented here and neither is
-# claimed to be. The point of the protocol above is that adding one is a file
-# implementing three methods, not a change to the engine: the same argument
-# that makes the local and hosted backends interchangeable makes a platform
-# backend interchangeable with both.
+# Accenture's AI Refinery is the closest fit, and the fit is structural rather
+# than a matter of branding. Its four published components line up with what is
+# already here: **Models**, described as switching between foundation models on
+# performance factors, is the routing in `model_for` below; **Governance**,
+# described as oversight of cost, accuracy and security, is what the run receipt
+# reports per diagnosis; **Knowledge** is the KPI semantic contract; **Agents**
+# are the pipeline stages. GenWizard is the other candidate, aimed at technology
+# delivery rather than at analysis.
+#
+# The division of labour is worth stating, because it is the reason this is a
+# complement and not a duplicate. A platform promises governance at the level of
+# the estate. This engine produces the per-insight evidence that makes such a
+# promise checkable: what one diagnosis cost, how calibrated its confidence was,
+# which share of it a model touched, and what it refused to answer. A platform
+# can report that governance exists; only the workload can show it held.
+#
+# Neither backend is implemented and neither is claimed to be. Adding one is a
+# file implementing three methods against the protocol above, which is the
+# entire point of there being a protocol.
 ENTERPRISE_BACKENDS = ("genwizard", "ai-refinery")
 
 
@@ -196,9 +280,13 @@ def describe(backend: ChatModel | None) -> str:
 
 __all__ = [
     "ENTERPRISE_BACKENDS",
+    "TASK_PROFILE",
     "ChatModel",
     "Completion",
+    "Task",
     "catalogue",
     "default_model",
     "describe",
+    "model_for",
+    "routing",
 ]

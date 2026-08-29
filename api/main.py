@@ -6,6 +6,7 @@ runs detection, and returns the result. No analysis happens here.
 
 from __future__ import annotations
 
+import json
 import warnings
 from datetime import date, timedelta
 from pathlib import Path
@@ -28,7 +29,7 @@ from whychain.detect import decompose, find_anomalies, material
 from whychain.evidence import MethodClass
 from whychain.feedback import FeedbackStore, Judgement, new_feedback
 from whychain.ingest import DEFAULT_WAREHOUSE, IngestError, Warehouse
-from whychain.llm import catalogue, default_model, describe
+from whychain.llm import Task, catalogue, default_model, describe, model_for, routing
 from whychain.narrate import narrate
 from whychain.narrate.writer import ModelWriter
 from whychain.personas import Persona, project
@@ -165,6 +166,7 @@ def models() -> dict:
         "backends": rows,
         "active": describe(active),
         "active_id": active.backend if active else "none",
+        "routing": routing(),
         "note": (
             "The engine depends on a protocol, not a vendor. Every backend "
             "produces text that the same deterministic validator then checks, "
@@ -172,6 +174,28 @@ def models() -> dict:
             "computed."
         ),
     }
+
+
+@app.get("/api/contrast")
+def contrast() -> dict:
+    """The same case run with the model and without, if it has been captured.
+
+    Exists because the honest default state of this repository is "no model
+    backend configured", and a reader in that state has no way to see what the
+    model stages do. Absence is reported rather than filled in.
+    """
+    path = Path("data/demo/contrast.json")
+    if not path.exists():
+        return {
+            "captured": False,
+            "note": (
+                "No contrast has been captured. Run `make capture-ai` with a "
+                "model backend reachable. Nothing is shown in the meantime, "
+                "because an artefact describing what a model produced without "
+                "running one would be a fabrication."
+            ),
+        }
+    return {"captured": True, **json.loads(path.read_text(encoding="utf-8"))}
 
 
 @app.get("/api/health")
@@ -842,8 +866,12 @@ def diagnose(
         # demonstrable rather than merely configurable. With none pinned the
         # environment decides, and with nothing reachable `ModelExtractor`
         # falls through to the rule table on its own.
-        chosen = default_model(llm_model, backend)
-        reader = ModelExtractor(backend=chosen)
+        # Extraction and narration are routed separately, because they are not
+        # equally hard and should not cost the same.
+        reader = ModelExtractor(
+            backend=model_for(Task.EXTRACT, backend) if not llm_model
+            else default_model(llm_model, backend)
+        )
         corroborations = {
             c.candidate_id: corroborate(
                 c, documents, retriever=shared, index=False, extractor=reader
@@ -1014,7 +1042,10 @@ def diagnose(
         } | {contract.owner_role, contract.kpi_id}
         story = narrate(
             result,
-            writer=ModelWriter(backend=chosen) if chosen else None,
+            writer=ModelWriter(
+                backend=model_for(Task.NARRATE, backend) if not llm_model
+                else default_model(llm_model, backend)
+            ),
             known_entities=frozenset(k for k in known if k),
         )
         t.model_calls = story.model_calls
@@ -1024,7 +1055,9 @@ def diagnose(
             f"{len(story.validation.rejected)} rejected by the validator"
         )
     result["narrative"] = story.as_dict()
-    result["llm"] = {"active": describe(chosen), "backend": chosen.backend if chosen else "none"}
+    # Routing on the receipt, so a reader can see which model did which job and
+    # that the choice was made per task rather than once for everything.
+    result["llm"] = {"routing": routing(), "active": describe(model_for(Task.NARRATE))}
 
     # Last, so the receipt covers every stage that actually ran.
     result["telemetry"] = tel.receipt()

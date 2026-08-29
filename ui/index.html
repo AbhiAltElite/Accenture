@@ -551,6 +551,59 @@ table.components tr:last-child td{border-bottom:none}
   color:var(--ink);line-height:1.2;margin-bottom:2px}
 .gate b.no{color:var(--down)}
 
+/* Which model did which job. Each task is routed to the cheapest tier that can
+   do it rather than everything going to whatever is configured, so a reader can
+   see the routing was a decision. */
+function routingMarkup(){
+  const rows = ((STATE.diagnosis||{}).llm||{}).routing || [];
+  if(!rows.length) return '';
+  return `<h4 class="label" style="margin-top:var(--sp-5)">Which model did which job</h4>
+    <div class="scroll"><table><thead><tr><th>Stage</th><th>What it needs</th>
+      <th>Tier</th><th>Model</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr>
+      <td>${escapeHtml(r.task)}</td>
+      <td class="muted">${escapeHtml(r.needs)}</td>
+      <td>${escapeHtml(r.tier)}</td>
+      <td><code>${escapeHtml(r.model)}</code>${
+        r.backend==='none'?'':` <span class="muted">${escapeHtml(r.backend)}</span>`}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+/* The same case with the model and without. This is the claim made checkable:
+   the figures are identical, and only the reading and the prose differ. */
+function contrastMarkup(){
+  const c = STATE.contrast;
+  if(!c) return '';
+  if(!c.captured){
+    return `<p class="muted" style="margin-top:var(--sp-5)">${escapeHtml(c.note)}</p>`;
+  }
+  const a = c.with_model, b = c.without_model;
+  return `
+    <h4 class="label" style="margin-top:var(--sp-5)">With the model, and without</h4>
+    <p class="muted">${escapeHtml(c.note)} Captured ${escapeHtml((c.captured_at||'').slice(0,10))}
+      against ${escapeHtml(c.backend)}.</p>
+    <div class="tracks" style="margin-top:var(--sp-4)">
+      <div>
+        <h4 class="exactly">Model on</h4>
+        <p class="caption">${a.model_calls} call(s) · ${a.tokens} tokens ·
+          ${a.sentences} sentence(s), ${a.rejected} rejected</p>
+        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(a.narrative)}</p>
+      </div>
+      <div>
+        <h4 class="merely">Model off</h4>
+        <p class="caption">${b.model_calls} call(s) · ${b.sentences} sentence(s),
+          ${b.rejected} rejected</p>
+        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(b.narrative)}</p>
+      </div>
+    </div>
+    <div class="gate" style="margin-top:var(--sp-4)">
+      ${Object.entries(a.figures).map(([k,v])=>`<div><b>${
+        escapeHtml(String(Array.isArray(v)?v.length:v))}</b>${escapeHtml(k.replace(/_/g,' '))}</div>`).join('')}
+    </div>
+    <p class="muted">Every figure above is identical in both columns. That is the
+      architecture's central claim, shown rather than asserted.</p>`;
+}
+
 /* ═══ feedback ═══════════════════════════════════════════════════════════ */
 .fb{display:flex;gap:var(--sp-3);flex-wrap:wrap;align-items:center;
   margin-bottom:var(--sp-4)}
@@ -795,6 +848,9 @@ async function boot(){
   if(params.get('range')) $('#range').value = params.get('range');
   // The backend list is fetched rather than hard-coded, so what the console
   // offers is what the server can actually reach.
+  try{
+    STATE.contrast = await (await fetch('/api/contrast')).json();
+  }catch(e){ /* the panel is optional */ }
   try{
     const cat = await (await fetch('/api/models')).json();
     STATE.backends = cat.backends || [];
@@ -1370,9 +1426,64 @@ function narrativeBlock(){
         <td>${escapeHtml(x.sentence)}</td>
         <td><span class="state no">${escapeHtml(x.failure.replace(/_/g,' '))}</span></td>
         <td class="muted">${escapeHtml(x.detail)}</td></tr>`).join('')}</tbody></table></div>`:''}
+    ${routingMarkup()}
+    ${contrastMarkup()}
     <p class="muted" style="margin-top:var(--sp-4)">Checks run:
       ${(v.checks_run||[]).map(c=>escapeHtml(c.replace(/_/g,' '))).join(' · ')}.</p>`,
     false, `${rejected.length} rejected`);
+}
+
+/* Which model did which job. Each task is routed to the cheapest tier that can
+   do it rather than everything going to whatever is configured, so a reader can
+   see the routing was a decision. */
+function routingMarkup(){
+  const rows = ((STATE.diagnosis||{}).llm||{}).routing || [];
+  if(!rows.length) return '';
+  return `<h4 class="label" style="margin-top:var(--sp-5)">Which model did which job</h4>
+    <div class="scroll"><table><thead><tr><th>Stage</th><th>What it needs</th>
+      <th>Tier</th><th>Model</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr>
+      <td>${escapeHtml(r.task)}</td>
+      <td class="muted">${escapeHtml(r.needs)}</td>
+      <td>${escapeHtml(r.tier)}</td>
+      <td><code>${escapeHtml(r.model)}</code>${
+        r.backend==='none'?'':` <span class="muted">${escapeHtml(r.backend)}</span>`}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+/* The same case with the model and without. This is the claim made checkable:
+   the figures are identical, and only the reading and the prose differ. */
+function contrastMarkup(){
+  const c = STATE.contrast;
+  if(!c) return '';
+  if(!c.captured){
+    return `<p class="muted" style="margin-top:var(--sp-5)">${escapeHtml(c.note)}</p>`;
+  }
+  const a = c.with_model, b = c.without_model;
+  return `
+    <h4 class="label" style="margin-top:var(--sp-5)">With the model, and without</h4>
+    <p class="muted">${escapeHtml(c.note)} Captured ${escapeHtml((c.captured_at||'').slice(0,10))}
+      against ${escapeHtml(c.backend)}.</p>
+    <div class="tracks" style="margin-top:var(--sp-4)">
+      <div>
+        <h4 class="exactly">Model on</h4>
+        <p class="caption">${a.model_calls} call(s) · ${a.tokens} tokens ·
+          ${a.sentences} sentence(s), ${a.rejected} rejected</p>
+        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(a.narrative)}</p>
+      </div>
+      <div>
+        <h4 class="merely">Model off</h4>
+        <p class="caption">${b.model_calls} call(s) · ${b.sentences} sentence(s),
+          ${b.rejected} rejected</p>
+        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(b.narrative)}</p>
+      </div>
+    </div>
+    <div class="gate" style="margin-top:var(--sp-4)">
+      ${Object.entries(a.figures).map(([k,v])=>`<div><b>${
+        escapeHtml(String(Array.isArray(v)?v.length:v))}</b>${escapeHtml(k.replace(/_/g,' '))}</div>`).join('')}
+    </div>
+    <p class="muted">Every figure above is identical in both columns. That is the
+      architecture's central claim, shown rather than asserted.</p>`;
 }
 
 /* ═══ feedback ═══════════════════════════════════════════════════════════ */

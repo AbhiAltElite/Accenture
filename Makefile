@@ -1,4 +1,4 @@
-.PHONY: setup gen demo test bench status audit guardrails verify-ai docker docker-ai lint clean
+.PHONY: setup gen demo test bench status audit guardrails verify-ai capture-ai docker docker-ai lint clean
 
 setup:            ## create venv and install dependencies
 	python3 -m venv .venv
@@ -22,6 +22,9 @@ status:           ## show what the engine currently knows
 
 guardrails:       ## watch the guardrails refuse bad input
 	PYTHONPATH=. .venv/bin/python scripts/guardrails.py
+
+capture-ai:       ## run one case with the model and without, and keep both
+	PYTHONPATH=. .venv/bin/python scripts/capture_contrast.py
 
 docker:            ## run the console in a container, deterministic path
 	docker compose up --build
