@@ -491,6 +491,85 @@ def _monitoring(
     }
 
 
+
+def _hours(value: float) -> str:
+    """One hour, not one hours. The sentence is read by a person."""
+    rounded = round(value)
+    return f"{rounded:.0f} hour" + ("" if rounded == 1 else "s")
+
+
+def _why_not_actionable(signals: Sequence[WarningSignal]) -> str:
+    """Explain the refusal by naming which gate each near-miss failed.
+
+    An earlier version asked three aggregate questions — was anything public,
+    was anything severe, was the earliest early enough — and reported whichever
+    came back false. That reads correctly until the answers separate: a red
+    nowcast fifty minutes ahead alongside a yellow advisory two days ahead makes
+    every aggregate question individually false, and the explanation came out as
+    an empty string mid-sentence.
+
+    The gates are per signal, so the explanation is too. It names the warning
+    that came closest to being usable and says what stopped it, which is also
+    the more useful sentence: "serious, and far too late" is a different finding
+    from "nothing was serious", and a reader needs to know which one they have.
+    """
+    if not signals:
+        return "No warning covered this window."
+
+    private = [s for s in signals if not s.is_public]
+    severe = [s for s in signals if s.severity in ACTIONABLE_SEVERITY and s.is_public]
+    timely = [
+        s for s in signals
+        if s.lead_time_hours >= MIN_ACTIONABLE_LEAD_HOURS and s.is_public
+    ]
+    head = f"{len(signals)} warning(s) covered this window. "
+
+    if severe and timely:
+        # Both properties present, never in the same warning. The most
+        # interesting case, and the one the old code rendered as a blank.
+        best_severe = max(severe, key=lambda s: s.lead_time_hours)
+        best_timely = max(timely, key=lambda s: _SEVERITY_ORDER.index(s.severity))
+        return (
+            head
+            + f"The most serious of them ({best_severe.severity}) arrived "
+            f"{_hours(best_severe.lead_time_hours)} ahead, under the "
+            f"{MIN_ACTIONABLE_LEAD_HOURS:g} needed to act on it. The warnings "
+            f"that did arrive in time only reached {best_timely.severity}. "
+            "No single warning was both serious enough and early enough, so "
+            "this was not a process failure."
+        )
+
+    if severe:
+        best = max(severe, key=lambda s: s.lead_time_hours)
+        return (
+            head
+            + f"The earliest that reached {best.severity} arrived "
+            f"{_hours(best.lead_time_hours)} ahead, under the "
+            f"{MIN_ACTIONABLE_LEAD_HOURS:g} needed to act on it. This was not a "
+            "process failure."
+        )
+
+    if timely:
+        best = max(timely, key=lambda s: _SEVERITY_ORDER.index(s.severity))
+        return (
+            head
+            + f"None reached amber severity; the most serious was {best.severity}, "
+            "which is advisory and fires most weeks in monsoon season. This was "
+            "not a process failure."
+        )
+
+    if private and len(private) == len(signals):
+        return (
+            head + "None of them was public, so nobody outside the publisher "
+            "could have acted on one. This was not a process failure."
+        )
+
+    return (
+        head + "None was both public, severe enough to act on, and early enough "
+        "to act within. This was not a process failure."
+    )
+
+
 def assess(
     contract: KPIContract,
     signals: Sequence[WarningSignal],
@@ -569,24 +648,9 @@ def assess(
 
     # 3. Was it foreseeable? Decided before the set difference, on purpose.
     if not actionable:
-        best = max(signals, key=lambda s: s.lead_time_hours)
-        why = []
-        if not any(s.is_public for s in signals):
-            why.append("none of them was public")
-        if not any(s.severity in ACTIONABLE_SEVERITY for s in signals):
-            why.append("none reached amber severity")
-        if best.lead_time_hours < MIN_ACTIONABLE_LEAD_HOURS:
-            why.append(
-                f"the earliest arrived {best.lead_time_hours:.0f} hours ahead, "
-                f"under the {MIN_ACTIONABLE_LEAD_HOURS:g} needed to act"
-            )
         return SignalGap(
             verdict=GapVerdict.NOT_FORESEEABLE,
-            reason=(
-                f"{len(signals)} warning(s) covered this window, but "
-                + " and ".join(why)
-                + ". This was not a process failure."
-            ),
+            reason=_why_not_actionable(signals),
             **common,
         )
 

@@ -92,6 +92,7 @@ MULTI_FACTOR = Scenario(
             available_at=_at(ANCHOR - timedelta(days=2), 6),
             lead_time_hours=72.0,
             is_public=True,
+            severity="red",
             covers=Slice(region="West"),
         ),
     ),
@@ -195,6 +196,7 @@ SIGNAL_GAP = Scenario(
             available_at=_at(date(2026, 7, 5), 6),
             lead_time_hours=72.0,
             is_public=True,
+            severity="red",
             covers=Slice(region="West"),
         ),
     ),
@@ -228,12 +230,69 @@ NOT_FORESEEABLE = Scenario(
             available_at=_at(date(2026, 5, 18), 7) - timedelta(minutes=40),
             lead_time_hours=0.67,
             is_public=True,
+            severity="red",
             covers=Slice(region="South"),
         ),
     ),
     notes="A forty-minute warning is not actionable. Expected: not foreseeable.",
     tags=("signal_gap", "answer2", "refusal", "demo"),
 )
+
+# ---------------------------------------------------------------------------
+# 7. The same refusal as demo-06, on a KPI the console can actually diagnose.
+#
+#    Answer 2's credibility rests on the gate refusing, not on it finding gaps.
+#    Both refusal cases were planted on `on_time_delivery`, which is a rate and
+#    therefore declines the price/volume/mix bridge, so `/api/diagnose` returns
+#    422 for them and neither refusal could be seen in the console at all. The
+#    demonstration that mattered most was the one nobody could reach.
+#
+#    This plants the same shape on `net_revenue`: a real, material, externally
+#    caused movement, with a public warning that arrived far too late to act on.
+#    The engine should verify the cause and then decline to call it a process
+#    failure.
+# ---------------------------------------------------------------------------
+LATE_WARNING = Scenario(
+    case_id="demo-07-late-warning",
+    kpi_id="net_revenue",
+    window_start=date(2026, 3, 4) - timedelta(days=21),
+    window_end=date(2026, 3, 11),
+    expected=ExpectedVerdict.VERIFIED,
+    causes=(
+        PlantedEvent(
+            event_id="wx-flash-flood-mar",
+            kind=CauseKind.EXTERNAL_WEATHER,
+            start=date(2026, 3, 4),
+            end=date(2026, 3, 8),
+            target=Slice(region="South", channel="store"),
+            effect=-0.46,
+            description=(
+                "Flash flooding closed stores across the South with no "
+                "meaningful notice."
+            ),
+        ),
+    ),
+    signals=(
+        # Public and severe, and useless: fifty minutes is not a planning
+        # horizon. The correct verdict is not_foreseeable, and an engine that
+        # calls this a process failure is manufacturing blame in hindsight.
+        AvailableSignal(
+            signal_id="imd_flash_flood_nowcast",
+            publisher="India Meteorological Department",
+            available_at=_at(date(2026, 3, 4), 5) - timedelta(minutes=50),
+            lead_time_hours=0.83,
+            is_public=True,
+            severity="red",
+            covers=Slice(region="South"),
+        ),
+    ),
+    notes=(
+        "Not foreseeable, and reachable in the console. Fifty minutes of "
+        "warning is information, not an opportunity."
+    ),
+    tags=("signal_gap", "answer2", "refusal", "demo"),
+)
+
 
 DEMO_SCENARIOS: tuple[Scenario, ...] = (
     MULTI_FACTOR,
@@ -242,4 +301,5 @@ DEMO_SCENARIOS: tuple[Scenario, ...] = (
     SEASONAL_DECOY,
     SIGNAL_GAP,
     NOT_FORESEEABLE,
+    LATE_WARNING,
 )

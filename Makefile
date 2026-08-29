@@ -1,4 +1,4 @@
-.PHONY: setup gen demo test bench status audit guardrails verify-ai capture-ai readme-pdf docker docker-ai lint clean
+.PHONY: setup gen demo test bench status audit guardrails smoke verify-ai capture-ai readme-pdf docker docker-ai lint clean
 
 setup:            ## create venv and install dependencies
 	python3 -m venv .venv
@@ -34,6 +34,9 @@ docker:            ## run the console in a container, deterministic path
 
 docker-ai:        ## same, with an open-weight model running alongside it
 	docker compose --profile ai up --build
+
+smoke:            ## drive the running server the way a reader does
+	.venv/bin/python scripts/smoke.py
 
 verify-ai:        ## prove both model stages work before a demo depends on them
 	PYTHONPATH=. .venv/bin/python scripts/verify_ai.py

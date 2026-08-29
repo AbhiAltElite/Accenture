@@ -293,3 +293,71 @@ class TestAgainstTheRealFeed:
             causes=["A regional carrier suspended operations without notice."],
         )
         assert gap.verdict is GapVerdict.NOT_FORESEEABLE
+
+
+class TestTheRefusalExplainsItself:
+    """A refusal nobody can read is not a refusal a reader will trust.
+
+    The first version asked three aggregate questions of the whole set — was
+    anything public, was anything severe, was the earliest early enough — and
+    reported whichever came back false. That works until the answers separate,
+    which is the common real case: a red nowcast fifty minutes ahead beside a
+    yellow advisory two days ahead makes every aggregate question individually
+    false, and the reason rendered as an empty string mid-sentence.
+    """
+
+    @pytest.mark.invariant
+    def test_severe_but_late_beside_timely_but_mild(self, registered):
+        """The case that produced a blank. Both properties present, never together."""
+        gap = assess(
+            registered,
+            [
+                signal(signal_id="nowcast", severity="red", lead_time_hours=0.8),
+                signal(signal_id="advisory", severity="yellow", lead_time_hours=48.0),
+            ],
+            window=WINDOW, region="West",
+        )
+        assert gap.verdict is GapVerdict.NOT_FORESEEABLE
+        assert "red" in gap.reason and "yellow" in gap.reason
+        assert "serious enough and early enough" in gap.reason
+
+    def test_severe_but_late_alone(self, registered):
+        gap = assess(
+            registered, [signal(severity="red", lead_time_hours=1.0)],
+            window=WINDOW, region="West",
+        )
+        assert "1 hour ahead" in gap.reason, gap.reason
+
+    def test_timely_but_mild_alone(self, registered):
+        gap = assess(
+            registered, [signal(severity="yellow", lead_time_hours=48.0)],
+            window=WINDOW, region="West",
+        )
+        assert "amber" in gap.reason
+
+    def test_private_only(self, registered):
+        gap = assess(
+            registered,
+            [signal(severity="red", lead_time_hours=72.0, is_public=False)],
+            window=WINDOW, region="West",
+        )
+        assert "public" in gap.reason
+
+    @pytest.mark.invariant
+    def test_no_refusal_is_ever_rendered_with_an_empty_clause(self, registered):
+        """Whatever the mix, the sentence has to survive being read aloud."""
+        import itertools
+
+        for severity, lead, public in itertools.product(
+            ("yellow", "amber", "red"), (0.5, 12.0, 30.0, 96.0), (True, False)
+        ):
+            gap = assess(
+                registered,
+                [signal(severity=severity, lead_time_hours=lead, is_public=public)],
+                window=WINDOW, region="West",
+            )
+            if gap.verdict is not GapVerdict.NOT_FORESEEABLE:
+                continue
+            assert ", but ." not in gap.reason
+            assert ".  " not in gap.reason
+            assert len(gap.reason.split()) > 8, gap.reason

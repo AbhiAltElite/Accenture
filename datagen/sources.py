@@ -477,21 +477,18 @@ def _declared_type(signal_id: str, publisher: str) -> str:
 def _declared_rows(declared: tuple) -> list[dict]:
     """Emit each scenario's AvailableSignal into the feed's own schema.
 
-    Severity is derived from lead time and publication rather than declared:
-    the scenarios describe availability, and the feed's job is to describe
-    actionability. A public warning with three days of lead time is what a met
-    service issues at amber or above; forty minutes is an advisory nobody could
-    have planned around, and it is emitted as one.
+    Severity is carried from the scenario rather than derived from lead time.
+    They are independent: a flash-flood nowcast is red and arrives fifty minutes
+    ahead, while a routine monsoon advisory is yellow and arrives two days
+    ahead. Deriving severity from timing would collapse the two gates Answer 2
+    deliberately keeps apart, so that the only refusal it could ever produce is
+    "nothing was serious" rather than the sharper and more common "serious, and
+    far too late to act on".
     """
     rows: list[dict] = []
     for signal in declared:
         region = getattr(signal.covers, "region", None) or "All"
-        if signal.lead_time_hours >= 48:
-            severity = "red"
-        elif signal.lead_time_hours >= 24:
-            severity = "amber"
-        else:
-            severity = "yellow"
+        severity = getattr(signal, "severity", "amber")
         valid_from = signal.available_at + timedelta(hours=signal.lead_time_hours)
         city = next((c for c in CITIES if c.region == region), CITIES[0])
         rows.append(

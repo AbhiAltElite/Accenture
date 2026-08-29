@@ -282,6 +282,14 @@ table.watch thead th{font-size:var(--t-2xs);font-weight:600;color:var(--ink-3);
 table.watch thead th.n{text-align:right}
 table.watch tbody tr{border-bottom:1px solid var(--line);cursor:pointer}
 table.watch tbody tr:hover{background:var(--surface)}
+/* A row that answers a question when clicked should say so before it is
+   clicked. The affordance is the cursor and the hover ground; the current
+   selection is marked in the last column rather than by colouring the row,
+   which would compete with the up/down colouring the figures already carry. */
+tr.pickable{cursor:pointer}
+tr.pickable:hover{background:var(--surface)}
+tr.pickable:hover .linkback{color:var(--ink)}
+tr.picked{background:var(--raised)}
 table.watch td{padding:var(--sp-4) var(--sp-4) var(--sp-4) 0;vertical-align:middle}
 table.watch td:last-child,table.watch th:last-child{padding-right:0}
 table.watch td.n{text-align:right;white-space:nowrap}
@@ -872,7 +880,10 @@ async function boot(){
     STATE.entitled = $('#entitled').value || null;
     route();
   });
+  // Changing the metric, region or period invalidates the chosen day: it may
+  // not be flagged in the new series, or may not exist in it at all.
   ['region','range'].forEach(id=>$('#'+id).addEventListener('change',()=>{
+    STATE.pick = null;
     const q = new URLSearchParams();
     if($('#region').value) q.set('region',$('#region').value);
     if($('#range').value !== '90') q.set('range',$('#range').value);
@@ -899,6 +910,7 @@ function describeBackend(){
 
 /* Real URLs, so a diagnosis can be sent to someone rather than described. */
 function go(path, replace=false){
+  STATE.pick = null;
   history[replace?'replaceState':'pushState']({}, '', path + location.search);
   route();
 }
@@ -1029,9 +1041,20 @@ function drawSparks(){
   });
 }
 
+/* Which movement gets diagnosed.
+
+   By default the largest one, because that is the question a reader arrives
+   with. But only ever diagnosing the worst leaves every other flagged day
+   unreachable: the console showed a list of material movements and offered no
+   way to ask about any of them, so a reader could see that six other days had
+   passed both tests and could not find out why. `STATE.pick` is a day the
+   reader chose, and the window still grows outward from it across consecutive
+   flagged days so a multi-day event is diagnosed whole rather than one day of
+   it at a time. */
 function windowFor(drops){
   const sorted=drops.slice().sort((a,b)=>a.day<b.day?-1:1);
-  const worst=sorted.reduce((m,a)=>a.delta<m.delta?a:m,sorted[0]);
+  const chosen = STATE.pick && sorted.find(a=>a.day===STATE.pick);
+  const worst = chosen || sorted.reduce((m,a)=>a.delta<m.delta?a:m,sorted[0]);
   const gap=(a,b)=>Math.round((new Date(b)-new Date(a))/864e5);
   let lo=sorted.findIndex(a=>a.day===worst.day), hi=lo;
   while(lo>0 && gap(sorted[lo-1].day,sorted[lo].day)<=2) lo--;
@@ -1202,6 +1225,7 @@ function render(){
   bindChart();
   wireClaims();
   wireFeedback();
+  wirePicks();
 }
 
 function explainedStory(d){
@@ -1508,6 +1532,27 @@ function feedbackBlock(){
     </div>
     <p class="fbnote" id="fbnote">Nothing recorded yet.</p>`,
     false, '');
+}
+
+/* Selecting a movement re-runs the diagnosis for that window. It re-fetches
+   rather than caching every window up front: a diagnosis is around 80ms, and
+   pre-computing seventeen of them to save that would spend a reader's first
+   page load on questions they never asked. */
+function wirePicks(){
+  document.querySelectorAll('tr.pickable[data-pick]').forEach(row=>{
+    const day = row.dataset.pick;
+    const drop = (STATE.series.anomalies||[]).find(a=>a.day===day);
+    if(!drop || drop.direction !== 'drop') return;   // rises are not diagnosed
+    const choose = () => {
+      if(STATE.pick === day) return;
+      STATE.pick = day;
+      load();
+    };
+    row.addEventListener('click', choose);
+    row.addEventListener('keydown', e=>{
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); choose(); }
+    });
+  });
 }
 
 function wireFeedback(){
@@ -1841,12 +1886,20 @@ function chartMarkup(){
 
 function movementsBlock(){
   const rows = STATE.series.anomalies.slice().sort((a,b)=>a.day<b.day?1:-1).map(a=>`
-    <tr><td><code>${a.day}</code></td>
+    <tr class="pickable ${a.day===((STATE.win||{}).worst||{}).day?'picked':''}"
+        data-pick="${a.day}" tabindex="0"
+        title="${a.direction==='drop'?'Diagnose this movement':'Rises are not diagnosed'}">
+      <td><code>${a.day}</code></td>
       <td><span class="pill ${a.direction==='drop'?'no':'ok'}">${a.direction}</span></td>
       <td class="n ${a.delta<0?'down':'up'}">${a.delta<0?'\u2212':'+'}${
         fmtDelta(a.delta, STATE.series.unit)}</td>
       <td class="n ${a.delta<0?'down':'up'}">${pct(a.pct)}</td>
-      <td class="n">${a.robust_z>0?'+':''}${a.robust_z.toFixed(2)}</td></tr>`).join('');
+      <td class="n">${a.robust_z>0?'+':''}${a.robust_z.toFixed(2)}</td>
+      <td class="n">${a.direction==='drop'
+        ? (a.day===((STATE.win||{}).worst||{}).day
+            ? '<span class="state ok">diagnosed</span>'
+            : '<span class="linkback">diagnose</span>')
+        : '<span class="na">—</span>'}</td></tr>`).join('');
   return section('Days that passed both materiality tests',
     `<p>The series is split by MSTL into trend, weekly rhythm and the retail
      calendar, and anomalies are measured on what is left over using the median
@@ -1855,8 +1908,12 @@ function movementsBlock(){
      <em>and</em> the movement is large enough in rupees to be worth acting on.
      Both tests must pass: significance alone surfaces movements too small to act
      on, and size alone surfaces noise that happens to be large.</p>
+     <p>The largest movement is diagnosed by default. Select any other to ask
+     the same question of it; consecutive flagged days are diagnosed together as
+     one event.</p>
      <div class="scroll"><table><thead><tr><th>Day</th><th>Direction</th>
-     <th class="n">Shortfall</th><th class="n">Change</th><th class="n">Robust z</th></tr></thead>
+     <th class="n">Shortfall</th><th class="n">Change</th><th class="n">Robust z</th>
+     <th class="n">Diagnosis</th></tr></thead>
      <tbody>${rows}</tbody></table></div>`, false, STATE.series.anomalies.length);
 }
 

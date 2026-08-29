@@ -102,6 +102,13 @@ class AvailableSignal:
     lead_time_hours: float
     is_public: bool
     covers: Slice
+    # How serious the warning was, which is independent of how early it came.
+    # A flash-flood nowcast is red and arrives fifty minutes ahead; a routine
+    # monsoon advisory is yellow and arrives two days ahead. Deriving one from
+    # the other collapses the two gates Answer 2 keeps separate, and turns the
+    # interesting refusal ("severe, but far too late to act on") into the dull
+    # one ("nothing was severe").
+    severity: str = "amber"
 
 
 @dataclass(frozen=True)
