@@ -29,7 +29,7 @@ from dataclasses import dataclass
 # How much of a measured loss reversing the cause recovers, per lever. Shared
 # with the decision card so a card and a scenario cannot disagree about the same
 # action.
-from whychain.actions.recovery import RECOVERY_SHARE
+from whychain.actions.recovery import RETAIL_RECOVERY, RecoveryModel
 from whychain.contracts import KPIContract
 from whychain.evidence import ClaimState
 
@@ -86,34 +86,50 @@ def _driver(contract: KPIContract, driver_id: str):
     return next((d for d in contract.drivers if d.id == driver_id), None)
 
 
-def rollback(verifications, per_cause: dict[str, float], contract: KPIContract) -> Scenario:
-    """Reverse a verified internal cause.
+def rollback(
+    verifications,
+    per_cause: dict[str, float],
+    contract: KPIContract,
+    recovery: RecoveryModel = RETAIL_RECOVERY,
+) -> Scenario:
+    """Reverse the one verified cause this industry can undo.
 
     The recoverable amount is the movement difference-in-differences attributed
     to that cause, times the share the lever is assumed to recover. Both halves
     are visible: the first was measured, the second is an assumption.
+
+    Which cause is reversible is a fact about the industry. Retail can roll a
+    release back; a fuel marketer can source a shortfall from another refinery;
+    a generator can bring a unit back on bar. The arithmetic is the same and the
+    words are not, which is why they come off the recovery model.
     """
     target = next(
         (v for v in verifications
          if v.state is ClaimState.VERIFIED
-         and (_driver(contract, "release_quality") is not None)
-         and v.candidate.kind == "release_log"),
+         and (_driver(contract, recovery.reversal_driver) is not None)
+         and v.candidate.kind == recovery.reversal_kind),
         None,
     )
-    question = "What happens if we roll the release back now?"
+    question = recovery.reversal_question
     if target is None:
         return Scenario(
-            "rollback", question, False, None, None, None, (),
-            unavailable_because=(
-                "no shipped release survived causal testing in this window, so "
-                "there is nothing measured to roll back"
-            ),
+            recovery.reversal_id, question, False, None, None, None, (),
+            unavailable_because=recovery.reversal_absent,
         )
 
     loss = abs(per_cause.get(target.candidate.candidate_id, 0.0))
-    share = RECOVERY_SHARE["release_rollback"]
+    share = recovery.share_for(recovery.reversal_lever)
+    if share is None:
+        return Scenario(
+            recovery.reversal_id, question, False, None, None, None, (),
+            unavailable_because=(
+                f"the {recovery.reversal_lever!r} lever has no declared recovery "
+                f"share, and choosing one here would make the number look "
+                f"derived when it was invented"
+            ),
+        )
     return Scenario(
-        "rollback", question, True, loss * share, None, None,
+        recovery.reversal_id, question, True, loss * share, None, None,
         (
             Assumption(
                 "measured daily loss", f"{loss:,.0f} INR/day",
@@ -121,9 +137,9 @@ def rollback(verifications, per_cause: dict[str, float], contract: KPIContract) 
                 f"effect {target.effect_pct:+.1%}",
             ),
             Assumption(
-                "share recovered by a rollback", f"{share:.0%}",
-                "declared per lever in whychain/actions/recovery.py; a rollback "
-                "restores the prior build but not the orders already lost",
+                "share recovered", f"{share:.0%}",
+                f"declared per lever in whychain/actions/recovery.py; "
+                f"{recovery.reversal_caveat}",
             ),
         ),
         bounded_by="the movement this cause was measured to account for",
@@ -131,7 +147,10 @@ def rollback(verifications, per_cause: dict[str, float], contract: KPIContract) 
 
 
 def price_move(
-    contract: KPIContract, base_revenue_per_day: float, delta_pct: float
+    contract: KPIContract,
+    base_revenue_per_day: float,
+    delta_pct: float,
+    recovery: RecoveryModel = RETAIL_RECOVERY,
 ) -> Scenario:
     """Move list price by `delta_pct` and let the contract's elasticity respond.
 
@@ -143,15 +162,19 @@ def price_move(
     The elasticity is the contract's declared prior, not a fitted value, so this
     is a planning estimate and the assumption says as much.
     """
-    question = f"What happens if we move price by {delta_pct:+.0%} on this slice?"
-    driver = _driver(contract, "unit_price")
+    question = (
+        f"What happens if we move {recovery.price_noun} by {delta_pct:+.0%} "
+        f"on this slice?"
+    )
+    driver = _driver(contract, recovery.price_driver)
     if driver is None or driver.elasticity_prior is None:
         return Scenario(
             "price_move", question, False, None, None, None, (),
             unavailable_because=(
-                "the contract declares no price elasticity for this metric, and "
-                "borrowing one from elsewhere would make the number look "
-                "derived when it was chosen"
+                f"the contract declares no price elasticity on "
+                f"{recovery.price_driver!r} for this metric, and borrowing one "
+                f"from elsewhere would make the number look derived when it was "
+                f"chosen"
             ),
         )
 
@@ -165,7 +188,7 @@ def price_move(
             Assumption("price elasticity", f"{e:+.2f}",
                        f"elasticity_prior declared on the {driver.id} driver in "
                        f"{contract.kpi_id}.yml, version {contract.version}"),
-            Assumption("price change applied", f"{delta_pct:+.0%}",
+            Assumption(f"{recovery.price_noun} change applied", f"{delta_pct:+.0%}",
                        "the scenario input"),
         ),
         bounded_by=(
@@ -176,7 +199,10 @@ def price_move(
 
 
 def sustained_external(
-    verifications, per_cause: dict[str, float], horizon_days: int
+    verifications,
+    per_cause: dict[str, float],
+    horizon_days: int,
+    recovery: RecoveryModel = RETAIL_RECOVERY,
 ) -> Scenario:
     """Carry a verified external effect forward at its measured rate.
 
@@ -189,7 +215,7 @@ def sustained_external(
     )
     external = [
         v for v in verifications
-        if v.state is ClaimState.VERIFIED and v.candidate.kind in ("ops_note", "promotion")
+        if v.state is ClaimState.VERIFIED and v.candidate.kind in recovery.external_kinds
     ]
     if not external:
         return Scenario(
@@ -224,12 +250,13 @@ def simulate(
     base_revenue_per_day: float,
     price_delta: float = -0.05,
     horizon_days: int = 14,
+    recovery: RecoveryModel = RETAIL_RECOVERY,
 ) -> list[Scenario]:
     """Every scenario this diagnosis can support, including the ones it cannot."""
     return [
-        rollback(verifications, per_cause, contract),
-        price_move(contract, base_revenue_per_day, price_delta),
-        sustained_external(verifications, per_cause, horizon_days),
+        rollback(verifications, per_cause, contract, recovery),
+        price_move(contract, base_revenue_per_day, price_delta, recovery),
+        sustained_external(verifications, per_cause, horizon_days, recovery),
     ]
 
 

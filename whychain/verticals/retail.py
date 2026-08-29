@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from whychain.actions import RETAIL_DRIVERS
+from whychain.actions import RETAIL_DRIVERS, RETAIL_RECOVERY
 from whychain.corroborate import RETAIL_CORPUS
 from whychain.verify.candidates import RETAIL_PLAN
 from whychain.verticals.spec import RETAIL_PLAN_COLUMNS, Vertical
@@ -26,7 +26,6 @@ RETAIL = Vertical(
     ),
     contracts_dir=Path("contracts"),
     warehouse=Path("data/warehouse/whychain.duckdb"),
-    ground_truth=Path("data/ground_truth/cases.json"),
     headline_kpi="net_revenue",
     dimensions={
         "region": "Region",
@@ -39,4 +38,5 @@ RETAIL = Vertical(
     drivers=RETAIL_DRIVERS,
     plan=RETAIL_PLAN,
     plan_columns=RETAIL_PLAN_COLUMNS,
+    recovery=RETAIL_RECOVERY,
 )

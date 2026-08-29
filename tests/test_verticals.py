@@ -14,6 +14,7 @@ supposed to preserve.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -24,6 +25,16 @@ from whychain.detect.anomaly import SEASONAL_PERIODS
 from whychain.verticals import PETROLEUM, POWER, RETAIL
 
 ALL = (RETAIL, PETROLEUM, POWER)
+
+# Where each industry's labels live. Held here rather than on the vertical: T-04
+# forbids `whychain/` and `api/` from so much as naming this directory, and the
+# audit enforces it with a `git grep`. The benchmark and these tests are the only
+# things that may read it.
+LABELS = {
+    "retail": Path("data/ground_truth/cases.json"),
+    "petroleum": Path("data/ground_truth/petroleum/cases.json"),
+    "power": Path("data/ground_truth/power/cases.json"),
+}
 
 
 class TestRegistry:
@@ -222,11 +233,12 @@ class TestGroundTruth:
 
     @pytest.mark.parametrize("vertical", ALL, ids=lambda v: v.id)
     def test_labels_exist_and_name_real_metrics(self, vertical):
-        if not vertical.ground_truth.exists():
+        labels = LABELS[vertical.id]
+        if not labels.exists():
             pytest.skip(f"{vertical.id} labels not generated")
         registry = ContractRegistry.from_directory(vertical.contracts_dir)
         known = {c.kpi_id for c in registry}
-        cases = json.loads(vertical.ground_truth.read_text())
+        cases = json.loads(labels.read_text())
         assert cases, f"{vertical.id} has no labelled cases"
         for case in cases:
             assert case["kpi_id"] in known, (
@@ -237,7 +249,8 @@ class TestGroundTruth:
     @pytest.mark.parametrize("vertical", ALL, ids=lambda v: v.id)
     def test_planted_slices_exist_in_the_world(self, vertical):
         """An event targeting a slice nothing occupies changes nothing at all."""
-        if not vertical.ground_truth.exists():
+        labels = LABELS[vertical.id]
+        if not labels.exists():
             pytest.skip(f"{vertical.id} labels not generated")
         world = WORLDS[vertical.id]
         actual = {
@@ -247,7 +260,7 @@ class TestGroundTruth:
             "category": {p.category for p in world.products},
             "sku": {p.sku for p in world.products},
         }
-        for case in json.loads(vertical.ground_truth.read_text()):
+        for case in json.loads(labels.read_text()):
             for event in (*case["causes"], *case["decoys"]):
                 for dim, value in event["target"].items():
                     if value is None:
@@ -257,3 +270,81 @@ class TestGroundTruth:
                         f"{event['event_id']} targets {dim}={value!r}, which no "
                         f"row carries, so it perturbs nothing"
                     )
+
+
+@pytest.mark.invariant
+class TestRecovery:
+    """The brief's chain is driver -> lever -> action -> expected impact -> owner.
+
+    It broke at "expected impact" for two of the three industries, because the
+    recovery table held retail's four levers and nothing else. Every card in
+    petroleum and power came back with the figure blank. These are the checks
+    that would have caught it.
+    """
+
+    @pytest.mark.parametrize("vertical", ALL, ids=lambda v: v.id)
+    def test_every_controllable_lever_has_a_declared_recovery_share(self, vertical):
+        registry = ContractRegistry.from_directory(vertical.contracts_dir)
+        levers = {
+            d.controllable_lever
+            for c in registry
+            for d in c.drivers
+            if d.controllable_lever
+        }
+        missing = sorted(levers - set(vertical.recovery.share))
+        assert not missing, (
+            f"{vertical.id}: {missing} appear as controllable levers on a "
+            f"contract but have no recovery share, so every decision card "
+            f"naming one reports its expected impact as blank"
+        )
+
+    @pytest.mark.parametrize("vertical", ALL, ids=lambda v: v.id)
+    def test_no_recovery_share_names_a_lever_no_contract_declares(self, vertical):
+        """A share for a lever nothing uses is a number that will never be read."""
+        registry = ContractRegistry.from_directory(vertical.contracts_dir)
+        levers = {
+            d.controllable_lever
+            for c in registry
+            for d in c.drivers
+            if d.controllable_lever
+        }
+        stray = sorted(set(vertical.recovery.share) - levers)
+        assert not stray, f"{vertical.id}: recovery shares for unused levers {stray}"
+
+    @pytest.mark.parametrize("vertical", ALL, ids=lambda v: v.id)
+    def test_the_reversal_scenario_is_coherent(self, vertical):
+        """Its lever must be priced, and its driver must exist on some contract."""
+        recovery = vertical.recovery
+        registry = ContractRegistry.from_directory(vertical.contracts_dir)
+        assert recovery.reversal_lever in recovery.share, (
+            f"{vertical.id}: the reversal scenario applies "
+            f"{recovery.reversal_lever!r}, which has no declared share"
+        )
+        drivers = {d.id for c in registry for d in c.drivers}
+        assert recovery.reversal_driver in drivers, (
+            f"{vertical.id}: the reversal scenario keys on driver "
+            f"{recovery.reversal_driver!r}, which no contract declares, so it "
+            f"can never be available"
+        )
+
+    @pytest.mark.parametrize("vertical", ALL, ids=lambda v: v.id)
+    def test_the_price_scenario_has_an_elasticity_to_use(self, vertical):
+        """Otherwise it is permanently unavailable and silently so."""
+        registry = ContractRegistry.from_directory(vertical.contracts_dir)
+        priced = [
+            d for c in registry for d in c.drivers
+            if d.id == vertical.recovery.price_driver and d.elasticity_prior is not None
+        ]
+        assert priced, (
+            f"{vertical.id}: the price scenario reads elasticity off "
+            f"{vertical.recovery.price_driver!r}, which no contract declares "
+            f"with an elasticity_prior"
+        )
+
+    @pytest.mark.parametrize("vertical", ALL, ids=lambda v: v.id)
+    def test_the_external_projection_includes_the_plan_candidate_kind(self, vertical):
+        """A planned intervention is external pressure; retail counts promotions."""
+        assert vertical.plan.kind in vertical.recovery.external_kinds, (
+            f"{vertical.id}: {vertical.plan.kind!r} candidates are excluded from "
+            f"the sustained-pressure projection"
+        )

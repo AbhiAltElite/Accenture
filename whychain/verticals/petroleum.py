@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from whychain.actions import DriverMap
+from whychain.actions import DriverMap, RecoveryModel
 from whychain.corroborate import Corpus, Vocabulary
 from whychain.verify.candidates import PlanSpec
 from whychain.verticals.spec import PlanColumns, Vertical
@@ -138,6 +138,34 @@ PLAN = PlanSpec(
     noun="Turnaround",
 )
 
+RECOVERY = RecoveryModel(
+    # What each lever recovers of the loss its cause was measured to account
+    # for. Lower across the board than retail's, because most of what moves this
+    # business cannot be reversed at all: an excise revision stands, a crude
+    # move stands, and the only question is how much of the consequence can be
+    # routed around.
+    share={
+        "alternate_sourcing": 0.45,   # another refinery, at a longer haul
+        "mode_switch": 0.60,          # road bridging round a shut pipeline
+        "fleet_augmentation": 0.70,   # spot tankers clear a gantry queue quickly
+        "pricing_revision": 0.25,     # a dealer commission change moves little
+        "allocation_mix": 0.40,
+    },
+    reversal_id="alternate_sourcing",
+    reversal_driver="refinery_availability",
+    reversal_kind="release_log",      # the operations circular
+    reversal_lever="alternate_sourcing",
+    reversal_question="What happens if we source the shortfall from another "
+                      "refinery now?",
+    reversal_absent="no refinery availability event survived causal testing in "
+                    "this window, so there is nothing measured to re-source",
+    reversal_caveat="an alternate source covers the volume but at a longer haul, "
+                    "and the liftings already missed do not come back",
+    price_driver="excise_duty",
+    price_noun="the administered price",
+    external_kinds=("ops_note", "turnaround"),
+)
+
 PETROLEUM = Vertical(
     id="petroleum",
     label="Petroleum marketing",
@@ -149,7 +177,6 @@ PETROLEUM = Vertical(
     ),
     contracts_dir=Path("contracts/petroleum"),
     warehouse=Path("data/warehouse/petroleum.duckdb"),
-    ground_truth=Path("data/ground_truth/petroleum/cases.json"),
     headline_kpi="net_realisation",
     dimensions={
         "region": "Marketing region",
@@ -161,6 +188,7 @@ PETROLEUM = Vertical(
     corpus=CORPUS,
     drivers=DRIVERS,
     plan=PLAN,
+    recovery=RECOVERY,
     plan_columns=PlanColumns(
         levels=("logistics_spend", "planned_allocation"),
         index="import_parity_index",

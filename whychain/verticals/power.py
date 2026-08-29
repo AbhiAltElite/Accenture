@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from whychain.actions import DriverMap
+from whychain.actions import DriverMap, RecoveryModel
 from whychain.corroborate import Corpus, Vocabulary
 from whychain.verify.candidates import PlanSpec
 from whychain.verticals.spec import PlanColumns, Vertical
@@ -125,6 +125,31 @@ PLAN = PlanSpec(
     noun="Outage",
 )
 
+RECOVERY = RecoveryModel(
+    # A regulatory filing recovers least of anything in the three verticals: a
+    # tariff order is not reversed by asking, and the filing that might amend it
+    # resolves over quarters rather than days.
+    share={
+        "outage_rescheduling": 0.75,  # a unit back on bar earns its schedule again
+        "fuel_sourcing": 0.55,        # spot coal is available and expensive
+        "corridor_booking": 0.60,     # capacity can be booked round a constraint
+        "despatch_mix": 0.45,
+        "regulatory_filing": 0.10,
+    },
+    reversal_id="restore_unit",
+    reversal_driver="plant_availability",
+    reversal_kind="release_log",      # the despatch circular
+    reversal_lever="outage_rescheduling",
+    reversal_question="What happens if we bring the unit back on bar now?",
+    reversal_absent="no plant availability event survived causal testing in this "
+                    "window, so there is nothing measured to restore",
+    reversal_caveat="a unit back on bar earns its schedule again, but the blocks "
+                    "already settled against another station do not return",
+    price_driver="tariff_order",
+    price_noun="the regulated tariff",
+    external_kinds=("ops_note", "outage"),
+)
+
 POWER = Vertical(
     id="power",
     label="Power generation",
@@ -136,7 +161,6 @@ POWER = Vertical(
     ),
     contracts_dir=Path("contracts/power"),
     warehouse=Path("data/warehouse/power.duckdb"),
-    ground_truth=Path("data/ground_truth/power/cases.json"),
     headline_kpi="dispatch_realisation",
     dimensions={
         "region": "Grid region",
@@ -148,6 +172,7 @@ POWER = Vertical(
     corpus=CORPUS,
     drivers=DRIVERS,
     plan=PLAN,
+    recovery=RECOVERY,
     plan_columns=PlanColumns(
         levels=("fuel_cost", "declared_capacity"),
         index="market_clearing_index",

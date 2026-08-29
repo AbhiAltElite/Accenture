@@ -59,7 +59,7 @@ def test_rollback_recovers_a_share_of_the_measured_loss(contract):
     assert s.effect_inr_per_day == pytest.approx(26186.97 * 0.90)
     names = {a.name for a in s.assumptions}
     assert "measured daily loss" in names
-    assert "share recovered by a rollback" in names
+    assert "share recovered" in names
 
 
 def test_rollback_declines_when_no_release_survived_testing(contract):

@@ -65,6 +65,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 
 ### Fixed, correctness
 
+- **The brief's action chain broke at "expected impact" for two of three
+  industries.** `RECOVERY_SHARE` held retail's four levers, so every decision
+  card in petroleum and power reported its expected recovery as blank — the
+  engine declining to guess, correctly, but the link the brief names explicitly
+  was missing. Recovery is now a per-industry `RecoveryModel` carrying the
+  shares, the reversal scenario and the words for it: retail rolls a release
+  back, a fuel marketer re-sources from another refinery, a generator brings a
+  unit back on bar
+- **Three retail levers had no recovery share either.** `assortment`,
+  `carrier_mix` and `gateway_failover` appear on retail contracts and were
+  absent from the table, so those cards were blank too. Found by the new test
+  rather than by a reader
+- **`Vertical` carried a path to the ground truth.** The engine never read it,
+  but T-04 forbids `whychain/` and `api/` from naming that directory at all — a
+  path in the package is one edit from a read, and the audit's `git grep` caught
+  it. The map now lives in the tests, which are the only things allowed to read
+  the labels
 - **Eight defects the second and third industry exposed in the first one's
   assumptions**, written up as B-019: a rate of zero divided by, two planted
   causes that could not move their own metric, a sparse product priced the wrong

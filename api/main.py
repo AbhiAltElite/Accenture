@@ -1182,11 +1182,13 @@ def diagnose(
         cards = decision_cards(
             verifications, per_cause, contract, confidence.band.value,
             drivers=vertical.drivers,
+            recovery_model=vertical.recovery,
         )
         scenarios = simulate(
             verifications, per_cause, contract,
             base_revenue_per_day=bridge.current_revenue,
             price_delta=price_delta, horizon_days=horizon_days,
+            recovery=vertical.recovery,
         )
         t.note = f"{len(cards)} decision card(s), every field derived"
 

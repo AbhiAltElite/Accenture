@@ -8,12 +8,16 @@ matrix, because it reads as complete.
 Run these first, in order. Everything below is reachable from them.
 
 ```bash
-make setup && make gen        # venv, dependencies, dataset
-make test                     # 258 tests, 106 marked invariant
+make setup && make gen-all    # venv, dependencies, all three industries' datasets
+make test                     # 348 tests, of which many are marked invariant
 make audit                    # 30 executable security, logic and design checks
 make bench                    # accuracy, trap rejection, calibration, latency
 make demo                     # console at http://localhost:8000
 ```
+
+`make gen` builds retail alone, which is enough to see everything the eight
+objectives are demonstrated against. `make gen-all` adds the petroleum and power
+verticals, which is what the scalability criterion rests on.
 
 ---
 
@@ -36,7 +40,7 @@ make demo                     # console at http://localhost:8000
 
 | # | Expectation | Evidence | State |
 |---|---|---|---|
-| 1 | 3–5 connected KPIs across 2–3 sources, different grains or cadences | **5 KPIs**: `net_revenue` (day, INR), `orders` (day, count), `checkout_conversion` (**hour**, ratio), `aov` (day, INR), `on_time_delivery` (day, ratio). **4 sources**: `pos_txn` (6h SLA), `sessions`, `shipments`, `plan_ops` (72h), `voice_ops` (2h), plus the `ext_signals` external feed (36h). Revenue = orders × AOV; orders = sessions × conversion. `make status` prints the graph through the real loader | Met |
+| 1 | 3–5 connected KPIs across 2–3 sources, different grains or cadences | **5 KPIs per industry, across three industries.** Retail — `net_revenue` (day, INR), `orders` (day, count), `checkout_conversion` (**hour**, ratio), `aov` (day, INR), `on_time_delivery` (day, ratio). **4 sources**: `pos_txn` (6h SLA), `sessions`, `shipments`, `plan_ops` (72h), `voice_ops` (2h), plus the `ext_signals` external feed (36h). Revenue = orders × AOV; orders = sessions × conversion. `make status` prints the graph through the real loader. **Petroleum**: `net_realisation` (day, INR), `consignments` (day, count), `gantry_throughput` (**hour**, ratio), `avg_consignment_value` (day, INR), `supply_reliability` (day, ratio). **Power**: `dispatch_realisation`, `scheduled_blocks`, `dispatch_fulfilment` (**hour**, ratio), `avg_realised_tariff`, `grid_availability`. All three sit on the same source names with different semantics, so the reconciliation layer is exercised identically in each | Met |
 | 2 | Lightweight KPI or semantic contract | `contracts/*.yml`: definition, canonical SQL with `dialect_targets`, grain, drivers with owner and controllable lever, materiality thresholds, freshness SLA per source, lineage, access policy. The registry rejects one-sided parent/child edges, cycles, unknown references, duplicate ids, and controllable levers with no owner | Met |
 | 3 | At least two personas with different narratives or actions | **Three**: Analyst (everything, including rejected candidates and method), CFO (size, one decision, recoverable vs not), Ops (only levers they hold, plus what they cannot act on). A test asserts the underlying evidence is byte-identical across all three | Met |
 | 4 | One multi-factor movement with known drivers | `demo-01-multi-factor`, West, 2026-08-13 to 16. Release regression + competitor price cut + weather, with a **planted decoy** that correlates perfectly and caused nothing | Met |

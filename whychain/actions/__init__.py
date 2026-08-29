@@ -30,7 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from whychain.actions.recovery import RECOVERY_SHARE
+from whychain.actions.recovery import RETAIL_RECOVERY, RecoveryModel
 from whychain.actions.simulate import Scenario, simulate
 from whychain.contracts import Driver, KPIContract
 from whychain.evidence import ClaimState
@@ -252,6 +252,7 @@ def decision_cards(
     confidence_band: str,
     *,
     drivers: DriverMap = RETAIL_DRIVERS,
+    recovery_model: RecoveryModel = RETAIL_RECOVERY,
     now: datetime | None = None,
 ) -> list[DecisionCard]:
     """A card for every verified cause, ranked by what it cost.
@@ -312,7 +313,7 @@ def decision_cards(
             )
             continue
 
-        share = RECOVERY_SHARE.get(lever)
+        share = recovery_model.share_for(lever)
         if share is None:
             recovery, basis = None, f"no recovery assumption declared for lever {lever!r}"
             caveats.append(
@@ -363,12 +364,13 @@ def decision_cards(
 
 __all__ = [
     "KIND_TO_DRIVER",
-    "RECOVERY_SHARE",
     "RETAIL_DRIVERS",
+    "RETAIL_RECOVERY",
     "ApprovalDraft",
     "DecisionCard",
     "DriverMap",
     "MonitoringRule",
+    "RecoveryModel",
     "Scenario",
     "decision_cards",
     "simulate",

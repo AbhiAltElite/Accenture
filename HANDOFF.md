@@ -170,6 +170,69 @@ p95 0.180s. 252 tests, 105 invariant.
 
 ---
 
+## Scalability, which the brief names twice
+
+`docs/BRIEF.md` lists "the potential scalability of the idea" as one of four
+things the prototype is judged on, and the Grand Finale asks for "a
+production-ready, scalable version". It used to point here at nothing. Judges
+mean two different things by the word, and they are answered separately.
+
+### Scaling across businesses
+
+This is the one that is demonstrated rather than argued. Three industries run on
+this engine: an omnichannel retailer whose metrics move because of things it did
+to itself, and a fuel marketer and a generator whose metrics move because of
+things done to them -- excise notifications, refinery turnarounds, port
+closures, tariff orders, fuel supply, grid constraints.
+
+What a new industry costs is the measure. It supplies five contracts, a
+generated warehouse against the same six source names, and four vocabularies:
+which words in an operational note name which driver, which complaint codes
+corroborate which cause, what its planning extract calls a planned intervention,
+and what reversing a cause recovers. It changes **no** calculation. Detection,
+the price/volume/mix bridge, both ranking tracks, the causal tests, confidence,
+calibration and every threshold are the contract's job in all three.
+
+The claim is checked rather than asserted: the retail warehouse regenerates byte
+for byte after the generator was parameterised -- 1.8 million order lines,
+identical hashes -- and the benchmark is identical on every rate. If adding two
+industries had cost the first one a single digit, that would be visible.
+
+`tests/test_verticals.py` is what keeps it true: 60 tests parameterised over all
+three, checking every pair of places that has to agree.
+
+### Scaling with data and load
+
+Less finished, and worth being straight about which parts are built and which
+are argued.
+
+**Built.** Every contract declares `dialect_targets: [duckdb, databricks,
+snowflake]`, and the KPI is expressed as canonical SQL rather than as pandas, so
+the aggregation runs in the warehouse and only the series comes back. Reading a
+region-day series is a `GROUP BY` over the source, not a scan into memory.
+`bridge_facts` bounds itself to the window plus its baseline instead of three
+years, because aggregating the whole history to answer a question about a
+fortnight was most of what a diagnosis cost. The series and decomposition cache
+is keyed on a snapshot of the warehouse mtime, the contract contents and the
+industry, so it drops rather than serves a stale or cross-industry answer.
+Measured: p95 0.18s per diagnosis, and the whole console composes in about a
+second on a cold cache.
+
+**Argued, not built.** Concurrency is single-process; the cache is in-process
+and would need to be shared or externalised behind more than one worker. The
+retriever indexes the ticket corpus in memory, which is fine at seven thousand
+documents and is the first thing that would need a real vector store -- the
+`PgVectorRetriever` seam exists for exactly that and is unexercised. Nothing
+here has been run against a warehouse large enough to test the pushdown claim,
+so it rests on the SQL being SQL rather than on a measurement.
+
+**The honest summary for a jury.** Scaling to another business is demonstrated
+and costs configuration. Scaling to another two orders of magnitude of data is
+designed for and not yet proven, and the specific unproven claim is that the
+aggregation stays in the warehouse.
+
+---
+
 ## Template, copy this block when you stop work
 
 ```markdown

@@ -24,7 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from whychain.actions import RETAIL_DRIVERS, DriverMap
+from whychain.actions import RETAIL_DRIVERS, RETAIL_RECOVERY, DriverMap, RecoveryModel
 from whychain.corroborate import RETAIL_CORPUS, Corpus
 from whychain.verify.candidates import RETAIL_PLAN, PlanSpec
 
@@ -60,12 +60,14 @@ class Vertical:
     vertical rather than being hard-coded in the console.
     """
 
+    # No path to the labels lives here. The benchmark and the tests know where
+    # they are; the engine must not, because a path in the package is one edit
+    # away from a read, and T-04 is about the reference rather than the read.
     id: str
     label: str
     tagline: str
     contracts_dir: Path
     warehouse: Path
-    ground_truth: Path
     headline_kpi: str
     # What moves this industry's metrics, in one phrase, for the switcher.
     driven_by: str
@@ -79,6 +81,7 @@ class Vertical:
     drivers: DriverMap = RETAIL_DRIVERS
     plan: PlanSpec = RETAIL_PLAN
     plan_columns: PlanColumns = RETAIL_PLAN_COLUMNS
+    recovery: RecoveryModel = RETAIL_RECOVERY
 
     def label_for(self, dimension: str) -> str:
         return self.dimensions.get(dimension, dimension.replace("_", " ").capitalize())
