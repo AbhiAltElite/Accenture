@@ -42,3 +42,4 @@ data/feedback/
 
 # Local dev-server config for the preview pane. Machine-specific.
 .claude/launch.json
+dist/

@@ -11,6 +11,20 @@ An engine that takes a business metric that materially moved and answers two que
 
 It sits on top of existing BI rather than replacing it.
 
+## The competition's own framing
+
+*"Reinvent with AI. Put Humans in the Lead."* Human-in-the-lead is a scoring
+dimension, not a slogan, and it is worth checking the build against: nothing
+here executes, a decision card is a draft addressed to a named role, abstention
+hands the question back, entitlement names who to escalate to, and a correction
+needs a second submitter before a human applies it.
+
+After this round: a solution discussion assessed on technical and AI proficiency
+and solution thinking, then a 10-minute pitch with a 5-minute jury Q&A showing a
+"production-ready, scalable version". Scalability is named twice across the
+criteria and is currently the weakest part of the submission. See
+`docs/BRIEF.md`.
+
 ## The one rule everything else serves
 
 > **The quantitative layer is deterministic. The language model reads, ranks and writes, it never calculates, and it never decides what is true.**

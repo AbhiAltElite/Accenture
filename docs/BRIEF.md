@@ -16,6 +16,51 @@ somewhere.
 
 ---
 
+## The competition, and what it says it wants
+
+**Accenture Innovation Challenge 2026: Reinvent with AI.** The closing line of
+the event description is *"Reinvent with AI. Put Humans in the Lead. Build What
+Comes Next."*, and the brief repeats the point in prose: solutions should
+"harness the power of AI while keeping human ingenuity at the core", and show
+"how people and AI can work together".
+
+That is not decoration to be quoted back. It is a scoring dimension, and it is
+worth checking the build against directly, because a system that acts on its own
+conclusions fails it however good those conclusions are. What answers it here:
+nothing executes, a decision card is a draft addressed to a named role and
+marked `awaiting_approval`, abstention hands the question back with what was
+ruled out, entitlement names the role to escalate to, and a correction needs a
+second independent submitter before it becomes a proposal that a human applies.
+
+Eligibility: pre-final and final year students, teams of up to three.
+**Naming convention: `TeamName_CampusName`.**
+
+### The stages after this one
+
+Worth knowing while building, because they change what is worth investing in.
+
+- **Solution discussion with AI and mentorship**, for the top 10. Assessed on
+  technical and AI proficiency, technology stack expertise, problem-solving,
+  solution thinking and innovative approach. This is a discussion of the *build*,
+  so the code and its documented reasoning are what is being examined, not the
+  slides.
+- **Grand Finale in Bengaluru**, in person: a **10-minute pitch and a 5-minute
+  jury Q&A**, showing a "production-ready, scalable version". Scalability is
+  named here as well as in the prototype criteria, which is the second time it
+  appears and the reason it should stop being the weakest part of this
+  submission.
+- Prizes to ₹3,00,000, and **PPI opportunities for the top 10**, so the work is
+  also read as a hiring signal.
+
+### A discrepancy worth knowing about
+
+The event description lists four things to submit: prototype, README,
+demonstration video, public repository. **The submission portal asks for five**,
+adding the business proposal as both a PDF and a pptx. The portal is what is
+actually uploaded against, so the portal wins. Both are recorded below.
+
+---
+
 ## BusinessIntelligence.ai
 
 ### Recap & Expanded Context

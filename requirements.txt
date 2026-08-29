@@ -32,3 +32,7 @@ ruff==0.16.5
 # already provides. Ollama needs no client library, and every OpenAI-compatible
 # endpoint speaks the same JSON. One less dependency to audit, and no vendor
 # lock in the dependency file.
+
+# Document tooling, not runtime. The README is written once in Markdown and
+# rendered to the PDF the portal accepts, so the two cannot drift apart.
+Markdown==3.10.3

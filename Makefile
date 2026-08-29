@@ -1,4 +1,4 @@
-.PHONY: setup gen demo test bench status audit guardrails verify-ai capture-ai docker docker-ai lint clean
+.PHONY: setup gen demo test bench status audit guardrails verify-ai capture-ai readme-pdf docker docker-ai lint clean
 
 setup:            ## create venv and install dependencies
 	python3 -m venv .venv
@@ -25,6 +25,9 @@ guardrails:       ## watch the guardrails refuse bad input
 
 capture-ai:       ## run one case with the model and without, and keep both
 	PYTHONPATH=. .venv/bin/python scripts/capture_contrast.py
+
+readme-pdf:       ## render README.md to the PDF the portal accepts
+	PYTHONPATH=. .venv/bin/python scripts/render_pdf.py README.md dist
 
 docker:            ## run the console in a container, deterministic path
 	docker compose up --build
