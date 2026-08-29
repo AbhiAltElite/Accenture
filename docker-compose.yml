@@ -1,0 +1,56 @@
+# Two ways to run this, and the second is the interesting one.
+#
+#   docker compose up
+#       The console at http://localhost:8000, with the deterministic path. The
+#       receipt reports zero model calls, which is honest rather than broken:
+#       every number on the page is computed without a model either way.
+#
+#   docker compose --profile ai up
+#       The same console with both model stages live, against an open-weight
+#       model running in a sibling container. No account, no key, no egress.
+#       The first start pulls about 4GB of weights.
+
+services:
+  whychain:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Reaches the ollama service when it is running, and falls back to the
+      # deterministic path when it is not. Nothing has to change between the
+      # two commands above.
+      WHYCHAIN_LLM_BACKEND: ollama
+      WHYCHAIN_LLM_BASE_URL: http://ollama:11434
+      WHYCHAIN_LLM_MODEL: mistral:7b-instruct
+    # Deliberately not `depends_on: ollama`. Without the profile there is no
+    # ollama service to wait for, and the console must still come up.
+    restart: unless-stopped
+
+  ollama:
+    # Apache 2.0 runtime serving Apache 2.0 weights. Inference stays inside the
+    # compose network, so no client data leaves the boundary: the sovereignty
+    # argument in whychain/llm/__init__.py, made concrete.
+    image: ollama/ollama:latest
+    profiles: ["ai"]
+    ports:
+      - "11434:11434"
+    volumes:
+      # Weights survive a rebuild. Without this every `up` re-downloads 4GB.
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+
+  # Pulls the model once, then exits. Separated from the server so a slow first
+  # download does not look like a server that failed to start.
+  ollama-pull:
+    image: ollama/ollama:latest
+    profiles: ["ai"]
+    depends_on: [ollama]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    volumes:
+      - ollama-models:/root/.ollama
+    entrypoint: ["sh", "-c", "ollama pull ${WHYCHAIN_LLM_MODEL:-mistral:7b-instruct}"]
+    restart: "no"
+
+volumes:
+  ollama-models:

@@ -37,11 +37,11 @@ from dataclasses import dataclass, field
 
 from whychain.corroborate.extract import Extraction, IssueType, RuleExtractor
 from whychain.corroborate.quarantine import Quarantined
+from whychain.llm import ChatModel, default_model
 
-# Extraction is classification against a closed vocabulary over short passages.
-# It does not need the frontier model, and using one here would triple the cost
-# of the cheaper of the two calls for no measurable gain.
-DEFAULT_MODEL = "claude-haiku-4-5"
+# Extraction is classification against a closed vocabulary over short passages,
+# which is the easier of the two model jobs here. A 7B open-weight model does it
+# well under constrained decoding, and that is what the default backend runs.
 
 # More documents than this in one request and a miss becomes hard to attribute.
 BATCH = 25
@@ -107,8 +107,7 @@ class ModelExtractor:
     reports what was actually spent rather than what was intended.
     """
 
-    model: str | None = None
-    api_key: str | None = None
+    backend: ChatModel | None = None
     fallback: RuleExtractor = field(default_factory=RuleExtractor)
 
     calls: int = 0
@@ -118,27 +117,23 @@ class ModelExtractor:
     dropped: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        self.model = self.model or os.environ.get(
-            "WHYCHAIN_EXTRACTION_MODEL", DEFAULT_MODEL
-        )
-        self.api_key = self.api_key or os.environ.get("ANTHROPIC_API_KEY") or None
+        if self.backend is None:
+            self.backend = default_model(os.environ.get("WHYCHAIN_EXTRACTION_MODEL"))
+
+    @property
+    def model(self) -> str:
+        return self.backend.name if self.backend else "none"
 
     @property
     def available(self) -> bool:
-        if not self.api_key:
-            return False
-        try:
-            import anthropic  # noqa: F401
-        except ImportError:
-            return False
-        return True
+        return self.backend is not None
 
     def extract(self, documents: Sequence[Quarantined]) -> list[Extraction]:
         """Read the documents, or hand back to the rule table and say so."""
         if not documents:
             return []
         if not self.available:
-            self.note = "no API key: rule-based extraction"
+            self.note = "no model backend reachable: rule-based extraction"
             return self.fallback.extract(documents)
 
         try:
@@ -149,7 +144,7 @@ class ModelExtractor:
                 out.extend(self._read(batch, dropped))
             self.dropped = tuple(dropped)
             self.note = (
-                f"{self.model}; {len(out)} extraction(s)"
+                f"{self.backend.backend} · {self.model}; {len(out)} extraction(s)"
                 + (f", {len(dropped)} dropped for unverifiable citations"
                    if dropped else "")
             )
@@ -164,29 +159,19 @@ class ModelExtractor:
     def _read(
         self, batch: Sequence[Quarantined], dropped: list[str]
     ) -> list[Extraction]:
-        import anthropic
-
-        client = anthropic.Anthropic(api_key=self.api_key)
         by_id = {d.doc_id: d for d in batch}
 
-        response = client.messages.create(
-            model=self.model,
-            max_tokens=8000,
+        completion = self.backend.complete(
             system=SYSTEM,
-            output_config={"format": {"type": "json_schema", "schema": SCHEMA}},
-            messages=[
-                {
-                    "role": "user",
-                    "content": "\n\n".join(d.fenced() for d in batch),
-                }
-            ],
+            user="\n\n".join(d.fenced() for d in batch),
+            schema=SCHEMA,
+            max_tokens=8000,
         )
         self.calls += 1
-        self.tokens_in += response.usage.input_tokens
-        self.tokens_out += response.usage.output_tokens
+        self.tokens_in += completion.tokens_in
+        self.tokens_out += completion.tokens_out
 
-        text = next((b.text for b in response.content if b.type == "text"), "{}")
-        payload = json.loads(text)
+        payload = json.loads(completion.text or "{}")
 
         out: list[Extraction] = []
         for row in payload.get("extractions", []):

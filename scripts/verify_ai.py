@@ -19,7 +19,6 @@ is off and the system runs anyway" is a true and intended state, not a failure.
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -27,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from whychain.corroborate.model_extract import ModelExtractor
 from whychain.corroborate.quarantine import quarantine
+from whychain.llm import default_model, describe
 from whychain.narrate import build_brief
 from whychain.narrate.validate import validate
 from whychain.narrate.writer import ModelWriter
@@ -64,17 +64,24 @@ KNOWN = frozenset({"West", "net_revenue", "app", "mobile"})
 
 
 def main() -> int:
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("No ANTHROPIC_API_KEY is set.\n")
+    backend = default_model()
+    if backend is None:
+        print("No model backend is reachable.\n")
+        print(describe(None) + "\n")
         print("The engine runs without one: extraction falls back to the rule")
         print("table, the narrative to the deterministic writer, and the run")
         print("receipt reports zero model calls rather than the two the design")
-        print("intends. That is a supported configuration and the benchmark is")
-        print("produced in it.\n")
-        print("To exercise the model path:")
-        print("  cp .env.example .env      # then put a real key in it")
-        print("  export $(grep -v '^#' .env | xargs) && make verify-ai")
+        print("intends. That is a supported configuration, and the benchmark is")
+        print("produced in it so the numbers do not move when a model does.\n")
+        print("To exercise the model path, either:")
+        print("  brew install ollama && ollama serve")
+        print("  ollama pull mistral:7b-instruct        # Apache 2.0, no account")
+        print("or point at any OpenAI-compatible endpoint serving open weights:")
+        print("  export WHYCHAIN_LLM_BASE_URL=https://api.groq.com/openai/v1")
+        print("  export WHYCHAIN_LLM_API_KEY=...")
         return 0
+
+    print(f"Backend      {describe(backend)}\n")
 
     failures = 0
 
@@ -130,11 +137,10 @@ def main() -> int:
 
     total_in = extractor.tokens_in + written.tokens_in
     total_out = extractor.tokens_out + written.tokens_out
-    from whychain.telemetry import RATE_INR_PER_1K_IN, RATE_INR_PER_1K_OUT
-
-    cost = total_in / 1000 * RATE_INR_PER_1K_IN + total_out / 1000 * RATE_INR_PER_1K_OUT
-    print(f"\n   {extractor.calls + written.model_calls} model call(s), "
-          f"{total_in + total_out} tokens, about {cost:.3f} rupees")
+    calls = extractor.calls + written.model_calls
+    print(f"\n   {calls} model call(s), {total_in + total_out} tokens.")
+    print("   Self-hosted open weights, so the marginal cost of a diagnosis is")
+    print("   compute rather than a per-token charge.")
 
     print("\nFAILED" if failures else "\nBoth model stages work.")
     return 1 if failures else 0

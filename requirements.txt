@@ -27,7 +27,8 @@ ruff==0.16.5
 # Optional — only needed for the pgvector retrieval backend (see D-002).
 # psycopg[binary]==3.2.3
 
-# The narrative stage's model call. Optional at runtime — the
-# deterministic writer covers every path without it — but declared
-# here because a clean machine cannot install what is not listed.
-anthropic==1.2.0
+# No LLM SDK is pinned, and that is deliberate. Both model stages reach their
+# backend over plain HTTP through `whychain/llm/`, which the standard library
+# already provides. Ollama needs no client library, and every OpenAI-compatible
+# endpoint speaks the same JSON. One less dependency to audit, and no vendor
+# lock in the dependency file.

@@ -1,0 +1,11 @@
+.venv/
+.git/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+_internal/
+# Regenerated inside the image, and a stale copy would be shipped as if fresh.
+data/warehouse/
+data/feedback/
+data/calibration.json

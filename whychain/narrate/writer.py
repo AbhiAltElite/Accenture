@@ -25,10 +25,10 @@ import os
 from dataclasses import dataclass
 from typing import Protocol
 
+from whychain.llm import ChatModel, default_model
 from whychain.narrate.brief import Brief
 from whychain.narrate.validate import Sentence
 
-DEFAULT_MODEL = "claude-opus-5"
 MAX_SENTENCES = 8
 
 SYSTEM = """\
@@ -211,52 +211,41 @@ class TemplateWriter:
 class ModelWriter:
     """The constrained call. Reads the brief, writes cited sentences, nothing else.
 
-    Adaptive thinking is on and effort is left at the default: the task is
-    short, and the expensive part is being careful with numbers rather than
-    reasoning at length. The call is not retried on a validation failure,
-    a writer that invented a figure once is not more trustworthy on the second
-    attempt, and the template already covers the fallback.
+    The call is not retried on a validation failure. A writer that invented a
+    figure once is not more trustworthy on the second attempt, and the template
+    already covers the fallback.
     """
 
     name = "model"
 
-    def __init__(self, model: str | None = None, api_key: str | None = None):
-        self.model = model or os.environ.get("WHYCHAIN_NARRATIVE_MODEL", DEFAULT_MODEL)
-        self._api_key = api_key or os.environ.get("ANTHROPIC_API_KEY") or None
+    def __init__(self, backend: ChatModel | None = None):
+        self.backend = backend or default_model(
+            os.environ.get("WHYCHAIN_NARRATIVE_MODEL")
+        )
+
+    @property
+    def model(self) -> str:
+        return self.backend.name if self.backend else "none"
 
     @property
     def available(self) -> bool:
-        if not self._api_key:
-            return False
-        try:
-            import anthropic  # noqa: F401
-        except ImportError:
-            return False
-        return True
+        return self.backend is not None
 
     def write(self, brief: Brief) -> Written:
-        import anthropic
+        if self.backend is None:
+            raise RuntimeError("no model backend reachable")
 
-        client = anthropic.Anthropic(api_key=self._api_key)
-        response = client.messages.create(
-            model=self.model,
-            max_tokens=16000,
+        completion = self.backend.complete(
             system=SYSTEM,
-            thinking={"type": "adaptive"},
-            output_config={"format": {"type": "json_schema", "schema": SENTENCE_SCHEMA}},
-            messages=[
-                {
-                    "role": "user",
-                    "content": (
-                        "Facts available to you:\n"
-                        + json.dumps(brief.as_dict(), indent=1)
-                        + "\n\nWrite the summary."
-                    ),
-                }
-            ],
+            user=(
+                "Facts available to you:\n"
+                + json.dumps(brief.as_dict(), indent=1)
+                + "\n\nWrite the summary."
+            ),
+            schema=SENTENCE_SCHEMA,
+            max_tokens=4000,
         )
-        text = next((b.text for b in response.content if b.type == "text"), "{}")
-        payload = json.loads(text)
+        payload = json.loads(completion.text or "{}")
         sentences = tuple(
             Sentence(text=str(s["text"]), cites=tuple(str(c) for c in s["cites"]))
             for s in payload.get("sentences", [])[:MAX_SENTENCES]
@@ -264,10 +253,13 @@ class ModelWriter:
         return Written(
             sentences=sentences,
             model_calls=1,
-            tokens_in=response.usage.input_tokens,
-            tokens_out=response.usage.output_tokens,
+            tokens_in=completion.tokens_in,
+            tokens_out=completion.tokens_out,
             writer=self.name,
-            note=f"constrained call to {self.model} over the evidence table",
+            note=(
+                f"constrained call to {completion.backend} · {completion.model} "
+                "over the evidence table"
+            ),
         )
 
 

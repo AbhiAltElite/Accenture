@@ -35,3 +35,4 @@ ignore = ["E501"]    # line length is formatted, not linted
 # so it is ignored where money is formatted and asserted, and nowhere else.
 "whychain/narrate/brief.py" = ["RUF001"]
 "tests/test_narrate.py" = ["RUF001"]
+"tests/test_llm_backend.py" = ["RUF001"]
