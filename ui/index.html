@@ -292,6 +292,10 @@ table.watch tbody tr:hover{background:var(--surface)}
    clicked. The affordance is the cursor and the hover ground; the current
    selection is marked in the last column rather than by colouring the row,
    which would compete with the up/down colouring the figures already carry. */
+tr.triage{cursor:pointer}
+tr.triage:hover{background:var(--surface)}
+tr.triage:hover .linkback{color:var(--ink)}
+.triagetable td{padding-top:var(--sp-3);padding-bottom:var(--sp-3)}
 tr.pickable{cursor:pointer}
 tr.pickable:hover{background:var(--surface)}
 tr.pickable:hover .linkback{color:var(--ink)}
@@ -797,6 +801,14 @@ const pct = n => (n*100).toFixed(1) + '%';
    spaces and the first letter is raised; nothing else is touched, so an
    acronym or a version number inside the label survives. */
 const words = t => String(t||'').replace(/_/g,' ');
+/* A role name is a proper noun in a business document. `ecommerce_lead` has to
+   arrive as "Ecommerce lead", not as "ecommerce lead" and never as the
+   identifier itself. Sentence case rather than title case, because "Ecommerce
+   Lead" reads like a job advert. */
+const role = t => {
+  const w = words(t).trim();
+  return w ? w[0].toUpperCase() + w.slice(1) : w;
+};
 const sentence = t => {
   const clean = String(t == null ? '' : t).replace(/_/g,' ').trim();
   return clean ? clean[0].toUpperCase() + clean.slice(1) : clean;
@@ -920,9 +932,16 @@ function describeBackend(){
   const b = (STATE.backends||[]).find(x=>x.id===chosen);
   if(!b) return;
   if(!STATE.backend){
-    note.innerHTML = `<strong>Auto</strong>: currently
-      ${escapeHtml(b.label.toLowerCase())} (<strong>${escapeHtml(b.model)}</strong>).<br>
-      ${escapeHtml(b.sovereignty)}.<br>Pick one to pin it for the next run.`;
+    // Auto is not "whatever happens to be set", it is per-stage routing:
+    // reading tickets is closed-vocabulary classification and runs on a small
+    // model, writing the narrative is harder and runs on a stronger one. Saying
+    // so is worth more than naming the backend, because the routing is the
+    // design decision and the backend is the consequence.
+    note.innerHTML = `<strong>Auto</strong> routes each stage to the model it
+      needs: a small one to read tickets, a stronger one to write the narrative.
+      <br>Currently ${escapeHtml(b.label.toLowerCase())}
+      (<strong>${escapeHtml(b.model)}</strong>); ${escapeHtml(b.sovereignty)}.
+      <br>Choose a specific backend to pin every stage to it.`;
     return;
   }
   note.innerHTML = `<strong>${escapeHtml(b.model)}</strong> \u00b7 licence
@@ -933,6 +952,13 @@ function describeBackend(){
 /* Real URLs, so a diagnosis can be sent to someone rather than described. */
 function go(path, replace=false){
   STATE.pick = null;
+  if(STATE.pending){
+    // Set by the triage queue a moment ago: the reader asked about a specific
+    // finding, and clearing it here would silently answer a different question.
+    STATE.pick = STATE.pending.day;
+    if(STATE.pending.region){ $('#region').value = STATE.pending.region; }
+    STATE.pending = null;
+  }
   history[replace?'replaceState':'pushState']({}, '', path + location.search);
   route();
 }
@@ -973,8 +999,13 @@ async function showOverview(){
   $('#main').setAttribute('aria-busy','true');
   const region=$('#region').value;
   const q=new URLSearchParams(); if(region) q.set('region',region);
-  const data = await (await fetch('/api/overview?'+q)).json();
+  const [data, queue] = await Promise.all([
+    (await fetch('/api/overview?'+q)).json(),
+    fetch('/api/triage?limit=8' + (STATE.entitled ? '&entitled='+encodeURIComponent(STATE.entitled) : ''))
+      .then(r=>r.json()).catch(()=>null),
+  ]);
   STATE.overview = data;
+  STATE.queue = queue;
   renderNav();
 
   const byId = Object.fromEntries(data.kpis.map(k=>[k.kpi_id,k]));
@@ -1008,6 +1039,9 @@ async function showOverview(){
       <div><dt>Scope</dt><dd style="font-size:var(--t-md)">${region||'All regions'}</dd></div>
     </dl>
 
+    ${triageMarkup()}
+
+    <span class="label" style="margin-top:var(--sp-7)">All metrics</span>
     <table class="watch"><thead><tr>
       <th>Metric</th>
       <th class="n">Latest</th>
@@ -1018,7 +1052,7 @@ async function showOverview(){
     ${rows.map(({k,depth})=>`
       <tr class="kpi d${depth}" data-kpi="${k.kpi_id}" tabindex="0">
         <td><span class="name">${title(k.kpi_id)}</span>
-            <span class="owner">${k.owner_role.replace(/_/g,' ')} · ${k.grain.split(' by ')[0]}</span></td>
+            <span class="owner">${escapeHtml(role(k.owner_role))} · ${k.grain.split(' by ')[0]}</span></td>
         <td class="n"><span class="val">${fmt(k,k.latest)}</span></td>
         <td class="n hide-sm"><span class="chg ${k.period_change<0?'down':'up'}">${
           k.period_change==null?'–':(k.period_change>0?'+':'')+pct(k.period_change)}</span></td>
@@ -1031,6 +1065,18 @@ async function showOverview(){
       what was ruled out, and whether anything warned about it first.</p></div>`;
 
   $('#margin').innerHTML = marginBlock(null);
+  document.querySelectorAll('tr.triage').forEach(row=>{
+    const open = () => {
+      // The chosen day survives the navigation, so the diagnosis that opens is
+      // the finding that was clicked rather than the largest one on the page.
+      STATE.pending = {region: row.dataset.region, day: row.dataset.day};
+      go('/kpi/' + row.dataset.kpi);
+    };
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', e=>{
+      if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); }
+    });
+  });
   document.querySelectorAll('tr.kpi').forEach(b=>{
     b.addEventListener('keydown', e=>{ if(e.key==='Enter') go('/kpi/'+b.dataset.kpi); });
   });
@@ -1038,6 +1084,56 @@ async function showOverview(){
     b.addEventListener('click',()=>go('/kpi/'+b.dataset.kpi)));
   drawSparks();
   $('#main').setAttribute('aria-busy','false');
+}
+
+
+/* What to look at first.
+
+   The console could already show what moved once a reader had chosen a metric
+   and a region, which asks them to know the answer to the question they arrived
+   with. This ranks every open finding across every metric and region by what it
+   costs per day, so the page opens on the work rather than on the inventory.
+
+   The ranking is in rupees because that is the only unit the metrics share. A
+   four-point fall in checkout conversion and a two-lakh fall in revenue are not
+   otherwise comparable, and each contract already declares the conversion for
+   its own materiality test, so no new assumption is introduced to do it. */
+function triageMarkup(){
+  const q = STATE.queue;
+  if(!q || !q.findings || !q.findings.length) return '';
+  const rows = q.findings.map(f=>{
+    const span = f.start === f.end
+      ? escapeHtml(f.start)
+      : `${escapeHtml(f.start)} to ${escapeHtml(f.end)}`;
+    return `<tr class="triage" data-kpi="${f.kpi_id}" data-region="${f.region}"
+                data-day="${f.worst_day}" tabindex="0">
+      <td class="n"><span class="val down">${inr(f.impact_inr_per_day)}</span>
+          <span class="owner">per day</span></td>
+      <td><span class="name">${escapeHtml(title(f.kpi_id))}</span>
+          <span class="owner">${escapeHtml(f.region)} · ${span}${
+            f.days > 1 ? ` · ${f.days} days` : ''}</span></td>
+      <td class="n hide-sm"><span class="chg down">${
+        f.pct != null ? pct(f.pct) : '–'}</span>
+          <span class="owner">z ${f.robust_z}</span></td>
+      <td class="hide-sm"><span class="owner">${
+        escapeHtml(role(f.owner_role))}</span></td>
+      <td class="n">${f.diagnosable
+        ? '<span class="linkback">diagnose</span>'
+        : '<span class="state off">detection only</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <span class="label">Open findings, worst first</span>
+    <table class="watch triagetable"><thead><tr>
+      <th class="n">Impact</th><th>Metric and window</th>
+      <th class="n hide-sm">Movement</th><th class="hide-sm">Owner</th>
+      <th class="n">Action</th>
+    </tr></thead><tbody>${rows}</tbody></table>
+    <p class="sub" style="margin-top:var(--sp-3);font-size:var(--t-xs);font-family:var(--sans)">
+      ${q.total} open findings in total. ${escapeHtml(q.basis)}
+      Metrics with no price/volume/mix identity are detected and prioritised but
+      not decomposed, and are marked accordingly.</p>`;
 }
 
 function drawSparks(){
@@ -1343,9 +1439,9 @@ function signalGapBlock(){
     // finding rests on.
     const hurt = g.recurrence_that_hurt;
     facts.push(['Prior episodes', g.recurrence,
-      hurt == null ? 'in 24 months' : `${hurt} moved the metric`]);
+      hurt == null ? 'in 24 months' : `${hurt} with material impact`]);
   }
-  if(g.owner_role) facts.push(['Accountable', sentence(g.owner_role.replace(/_/g,' ')), '']);
+  if(g.owner_role) facts.push(['Accountable', role(g.owner_role), '']);
 
   const m = g.monitoring;
   const body = `
@@ -1366,7 +1462,7 @@ function signalGapBlock(){
         <tr><th scope="row">Watch</th><td>${escapeHtml(words(m.watch))}</td></tr>
         <tr><th scope="row">Threshold</th><td>${escapeHtml(m.threshold)}</td></tr>
         <tr><th scope="row">Cadence</th><td>${escapeHtml(m.window)}</td></tr>
-        <tr><th scope="row">Route to</th><td>${escapeHtml(sentence(String(m.route_to).replace(/_/g,' ')))}</td></tr>
+        <tr><th scope="row">Route to</th><td>${escapeHtml(role(m.route_to))}</td></tr>
         <!-- This row validates the proposed rule, it does not grade anybody.
              It was labelled "would have fired", which reads as an accusation
              that somebody failed to act; what it actually answers is whether
@@ -1381,14 +1477,15 @@ function signalGapBlock(){
     ${(g.precedents||[]).length?`<div class="scroll" style="margin-top:var(--sp-5)">
       <h4 class="label">When this warning class covered the slice before</h4>
       <table><thead><tr><th>Episode</th><th>Peak severity</th>
-        <th class="n">Warnings</th><th class="n">Metric moved</th></tr></thead><tbody>
+        <th class="n">Warnings</th><th class="n">Material impact</th></tr></thead><tbody>
       ${g.precedents.map(x=>`<tr>
         <td>${escapeHtml(x.start)}${x.end!==x.start?` to ${escapeHtml(x.end)}`:''}</td>
         <td>${escapeHtml(x.max_severity)}</td>
         <td class="n">${x.signal_count}</td>
         <td class="n">${x.hurt === null
-          ? '<span class="na">not enough history</span>'
-          : `<span class="state ${x.hurt?'no':'off'}">${x.hurt?'yes':'no'}</span>`}</td>
+          ? '<span class="na">insufficient history</span>'
+          : `<span class="state ${x.hurt?'no':'off'}">${
+              x.hurt?'confirmed':'none recorded'}</span>`}</td>
       </tr>`).join('')}</tbody></table></div>`:''}
     ${(g.signals||[]).length?`<div class="scroll" style="margin-top:var(--sp-5)">
       <table><thead><tr><th>Signal</th><th>Publisher</th><th>Severity</th>
@@ -1454,7 +1551,7 @@ function narrativeBlock(){
     `<span class="s" title="cites ${escapeHtml((x.cites||[]).join(', '))}">${
       escapeHtml(x.text)}<span class="cites">\u25AA${(x.cites||[]).length}</span></span> `).join('');
 
-  return section('The summary, and what it had to pass', `
+  return section('Summary, and the checks it passed', `
     <p>Written from a flat table of already-computed facts and nothing else.
     Every sentence carries the evidence ids it rests on, and a deterministic
     validator checks each one before a reader sees it.</p>
@@ -1534,17 +1631,17 @@ function contrastMarkup(){
 
 /* ═══ feedback ═══════════════════════════════════════════════════════════ */
 const JUDGEMENTS = [
-  ['confirmed','This was right'],
-  ['wrong_cause','Wrong cause'],
-  ['missed_cause','Missed a cause'],
-  ['not_material','Not worth flagging'],
-  ['wrong_owner','Wrong owner'],
+  ['confirmed','Diagnosis correct'],
+  ['wrong_cause','Cause is incorrect'],
+  ['missed_cause','A cause was missed'],
+  ['not_material','Not material'],
+  ['wrong_owner','Owner is incorrect'],
 ];
 
 function feedbackBlock(){
   const d = STATE.diagnosis;
   if(!d || !d.run_id) return '';
-  return section('Tell the engine it was wrong', `
+  return section('Analyst review and corrections', `
     <p>A correction never edits this run and never moves a computed number.
     What it can change are the inputs the business owns, which candidates are
     worth surfacing, which driver a description maps to, where a threshold sits: and only once two independent readers agree.</p>
@@ -1552,7 +1649,7 @@ function feedbackBlock(){
       ${JUDGEMENTS.map(([k,lab])=>
         `<button data-j="${k}" aria-pressed="false">${lab}</button>`).join('')}
     </div>
-    <p class="fbnote" id="fbnote">Nothing recorded yet.</p>`,
+    <p class="fbnote" id="fbnote">No review recorded for this run.</p>`,
     false, '');
 }
 
@@ -1665,7 +1762,8 @@ function marginBlock(d){
       <dl>
         <dt>Verdict</dt><dd>${escapeHtml(String(gap.verdict).replace(/_/g,' '))}</dd>
         ${gap.recurrence?`<dt>Prior episodes</dt><dd>${gap.recurrence}${
-          gap.recurrence_that_hurt!=null?` (${gap.recurrence_that_hurt} hurt)`:''}</dd>`:''}
+          gap.recurrence_that_hurt!=null
+            ? ` · ${gap.recurrence_that_hurt} with material impact`:''}</dd>`:''}
       </dl></section>`:''}
     ${stale?`<hr class="rule"><section><span class="label">Freshness</span>
       <p>${stale} source(s) past SLA.</p></section>`:''}`;
@@ -1688,7 +1786,7 @@ function cfoStory(d){
     ${d.causes.length === 1 ? 'One verified cause accounts' :
       `${d.causes.length} verified causes account`} for it: ${causes}.</p>
     ${dec ? `<p><strong>The decision.</strong> ${escapeHtml(dec.action)}, owned by
-      <strong>${sentence(escapeHtml(dec.owner||''))}</strong>.
+      <strong>${escapeHtml(role(dec.owner))}</strong>.
       Expected recovery <strong>${inr(dec.expected_recovery_inr_per_day)}</strong>
       per day, computed from the movement the causal test measured rather than
       estimated. It is drafted and awaiting approval; nothing has been changed.</p>`
@@ -1711,8 +1809,8 @@ function opsStory(d){
       ? `<strong>${mine.length}</strong> of them ${mine.length===1?'sits':'sit'} behind a lever you can pull.`
       : `None of them sits behind a lever you hold.`}</p>
     ${mine.map(a => `<p><strong>${escapeHtml(a.action)}</strong>,
-      ${sentence(escapeHtml(a.lever||''))}, owned by
-      ${sentence(escapeHtml(a.owner||''))}. Expected recovery
+      ${escapeHtml(words(a.lever))}, owned by
+      ${escapeHtml(role(a.owner))}. Expected recovery
       ${inr(a.expected_recovery_inr_per_day)} per day, awaiting approval.</p>`).join('')}
     ${watch.length ? `<p class="q">${watch.length} further cause${watch.length>1?'s':''}
       moved the metric with no lever to pull. The monitoring rule${watch.length>1?'s':''}
@@ -1768,7 +1866,7 @@ function simulatorBlock(){
         ${s.bounded_by ? `<p class="q bounded">Bounded by ${escapeHtml(s.bounded_by)}.</p>` : ''}
       </article>`;
   }).join('');
-  return section('If we act', `
+  return section('Impact if the lever is applied', `
     <p>Projections, not measurements. Each rests on a quantity already measured
     or a coefficient the contract declares, and every assumption is stated so it
     can be argued with.</p>${rows}`, false,
@@ -1826,7 +1924,7 @@ function decisionsBlock(){
     const approval = c.approval ? `
       <div class="approval">
         <p><span class="tag">Awaiting approval</span>
-        Drafted for <b>${escapeHtml(c.approval.assigned_to.replace(/_/g,' '))}</b>.
+        Drafted for <b>${escapeHtml(role(c.approval.assigned_to))}</b>.
         Nothing has been changed.</p>
         <p class="q">${escapeHtml(c.approval.body)}</p>
       </div>` : '';
@@ -1922,7 +2020,7 @@ function movementsBlock(){
             ? '<span class="state ok">diagnosed</span>'
             : '<span class="linkback">diagnose</span>')
         : '<span class="na">—</span>'}</td></tr>`).join('');
-  return section('Days that passed both materiality tests',
+  return section('Movements that cleared both materiality tests',
     `<p>The series is split by MSTL into trend, weekly rhythm and the retail
      calendar, and anomalies are measured on what is left over using the median
      and MAD rather than the mean, so an earlier shock does not raise the bar for
@@ -1989,7 +2087,7 @@ function candidatesBlock(){
       <p style="margin-bottom:10px"><strong>${x.reason}</strong></p>
       <div class="scroll"><table><tbody>${tests}</tbody></table></div></div>`;
   })).join('');
-  return section('Everything that was considered',
+  return section('Candidates considered and ruled out',
     `<p>Candidates come from the operational record with nothing marking which are
      real. One becomes a claim only by surviving every test that could be run, and
      a test that could not run is not a test that passed.</p>${items}`,

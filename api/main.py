@@ -46,6 +46,7 @@ app = FastAPI(title="WhyChain", docs_url="/api/docs")
 UI = Path("ui")
 
 _registry: ContractRegistry | None = None
+_registry_stamp: tuple | None = None
 _retriever: object | None = None
 _retriever_rows: int = 0
 _feedback = FeedbackStore()
@@ -123,7 +124,14 @@ def _snapshot() -> tuple:
         stamp = DEFAULT_WAREHOUSE.stat().st_mtime_ns
     except OSError:
         stamp = 0
-    return (stamp, tuple(sorted((c.kpi_id, c.version) for c in registry())))
+    # Contract *content*, not just id and version. A threshold edited without a
+    # version bump is exactly the change a developer makes while iterating, and
+    # keying on the version alone meant the console kept serving figures from
+    # before the edit with nothing to indicate it.
+    contracts = tuple(sorted(
+        (p.name, p.stat().st_mtime) for p in Path("contracts").glob("*.yml")
+    ))
+    return (stamp, contracts)
 
 
 def _cached(key: tuple, build):
@@ -143,7 +151,13 @@ def _cached(key: tuple, build):
 
 
 def registry() -> ContractRegistry:
-    global _registry
+    global _registry, _registry_stamp
+    stamp = tuple(sorted(
+        (p.name, p.stat().st_mtime) for p in Path("contracts").glob("*.yml")
+    ))
+    if _registry is not None and stamp != _registry_stamp:
+        _registry = None          # a contract changed on disk; reload it
+    _registry_stamp = stamp
     if _registry is None:
         try:
             _registry = ContractRegistry.from_directory("contracts")
@@ -307,6 +321,147 @@ def overview(region: str | None = None, days: int = Query(90, ge=30, le=730)) ->
 
     return {"region": region, "days": days, "kpis": rows,
             "roots": reg.roots()}
+
+
+@app.get("/api/triage")
+def triage(
+    limit: int = Query(12, ge=1, le=50),
+    entitled: str | None = Query(None, description="comma-separated regions"),
+) -> dict:
+    """What to look at first, across every KPI and every region at once.
+
+    The console could show what moved once a reader had already chosen a metric
+    and a region. That asks them to know the answer to the question they came
+    with. Objective 1 of the brief is detection *and prioritisation*, and
+    prioritisation is the half that was nowhere on the page.
+
+    Two things make this a ranking rather than a list.
+
+    **Findings are compared in rupees, not in their own units.** A four-point
+    fall in checkout conversion and a two-lakh fall in revenue are not otherwise
+    comparable, and a queue that sorts within each metric separately is five
+    queues. Each contract already declares `value_per_unit_inr` for exactly this
+    conversion, because materiality needs it, so the same declaration does the
+    ranking. No new assumption is introduced.
+
+    **Consecutive flagged days are one finding.** A five-day regression is one
+    thing to look at, and listing it five times would push a larger single-day
+    movement off the top of the queue by sheer repetition.
+
+    This is detection, not diagnosis. It says what is worth a question, and the
+    diagnosis answers it, which is why every row carries a link rather than a
+    cause. Running twenty-five diagnoses to build a landing page would spend a
+    reader's first ten seconds on questions they have not asked yet.
+    """
+    reg = registry()
+    scope = tuple(r.strip() for r in entitled.split(",") if r.strip()) if entitled else None
+    regions = list(scope) if scope else ["North", "South", "East", "West"]
+
+    findings: list[dict] = []
+    try:
+        with Warehouse() as wh:
+            for contract in reg:
+                try:
+                    raw = _cached(
+                        ("kpi_series", contract.kpi_id),
+                        lambda c=contract: wh.kpi_series(c),
+                    )
+                except IngestError:
+                    continue
+                if raw.empty:
+                    continue
+
+                for region in regions:
+                    scoped = raw[raw["region"] == region] if "region" in raw.columns else raw
+                    if scoped.empty:
+                        continue
+                    frame = _roll_up(scoped, contract)
+                    if len(frame) < 60:
+                        continue
+                    try:
+                        d = _cached(
+                            ("decompose", contract.kpi_id, region),
+                            lambda f=frame: decompose(f),
+                        )
+                    except ValueError:
+                        continue
+
+                    flagged = material(
+                        find_anomalies(d, contract.materiality.min_abs_robust_z),
+                        contract,
+                    )
+                    drops = sorted(
+                        (a for a in flagged if a.direction == "drop"),
+                        key=lambda a: a.day,
+                    )
+                    findings.extend(
+                        _episodes(drops, contract, region)
+                    )
+    except IngestError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+    findings.sort(key=lambda f: f["impact_inr_per_day"], reverse=True)
+    return {
+        "findings": findings[:limit],
+        "total": len(findings),
+        "scope": list(scope) if scope else None,
+        "basis": (
+            "Ranked by rupee impact per day, converted through each contract's "
+            "declared value_per_unit_inr so metrics in different units are "
+            "comparable. Consecutive flagged days are grouped into one finding. "
+            "This is detection and prioritisation; the cause is a diagnosis away."
+        ),
+    }
+
+
+# Two flagged days further apart than this are separate events rather than one
+# that happens to have a quiet day in the middle.
+EPISODE_GAP_DAYS = 2
+
+
+def _episodes(drops, contract, region: str) -> list[dict]:
+    """Group consecutive flagged days into findings, worst day first."""
+    out: list[dict] = []
+    run: list = []
+
+    def close(run):
+        if not run:
+            return
+        worst = min(run, key=lambda a: a.delta)
+        total = sum(abs(a.delta) for a in run)
+        out.append({
+            "kpi_id": contract.kpi_id,
+            "unit": contract.unit.value,
+            "owner_role": contract.owner_role,
+            "region": region,
+            "start": run[0].day.isoformat(),
+            "end": run[-1].day.isoformat(),
+            "days": len(run),
+            "worst_day": worst.day.isoformat(),
+            "delta": round(float(worst.delta), 4),
+            # Derived here rather than carried on the anomaly: the proportional
+            # fall against what the day was expected to be, which is the figure
+            # a reader compares across metrics of different sizes.
+            "pct": (
+                round(float(worst.delta) / float(worst.expected), 4)
+                if worst.expected else None
+            ),
+            "robust_z": round(float(worst.robust_z), 2),
+            # The number the queue is sorted on, and the only one that is
+            # comparable across metrics.
+            "impact_inr_per_day": round(
+                contract.materiality.business_impact(total / len(run)), 2
+            ),
+            "diagnosable": contract.decomposition.method == "pvm",
+        })
+
+    for anomaly in drops:
+        if run and (anomaly.day - run[-1].day).days > EPISODE_GAP_DAYS:
+            close(run)
+            run = []
+        run.append(anomaly)
+    close(run)
+    return out
 
 
 @app.get("/api/document/{doc_id}")

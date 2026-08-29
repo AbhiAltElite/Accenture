@@ -62,8 +62,20 @@ materiality:
   # A rate metric, so the rupee floor is the revenue the shortfall represents
   # rather than a movement in the ratio itself.
   min_abs_robust_z: 3.0
-  min_abs_delta_inr: 15000
-  value_per_unit_inr: 600000.0
+  # Per observation, and this contract's observations are hours. The 15,000
+  # used by the daily KPIs is a day's worth, so applying it here asked for a
+  # movement twenty-four times larger than the metric can produce: conversion
+  # runs at about 6%, and 15,000 needed a fall of 11.9 points. The ceiling of
+  # what is possible sat below the floor of what counts, so nothing could ever
+  # be material. A day's floor divided across a day's hours.
+  min_abs_delta_inr: 625
+  # A ratio at an *hourly* grain, so one whole unit is every session in one
+  # hour converting rather than none: about 283 regional sessions at a Rs 447
+  # average order value. Valuing it against a whole day's sessions overstates
+  # it twenty-four-fold and floods any ranking this feeds, which is the same
+  # grain mismatch that had AOV costed at the national order count while
+  # detection ran regionally.
+  value_per_unit_inr: 126500.0
 
 freshness_sla:
   pos_txn: 6h

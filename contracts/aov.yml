@@ -51,7 +51,9 @@ drivers:
 materiality:
   min_abs_robust_z: 3.0
   min_abs_delta_inr: 15000
-  value_per_unit_inr: 1500.0
+  # A one-rupee change in average order value applies across every order
+  # placed in the region that day, which is about 411.
+  value_per_unit_inr: 411.0
 
 freshness_sla:
   pos_txn: 6h

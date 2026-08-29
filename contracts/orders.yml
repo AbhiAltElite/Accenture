@@ -40,7 +40,8 @@ drivers:
 materiality:
   min_abs_robust_z: 3.0
   min_abs_delta_inr: 15000
-  value_per_unit_inr: 430.0
+  # One order is worth the average order value, Rs 447 on this data.
+  value_per_unit_inr: 447.0
 
 freshness_sla:
   pos_txn: 6h

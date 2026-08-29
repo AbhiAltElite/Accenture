@@ -59,6 +59,7 @@ drivers:
 materiality:
   min_abs_robust_z: 3.0
   min_abs_delta_inr: 15000
+  # The metric is already rupees, so a rupee of movement is a rupee of impact.
   value_per_unit_inr: 1.0
 
 freshness_sla:

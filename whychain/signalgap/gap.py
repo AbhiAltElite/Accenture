@@ -670,11 +670,12 @@ def assess(
     hurt = sum(1 for p in precedents if p.hurt)
     judged = any(p.hurt is not None for p in precedents)
     recurrence_clause = (
-        f" The same warning class has covered this slice {len(precedents)} time(s) "
-        f"before, {hurt} of which coincided with a material movement."
+        f" The same warning class has covered this slice on {len(precedents)} "
+        f"prior occasion(s), {hurt} of which coincided with a material movement."
         if precedents and judged else
-        f" The same warning class has covered this slice {len(precedents)} time(s) "
-        "before; whether those cost anything was not checked." if precedents else ""
+        f" The same warning class has covered this slice on {len(precedents)} "
+        "prior occasion(s); whether those coincided with a material movement "
+        "was not assessed." if precedents else ""
     )
     return SignalGap(
         verdict=GapVerdict.GAP_FOUND,

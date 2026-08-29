@@ -25,11 +25,54 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 | T-15 | Naive datetimes in freshness arithmetic | ingest, evidence | All timestamps are timezone-aware UTC. `Freshness` rejects naive input, and ruff `DTZ` enforces it at the source. Sources sit in different zones; a naive/aware mix raises mid-diagnosis |
 | T-16 | Writing a version, path or command from memory | everywhere | Read it from the environment. Pins come from `pip freeze`, not recollection, see B-001 |
 | T-17 | A verification command that passes on empty output | scripts, CI | `cmd \| tail && echo OK` reports success when `cmd` never ran. Check the exit status of the command itself, and confirm the check can actually fail |
+| T-19 | A threshold or conversion that ignores the metric's grain | contracts | `value_per_unit_inr` must be what one unit is worth *at the grain anomalies are detected on*, and `min_abs_delta_inr` is compared per observation. A daily figure applied to hourly data is twenty-four times wrong, and a national figure applied to regional detection is wrong by the number of regions. Check that the floor is reachable given the metric's range: conversion runs at 6%, so a floor needing 11.9 points can never be met (see B-017) |
 | T-18 | A benchmark result that improved for a reason nobody checked | bench, datagen | Numbers that move the flattering way get accepted; numbers that move the other way get investigated. A harness defect usually shows up as the former. Any invariant the generator depends on is executed by a test, never only stated in a docstring (see B-014) |
 
 ---
 
 ## Defects
+
+### B-017 · Rupee conversions costed at the wrong grain, four times over
+**Found:** 2026-08-29 · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** the triage queue, which ranks findings across metrics by rupee
+impact, was topped entirely by movements the engine cannot diagnose. Then, after
+a first correction, entirely by `checkout_conversion`. Then `checkout_conversion`
+could not be material at all.
+
+**Root cause:** `value_per_unit_inr` says what one whole unit of a metric is
+worth, and it has to be worth that *at the grain anomalies are detected on*.
+Four contracts got that wrong in three different ways:
+
+- `aov` was costed at the national daily order count while detection runs per
+  region: a threefold overstatement.
+- `checkout_conversion` was costed against a whole day's sessions while its
+  grain is hourly: a twenty-fourfold overstatement, which flooded the ranking.
+- `on_time_delivery` was costed at 450,000, which made a twenty-five point fall
+  worth 61% of a region-day. Late delivery costs cancellations, credits and
+  retention, not most of the day's revenue.
+- `min_abs_delta_inr` is compared per observation, and `checkout_conversion`
+  inherited the daily KPIs' 15,000. Conversion runs at about 6%, so 15,000
+  demanded a fall of 11.9 points. The ceiling of what the metric can physically
+  do sat below the floor of what counts, and nothing could ever be material.
+
+**Why it stayed hidden:** nothing consumed these numbers comparatively.
+Materiality uses each contract's conversion only against its own threshold, so
+an error in one never contradicted another. The triage queue is the first thing
+to rank metrics against each other in a shared unit, and it exposed all four
+within minutes of existing.
+
+**Fix:** every conversion re-derived from the generated panel at the grain its
+contract declares, and each now carries the derivation as a comment, because a
+number that ranks the whole queue should not be unexplained. The hourly floor is
+a daily floor divided across a day's hours.
+
+**Lesson — promoted to a trap below (T-19).**
+
+**Regression test:** none directly. The honest note is that this needs one: an
+assertion that each contract's floor is reachable given the metric's plausible
+range, and that a realistic movement of each converts to a comparable share of a
+region-day. Recorded in `HANDOFF.md`.
 
 ### B-016 · Abstention recall measured a quantity nobody wanted
 **Found:** 2026-08-28 · **Severity:** P2 · **Status:** fixed

@@ -51,7 +51,12 @@ drivers:
 materiality:
   min_abs_robust_z: 2.5
   min_abs_delta_inr: 15000
-  value_per_unit_inr: 450000.0
+  # A ratio again: one whole unit is every shipment moving from on time to
+  # late. Costed at half a region-day of revenue, covering both the orders
+  # cancelled or credited now and the retention lost afterwards. Costing it at
+  # only the immediate credits understates a metric whose damage is mostly
+  # deferred.
+  value_per_unit_inr: 91858.0
 
 freshness_sla:
   plan_ops: 72h
