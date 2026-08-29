@@ -89,6 +89,7 @@ declares whether it can be decomposed, and the other four decline.
 | `HANDOFF.md` | picking up where someone stopped |
 | `DECISIONS.md` | **before proposing an architectural change**; it may already have been decided and rejected |
 | `BUGS.md` | before writing a stage; it lists traps already identified |
+| `docs/BRIEF.md` | **the brief, verbatim. It is the authority on scope; read it rather than recalling it** |
 | `docs/REQUIREMENTS.md` | checking the build against the brief, objective by objective |
 | `docs/PROTOTYPE-SPEC.md` | implementing a stage |
 | `docs/SECURITY-LOGIC-CHECKLIST.md` | writing tests, or before demoing |

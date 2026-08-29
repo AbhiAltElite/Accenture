@@ -154,6 +154,7 @@ Requires Python 3.12+. No database server, no Docker.
 | `docs/PRODUCT-OUTLINE.md` | features and intended behaviour |
 | `docs/CONCEPTS.md` | terminology reference |
 | `docs/SECURITY-LOGIC-CHECKLIST.md` | correctness invariants and security tests |
+| `docs/BRIEF.md` | **the problem statement, verbatim. Where any document disagrees with it, this one is right** |
 | `docs/REQUIREMENTS.md` | **every brief objective and expectation, mapped to code and a command** |
 | `docs/DESIGN-CHECKLIST.md` | interface requirements |
 | `DECISIONS.md` | architectural decisions and rationale |
