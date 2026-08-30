@@ -59,7 +59,15 @@ VOCABULARY = Vocabulary(
           "depot closed", "no update for")),
         (STOCK_DRY_OUT,
          ("dry out", "dried out", "ran out", "nil stock", "no stock",
-          "tank empty", "out of stock", "allocation cut", "rationing")),
+          "tank empty", "out of stock", "allocation cut", "rationing",
+          # How the *operational* record says the same thing. A dealer writes
+          # "allocation cut to half"; the terminal writes "allocation reduced to
+          # 55 per cent of indent" and the field report writes "allocation
+          # running at 55% of indent". Without these the note describing a
+          # turnaround classified as the residual, and the tickets that
+          # corroborate it were discarded unread.
+          "allocation reduced", "allocation running", "allocation restricted",
+          "of indent", "short supply")),
         (PRICE_REVISION,
          ("price revision", "rate revision", "duty change", "excise",
           "price went up", "cheaper at", "margin", "dealer commission")),

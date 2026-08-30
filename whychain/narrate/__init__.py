@@ -42,6 +42,7 @@ class Narrative:
     tokens_in: int
     tokens_out: int
     note: str
+    cache_hits: int = 0
     fell_back: bool = False
 
     def as_dict(self) -> dict:
@@ -51,6 +52,7 @@ class Narrative:
             "validation": self.validation.as_dict(),
             "writer": self.writer,
             "model_calls": self.model_calls,
+            "cache_hits": self.cache_hits,
             "tokens_in": self.tokens_in,
             "tokens_out": self.tokens_out,
             "note": self.note,
@@ -79,7 +81,14 @@ def narrate(
         failure_note = ""
     except Exception as exc:
         written = TemplateWriter().write(brief)
-        failure_note = f"model writer failed ({type(exc).__name__}), template used"
+        # The class alone was not diagnosable: every hosted failure arrives as
+        # RuntimeError, so "model writer failed (RuntimeError)" could equally be
+        # a bad key, a rejected schema or a capacity spike. The message carries
+        # the status code, and the receipt is where a reader looks when the
+        # narrative is not the one they expected.
+        failure_note = (
+            f"model writer failed ({type(exc).__name__}: {exc}), template used"
+        )
 
     validation = validate(list(written.sentences), brief, known_entities=known_entities)
     fell_back = bool(failure_note)
@@ -96,6 +105,7 @@ def narrate(
         written = Written(
             sentences=fallback.sentences,
             model_calls=written.model_calls,
+            cache_hits=written.cache_hits,
             tokens_in=written.tokens_in,
             tokens_out=written.tokens_out,
             writer=f"{written.writer} -> template",
@@ -109,6 +119,7 @@ def narrate(
         validation=validation,
         writer=written.writer,
         model_calls=written.model_calls,
+        cache_hits=written.cache_hits,
         tokens_in=written.tokens_in,
         tokens_out=written.tokens_out,
         note=" · ".join(n for n in (written.note, failure_note) if n),

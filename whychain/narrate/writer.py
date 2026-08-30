@@ -25,7 +25,7 @@ import os
 from dataclasses import dataclass
 from typing import Protocol
 
-from whychain.llm import ChatModel, default_model
+from whychain.llm import MAX_TOKENS, UNSET, ChatModel, default_model
 from whychain.narrate.brief import Brief
 from whychain.narrate.validate import Sentence
 
@@ -86,6 +86,7 @@ class Written:
 
     sentences: tuple[Sentence, ...]
     model_calls: int
+    cache_hits: int = 0
     tokens_in: int = 0
     tokens_out: int = 0
     writer: str = "template"
@@ -149,15 +150,36 @@ class TemplateWriter:
                 )
             explained = brief.by_id("f-explained")
             if explained is not None and causes:
-                sentences.append(
-                    Sentence(
-                        text=(
-                            f"Verified causes account for {explained.display} of "
-                            "the total movement; the remainder is unexplained."
-                        ),
-                        cites=("f-explained",),
+                # Three different sentences, because the old single one asserted
+                # a remainder unconditionally and so contradicted itself the
+                # moment coverage reached 100%: "causes account for all of it;
+                # the remainder is unexplained". Worse, the case where that
+                # happened most often was the one where the causes overlap, and
+                # there the per-cause figures a reader can add up do not
+                # reconcile with the total at all unless they are told why.
+                overlap = brief.by_id("f-overlap")
+                movement = brief.by_id("f-movement")
+                if overlap is not None:
+                    text = (
+                        f"Verified causes account for {explained.display} of the "
+                        f"total movement, but their individual contributions sum "
+                        f"to {overlap.display} of it, so they overlap and the "
+                        f"split between them is unresolved."
                     )
-                )
+                    cites = ("f-explained", "f-overlap")
+                elif movement is not None and explained.value == movement.value:
+                    text = (
+                        f"Verified causes account for {explained.display}, which "
+                        f"is the whole of the movement."
+                    )
+                    cites = ("f-explained",)
+                else:
+                    text = (
+                        f"Verified causes account for {explained.display} of "
+                        "the total movement; the remainder is unexplained."
+                    )
+                    cites = ("f-explained",)
+                sentences.append(Sentence(text=text, cites=cites))
 
         ruled_out = [f for f in brief.facts if f.kind == "ruled_out"]
         if ruled_out:
@@ -218,9 +240,15 @@ class ModelWriter:
 
     name = "model"
 
-    def __init__(self, backend: ChatModel | None = None):
-        self.backend = backend or default_model(
-            os.environ.get("WHYCHAIN_NARRATIVE_MODEL")
+    def __init__(self, backend: ChatModel | None = UNSET):
+        # `UNSET` means "decide for me"; `None` means "run without a model".
+        # Written as `backend or default_model(...)` these were the same thing,
+        # so a request that explicitly asked for the deterministic path got the
+        # model anyway -- 30 seconds of narration on a page whose other eight
+        # stages had already finished in under a second.
+        self.backend = (
+            default_model(os.environ.get("WHYCHAIN_NARRATIVE_MODEL"))
+            if backend is UNSET else backend
         )
 
     @property
@@ -243,7 +271,7 @@ class ModelWriter:
                 + "\n\nWrite the summary."
             ),
             schema=SENTENCE_SCHEMA,
-            max_tokens=4000,
+            max_tokens=MAX_TOKENS["narrate"],
         )
         payload = json.loads(completion.text or "{}")
         sentences = tuple(
@@ -253,6 +281,7 @@ class ModelWriter:
         return Written(
             sentences=sentences,
             model_calls=1,
+            cache_hits=1 if completion.cached else 0,
             tokens_in=completion.tokens_in,
             tokens_out=completion.tokens_out,
             writer=self.name,

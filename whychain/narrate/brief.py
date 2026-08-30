@@ -171,6 +171,16 @@ def build_brief(result: dict) -> Brief:
         _fact("f-explained", "the part of the movement verified causes account for",
               movement.get("explained"), Unit.INR, "coverage")
     )
+    # Only stated when there is something to state. Causes that do not overlap
+    # need no sentence about overlapping, and a fact that is always present
+    # tempts a writer into always mentioning it.
+    if (movement.get("overlap") or 1.0) > 1.0:
+        facts.append(
+            _fact("f-overlap",
+                  "how far the verified causes overlap, as their gross "
+                  "attribution over the movement",
+                  movement.get("overlap"), Unit.PCT, "coverage")
+        )
 
     confidence = result.get("confidence", {})
     facts.append(

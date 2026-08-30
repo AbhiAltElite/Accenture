@@ -175,13 +175,14 @@ def run_case(
         if v.state is ClaimState.VERIFIED:
             supporting += corroborate(c, documents, retriever=retriever, index=False).support_count
 
-    explained, per_cause = explained_movement(
+    explained, per_cause, overlap = explained_movement(
         verifications, panel, case.window_start, case.window_end, BASELINE_DAYS,
         total_movement=bridge.total_change,
     )
     confidence = score(verifications, explained=explained,
                        total_movement=bridge.total_change,
-                       supporting_documents=supporting, sources=_fresh(contract))
+                       supporting_documents=supporting, sources=_fresh(contract),
+                       overlap=overlap)
 
     verified = tuple(v.candidate.candidate_id for v in verifications
                      if v.state is ClaimState.VERIFIED)

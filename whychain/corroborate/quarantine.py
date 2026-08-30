@@ -41,6 +41,62 @@ _INJECTION_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"do\s+not\s+(report|mention|include|flag)\s+", "suppression attempt"),
 )
 
+# Classes of data a contract can declare must never reach a prompt, and the
+# patterns that find them. `domain_restriction: [pii]` was declared on every
+# contract and read by nothing; this is what makes it an instruction rather than
+# a label.
+#
+# Redaction happens at the quarantine boundary rather than at the source,
+# deliberately. The warehouse keeps what it was given -- masking there would
+# change what the engine computes over -- and the boundary is the last point
+# before untrusted text becomes prompt tokens, which is the crossing the
+# restriction is actually about. A citation is checked against the *redacted*
+# text afterwards, so a model cannot quote back something it was never shown.
+_DOMAIN_PATTERNS: dict[str, tuple[tuple[str, str], ...]] = {
+    # Order matters: the longest and most specific shape has to match before a
+    # shorter one can consume part of it. A sixteen-digit card written in groups
+    # of four begins with a twelve-digit run, so an id pattern placed first turns
+    # "4111 1111 1111 1111" into "[id-number] 1111" and leaves four digits of a
+    # card number in the prompt.
+    "pii": (
+        (r"[\w.+-]+@[\w-]+\.[\w.]+", "[email]"),
+        # Card-shaped runs, in groups or unbroken. Never legitimate in a ticket.
+        (r"\b(?:\d[ -]?){15,18}\d\b", "[card]"),
+        (r"\b\d{4}[ -]\d{4}[ -]\d{4}[ -]\d{4}\b", "[card]"),
+        # Indian mobile numbers, with or without country code, and with the
+        # internal spacing people actually type.
+        (r"(?:\+?91[ -]?)?\b[6-9]\d{4}[ -]?\d{5}\b", "[phone]"),
+        # Aadhaar-shaped: three groups of four.
+        (r"\b\d{4}[ -]?\d{4}[ -]?\d{4}\b", "[id-number]"),
+    ),
+    "location": (
+        (r"\b\d{1,4}[/,]?\s?[A-Z][a-z]+\s+(Road|Street|Marg|Nagar|Colony)\b", "[address]"),
+    ),
+}
+
+
+def redact(text: str, domains: tuple[str, ...] = ()) -> tuple[str, tuple[str, ...]]:
+    """Remove declared classes of sensitive data. Returns the text and what went.
+
+    Unknown domain names are ignored rather than raising: a contract naming a
+    class this build has no patterns for is a gap to report, not a reason to
+    fail a diagnosis. `whychain.inspect` lists which declared domains are
+    actually enforceable.
+    """
+    removed: list[str] = []
+    for domain in domains:
+        for pattern, placeholder in _DOMAIN_PATTERNS.get(domain, ()):
+            text, count = re.subn(pattern, placeholder, text)
+            if count:
+                removed.append(f"{domain}:{placeholder.strip('[]')} x{count}")
+    return text, tuple(removed)
+
+
+def enforceable_domains() -> frozenset[str]:
+    """Domain classes this build can actually act on."""
+    return frozenset(_DOMAIN_PATTERNS)
+
+
 # The delimiter the extractor is told to treat as an opaque data boundary. Any
 # occurrence inside the text itself is neutralised, so a document cannot close
 # the block early and write outside it.
@@ -56,6 +112,10 @@ class Quarantined:
     text: str                  # neutralised, safe to place inside the fence
     flags: tuple[str, ...]     # what the scanner noticed, for the audit trail
     original_length: int
+    # What the contract's `domain_restriction` removed before this text became
+    # prompt tokens. Carried so the evidence can say a quote is redacted rather
+    # than leaving a reader to wonder why a ticket reads oddly.
+    redactions: tuple[str, ...] = ()
 
     @property
     def suspicious(self) -> bool:
@@ -76,7 +136,12 @@ def scan(text: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(found))
 
 
-def quarantine(doc_id: str, text: str, max_chars: int = 4000) -> Quarantined:
+def quarantine(
+    doc_id: str,
+    text: str,
+    max_chars: int = 4000,
+    domain_restriction: tuple[str, ...] = (),
+) -> Quarantined:
     """Prepare untrusted text for a prompt.
 
     Neutralises the fence so a document cannot escape its own block, strips
@@ -86,6 +151,11 @@ def quarantine(doc_id: str, text: str, max_chars: int = 4000) -> Quarantined:
     """
     flags = scan(text)
 
+    # Scanned before redaction so an injection attempt hidden behind an email
+    # address is still flagged, redacted before anything else so no later step
+    # can accidentally carry the original through.
+    text, redactions = redact(text, domain_restriction)
+
     cleaned = text.replace(FENCE, "[fence]").replace(FENCE_END, "[fence]")
     cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", " ", cleaned)
     truncated = cleaned[:max_chars]
@@ -93,7 +163,8 @@ def quarantine(doc_id: str, text: str, max_chars: int = 4000) -> Quarantined:
         truncated += " [truncated]"
 
     return Quarantined(
-        doc_id=doc_id, text=truncated, flags=flags, original_length=len(text)
+        doc_id=doc_id, text=truncated, flags=flags, original_length=len(text),
+        redactions=redactions,
     )
 
 

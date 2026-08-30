@@ -47,11 +47,24 @@ def explained_movement(
     event_end: date,
     baseline_days: int = 14,
     total_movement: float | None = None,
-) -> tuple[float, dict[str, float]]:
+) -> tuple[float, dict[str, float], float]:
     """Rupees per day accounted for by verified causes, and the split between them.
 
-    Returns the total and a per-cause breakdown, so a reader can see which cause
-    carried what rather than being handed one number.
+    Returns the total, a per-cause breakdown so a reader can see which cause
+    carried what rather than being handed one number, and how far the causes
+    overlap.
+
+    That third number used to be computed and thrown away, which was the defect.
+    Capping the total at the movement is right -- three causes cannot account
+    for a hundred and eighty-eight per cent of a fall -- but *silently* capping
+    it reported perfect coverage in exactly the case where the split between the
+    causes is least trustworthy, and perfect coverage is worth the largest single
+    component of the confidence score. The cap stays; what it concealed is now
+    returned with it.
+
+    The ratio is gross attribution over actual movement: 1.0 when the causes do
+    not overlap at all, 1.88 when they sum to nearly twice what happened. It is
+    never below 1.0, so a caller can treat it as a multiplier without checking.
     """
     base_lo = event_start - timedelta(days=baseline_days)
     base_hi = event_start - timedelta(days=1)
@@ -68,12 +81,10 @@ def explained_movement(
     # Causes can overlap: a weather event and a release both hit the same days.
     # Explaining more of the movement than occurred is a sign of double counting,
     # not of unusually complete understanding.
-    over_explained = (
-        total_movement is not None
-        and total_movement != 0
-        and abs(total) > abs(total_movement)
-    )
-    if over_explained:
+    overlap = 1.0
+    if total_movement is not None and total_movement != 0 and total:
+        overlap = max(abs(total) / abs(total_movement), 1.0)
+    if overlap > 1.0:
         total = total_movement
 
-    return total, per_cause
+    return total, per_cause, overlap

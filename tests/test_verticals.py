@@ -396,11 +396,48 @@ class TestEveryVerticalAnswers:
             f"/api/candidates?industry={vertical.id}&kpi={kpi}&{window}",
             f"/api/diagnose?industry={vertical.id}&kpi={kpi}&{window}",
             f"/api/diagnose?industry={vertical.id}&kpi={kpi}&{window}&persona=cfo",
-            f"/api/diagnose?industry={vertical.id}&kpi={kpi}&{window}&entitled=South",
+            # A reader entitled to the region they asked about is served
+            # normally. The out-of-scope case is asserted separately below,
+            # because it must *not* be a 200: this line previously carried
+            # `entitled=South` against a West window and expected 200, which is
+            # exactly the leak it was meant to guard.
+            f"/api/diagnose?industry={vertical.id}&kpi={kpi}&{window}&entitled=West",
         ]
         failed = [(u, client.get(u).status_code) for u in urls]
         failed = [(u, code) for u, code in failed if code != 200]
         assert not failed, f"{vertical.id}: {failed}"
+
+    @pytest.mark.invariant
+    @pytest.mark.parametrize("vertical", ALL, ids=lambda v: v.id)
+    def test_a_region_outside_entitlement_is_refused_not_scrubbed(self, vertical):
+        """Refused before anything is computed, in every industry.
+
+        Redaction-after-computation cannot be made airtight on this shape of
+        answer: the same figure appears in a contribution table, a scenario
+        estimate, a narrative sentence, a validation block and a per-cause map,
+        and each has to be found and removed separately. Refusing the question
+        removes the class.
+        """
+        if not vertical.is_generated():
+            pytest.skip(f"{vertical.id} warehouse not generated")
+        from fastapi.testclient import TestClient
+
+        from api.main import app
+
+        client = TestClient(app)
+        kpi = vertical.headline_kpi
+        window = "region=West&start=2026-08-13&end=2026-08-15"
+        response = client.get(
+            f"/api/diagnose?industry={vertical.id}&kpi={kpi}&{window}&entitled=South"
+        )
+        assert response.status_code == 403, vertical.id
+        detail = response.json()["detail"]
+        assert detail["requested_region"] == "West"
+        assert detail["entitled_regions"] == ["South"]
+        assert detail["escalate_to"]
+        # Nothing about the refused slice may travel in the refusal itself.
+        body = response.text.replace(",", "")
+        assert "26239" not in body
 
     @pytest.mark.parametrize("vertical", ALL, ids=lambda v: v.id)
     def test_the_headline_movement_reaches_a_decision(self, vertical):

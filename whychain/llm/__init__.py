@@ -51,6 +51,28 @@ from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
 
+class _Unset:
+    """Distinguishes "no backend was specified" from "explicitly no backend".
+
+    Both were written as `None`, and a component that re-resolved a `None`
+    backend from the environment therefore could not tell a caller saying
+    "decide for yourself" from one saying "run without a model". The second is
+    what `backend=none` means, and silently overriding it made a deterministic
+    request call the model anyway: measured, a diagnosis that takes 1.1 seconds
+    took 78. An explicit choice must beat a default; that is the whole point of
+    it being explicit.
+    """
+
+    def __repr__(self) -> str:                        # pragma: no cover - debug aid
+        return "UNSET"
+
+    def __bool__(self) -> bool:
+        return False
+
+
+UNSET = _Unset()
+
+
 @dataclass(frozen=True)
 class Completion:
     """What a model returned, and what it cost to get it."""
@@ -60,6 +82,11 @@ class Completion:
     tokens_in: int = 0
     tokens_out: int = 0
     backend: str = "unknown"
+    # Whether this came back from the cache rather than the model. Reported
+    # rather than hidden: the token figures below still say what the reading
+    # costs when it is not cached, and a receipt claiming free work would be the
+    # same dishonesty as an uncalibrated probability.
+    cached: bool = False
 
 
 @runtime_checkable
@@ -79,6 +106,27 @@ class ChatModel(Protocol):
     ) -> Completion: ...
 
 
+# Output ceilings per task, in tokens.
+#
+# These were originally sized for a model that emits the object and nothing
+# else, which several of the open-weight models on a free tier are not: they are
+# reasoning models and spend most of a budget working before they answer. A
+# truncated object is indistinguishable from a refusal -- the parse fails and
+# the engine reports "the model returned nothing usable" -- so a ceiling set too
+# low reads as a broken feature rather than as a budget.
+#
+# They are ceilings, not reservations: nothing is charged for headroom, and the
+# receipt reports the tokens actually spent. Sized as roughly three times the
+# longest well-formed answer observed for each task.
+MAX_TOKENS: dict[str, int] = {
+    "expand": 512,      # a dozen words, after the working
+    "intent": 4096,     # one small object, after the working
+    "extract": 12000,   # up to 25 documents, each with a verbatim quote
+    "narrate": 8000,    # a handful of sentences, each with citations
+    "signalgap": 6000,
+}
+
+
 class Task(StrEnum):
     """The two jobs a model does here, which are not equally hard.
 
@@ -90,6 +138,8 @@ class Task(StrEnum):
     model available because that is the one in the config.
     """
 
+    EXPAND = "expand"
+    INTENT = "intent"
     EXTRACT = "extract"
     NARRATE = "narrate"
 
@@ -98,6 +148,30 @@ class Task(StrEnum):
 # are statements about the work, not about any vendor's tiers, so they survive a
 # change of backend.
 TASK_PROFILE: dict[Task, dict] = {
+    Task.INTENT: {
+        "needs": "one sentence into a structured query over a closed vocabulary",
+        "tier": "small",
+        "env": "WHYCHAIN_INTENT_MODEL",
+        "why_small": (
+            "the answer space is an enum of this deployment's own metrics and "
+            "regions plus two dates, so the schema makes an invalid query "
+            "unrepresentable rather than merely unlikely. The registry then "
+            "checks what comes back, and an unclear question is answered with a "
+            "clarification rather than a guess"
+        ),
+    },
+    Task.EXPAND: {
+        "needs": "vocabulary translation between two registers, a dozen words out",
+        "tier": "small",
+        "env": "WHYCHAIN_EXPANSION_MODEL",
+        "why_small": (
+            "the output is a bag of words that a deterministic filter strips to "
+            "language before retrieval ever sees it, and retrieval is unchanged "
+            "underneath. A poor expansion retrieves less, never wrong: it cannot "
+            "reach a number, and the deterministic query remains in place beneath "
+            "whatever it proposes"
+        ),
+    },
     Task.EXTRACT: {
         "needs": "classification against a closed vocabulary over short passages",
         "tier": "small",
@@ -163,6 +237,11 @@ def default_model(
 
     Forcing `none` is what a benchmark run wants: measuring the engine against a
     model that changes underneath it is measuring two things at once.
+
+    Whatever is returned is wrapped in the disk cache, because every call here is
+    a pure function of its inputs and an uncached path takes minutes rather than
+    seconds. `WHYCHAIN_LLM_CACHE=off` disables it, which is what you want when
+    measuring what the model actually costs rather than what a warm demo costs.
     """
     forced = (backend or os.environ.get("WHYCHAIN_LLM_BACKEND", "")).strip().lower()
     if forced == "none":
@@ -173,7 +252,7 @@ def default_model(
 
         hosted = OpenAICompatibleModel(name=model)
         if hosted.available:
-            return hosted
+            return _cached(hosted)
         if forced:
             return None
 
@@ -182,9 +261,18 @@ def default_model(
 
         local = OllamaModel(name=model)
         if local.available:
-            return local
+            return _cached(local)
 
     return None
+
+
+def _cached(backend: ChatModel) -> ChatModel:
+    """Wrap a reachable backend in the disk cache, unless it is switched off."""
+    if os.environ.get("WHYCHAIN_LLM_CACHE", "").strip().lower() in ("off", "0", "none"):
+        return backend
+    from whychain.llm.cache import CachedModel
+
+    return CachedModel(inner=backend)
 
 
 # Where an enterprise platform would attach. Named rather than implemented,
@@ -213,6 +301,105 @@ def default_model(
 ENTERPRISE_BACKENDS = ("genwizard", "ai-refinery")
 
 
+# Open-weight model families, by the prefix their names carry. Membership here
+# is a licence claim, so it is a short list of families actually checked rather
+# than a guess from the string.
+_OPEN_WEIGHTS = {
+    "mistral": "Apache 2.0",
+    "mixtral": "Apache 2.0",
+    "qwen": "Apache 2.0",
+    "gemma": "Gemma Terms of Use",
+    "phi": "MIT",
+    "llama": "Meta Community Licence (not open source)",
+    "nemotron": "NVIDIA Open Model Licence",
+    "nvidia": "NVIDIA Open Model Licence",
+    "glm": "MIT",
+}
+
+# Hosts whose identity can be stated rather than inferred. The point is not
+# completeness: it is that a host we recognise is named, and one we do not is
+# described as unknown instead of being described as something it might not be.
+_KNOWN_HOSTS = (
+    ("generativelanguage.googleapis.com", "Google Gemini", False),
+    ("api.groq.com", "Groq", True),
+    ("api.together.xyz", "Together", True),
+    ("openrouter.ai", "OpenRouter", None),
+    ("api.openai.com", "OpenAI", False),
+    ("localhost", "a local OpenAI-compatible server", True),
+    ("127.0.0.1", "a local OpenAI-compatible server", True),
+)
+
+
+def _hosted_identity() -> dict:
+    """What the configured hosted endpoint actually is, rather than what it was.
+
+    This row used to read "Hosted, same open weights · mistral-7b-instruct ·
+    Apache 2.0" whatever `WHYCHAIN_LLM_BASE_URL` pointed at. Pointed at Gemini it
+    stated, in the console, that the run was on Apache-2.0 open weights while it
+    was running a proprietary hosted model. The console exists to make the model
+    choice visible *because* it is a governance decision; a governance claim that
+    is wrong is worse than none, and `make audit` checks that the copy is factual.
+
+    So the licence is claimed only where the model name is a family we actually
+    check, and the host is named only where we recognise it. Everything else is
+    reported as unknown, which is a true statement about a backend the operator
+    configured and we did not.
+    """
+    from whychain.llm.hosted import DEFAULT_MODEL as HOSTED_MODEL
+
+    base_url = os.environ.get("WHYCHAIN_LLM_BASE_URL", "").strip()
+    model = os.environ.get("WHYCHAIN_LLM_MODEL", "").strip() or HOSTED_MODEL
+
+    provider, open_weights = None, None
+    for fragment, name, is_open in _KNOWN_HOSTS:
+        if fragment in base_url:
+            provider, open_weights = name, is_open
+            break
+
+    # OpenRouter and friends namespace ids as "vendor/model[:free]", so the
+    # family name sits after the slash and a prefix match on the whole id misses
+    # it -- "meta-llama/llama-3.2-3b-instruct:free" would have been reported as
+    # unknown while being a model whose licence we do check.
+    stem = model.lower().rsplit("/", 1)[-1].removesuffix(":free")
+    vendor = model.lower().split("/", 1)[0]
+    licence = next(
+        (lic for prefix, lic in _OPEN_WEIGHTS.items()
+         if stem.startswith(prefix) or vendor.startswith(prefix)),
+        None,
+    )
+    if licence is None:
+        licence = "open weights" if open_weights else "as published by the provider"
+
+    if provider and open_weights is True:
+        label = f"Hosted, open weights ({provider})"
+    elif provider:
+        label = f"Hosted ({provider})"
+    else:
+        label = "Hosted, OpenAI-compatible"
+
+    from whychain.llm.hosted import _free_only_refusal
+
+    refusal = _free_only_refusal(model)
+    if base_url:
+        note = f"Configured endpoint: {base_url}."
+        if refusal:
+            note = f"Refusing to call it: {refusal}"
+        elif model.endswith(":free"):
+            note += " Free tier, enforced: a paid model id would be refused."
+    else:
+        note = "Groq, Together, OpenRouter, vLLM, LM Studio or Gemini."
+
+    return {
+        "id": "openai",
+        "label": label,
+        "model": model,
+        "licence": licence,
+        "available": bool(base_url) and not refusal,
+        "sovereignty": "inference leaves the boundary",
+        "note": note,
+    }
+
+
 def catalogue() -> list[dict]:
     """Every backend, whether it is reachable, and what it implies.
 
@@ -220,7 +407,6 @@ def catalogue() -> list[dict]:
     run time rather than buried in an environment variable. Model choice is a
     governance decision, and a governance decision nobody can see is not one.
     """
-    from whychain.llm.hosted import DEFAULT_MODEL as HOSTED_MODEL
     from whychain.llm.local import DEFAULT_MODEL as LOCAL_MODEL
     from whychain.llm.local import OllamaModel
 
@@ -235,15 +421,7 @@ def catalogue() -> list[dict]:
             "sovereignty": "inference inside the boundary; no data leaves",
             "note": "Default. No account, no key, no egress.",
         },
-        {
-            "id": "openai",
-            "label": "Hosted, same open weights",
-            "model": HOSTED_MODEL,
-            "licence": "Apache 2.0",
-            "available": bool(os.environ.get("WHYCHAIN_LLM_BASE_URL")),
-            "sovereignty": "inference leaves the boundary",
-            "note": "Groq, Together, OpenRouter, vLLM or LM Studio.",
-        },
+        _hosted_identity(),
         {
             "id": "none",
             "label": "No model",
@@ -280,7 +458,9 @@ def describe(backend: ChatModel | None) -> str:
 
 __all__ = [
     "ENTERPRISE_BACKENDS",
+    "MAX_TOKENS",
     "TASK_PROFILE",
+    "UNSET",
     "ChatModel",
     "Completion",
     "Task",

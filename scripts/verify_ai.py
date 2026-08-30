@@ -26,10 +26,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from whychain.corroborate.model_extract import ModelExtractor
 from whychain.corroborate.quarantine import quarantine
+from whychain.env import load_env
 from whychain.llm import default_model, describe
 from whychain.narrate import build_brief
 from whychain.narrate.validate import validate
 from whychain.narrate.writer import ModelWriter
+
+# Before anything reads the environment, and after the imports so the path
+# bootstrap above still comes first. Settings are read when a backend is
+# constructed, not when this module is imported, so here is early enough.
+load_env()
 
 # A ticket no keyword table would catch. The vocabulary is the customer's, not
 # the company's: no "checkout", no "payment failure", no product noun at all.
@@ -139,8 +145,17 @@ def main() -> int:
     total_out = extractor.tokens_out + written.tokens_out
     calls = extractor.calls + written.model_calls
     print(f"\n   {calls} model call(s), {total_in + total_out} tokens.")
-    print("   Self-hosted open weights, so the marginal cost of a diagnosis is")
-    print("   compute rather than a per-token charge.")
+    # What the tokens cost depends on where inference happened, and saying
+    # "self-hosted, so the marginal cost is compute" while billing a hosted
+    # provider per token is the same untruth as a licence claim that does not
+    # match the model. The backend already knows which it is.
+    if backend.backend == "ollama":
+        print("   Self-hosted open weights, so the marginal cost of a diagnosis is")
+        print("   compute rather than a per-token charge.")
+    else:
+        print(f"   Billed per token by the configured endpoint ({backend.name}),")
+        print("   and inference left the boundary. The local open-weight backend")
+        print("   is the default for exactly that reason; this is the latency trade.")
 
     print("\nFAILED" if failures else "\nBoth model stages work.")
     return 1 if failures else 0

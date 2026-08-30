@@ -36,3 +36,9 @@ ruff==0.16.5
 # Document tooling, not runtime. The README is written once in Markdown and
 # rendered to the PDF the portal accepts, so the two cannot drift apart.
 Markdown==3.10.3
+
+# Mozilla root bundle. Already arrives transitively, pinned explicitly because
+# the hosted model backend now depends on it directly: a python.org build on
+# macOS has no usable trust store of its own and every hosted call fails
+# verification without one.
+certifi==2026.7.22

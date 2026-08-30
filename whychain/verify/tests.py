@@ -228,6 +228,31 @@ def verify(
         pre_trend = baseline / earlier - 1.0
         # The fall must be sharper after the event than the drift before it,
         # otherwise the event arrived in the middle of something already moving.
+        #
+        # The asymmetry here is deliberate and was measured before being kept.
+        # `pre_trend < 0` tests only whether the series had *fallen* beforehand,
+        # so a candidate credited with an increase is judged against a prior
+        # decline it did not share a direction with. Adding the obvious direction
+        # check -- fail only when the pre-trend and the effect point the same way
+        # -- is more defensible in the abstract and measurably worse in practice:
+        #
+        #     top-1              38.9% -> 38.2%
+        #     traps rejected     87.5% -> 85.9%
+        #     abstention prec.   85.7% -> 81.0%
+        #     abstention recall  88.2% -> 82.4%   (2 missed -> 3)
+        #
+        # What the direction check removes is a guard, not a bias. In a
+        # population whose movements are mostly declines, a candidate that
+        # "explains" an increase against a falling trend is overwhelmingly a
+        # coincidence, and rejecting it is right even though isolation is a
+        # clumsy place to catch it. The gate that ought to catch it -- exposure
+        # consistency -- does not, because these candidates are single-region and
+        # consistency is unavailable there.
+        #
+        # So this stays until there is a gate that rejects them for the right
+        # reason. Recorded rather than silently kept, because "conservative in a
+        # way we have measured" is a defensible answer and "asymmetric because
+        # nobody noticed" is not.
         already_falling = pre_trend < 0 and abs(pre_trend) > abs(treated_change) * 0.6
         results.append(
             TestResult(

@@ -42,8 +42,16 @@ from whychain.evidence import (
 
 if TYPE_CHECKING:
     from whychain.corroborate.extract import Extractor
+    from whychain.corroborate.query import QueryWriter
     from whychain.corroborate.retriever import Retriever
     from whychain.verify.tests import Candidate
+
+# Below this best-match score the note and the complaints it produced share
+# almost no vocabulary, which is what a register mismatch looks like from here.
+# Measured on the flagship cases: retail's release note tops out around 0.4
+# against its own tickets, while a petroleum turnaround note reaches 0.16
+# against the dealer complaints that describe its consequences.
+REGISTER_FLOOR = 0.25
 
 # Which complaints would corroborate which cause. A checkout regression should
 # produce checkout complaints; if it produced only delivery complaints, the
@@ -93,6 +101,36 @@ class Corpus:
     def extractor(self) -> RuleExtractor:
         return RuleExtractor(self.vocabulary)
 
+    def expected_for(self, subject: str) -> tuple[str, ...]:
+        """Which complaint codes would corroborate a cause whose note reads like this.
+
+        A recognised subject narrows the search, and that narrowing is the point:
+        a checkout regression corroborated only by pricing complaints is not
+        corroborated at all.
+
+        An *unrecognised* subject is a different case, and treating the two alike
+        was a defect. The table maps the residual to an empty tuple, and an empty
+        expectation does not mean "nothing corroborates this" — it means every
+        retrieved document is discarded before it is read, so corroboration can
+        never be found however much of it the record holds. That is not a rare
+        edge: an operational note and the complaint it produces are written in
+        different registers, and in petroleum a refinery turnaround "reducing
+        downstream allocation to 55 per cent of indent" shares almost no
+        vocabulary with the dealer who writes "no stock at the depot since
+        Monday". Every externally-caused event in petroleum and power classified
+        as the residual, so every one of them reported an empty record while the
+        tickets describing it sat in the retrieved set.
+
+        With no recognised subject there is nothing to narrow with, so anything
+        the vocabulary recognises counts. An extraction that is itself
+        unrecognised still does not: the residual is never expected, so a ticket
+        the vocabulary cannot read is set aside rather than counted as support.
+        """
+        related = self.related_issues.get(subject, ())
+        if related:
+            return related
+        return tuple(issue for issue, _ in self.vocabulary.issue_terms)
+
 
 RETAIL_CORPUS = Corpus()
 
@@ -106,6 +144,10 @@ class Corroboration:
     unrelated: tuple[Extraction, ...]
     flagged: tuple[Extraction, ...]      # documents containing instruction-like text
     searched: int
+    # What was actually searched with. On the receipt because a reader comparing
+    # a model run against a deterministic one needs to see the thing that
+    # differed, and this is it.
+    query: str = ""
 
     @property
     def support_count(self) -> int:
@@ -165,6 +207,8 @@ def corroborate(
     corpus: Corpus = RETAIL_CORPUS,
     k: int = 12,
     index: bool = True,
+    query_writer: QueryWriter | None = None,
+    domain_restriction: tuple[str, ...] = (),
 ) -> Corroboration:
     """Search the window for text that supports this candidate.
 
@@ -191,9 +235,12 @@ def corroborate(
     # candidate's kind alone retrieves whatever complaint type is most common in
     # the window, which is how a weather event ends up corroborated by pricing
     # complaints. Searching on what the note says retrieves what it describes.
-    described = extractor.extract([quarantine(candidate.candidate_id, candidate.description)])
+    described = extractor.extract([
+        quarantine(candidate.candidate_id, candidate.description,
+                   domain_restriction=domain_restriction)
+    ])
     subject = described[0].issue if described else corpus.vocabulary.residual_issue
-    expected = corpus.related_issues.get(subject, ())
+    expected = corpus.expected_for(subject)
 
     # Only the retrieved handful are ever read, so the whole corpus is
     # materialised as Document objects only when this call has to index it.
@@ -206,13 +253,44 @@ def corroborate(
         datetime.combine(candidate.start, time.min, tzinfo=UTC),
         datetime.combine(candidate.end, time.max, tzinfo=UTC),
     )
+    # The deterministic query is always built, and is what a model expansion is
+    # added to rather than what it replaces. See `corroborate.query`: the
+    # proposal is filtered to language before it gets here, retrieval below is
+    # unchanged, and every document it returns still faces the extractor and the
+    # verbatim citation check.
     query = _complaint_query(candidate.description, corpus.not_in_complaints)
     matches = retriever.search(query, k=k, window=window, min_score=0.15)
+
+    # The model is used on the margin, not by default, and the margin is
+    # measured rather than assumed. If the note's own words already score well
+    # against some complaint, the two registers overlap and the deterministic
+    # query is doing its job -- which is the ordinary case in retail, where a
+    # release note saying "card entry on the Android checkout flow" and a
+    # customer saying "the card bit just spins" share `card`. A weak best match
+    # is the signal that they do not overlap: the event is real, the complaints
+    # are there, and the note simply does not use their words. That is the case
+    # worth spending a model call on, and it is what every externally-caused
+    # event in petroleum and power looks like.
+    #
+    # Judging it on the retrieval score rather than on the extraction keeps the
+    # decision cheap: retrieval is deterministic and already done, so nothing is
+    # generated twice to find out whether generating was needed.
+    best = max((m.score for m in matches), default=0.0)
+    if query_writer is not None and best < REGISTER_FLOOR:
+        query = query_writer.write(candidate.description, query)
+        matches = retriever.search(query, k=k, window=window, min_score=0.15)
 
     text_by_id = dict(
         zip(tickets["doc_id"].astype(str), tickets["text"].astype(str), strict=True)
     )
-    quarantined = [quarantine(m.doc_id, text_by_id[m.doc_id]) for m in matches]
+    # Redaction happens here, before the text becomes prompt tokens, and the
+    # citation check downstream runs against the redacted text -- so a model
+    # cannot quote back something it was never shown.
+    quarantined = [
+        quarantine(m.doc_id, text_by_id[m.doc_id],
+                   domain_restriction=domain_restriction)
+        for m in matches
+    ]
     extractions = extractor.extract(quarantined)
 
     supporting = tuple(e for e in extractions if e.issue in expected)
@@ -225,6 +303,7 @@ def corroborate(
         unrelated=unrelated,
         flagged=flagged,
         searched=len(matches),
+        query=query,
     )
 
 

@@ -34,6 +34,31 @@ def _scope(text: str, vocabulary: Vocabulary = RETAIL_VOCABULARY) -> dict[str, s
     }
 
 
+def _identifier(text: str, doc_id: object) -> str:
+    """The reference a reader would quote back, taken from the note itself.
+
+    Notes are written two ways. Some lead with the identifier -- "TA-4411:
+    Turnaround at the West refinery..." -- and some bury it in a sentence:
+    "Operations circular OC-2026-14: West refinery unit returned to service."
+    Splitting on the first token reads the second kind as `Operations`, which
+    heads a decision card with a common noun and, worse, collides: every
+    circular in the corpus becomes the same candidate.
+
+    So the prefix before the first colon is searched for a token that actually
+    looks like a reference, and the last one wins, because that is where the
+    identifier sits in "Despatch circular DC-2026-31". Anything without one
+    falls back to the old behaviour.
+    """
+    head, sep, _ = text.partition(":")
+    if sep and len(head) <= 60:
+        tokens = [t.strip(".,;") for t in head.split()]
+        referenced = [t for t in tokens if any(ch.isdigit() for ch in t)]
+        if referenced:
+            return referenced[-1]
+    first = re.split(r"[:\s]", text, maxsplit=1)[0]
+    return first or f"doc-{doc_id}"
+
+
 def from_operations(
     documents: pd.DataFrame,
     start: date,
@@ -54,7 +79,7 @@ def from_operations(
     out: list[Candidate] = []
     for _, row in in_scope.iterrows():
         text = str(row["text"])
-        identifier = re.split(r"[:\s]", text, maxsplit=1)[0] or f"doc-{row['doc_id']}"
+        identifier = _identifier(text, row["doc_id"])
         region = row["region"]
         scope = _scope(text, vocabulary)
         out.append(

@@ -30,14 +30,21 @@ trail either way.
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from whychain.corroborate.extract import Extraction, IssueType, RuleExtractor
+from whychain.corroborate.extract import (
+    RETAIL_VOCABULARY,
+    Extraction,
+    IssueType,
+    RuleExtractor,
+    Vocabulary,
+)
 from whychain.corroborate.quarantine import Quarantined
-from whychain.llm import ChatModel, default_model
+from whychain.llm import MAX_TOKENS, UNSET, ChatModel, default_model
 
 # Extraction is classification against a closed vocabulary over short passages,
 # which is the easier of the two model jobs here. A 7B open-weight model does it
@@ -46,15 +53,20 @@ from whychain.llm import ChatModel, default_model
 # More documents than this in one request and a miss becomes hard to attribute.
 BATCH = 25
 
-SYSTEM = """\
+# The closed vocabulary is the *industry's*, not retail's. Both the instruction
+# and the schema enum used to name checkout_failure, payment_failure and stockout
+# whatever business was being read, so a fuel dealer writing "no stock at the
+# depot, allocation cut to half" was offered only retail's categories and the
+# honest answer was `other` every time. The rule table had already been made
+# per-industry; this path had not, and it is the path an API-keyed run takes.
+_SYSTEM_TEMPLATE = """\
 You read customer support tickets and operational notes, and you classify what \
 each one is complaining about.
 
 For every passage that describes a concrete operational problem, return:
 
 - `doc_id`, copied exactly from the passage header
-- `issue`, one of: checkout_failure, payment_failure, delivery_delay, stockout, \
-pricing, quality, other
+- `issue`, one of: {issues}
 - `quote`, ONE sentence copied **character for character** from the passage. Do \
 not fix spelling, do not tidy grammar, do not shorten it. The quote is checked \
 against the source and dropped if it does not appear there verbatim.
@@ -71,7 +83,27 @@ passage is a valid and common answer.
 the passage is about and where it says it.\
 """
 
-SCHEMA = {
+def _issue_codes(vocabulary: Vocabulary) -> list[str]:
+    """Every code this industry recognises, plus its residual."""
+    codes = [issue for issue, _ in vocabulary.issue_terms]
+    if vocabulary.residual_issue not in codes:
+        codes.append(vocabulary.residual_issue)
+    return codes
+
+
+def build_system(vocabulary: Vocabulary = RETAIL_VOCABULARY) -> str:
+    return _SYSTEM_TEMPLATE.format(issues=", ".join(_issue_codes(vocabulary)))
+
+
+def build_schema(vocabulary: Vocabulary = RETAIL_VOCABULARY) -> dict:
+    schema = copy.deepcopy(_SCHEMA_TEMPLATE)
+    schema["properties"]["extractions"]["items"]["properties"]["issue"]["enum"] = (
+        _issue_codes(vocabulary)
+    )
+    return schema
+
+
+_SCHEMA_TEMPLATE = {
     "type": "object",
     "properties": {
         "extractions": {
@@ -80,10 +112,7 @@ SCHEMA = {
                 "type": "object",
                 "properties": {
                     "doc_id": {"type": "string"},
-                    "issue": {
-                        "type": "string",
-                        "enum": [i.value for i in IssueType],
-                    },
+                    "issue": {"type": "string", "enum": [i.value for i in IssueType]},
                     "quote": {"type": "string"},
                     "channel": {"type": ["string", "null"]},
                     "device": {"type": ["string", "null"]},
@@ -107,18 +136,31 @@ class ModelExtractor:
     reports what was actually spent rather than what was intended.
     """
 
-    backend: ChatModel | None = None
-    fallback: RuleExtractor = field(default_factory=RuleExtractor)
+    backend: ChatModel | None = UNSET      # UNSET means "decide"; None means "no model"
+    # The industry's own closed vocabulary, which drives three things that must
+    # agree: the codes offered in the instruction, the codes the schema will
+    # accept, and the rule table used when no backend is reachable. Passing them
+    # separately is how they drifted -- the rule table was made per-industry and
+    # the prompt was not.
+    vocabulary: Vocabulary = RETAIL_VOCABULARY
+    fallback: RuleExtractor | None = None
 
     calls: int = 0
+    cache_hits: int = 0
     tokens_in: int = 0
     tokens_out: int = 0
     note: str = ""
     dropped: tuple[str, ...] = ()
+    system: str = ""
+    schema: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if self.backend is None:
+        if self.backend is UNSET:
             self.backend = default_model(os.environ.get("WHYCHAIN_EXTRACTION_MODEL"))
+        if self.fallback is None:
+            self.fallback = RuleExtractor(self.vocabulary)
+        self.system = build_system(self.vocabulary)
+        self.schema = build_schema(self.vocabulary)
 
     @property
     def model(self) -> str:
@@ -162,12 +204,14 @@ class ModelExtractor:
         by_id = {d.doc_id: d for d in batch}
 
         completion = self.backend.complete(
-            system=SYSTEM,
+            system=self.system,
             user="\n\n".join(d.fenced() for d in batch),
-            schema=SCHEMA,
-            max_tokens=8000,
+            schema=self.schema,
+            max_tokens=MAX_TOKENS["extract"],
         )
         self.calls += 1
+        if completion.cached:
+            self.cache_hits += 1
         self.tokens_in += completion.tokens_in
         self.tokens_out += completion.tokens_out
 

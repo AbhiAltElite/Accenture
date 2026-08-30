@@ -45,7 +45,7 @@ DEFAULT_MODEL = "mistral:7b-instruct"
 
 # Long enough for a cold model load on a laptop, short enough that a demo does
 # not appear to have hung.
-TIMEOUT_SECONDS = 120.0
+TIMEOUT_SECONDS = float(__import__("os").environ.get("WHYCHAIN_LLM_TIMEOUT", 45.0))
 
 
 @dataclass

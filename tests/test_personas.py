@@ -144,12 +144,27 @@ def test_entitlement_removes_out_of_scope_causes():
 
 def test_entitlement_announces_what_it_withheld_and_where_to_escalate():
     """Silently dropping the dominant cause would leave the reader with a
-    diagnosis that excluded the thing responsible, and no way to know."""
+    diagnosis that excluded the thing responsible, and no way to know.
+
+    This test previously asserted the *size* was named -- "including one
+    accounting for 26,187 rupees per day" -- on the reasoning that a reader must
+    be able to tell a material omission from an immaterial one. The reasoning
+    holds; the implementation of it did not. That figure is the contribution of a
+    slice the reader is not entitled to see, which is the exact quantity the
+    entitlement exists to protect, and because the notice is produced on demand a
+    reader entitled to one region could recover every other region's contribution
+    by asking about each in turn.
+
+    Existence and materiality are what the reader needs in order not to act on a
+    partial picture, and neither of them requires the number.
+    """
     ops = project(_result(), Persona.OPS, entitled_regions=("East",))
     notice = ops["entitlement"]["notice"]
     assert "outside your entitlement scope" in notice
-    assert "26,187" in notice          # the size is named, the cause is not
+    assert "material" in notice                     # that it matters, not by how much
+    assert "26,187" not in notice and "26187" not in notice
     assert "Release broke checkout" not in notice
+    assert ops["entitlement"]["withheld_count"] >= 1
     assert ops["entitlement"]["escalate_to"] == "finance_director"
 
 

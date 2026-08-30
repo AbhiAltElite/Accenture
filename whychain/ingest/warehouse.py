@@ -57,6 +57,32 @@ class IngestError(Exception):
     pass
 
 
+# The one binding a row filter may reference. A contract declaring anything else
+# is a contract this engine cannot enforce, and it says so rather than applying
+# something that looks similar.
+_ENTITLEMENT_BINDING = ":entitled_regions"
+_DEFAULT_ROW_FILTER = f"region IN {_ENTITLEMENT_BINDING}"
+
+
+def _row_filter_clause(contract: KPIContract, placeholders: str) -> str:
+    """The contract's own row filter, with its binding replaced by parameters.
+
+    Refuses rather than guesses. A filter naming a binding this engine does not
+    resolve would otherwise be silently ignored, leaving a contract that declares
+    an access rule and a query that does not apply it -- which is the failure
+    mode `access_policy` existed to prevent and was itself an instance of.
+    """
+    declared = (contract.access_policy.row_filter or _DEFAULT_ROW_FILTER).strip()
+    if _ENTITLEMENT_BINDING not in declared:
+        raise IngestError(
+            f"{contract.kpi_id}: access_policy.row_filter must bind "
+            f"{_ENTITLEMENT_BINDING!r}; got {declared!r}. A filter this engine "
+            f"cannot resolve would be silently dropped, which is worse than "
+            f"refusing to run."
+        )
+    return declared.replace(_ENTITLEMENT_BINDING, f"({placeholders})")
+
+
 class Warehouse:
     """A read-only connection to the source tables."""
 
@@ -110,11 +136,19 @@ class Warehouse:
         if entitled_regions is not None:
             if not entitled_regions:
                 raise IngestError("an empty entitlement grants access to nothing")
+            # The filter comes from the contract, not from here. It used to be a
+            # hardcoded `WHERE region IN (?)` that happened to match what every
+            # contract declared, which meant `access_policy.row_filter` was
+            # documentation rather than configuration: a contract could declare a
+            # different filter and the engine would silently apply this one.
+            #
             # Bound, not interpolated. Region names reach here from a request, and
             # a value that closes its own quote would otherwise rewrite the filter
-            # that is the access control.
+            # that is the access control. The contract supplies the *shape*; the
+            # values are always parameters.
             placeholders = ", ".join("?" for _ in entitled_regions)
-            sql = f"SELECT * FROM ({sql}) WHERE region IN ({placeholders})"
+            clause = _row_filter_clause(contract, placeholders)
+            sql = f"SELECT * FROM ({sql}) WHERE {clause}"
             params = list(entitled_regions)
 
         try:
@@ -153,6 +187,48 @@ class Warehouse:
             "WHERE ts BETWEEN ? AND ? ORDER BY ts",
             [start, end],
         ).df()
+
+    def masked(self, frame: pd.DataFrame, contract: KPIContract) -> pd.DataFrame:
+        """Drop the columns this contract says a reader may not see.
+
+        `access_policy.column_masks` was declared on every contract and read by
+        nothing, which made it a governance claim that inspection disproved. It
+        is now applied to any frame handed out under a contract.
+
+        Masking here rather than in the SQL is deliberate: the calculation may
+        legitimately need a column a reader may not see -- a margin figure that
+        feeds a total -- and removing it from the query would change the answer
+        rather than restrict the view.
+        """
+        masks = set(contract.access_policy.column_masks)
+        present = [c for c in frame.columns if c in masks]
+        return frame.drop(columns=present) if present else frame
+
+    def unenforceable_policy(self, contract: KPIContract) -> dict[str, list[str]]:
+        """Which declared restrictions this deployment cannot actually apply.
+
+        Reported rather than hidden. A mask naming a column the source does not
+        have is not protection, and a domain class this build has no patterns for
+        is not either; both look identical to a working policy from the outside,
+        which is exactly why they need naming.
+        """
+        from whychain.corroborate.quarantine import enforceable_domains
+
+        columns: set[str] = set()
+        for source in contract.lineage.upstream:
+            table = source.split(".")[0]
+            try:
+                columns.update(self._columns(table))
+            except (duckdb.Error, IngestError):
+                continue
+        return {
+            "column_masks_absent_from_source": sorted(
+                set(contract.access_policy.column_masks) - columns
+            ),
+            "domains_without_patterns": sorted(
+                set(contract.access_policy.domain_restriction) - enforceable_domains()
+            ),
+        }
 
     def table(self, name: str, limit: int | None = None) -> pd.DataFrame:
         """Read a source table whole.

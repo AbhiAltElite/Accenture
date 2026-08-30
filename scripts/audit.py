@@ -27,6 +27,85 @@ def check(area: str, ident: str):
         return fn
     return wrap
 
+@check("security", "A region outside entitlement is refused, not scrubbed")
+def _():
+    """The check that would have caught B-022.
+
+    The neighbouring check asserts entitlement filters in SQL, and it passes --
+    on `kpi_series`, which the diagnosis path does not use. That is how a
+    critical leak sat beneath a green audit: the check covered a path the defect
+    was not on. This one drives the endpoint a reader actually hits.
+    """
+    from fastapi.testclient import TestClient
+
+    import api.main as m
+    c = TestClient(m.app)
+    window = "region=West&start=2026-08-13&end=2026-08-15"
+    r = c.get(f"/api/diagnose?kpi=net_revenue&{window}&backend=none&entitled=South")
+    assert r.status_code == 403, f"expected 403, got {r.status_code}"
+    body = r.text.replace(",", "")
+    for probe in ("rel-4.05", "26239"):
+        assert probe.replace(",", "") not in body, f"refusal leaked {probe!r}"
+    r2 = c.get(f"/api/candidates?kpi=net_revenue&{window}&entitled=South")
+    assert r2.status_code == 403, f"candidates endpoint unguarded: {r2.status_code}"
+    return "403 before computation, on both endpoints, nothing leaked"
+
+@check("security", "No surface names a cause outside entitlement")
+def _():
+    """Partial entitlement still computes, so every rendered surface is checked.
+
+    Five carried the same figure in different clothes: the structured causes, the
+    per-cause map, a scenario estimate, a narrative sentence and a second copy of
+    the sentences in the validation block.
+    """
+    from fastapi.testclient import TestClient
+
+    import api.main as m
+    c = TestClient(m.app)
+    leaked = []
+    for persona in ("analyst", "cfo", "ops"):
+        r = c.get(
+            "/api/diagnose?kpi=net_revenue&start=2026-08-13&end=2026-08-16"
+            f"&backend=none&entitled=South&persona={persona}"
+        )
+        assert r.status_code == 200, f"{persona}: {r.status_code}"
+        body = r.text.replace(",", "")
+        leaked += [
+            f"{persona}:{p}" for p in ("rel-4.05", "wx-mumbai-aug", "26239", "10083")
+            if p.replace(",", "") in body
+        ]
+    assert not leaked, f"withheld causes visible: {leaked}"
+    return "analyst, cfo and ops all clean under partial entitlement"
+
+@check("security", "access_policy is enforced, and its gaps are reported")
+def _():
+    from whychain.contracts import ContractRegistry
+    from whychain.corroborate.quarantine import quarantine
+    from whychain.ingest import Warehouse
+    from whychain.ingest.warehouse import _row_filter_clause
+
+    contract = ContractRegistry.from_directory("contracts").get("net_revenue")
+    policy = contract.access_policy
+
+    assert _row_filter_clause(contract, "?") == "region IN (?)", "row filter not compiled"
+
+    import pandas as pd
+    with Warehouse() as wh:
+        frame = pd.DataFrame({c: [1] for c in ("region", *policy.column_masks)})
+        remaining = set(wh.masked(frame, contract).columns)
+        assert not remaining & set(policy.column_masks), "column masks not applied"
+        gaps = wh.unenforceable_policy(contract)
+
+    text = quarantine(
+        "TK", "reach me at a.b@c.example or 9876543210",
+        domain_restriction=policy.domain_restriction,
+    ).text
+    assert "a.b@c.example" not in text and "9876543210" not in text, "pii reached a prompt"
+
+    absent = gaps["column_masks_absent_from_source"]
+    note = f"; declared masks absent from this source: {', '.join(absent)}" if absent else ""
+    return f"row filter, masks and pii redaction all applied{note}"
+
 # ---------------------------------------------------------------- SECURITY
 @check("security", "SQL injection via slice parameter")
 def _():

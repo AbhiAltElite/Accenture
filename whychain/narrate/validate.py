@@ -39,8 +39,14 @@ from whychain.narrate.brief import Brief
 
 # Numerals as a reader sees them: an optional sign, digits with separators, an
 # optional decimal, and an optional unit marker that is part of the claim.
+# The separator must sit *between* digits. Written as `\d[\d,]*` it also
+# swallowed a trailing comma, so "accounts for ₹35,323, which is all of it"
+# scanned as the numeral "₹35,323," -- a token that appears in no fact, and the
+# sentence was rejected as fabricated for having a comma after the figure. A
+# validator with a false positive is a validator someone switches off, and this
+# one would have quietly dropped model-written sentences for their punctuation.
 _NUMERAL = re.compile(
-    r"[+-]?₹?\s?\d[\d,]*(?:\.\d+)?\s*(?:percentage points?|%|hours?)?",
+    r"[+-]?₹?\s?\d+(?:,\d+)*(?:\.\d+)?\s*(?:percentage points?|%|hours?)?",
     re.IGNORECASE,
 )
 

@@ -30,8 +30,20 @@ from whychain.evidence import MethodClass
 # Rupees per thousand tokens, by direction. Declared here rather than inferred
 # so a reader can see what the cost line is arithmetic over, and change it
 # without touching the stages.
+# A *reference* rate, not this run's price. The same token count costs nothing
+# on a free tier, costs compute rather than tokens on a locally hosted open-weight
+# model, and costs the provider's own number on a paid endpoint. Reporting one
+# figure for all three and calling it "estimated cost" is the same class of
+# overclaim as an uncalibrated probability, so the receipt carries the basis
+# alongside the number and the console renders both.
 RATE_INR_PER_1K_IN = 0.26
 RATE_INR_PER_1K_OUT = 1.30
+COST_BASIS = (
+    "indicative, at a reference rate of "
+    f"Rs {RATE_INR_PER_1K_IN}/1k input and Rs {RATE_INR_PER_1K_OUT}/1k output "
+    "tokens. A self-hosted open-weight backend costs compute rather than tokens, "
+    "and a free tier costs nothing; neither is what this line reports."
+)
 
 
 @dataclass
@@ -42,6 +54,11 @@ class StageTrace:
     method_class: MethodClass
     seconds: float = 0.0
     model_calls: int = 0
+    # Calls answered from the disk cache rather than by the model. Counted apart
+    # from `model_calls` so the receipt can say what a warm run costs without
+    # pretending the reading was free. The brief names caching under LLM
+    # economics, and a cache nobody can see is not an economic control.
+    cache_hits: int = 0
     tokens_in: int = 0
     tokens_out: int = 0
     note: str = ""
@@ -120,6 +137,7 @@ class Telemetry:
                     "method_class": t.method_class.value,
                     "ms": round(t.seconds * 1000, 1),
                     "model_calls": t.model_calls,
+                    "cache_hits": t.cache_hits or None,
                     "tokens_in": t.tokens_in or None,
                     "tokens_out": t.tokens_out or None,
                     "cost_inr": round(t.cost_inr, 4) if t.cost_inr else None,
@@ -135,9 +153,11 @@ class Telemetry:
                 # report a share of infinity.
                 "deterministic_share": round(1 - model_time / total, 4) if total else None,
                 "model_calls": calls,
+                "cache_hits": sum(t.cache_hits for t in self.traces),
                 "tokens_in": sum(t.tokens_in for t in self.traces) or None,
                 "tokens_out": sum(t.tokens_out for t in self.traces) or None,
                 "cost_inr": round(self.cost_inr, 4),
+                "cost_basis": COST_BASIS,
             },
             "narrative_by": narrative_by,
         }

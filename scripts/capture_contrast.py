@@ -34,13 +34,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from whychain.env import load_env
 from whychain.llm import default_model, describe
+
+# Before anything reads the environment, and after the imports so the path
+# bootstrap above still comes first. Settings are read when a backend is
+# constructed, not when this module is imported, so here is early enough.
+load_env()
 
 OUT = Path("data/demo/contrast.json")
 
 # The multi-factor demo case: three verified causes, a planted decoy, and enough
 # tickets that the difference between a keyword table and a reader is visible.
 CASE = {
+    "industry": "retail",
     "kpi": "net_revenue",
     "region": "West",
     "start": "2026-08-13",
@@ -66,6 +73,11 @@ def _diagnose(backend: str) -> dict:
         horizon_days=14,
         backend=backend,
         llm_model=None,
+        # Named explicitly because this calls the endpoint as a plain function.
+        # Every parameter left out falls back to its FastAPI `Query(...)`
+        # default, which is a Query object rather than the value it wraps, and
+        # `_vertical` correctly refuses it as an unknown industry.
+        industry=CASE["industry"],
     )
 
 

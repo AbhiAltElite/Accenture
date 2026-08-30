@@ -39,7 +39,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from whychain.contracts.models import Coverage, ExtractedSignal, SignalsConsumed
-from whychain.llm import ChatModel, default_model
+from whychain.llm import MAX_TOKENS, ChatModel, default_model
 
 SYSTEM = """\
 You read business process documents and report which inputs the process \
@@ -157,7 +157,7 @@ def read_process(
         system=SYSTEM,
         user=f"Document: {path.name}\n\n{text}",
         schema=SCHEMA,
-        max_tokens=4000,
+        max_tokens=MAX_TOKENS["signalgap"],
     )
     payload = json.loads(completion.text or "{}")
 

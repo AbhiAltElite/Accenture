@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import warnings
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -24,22 +24,40 @@ from whychain.confidence.calibrate import Calibration
 from whychain.contracts import ContractError, ContractRegistry
 from whychain.corroborate import corroborate, scan
 from whychain.corroborate.model_extract import ModelExtractor
+from whychain.corroborate.query import ModelQueryWriter
 from whychain.decompose import compute_bridge, contribution_by
 from whychain.decompose.bridge import BridgeError
 from whychain.detect import decompose_for, find_anomalies, material
+from whychain.env import load_env
 from whychain.evidence import MethodClass, Unit
 from whychain.feedback import FeedbackStore, Judgement, new_feedback
 from whychain.ingest import IngestError, Warehouse
-from whychain.llm import Task, catalogue, default_model, describe, model_for, routing
+from whychain.intent import interpret
+from whychain.llm import (
+    UNSET,
+    Task,
+    catalogue,
+    default_model,
+    describe,
+    model_for,
+    routing,
+)
 from whychain.narrate import narrate
 from whychain.narrate.writer import ModelWriter
 from whychain.personas import Persona, project
 from whychain.rank import rank
 from whychain.signalgap import PRECEDENT_LOOKBACK_DAYS, find_gap
+from whychain.signalgap.gap import read_signals
 from whychain.telemetry import Telemetry
 from whychain.verify import filter_relevant, from_operations, from_promotions, verify
 from whychain.verify.tests import PLACEBO_WINDOWS
 from whychain.verticals import RETAIL_PLAN_COLUMNS, PlanColumns, Vertical
+
+# Before anything reads the environment. `.env.example` documents settings a
+# reader reasonably expects a copied `.env` to supply, and nothing loaded it:
+# a key written there was silently ignored while the console reported no
+# reachable backend. A real environment variable still wins over the file.
+load_env()
 
 # statsmodels warns about period length on short slices; the guard is in decompose().
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
@@ -153,6 +171,81 @@ def _cached(vertical: Vertical, key: tuple, build):
     value = build()
     _series_cache[key] = (snapshot, value)
     return value
+
+
+def _external_for(ext, candidate, event_end: date) -> list[dict]:
+    """Published warnings covering the slice this candidate touched.
+
+    The corroboration section beside this one asks what the *company* wrote
+    down, and for a retailer that is usually the whole story: the cause was
+    something it did to itself and its own record describes it. For a fuel
+    marketer or a generator it is not. Those businesses move because of refinery
+    turnarounds, port closures, tariff orders and grid constraints, and the
+    record that describes those is external and public — an IMD cyclone warning
+    with a named publisher and a measurable lead time, which is already in the
+    warehouse and already read by the signal-gap stage.
+
+    Without this the card said "Nothing in the record describes this" for exactly
+    the causes the two externally-driven verticals exist to demonstrate, while a
+    warning covering that window sat one table away.
+
+    Run-level foreseeability is a different question and is answered separately:
+    that asks whether the *planning process* consumed the signal. This asks only
+    what was published over this slice, which is context a reader needs to judge
+    the cause in front of them.
+    """
+    if ext is None or getattr(ext, "empty", True):
+        return []
+    regions = candidate.exposed_regions or ()
+    out: list[dict] = []
+    seen: set[str] = set()
+    for region in (regions or (None,)):
+        for signal in read_signals(
+            ext, window=(candidate.start, event_end), region=region
+        ):
+            if signal.signal_id in seen:
+                continue
+            seen.add(signal.signal_id)
+            out.append(
+                {
+                    "signal_id": signal.signal_id,
+                    "signal_type": signal.signal_type,
+                    "city": signal.city,
+                    "region": signal.region,
+                    "severity": signal.severity,
+                    "issued_at": signal.issued_at.isoformat(),
+                    "valid_from": signal.valid_from.isoformat(),
+                    "valid_to": signal.valid_to.isoformat(),
+                    "lead_time_hours": round(signal.lead_time_hours, 1),
+                    "is_public": bool(signal.is_public),
+                    "publisher": signal.publisher,
+                    "source_url": signal.source_url,
+                }
+            )
+    # Longest warning first: the one that gave the most notice is the one a
+    # reader asks about.
+    out.sort(key=lambda r: r["lead_time_hours"], reverse=True)
+    return out[:4]
+
+
+def _entitlement_scope(entitled: str | None) -> tuple[str, ...] | None:
+    """The regions a caller may see, distinguishing "unset" from "none at all".
+
+    `None` means no entitlement was declared, which this deployment reads as
+    unrestricted -- it has no identity provider, and inventing one would be
+    pretending to an authentication story it does not have.
+
+    An empty *string* is different and used to collapse into the same thing:
+    `"" or None` is falsy, so a client sending `entitled=` was granted
+    everything. That is the wrong way round. A parameter that is present is a
+    claim about scope, and a present-but-empty claim is "entitled to nothing",
+    which the projection already handles correctly as an empty tuple. Reading it
+    as "unrestricted" turned the one input a caller fully controls into a way of
+    switching the restriction off.
+    """
+    if entitled is None:
+        return None
+    return tuple(r.strip() for r in entitled.split(",") if r.strip())
 
 
 def _vertical(industry: str | None) -> Vertical:
@@ -294,6 +387,64 @@ def industries() -> dict:
             for v in verticals.VERTICALS
         ],
     }
+
+
+@app.get("/api/ask")
+def ask(
+    q: str = Query(..., description="a question in plain language"),
+    industry: str | None = Query(None),
+    entitled: str | None = Query(None, description="comma-separated regions"),
+    backend: str | None = Query(None),
+) -> dict:
+    """Read a question into a query this engine can run. It does not answer it.
+
+    The model proposes and the registry decides. The enums in the schema are
+    built from *this* deployment's contracts and the regions the caller is
+    entitled to, so a metric the business does not have, or a region this reader
+    may not see, is not something the model can return -- it is unrepresentable
+    rather than filtered out afterwards. What comes back is checked again anyway.
+
+    The response is a query and a plain-sentence reading of the question, which
+    the console shows the reader *before* running anything. A misreading is then
+    visible as a misreading rather than as a confident answer to a question
+    nobody asked.
+    """
+    vertical = _vertical(industry)
+    kpi_ids = [c.kpi_id for c in registry(vertical)]
+
+    scope = _entitlement_scope(entitled)
+    try:
+        with warehouse(vertical) as wh:
+            contract = registry(vertical).get(vertical.headline_kpi)
+            # Entitlement is applied in SQL here exactly as it is everywhere
+            # else, so the regions the model is offered are the regions this
+            # reader may actually see. Narrowing the question is the same rule
+            # as narrowing the answer, applied one step earlier.
+            span = wh.kpi_series(contract, entitled_regions=scope)
+    except (IngestError, ContractError) as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+    regions = (
+        sorted(span["region"].dropna().unique().tolist())
+        if "region" in span.columns else []
+    )
+    days = pd.to_datetime(span["d"]).dt.date if "d" in span.columns else None
+    coverage = (min(days), max(days)) if days is not None and len(days) else None
+    # Anchored on the data rather than the wall clock. This warehouse ends in
+    # August 2026, so "last week" resolved against the real today would ask for
+    # a window the warehouse does not hold and every question would return
+    # nothing. The last day with data is what "now" means to this deployment.
+    today = coverage[1] if coverage else datetime.now(tz=UTC).date()
+
+    intent = interpret(
+        q, kpi_ids=kpi_ids, regions=regions, today=today, coverage=coverage,
+        backend=model_for(Task.INTENT, backend) if backend else UNSET,
+    )
+    out = intent.as_dict()
+    out["industry"] = vertical.id
+    out["available_metrics"] = kpi_ids
+    out["available_regions"] = regions
+    return out
 
 
 @app.get("/api/kpis")
@@ -438,7 +589,7 @@ def triage(
     """
     vertical = _vertical(industry)
     reg = registry(vertical)
-    scope = tuple(r.strip() for r in entitled.split(",") if r.strip()) if entitled else None
+    scope = _entitlement_scope(entitled)
     regions = list(scope) if scope else ["North", "South", "East", "West"]
 
     findings: list[dict] = []
@@ -616,7 +767,16 @@ def series(
     try:
         decomposition = decompose_for(frame, contract)
     except ValueError as exc:
-        raise HTTPException(422, str(exc)) from exc
+        # A short series is not a bad request. It is the sparse-history case the
+        # brief asks for, and a 422 tells the reader they did something wrong
+        # rather than telling them what can and cannot be said about a metric
+        # that has not existed long enough to have a seasonal shape.
+        #
+        # What can still be said is said: the level, the direction, and how much
+        # history would be needed. What must not be said is anything that
+        # depends on a fitted seasonality, so there are no anomalies, no bands
+        # and no expected line -- refusing to fit is the finding.
+        return _sparse_series(frame, contract, str(exc), region, frm, to)
 
     anomalies = material(
         find_anomalies(decomposition, contract.materiality.min_abs_robust_z), contract
@@ -685,6 +845,63 @@ def series(
             "min_abs_robust_z": contract.materiality.min_abs_robust_z,
             "min_abs_delta_inr": contract.materiality.min_abs_delta_inr,
         },
+    }
+
+
+def _sparse_series(
+    frame: pd.DataFrame,
+    contract,
+    reason: str,
+    region: str | None,
+    frm: date | None,
+    to: date | None,
+) -> dict:
+    """What is honestly available for a metric with too little history.
+
+    Three years of history gives three observations per day-of-year; seventeen
+    days gives none at all, and a seasonal component fitted to it is a shape
+    invented from noise. So nothing seasonal is reported -- and because
+    materiality here is a robust z against a fitted residual, nothing is flagged
+    either. A new product with a fortnight of data has no anomalies, and saying
+    so is more useful than a confident band drawn around too few points.
+    """
+    days = pd.to_datetime(frame["d"]).dt.date
+    values = frame["value"].astype(float)
+    first, last = (float(values.iloc[0]), float(values.iloc[-1])) if len(values) else (0.0, 0.0)
+    change = (last / first - 1.0) if first else None
+    return {
+        "kpi_id": contract.kpi_id,
+        "slice": {"region": region},
+        "unit": contract.unit.value,
+        "grain": contract.grain.time,
+        "verdict": "sparse_history",
+        "days": [d.isoformat() for d in days],
+        "observed": [round(v, 4) for v in values],
+        # Deliberately absent: expected, bands, robust z, anomalies. Each would
+        # require the seasonality this series cannot support.
+        "expected": None,
+        "anomalies": [],
+        "sparse": {
+            "observations": len(frame),
+            "reason": reason,
+            "first": round(first, 2),
+            "last": round(last, 2),
+            "change_pct": round(change, 4) if change is not None else None,
+            "what_can_be_said": (
+                "the level and its direction over the window observed"
+            ),
+            "what_cannot": (
+                "whether any movement is anomalous, because separating a "
+                "seasonal shape from noise needs history this metric does not "
+                "have yet. No band is drawn and nothing is flagged."
+            ),
+            "next_check": (
+                "compare against a peer slice with established history, or wait "
+                "until the series is long enough to fit"
+            ),
+        },
+        "window": {"from": frm.isoformat() if frm else None,
+                   "to": to.isoformat() if to else None},
     }
 
 
@@ -859,8 +1076,15 @@ def candidates(
     event_start: date = Query(..., alias="start"),
     event_end: date = Query(..., alias="end"),
     industry: str | None = Query(None, description="which industry to read"),
+    entitled: str | None = Query(None, description="comma-separated regions"),
 ) -> dict:
     """Every candidate cause in the record, and whether it survives testing.
+
+    This endpoint took no entitlement at all, which made it a way round the one
+    applied on `/api/diagnose`: the console never called it with a scope, so
+    nothing broke, and a caller constructing the request by hand could read every
+    candidate cause and its contribution for any region. A restriction enforced on
+    one endpoint and not on its neighbour is not enforced.
 
     Candidates arrive from the operational data with nothing marking which are
     real. Ranking them by association would promote whatever happened to
@@ -868,6 +1092,7 @@ def candidates(
     """
     vertical = _vertical(industry)
     contract = _contract(kpi, vertical)
+    scope = _entitlement_scope(entitled)
     # Candidate testing runs difference-in-differences over a revenue panel, so
     # it needs the same facts the bridge does. Say so plainly: a metric with no
     # bridge is a 422 with a reason, not a 503, which would claim the service is
@@ -900,6 +1125,36 @@ def candidates(
     if region:
         if region not in all_regions:
             raise HTTPException(404, f"no data for region {region!r}")
+        # Asking about a region you are not entitled to is refused here, before
+        # anything is computed, rather than computed and then scrubbed on the
+        # way out. Redaction-after-computation cannot be made airtight on this
+        # shape of answer: a contribution table sliced by channel, a scenario
+        # estimate, a narrative sentence and a per-cause map all carry the same
+        # figure in different clothes, and each one has to be found and removed
+        # separately. Refusing the question removes the class.
+        #
+        # Note what is *not* being claimed: the panel still contains every
+        # region, because difference-in-differences needs the unexposed ones as
+        # a control and filtering them out would turn every verdict into
+        # CANNOT_VERIFY. Using a region as a statistical control is not the same
+        # act as disclosing its figures to a reader, and only the second is what
+        # entitlement governs.
+        if scope is not None and region not in scope:
+            raise HTTPException(
+                403,
+                {
+                    "error": "outside your entitlement",
+                    "requested_region": region,
+                    "entitled_regions": list(scope),
+                    "escalate_to": contract.owner_role,
+                    "detail": (
+                        f"You are entitled to "
+                        f"{', '.join(scope) if scope else 'no regions'} and asked "
+                        f"about {region}. Nothing was computed. Escalate to "
+                        f"{contract.owner_role} for access."
+                    ),
+                },
+            )
         found = [
             c for c in found
             if not c.exposed_regions or region in c.exposed_regions
@@ -1047,6 +1302,10 @@ def diagnose(
             "is not yet available for it. Detection and freshness are.",
         )
 
+    # Parsed here rather than at the projection, because entitlement now gates
+    # the request as well as the rendering.
+    scope = _entitlement_scope(entitled)
+
     run_id = f"run-{uuid4().hex[:10]}"
     tel = Telemetry(run_id=run_id)
 
@@ -1063,6 +1322,28 @@ def diagnose(
             sources = wh.freshness(contract)
     except IngestError as exc:
         raise HTTPException(503, str(exc)) from exc
+
+    # Refused before anything is computed, rather than computed and scrubbed on
+    # the way out. See the note on the same guard in `candidates`: this shape of
+    # answer carries the same figure in a contribution table, a scenario
+    # estimate, a narrative sentence and a per-cause map, and each has to be
+    # found and removed separately. Refusing the question removes the class.
+    if region and scope is not None and region not in scope:
+        raise HTTPException(
+            403,
+            {
+                "error": "outside your entitlement",
+                "requested_region": region,
+                "entitled_regions": list(scope),
+                "escalate_to": contract.owner_role,
+                "detail": (
+                    f"You are entitled to "
+                    f"{', '.join(scope) if scope else 'no regions'} and asked "
+                    f"about {region}. Nothing was computed. Escalate to "
+                    f"{contract.owner_role} for access."
+                ),
+            },
+        )
 
     scoped = panel[panel["region"] == region] if region else panel
     if scoped.empty:
@@ -1130,6 +1411,10 @@ def diagnose(
     with tel.stage("verify", MethodClass.CAUSAL) as t:
         verifications = [verify(c, panel, all_regions) for c in found]
         t.note = f"{len(found)} candidates tested"
+    _verified_ids = {
+        v.candidate.candidate_id for v in verifications
+        if v.state.value == "verified"
+    }
 
     with tel.stage("corroborate", MethodClass.RETRIEVAL) as t:
         shared = ticket_retriever(documents)
@@ -1143,23 +1428,56 @@ def diagnose(
         # equally hard and should not cost the same.
         reader = ModelExtractor(
             backend=model_for(Task.EXTRACT, backend) if not llm_model
-            else default_model(llm_model, backend)
+            else default_model(llm_model, backend),
+            # Read this industry's tickets in this industry's vocabulary. Left
+            # to its default the extractor offered retail's codes whatever was
+            # being diagnosed, so a fuel dealer's "no stock, allocation cut to
+            # half" had no code to land in and corroboration was empty for every
+            # externally-caused event in petroleum and power.
+            vocabulary=vertical.corpus.vocabulary,
         )
+        # An operational note and the complaint it produces are written in
+        # different registers, and bridging them is a language problem the
+        # keyword table can only solve by having the synonyms written into it by
+        # hand -- per industry, by a person. The model proposes them instead.
+        # Retrieval underneath is unchanged and the proposal is filtered to
+        # language before it is used, so a bad expansion retrieves less rather
+        # than retrieving wrong.
+        expander = ModelQueryWriter(
+            backend=model_for(Task.EXPAND, backend) if not llm_model
+            else default_model(llm_model, backend),
+            vocabulary=vertical.corpus.vocabulary,
+        )
+        # Only what is actually read. Corroboration is consumed for verified
+        # candidates alone -- it feeds their citation list and the confidence
+        # component -- and it was being computed for every candidate that had
+        # been tested and rejected as well. Deterministically that was wasted
+        # milliseconds; with a model behind the extractor it is a wasted call
+        # per rejected candidate, which on the flagship case was most of them.
+        needed = [c for c in found if c.candidate_id in _verified_ids]
         corroborations = {
             c.candidate_id: corroborate(
                 c, documents, corpus=vertical.corpus,
-                retriever=shared, index=False, extractor=reader
+                retriever=shared, index=False, extractor=reader,
+                query_writer=expander,
+                # `domain_restriction` on the contract, finally read by
+                # something. Ticket text is where personal data actually appears
+                # in this system, and this is the last point before it becomes
+                # prompt tokens.
+                domain_restriction=contract.access_policy.domain_restriction,
             )
-            for c in found
+            for c in needed
         }
-        t.model_calls = getattr(reader, "calls", 0)
-        t.tokens_in = getattr(reader, "tokens_in", 0)
-        t.tokens_out = getattr(reader, "tokens_out", 0)
+        t.model_calls = getattr(reader, "calls", 0) + expander.calls
+        t.cache_hits = getattr(reader, "cache_hits", 0) + expander.cache_hits
+        t.tokens_in = getattr(reader, "tokens_in", 0) + expander.tokens_in
+        t.tokens_out = getattr(reader, "tokens_out", 0) + expander.tokens_out
         # Retrieval is deterministic either way. What varies is who reads the
         # tickets: a keyword table, or a model whose every citation is checked
         # back against the source text before it is allowed to ship.
-        t.note = "tf-idf retrieval; " + (
-            getattr(reader, "note", "") or "deterministic span extraction"
+        t.note = (
+            f"tf-idf retrieval; {expander.note or 'deterministic query'}; "
+            + (getattr(reader, "note", "") or "deterministic span extraction")
         )
 
     supporting = sum(
@@ -1168,13 +1486,13 @@ def diagnose(
         if v.state.value == "verified"
     )
     with tel.stage("confidence", MethodClass.STATISTICAL):
-        explained, per_cause = explained_movement(
+        explained, per_cause, overlap = explained_movement(
             verifications, panel, event_start, event_end, baseline_days,
             total_movement=bridge.total_change,
         )
         confidence = score(
             verifications, explained=explained, total_movement=bridge.total_change,
-            supporting_documents=supporting, sources=sources,
+            supporting_documents=supporting, sources=sources, overlap=overlap,
             calibration=calibration(),
         )
 
@@ -1247,11 +1565,17 @@ def diagnose(
             "pct": round(bridge.current_revenue / bridge.base_revenue - 1, 4)
             if bridge.base_revenue else None,
             "explained": round(explained, 2),
+            # How far the per-cause figures overlap. 1.0 means they are disjoint
+            # and sum to `explained`; above that they sum to more than the
+            # movement, and a reader adding the column up needs telling why it
+            # does not reconcile.
+            "overlap": round(overlap, 3),
             "per_cause": {k: round(v2, 2) for k, v2 in per_cause.items()},
         },
         "confidence": {
             "score": confidence.score,
             "band": confidence.band.value,
+            "caveats": list(confidence.caveats),
             "probability": confidence.probability,
             "calibrated_on": confidence.calibrated_on,
             "components": [
@@ -1272,6 +1596,7 @@ def diagnose(
                 "effect_pct": round(v.effect_pct, 4) if v.effect_pct else None,
                 "contribution": round(per_cause.get(v.candidate.candidate_id, 0.0), 2),
                 "supporting_documents": corroborations[v.candidate.candidate_id].support_count,
+                "external_signals": _external_for(ext, v.candidate, event_end),
                 "issue": next(
                     (str(e.issue) for e in
                      corroborations[v.candidate.candidate_id].supporting), None
@@ -1326,6 +1651,7 @@ def diagnose(
             known_entities=frozenset(k for k in known if k),
         )
         t.model_calls = story.model_calls
+        t.cache_hits = story.cache_hits
         t.tokens_in, t.tokens_out = story.tokens_in, story.tokens_out
         t.note = (
             f"{story.writer}; {len(story.sentences)} sentence(s) accepted, "
@@ -1349,7 +1675,6 @@ def diagnose(
             422, f"unknown persona {persona!r}; expected one of "
             f"{[p.value for p in Persona]}"
         ) from None
-    scope = tuple(r.strip() for r in entitled.split(",") if r.strip()) if entitled else None
     with tel.stage("project", MethodClass.DETERMINISTIC) as t:
         projected = project(result, who, entitled_regions=scope)
         t.note = f"persona {who.value}"

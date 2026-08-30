@@ -74,6 +74,9 @@ class Confidence:
     band: Band
     components: tuple[Component, ...]
     reasons: tuple[str, ...] = ()          # why it abstained, if it did
+    # Things a reader must be told that are not grounds for abstaining. Kept
+    # apart from `reasons` deliberately: anything in there refuses the question.
+    caveats: tuple[str, ...] = ()
     # The calibrated reading, when a curve has been fitted on a held-out split.
     # None means no calibration is on disk, and the reader is shown a score
     # labelled as a score rather than a probability it has not earned.
@@ -109,10 +112,46 @@ class Abstention:
     coverage: float = 0.0
 
 
-def _coverage(explained: float, total_movement: float) -> Component:
+def _raw_share(explained: float, total_movement: float) -> float:
+    """Coverage before any discount. What the abstention threshold is read against."""
+    if not total_movement:
+        return 0.0
+    return min(abs(explained / total_movement), 1.0)
+
+
+def _coverage(
+    explained: float, total_movement: float, overlap: float = 1.0
+) -> Component:
+    """The share of the movement verified causes account for, discounted for overlap.
+
+    `overlap` is the gross attribution over the actual movement, so 1.0 means the
+    causes are disjoint and 1.88 means they sum to nearly twice what happened.
+    The share is divided by it, which is not an arbitrary penalty but the same
+    statement read the other way: if three causes between them claim 188% of a
+    fall, then on the evidence available each is overstated by that factor and
+    only 53% of the gross attribution can be real. Which 53% is exactly what the
+    engine cannot say, and that is the uncertainty the discount prices in.
+
+    The discount is priced into the *score* and deliberately kept out of the
+    abstention gate. MIN_COVERAGE was chosen against undiscounted coverage, so
+    letting the discount cross it moves the boundary at which the engine refuses
+    to answer without anyone deciding to move it -- the same silent-threshold
+    failure this module's docstring warns about for calibration. Measured, it
+    cost 16 extra abstentions and took abstention precision from 85.7% to 51.4%:
+    overlap is common, and it is not by itself a reason to refuse a question.
+    `_raw_share` is what the gate reads.
+    """
     if not total_movement:
         return Component("coverage", 0.0, "the metric did not move")
-    share = min(abs(explained / total_movement), 1.0)
+    share = _raw_share(explained, total_movement)
+    if overlap > 1.0:
+        share = share / overlap
+        return Component(
+            "coverage", share,
+            f"verified causes overlap: their contributions sum to {overlap:.0%} "
+            f"of the movement, so the split between them is unresolved and "
+            f"coverage is discounted to {share:.0%}",
+        )
     return Component(
         "coverage", share,
         f"verified causes account for {share:.0%} of the movement",
@@ -183,6 +222,7 @@ def score(
     total_movement: float,
     supporting_documents: int,
     sources: dict[str, Freshness],
+    overlap: float = 1.0,
     calibration=None,
 ) -> Confidence:
     """Combine the inputs, then decide whether to report at all.
@@ -193,7 +233,7 @@ def score(
     curve is refitted, which is a silent change to when the engine refuses.
     """
     components = (
-        _coverage(explained, total_movement),
+        _coverage(explained, total_movement, overlap),
         _causal_strength(verifications),
         _corroboration(supporting_documents),
         _freshness(sources),
@@ -202,15 +242,26 @@ def score(
     contradictions = _contradictions(verifications)
 
     reasons: list[str] = []
+    # Not every concern is grounds for refusing to answer. Overlap is real and a
+    # reader has to be told about it, but a cause that carries 93% of a fall on
+    # its own is still worth naming; treating the caveat as an abstention reason
+    # would silence the whole diagnosis over an attribution split.
+    caveats: list[str] = []
     if not any(v.state is ClaimState.VERIFIED for v in verifications):
         reasons.append("no candidate survived testing")
-    coverage = components[0].value
+    coverage = _raw_share(explained, total_movement)
     if coverage < MIN_COVERAGE:
         reasons.append(
             f"verified causes account for only {coverage:.0%} of the movement"
         )
     if contradictions:
         reasons.extend(contradictions)
+    if overlap > 1.0:
+        caveats.append(
+            f"the verified causes overlap; their contributions sum to "
+            f"{overlap:.0%} of the movement, so each is attributed more than it "
+            f"can be shown to have caused"
+        )
     breached = [f.source_id for f in sources.values() if not f.sla_met]
     if breached:
         reasons.append(f"{', '.join(breached)} is stale beyond its SLA")
@@ -224,6 +275,7 @@ def score(
         band,
         components,
         tuple(reasons),
+        caveats=tuple(caveats),
         probability=(
             round(calibration.probability(raw), 3) if calibration is not None else None
         ),
