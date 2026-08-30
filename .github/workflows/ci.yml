@@ -31,6 +31,15 @@ jobs:
       - name: Lint
         run: ruff check .
 
+      # Three access-policy tests construct a `Warehouse` directly and fail
+      # rather than skip when the file is absent, and roughly twenty more skip
+      # themselves for the same reason -- so CI was testing markedly less than a
+      # developer's `make test` does. Generating the dataset is the repository's
+      # own documented first step; running it here means the suite CI reports on
+      # is the suite that was written.
+      - name: Generate the warehouse
+        run: PYTHONPATH=. python -m datagen.build
+
       - name: Test
         run: pytest -q
 
@@ -50,7 +59,11 @@ jobs:
 
       - name: No AI attribution in commit history
         run: |
-          if git log --format='%an%n%ae%n%B' | grep -iE 'claude|anthropic|copilot|generated with|co-authored-by'; then
+          # `generated with` needs the word boundary: without it the pattern
+          # also matches "generated without", and one commit message explaining
+          # that an artefact must never be "generated without running one" was
+          # failing this job as if it were an AI attribution.
+          if git log --format='%an%n%ae%n%B' | grep -iE 'claude|anthropic|copilot|generated with\b|co-authored-by'; then
             echo "::error::AI attribution found in commit history"
             exit 1
           fi
