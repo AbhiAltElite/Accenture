@@ -86,25 +86,46 @@ body{background:var(--paper);color:var(--ink);
    with a menu, and it is why the rail below can be quiet. */
 .masthead{position:sticky;top:0;z-index:15;background:var(--paper);
   border-bottom:1px solid var(--line-heavy);
-  display:flex;align-items:stretch;gap:var(--sp-5);
+  display:flex;align-items:stretch;flex-wrap:nowrap;gap:var(--sp-5);
   padding:0 var(--sp-6);min-height:54px}
 .masthead .mark{display:flex;align-items:center;gap:var(--sp-3);
+  flex:0 0 auto;white-space:nowrap;
   text-decoration:none;color:var(--ink);padding-right:var(--sp-5);
   border-right:1px solid var(--line)}
 .masthead .mark b{font-family:var(--serif);font-size:var(--t-md);font-weight:600;
   letter-spacing:-.015em}
 .masthead .mark span{font-size:var(--t-2xs);color:var(--ink-3);
   letter-spacing:.09em;text-transform:uppercase;padding-top:2px}
-.masthead .context{display:flex;align-items:center;gap:var(--sp-4);
-  font-size:var(--t-xs);color:var(--ink-2);min-width:0;flex:1;
-  font-family:var(--mono);letter-spacing:-.01em;overflow:hidden}
-.masthead .context em{font-style:normal;color:var(--ink-4)}
-.masthead .tools{display:flex;align-items:center;gap:var(--sp-4);margin-left:auto}
+/* The context is the one part of the bar that may be cut. It is a single line
+   that truncates with an ellipsis rather than a flex row of items that wrap:
+   wrapping turned a date range into a column of characters and pushed the bar
+   to three times its height. Everything else here refuses to shrink, so the
+   line the reader can still read at any width is the identity and the
+   controls. */
+.masthead .context{align-self:center;flex:1 1 auto;min-width:0;
+  font-size:var(--t-xs);color:var(--ink-2);
+  font-family:var(--mono);letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.masthead .context em{font-style:normal;color:var(--ink-4);margin:0 .5em}
+.masthead .tools{display:flex;align-items:center;flex:0 0 auto;
+  flex-wrap:nowrap;gap:var(--sp-4);margin-left:auto}
 .masthead .toollabel{font-size:var(--t-2xs);color:var(--ink-3);
-  letter-spacing:.08em;text-transform:uppercase}
-@media (max-width:900px){
-  .masthead{padding:var(--sp-3) var(--sp-4);flex-wrap:wrap;min-height:0}
+  letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+/* The two control labels are the first thing to go: the segmented controls
+   read as what they are, and the space buys the context enough width to show
+   its window rather than an ellipsis. */
+@media (max-width:1600px){
+  .masthead .toollabel{display:none}
+}
+/* Below this the controls alone fill the bar, so there is no room left to
+   truncate the context into; it goes rather than squeezing everything else. */
+@media (max-width:1320px){
   .masthead .context{display:none}
+}
+@media (max-width:1080px){
+  .masthead{padding:var(--sp-3) var(--sp-4);flex-wrap:wrap;min-height:0}
+  .masthead .mark{border-right:none;padding-right:0}
+  .masthead .tools{margin-left:0;flex-wrap:wrap;gap:var(--sp-3)}
 }
 
 /* ═══ shell ══════════════════════════════════════════════════════════════
