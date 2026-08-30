@@ -60,7 +60,17 @@ class TestSearch:
 
     def test_ranks_relevant_above_irrelevant(self, retriever):
         hits = {m.doc_id: m.score for m in retriever.search("checkout payment broken", k=6)}
-        assert hits["tk_01"] > hits["tk_06"], "a checkout ticket must outrank a refund request"
+        assert "tk_01" in hits, "the clearest checkout complaint must rank"
+        # The refund request either scores below the checkout ticket or does not
+        # clear retrieval at all. Indexing it against an unrelated query leaves
+        # its similarity sitting at zero, and whether a zero survives the cut
+        # differs between BLAS builds -- this failed on 3.12 and passed on 3.14
+        # from the same pinned dependencies. Dropping out entirely is the
+        # stronger outcome, not a different one, so both are accepted and the
+        # ordering is still asserted whenever there is an ordering to assert.
+        assert hits.get("tk_06", float("-inf")) < hits["tk_01"], (
+            "a checkout ticket must outrank a refund request"
+        )
 
     def test_min_score_filters(self, retriever):
         assert retriever.search("checkout payment", k=6, min_score=0.99) == []
