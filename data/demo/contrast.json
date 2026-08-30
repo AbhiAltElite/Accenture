@@ -1,0 +1,74 @@
+{
+  "case": {
+    "industry": "retail",
+    "kpi": "net_revenue",
+    "region": "West",
+    "start": "2026-08-13",
+    "end": "2026-08-16"
+  },
+  "captured_at": "2026-08-30T16:14:06.980844+00:00",
+  "backend": "openai-compatible \u00b7 nvidia/nemotron-3-super-120b-a12b:free",
+  "with_model": {
+    "narrative": "Net revenue moved \u2212\u20b928,307 over the window. (f-movement) The verified causes explain \u2212\u20b928,307 of the movement, and their gross attribution overlaps at 188.3%. (f-explained, f-overlap) A signal gap exists: 72 hours of lead time from public severe weather warnings were not captured in the planning process, and this warning class has occurred twice before in this slice. (f-gap, f-gap-recurrence)",
+    "writer": "model",
+    "sentences": 3,
+    "rejected": 4,
+    "rejections": [
+      {
+        "failure": "invented_numeral",
+        "detail": "'-1' does not appear in any fact this sentence cites"
+      },
+      {
+        "failure": "invented_numeral",
+        "detail": "'-2' does not appear in any fact this sentence cites"
+      },
+      {
+        "failure": "invented_numeral",
+        "detail": "'-3' does not appear in any fact this sentence cites"
+      },
+      {
+        "failure": "invented_numeral",
+        "detail": "'-1' does not appear in any fact this sentence cites"
+      }
+    ],
+    "model_calls": 7,
+    "tokens": 17216,
+    "seconds": null,
+    "figures": {
+      "total_change": -28306.82,
+      "explained": -28306.82,
+      "confidence": 0.707,
+      "verdict": "explained",
+      "verified": [
+        "pc1099-launch-dip",
+        "rel-4.05",
+        "wx-mumbai-aug"
+      ],
+      "citations": 18
+    }
+  },
+  "without_model": {
+    "narrative": "Net revenue in West moved \u2212\u20b928,307 (-10.4%) per day between 2026-08-13 and 2026-08-16. Release 4.05 broke card entry on the Android checkout flow, \u2212\u20b926,239 per day. Heavy rainfall suppressed store footfall in Mumbai and Pune, \u2212\u20b910,084 per day. Introductory pricing ended on a SKU launched three weeks earlier, \u2212\u20b916,989 per day. Verified causes account for \u2212\u20b928,307 of the total movement, but their individual contributions sum to 188.3% of it, so they overlap and the split between them is unresolved. Apply release rollback for channel app, device mobile, owned by ecommerce_lead. 9 public severe weather warning(s) at amber or above covered this window with up to 72 hours of lead time. The registered planning process consumes capacity metrics, financial plan, historical sales, inventory position and no external risk signal, so nothing in the cycle could have read them. The same warning class has covered this slice on 2 prior occasion(s), 1 of which coincided with a material movement. Confidence in this diagnosis is 0.71 (high).",
+    "writer": "template",
+    "sentences": 8,
+    "rejected": 0,
+    "rejections": [],
+    "model_calls": 0,
+    "tokens": 0,
+    "seconds": null,
+    "figures": {
+      "total_change": -28306.82,
+      "explained": -28306.82,
+      "confidence": 0.707,
+      "verdict": "explained",
+      "verified": [
+        "pc1099-launch-dip",
+        "rel-4.05",
+        "wx-mumbai-aug"
+      ],
+      "citations": 18
+    }
+  },
+  "figures_identical": true,
+  "note": "The same case run twice. Every computed figure is identical because the model reads and writes and never calculates. What differs is how the tickets were read and how the sentences were written."
+}
