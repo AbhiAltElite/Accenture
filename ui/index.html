@@ -349,6 +349,13 @@ table.watch td.n{text-align:right;white-space:nowrap}
   border:1px solid var(--ink);border-radius:var(--r-sm);cursor:pointer;white-space:nowrap;
   -webkit-appearance:none;appearance:none;line-height:1.4}
 .ask button[disabled]{opacity:.5;cursor:default}
+/* What moves this business. Sits under the graph summary because the two are one
+   thought: here is what the metrics are, and here is why they move. */
+.drivenby{margin:calc(var(--sp-3) * -1) 0 var(--sp-5);font-size:var(--t-sm);
+  color:var(--ink-2);line-height:var(--lh-snug);max-width:62ch}
+.drivenby span{display:block;font-family:var(--mono);font-size:var(--t-2xs);
+  letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);
+  margin-bottom:var(--sp-1)}
 .askhint{margin:var(--sp-2) 0 0;font-size:var(--t-xs);color:var(--ink-3);
   line-height:var(--lh-snug);max-width:60ch}
 .askread{margin:var(--sp-3) 0 0;padding:var(--sp-3);border-left:2px solid var(--line)}
@@ -977,6 +984,12 @@ async function boot(){
     const active = STATE.industries.find(v => v.id === STATE.industry) || {};
     STATE.dimensions = active.dimensions || {};
     STATE.graphSummary = active.graph_summary || '';
+    // What moves this business, on the page rather than in a `title` attribute.
+    // Internal-vs-external is the reason petroleum and power are here at all --
+    // retail's metrics move because of things it did to itself, theirs because of
+    // things done to them -- and a tooltip is not somewhere a reader looks, let
+    // alone somewhere a demo can point.
+    STATE.drivenBy = active.driven_by || '';
     renderIndustries(STATE.industries);
   }catch(e){ /* single-industry deployment; the switcher stays empty */ }
   STATE.kpis = await (await fetch('/api/kpis')).json();
@@ -1173,6 +1186,8 @@ async function showOverview(){
   $('#overview').innerHTML = `<div class="overview">
     <h1>${region||'All regions'}</h1>
     <p class="sub">${STATE.graphSummary || ''}</p>
+    ${STATE.drivenBy ? `<p class="drivenby"><span>What moves it</span>
+      ${escapeHtml(STATE.drivenBy)}</p>` : ''}
 
     <dl class="figures">
       <div><dt>Metrics tracked</dt><dd>${rows.length}</dd></div>
@@ -1446,6 +1461,12 @@ async function refineWithModel(params){
     if(!res.ok){ note.remove(); return; }
     const refined = await res.json();
     if(token !== REFINE) return;
+    // Removed before the re-render, not after: `render()` rewrites the document
+    // and margin columns but not this element, which is prepended to the grid
+    // itself. Left in place it announced that the model was still writing for
+    // the rest of the session -- after the model had finished, on a page already
+    // showing what it wrote.
+    note.remove();
     STATE = {...STATE, diagnosis: refined};
     render();
   }catch(e){
