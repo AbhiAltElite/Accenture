@@ -57,10 +57,31 @@ class OllamaModel:
     backend: str = "ollama"
 
     def __post_init__(self) -> None:
-        self.name = self.name or os.environ.get("WHYCHAIN_LLM_MODEL", DEFAULT_MODEL)
+        # `WHYCHAIN_LLM_MODEL` and `_BASE_URL` describe *one* backend, and which
+        # one is what `WHYCHAIN_LLM_BACKEND` says. Reading them unconditionally
+        # meant that configuring a hosted endpoint pointed this class at it too:
+        # it then asked an HTTPS provider for `/api/tags`, looked for a model
+        # named after that provider's catalogue, and reported itself unavailable
+        # while a healthy Ollama was running on the machine. The console's local
+        # option was unselectable for exactly as long as a hosted key was in
+        # `.env`, which is every demo. An unset backend still shares them, so
+        # the single-backend setup this started as is unchanged.
+        mine = os.environ.get("WHYCHAIN_LLM_BACKEND", "").strip().lower() in (
+            "", "ollama", "local",
+        )
+        shared = os.environ.get if mine else (lambda _k, default=None: default)
+        self.name = (
+            self.name
+            or os.environ.get("WHYCHAIN_OLLAMA_MODEL")
+            or shared("WHYCHAIN_LLM_MODEL")
+            or DEFAULT_MODEL
+        )
+        # `WHYCHAIN_LLM_BASE_URL` is documented as "for any OpenAI-compatible
+        # endpoint", so it is not read here at all. A remote Ollama has its own
+        # variable rather than borrowing the hosted one.
         self.base_url = (
             self.base_url
-            or os.environ.get("WHYCHAIN_LLM_BASE_URL")
+            or os.environ.get("WHYCHAIN_OLLAMA_BASE_URL")
             or DEFAULT_BASE_URL
         ).rstrip("/")
 

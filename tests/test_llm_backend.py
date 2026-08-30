@@ -207,3 +207,65 @@ class TestTheCatalogueIsHonest:
 
         monkeypatch.setenv("WHYCHAIN_LLM_BACKEND", "ollama")
         assert default_model(backend="none") is None
+
+
+class TestOneBackendsSettingsAreNotAnothers:
+    """A hosted endpoint in the environment must not disable the local one.
+
+    `WHYCHAIN_LLM_MODEL` and `WHYCHAIN_LLM_BASE_URL` were read by both classes,
+    so configuring OpenRouter pointed `OllamaModel` at it as well: it probed an
+    HTTPS provider for `/api/tags`, found no model matching that provider's
+    catalogue, and reported itself unavailable while Ollama was running locally.
+    The console's local option was then unselectable for as long as a hosted key
+    sat in `.env` -- which is the whole of a demo.
+    """
+
+    def test_a_hosted_endpoint_leaves_the_local_defaults_alone(self, monkeypatch):
+        from whychain.llm.local import DEFAULT_BASE_URL, DEFAULT_MODEL, OllamaModel
+
+        monkeypatch.setenv("WHYCHAIN_LLM_BACKEND", "openai")
+        monkeypatch.setenv("WHYCHAIN_LLM_BASE_URL", "https://openrouter.ai/api/v1")
+        monkeypatch.setenv("WHYCHAIN_LLM_MODEL", "nvidia/nemotron-3-super-120b-a12b:free")
+
+        local = OllamaModel()
+        assert local.name == DEFAULT_MODEL
+        assert local.base_url == DEFAULT_BASE_URL
+
+    def test_the_local_backend_takes_its_own_overrides(self, monkeypatch):
+        from whychain.llm.local import OllamaModel
+
+        monkeypatch.setenv("WHYCHAIN_LLM_BACKEND", "openai")
+        monkeypatch.setenv("WHYCHAIN_LLM_BASE_URL", "https://openrouter.ai/api/v1")
+        monkeypatch.setenv("WHYCHAIN_OLLAMA_BASE_URL", "http://gpu-box:11434")
+        monkeypatch.setenv("WHYCHAIN_OLLAMA_MODEL", "qwen2.5:7b-instruct")
+
+        local = OllamaModel()
+        assert local.name == "qwen2.5:7b-instruct"
+        assert local.base_url == "http://gpu-box:11434"
+
+    def test_an_unset_backend_still_shares_the_model(self, monkeypatch):
+        """The single-backend setup this started as is unchanged.
+
+        The URL is the exception: `WHYCHAIN_LLM_BASE_URL` is documented as the
+        OpenAI-compatible endpoint, so a remote Ollama uses its own variable
+        rather than borrowing one that means something else.
+        """
+        from whychain.llm.local import DEFAULT_BASE_URL, OllamaModel
+
+        monkeypatch.delenv("WHYCHAIN_LLM_BACKEND", raising=False)
+        monkeypatch.setenv("WHYCHAIN_LLM_BASE_URL", "https://openrouter.ai/api/v1")
+        monkeypatch.setenv("WHYCHAIN_LLM_MODEL", "qwen2.5:7b-instruct")
+
+        local = OllamaModel()
+        assert local.name == "qwen2.5:7b-instruct"
+        assert local.base_url == DEFAULT_BASE_URL
+
+    def test_selecting_the_local_backend_leaves_the_hosted_one_unconfigured(
+        self, monkeypatch
+    ):
+        from whychain.llm.hosted import OpenAICompatibleModel
+
+        monkeypatch.setenv("WHYCHAIN_LLM_BACKEND", "ollama")
+        monkeypatch.setenv("WHYCHAIN_LLM_BASE_URL", "https://openrouter.ai/api/v1")
+
+        assert OpenAICompatibleModel().base_url == ""

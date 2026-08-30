@@ -124,8 +124,18 @@ class OpenAICompatibleModel:
     refusal: str = ""
 
     def __post_init__(self) -> None:
-        self.name = self.name or os.environ.get("WHYCHAIN_LLM_MODEL", DEFAULT_MODEL)
-        self.base_url = (self.base_url or os.environ.get("WHYCHAIN_LLM_BASE_URL", "")).rstrip("/")
+        # The other half of the rule in `local.OllamaModel.__post_init__`: the
+        # shared variables belong to the backend `WHYCHAIN_LLM_BACKEND` names,
+        # and to everyone when it names nobody. Without this, selecting the
+        # local backend explicitly would leave a hosted model id configured here
+        # and the console would offer a hosted option pointing at a model the
+        # deployment had just switched away from.
+        mine = os.environ.get("WHYCHAIN_LLM_BACKEND", "").strip().lower() not in (
+            "ollama", "local",
+        )
+        shared = os.environ.get if mine else (lambda _k, default=None: default)
+        self.name = self.name or shared("WHYCHAIN_LLM_MODEL") or DEFAULT_MODEL
+        self.base_url = (self.base_url or shared("WHYCHAIN_LLM_BASE_URL", "") or "").rstrip("/")
         self.api_key = self.api_key or os.environ.get("WHYCHAIN_LLM_API_KEY") or None
         self.refusal = _free_only_refusal(str(self.name))
 
