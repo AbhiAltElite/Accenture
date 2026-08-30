@@ -33,6 +33,292 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-023 · A governance artefact that governed nothing
+**Found:** 2026-08-30 (red-team audit) · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** every contract declared `row_filter`, `column_masks` and
+`domain_restriction`. Grepping for consumers found exactly one: `inspect.py`,
+which *printed* them. The README calls contracts executable governance, and two
+thirds of the access policy was a label.
+
+Worse than absent, because it invites the question it cannot answer. A judge
+asking "show me the column mask working" gets nothing, and the masked columns
+named — `unit_margin`, `customer_email` — **do not exist in the source table at
+all**, so the policy protected data that was never there.
+
+**Fixed, each field now doing the job it claimed:**
+
+- **`row_filter`** is compiled from the contract instead of hardcoded. It was a
+  literal `WHERE region IN (?)` that happened to match what every contract
+  declared, so a contract could declare a different rule and the engine would
+  silently apply its own. It now **fails closed**: a filter that does not bind
+  `:entitled_regions` raises rather than being dropped, because a declared access
+  rule that is quietly ignored is the exact failure the policy exists to prevent.
+- **`column_masks`** are applied to any frame handed out under a contract, via
+  `Warehouse.masked`. Masking here rather than in the SQL is deliberate: the
+  calculation may legitimately need a column a reader may not see, and removing
+  it from the query would change the answer rather than restrict the view.
+- **`domain_restriction: [pii]`** redacts at the quarantine boundary, which is
+  the last point before untrusted text becomes prompt tokens. Emails, Indian
+  mobile numbers, Aadhaar-shaped and card-shaped runs. Citations are checked
+  against the *redacted* text, so a model cannot quote back what it was never
+  shown, and the scan for injection runs *before* redaction so a payload hidden
+  beside an email keeps its flag.
+
+**Two ordering bugs found while writing the patterns**, both the same shape as
+the defects this file already records — a general rule applied where a specific
+one had to go first:
+
+1. A sixteen-digit card in groups of four begins with a twelve-digit run, so the
+   Aadhaar pattern matched first and turned `4111 1111 1111 1111` into
+   `[id-number] 1111`, leaving four digits of a card number in the prompt.
+2. `(?:\+91[\s-]?)?\b[6-9]\d{9}\b` misses `+91 98765 43210`, because people
+   put a space in the middle of their own phone number.
+
+**And the honest half:** `Warehouse.unenforceable_policy` reports which declared
+restrictions this deployment cannot apply — masks naming absent columns, domain
+classes with no patterns. `make audit` prints it. A mask that protects nothing
+looks identical to a working one from the outside, which is precisely why it has
+to be named rather than passed over.
+
+**Why the existing check missed it:** there was no check. The security section
+asserted entitlement filters in SQL, which it did, and never asked whether the
+filter came from the contract that declared it.
+
+### B-024 · An asymmetry that was measured, and kept
+**Found:** 2026-08-30 (red-team audit) · **Severity:** Low · **Status:** kept deliberately
+
+**Symptom:** event-time isolation tests `pre_trend < 0` — whether the series had
+*fallen* beforehand — without checking that the prior drift and the candidate's
+effect point the same way. A candidate credited with an increase is therefore
+judged against a decline it did not share a direction with.
+
+**The obvious fix made four measured rates worse:**
+
+```
+                    with fix   without
+top-1                 38.2%     38.9%
+traps rejected        85.9%     87.5%
+abstention precision  81.0%     85.7%
+abstention recall     82.4%     88.2%   (3 missed vs 2)
+```
+
+**Why.** The direction check removes a guard, not a bias. In a population whose
+movements are mostly declines, a candidate that "explains" an increase against a
+falling trend is overwhelmingly a coincidence, and rejecting it is right even
+though isolation is a clumsy place to catch it. The gate that ought to catch it,
+exposure consistency, cannot: these candidates are single-region, and consistency
+is UNAVAILABLE there by design.
+
+**Status: kept, and recorded.** It stays until there is a gate that rejects these
+for the right reason. "Conservative in a way we have measured" is a defensible
+answer to a judge; "asymmetric because nobody noticed" is not, and that was the
+state before this entry existed.
+
+### B-022 · A redaction notice printed next to the data it said it had removed
+**Found:** 2026-08-30 (red-team audit) · **Severity:** P0 · **Status:** fixed
+
+**Symptom:** a reader entitled to South alone, asking about West, received all
+three West causes with their exact rupee contributions, the ranking table, the
+set-aside list and a narrative naming them — beneath a notice reading *"3
+verified cause(s) lie outside your entitlement scope and are not shown"*. The
+default persona is `analyst`, so the default path leaked.
+
+**Root cause, and it is one line:**
+
+```python
+else:  # analyst: the full record, nothing removed
+    out = {**result, **out}
+```
+
+`out` carries no `verified` key of its own — only the CFO and Ops branches set
+one — so merging the raw result over the filtered `out` restored every row the
+entitlement had just removed, while the notice assembled from `withheld_causes`
+survived and went on claiming otherwise. Persona depth and row entitlement are
+different things: an analyst may see more *detail* than a CFO; neither may see a
+region they are not entitled to.
+
+**Four more surfaces carried the same figure in different clothes**, and each had
+to be found separately. This is the finding with the longest reach:
+
+1. `movement.per_cause` — a map from candidate id to exact rupees. The most
+   machine-readable possible form of the protected quantity, passed through
+   untouched to every persona.
+2. `scenarios` — "what if we reversed this cause" names the cause and quantifies
+   its reversal.
+3. `narrative.validation.accepted` — **a second copy of the same sentences**,
+   kept so a reader can see which checks passed. Redacting `sentences` and
+   shipping `accepted` is not a redaction. This one survived three rounds of
+   fixing while `redacted_sentences` reported 3.
+4. `ranking.track_a` — spans several dimensions and only one is region, so a row
+   labelled `channel · store` carried the withheld region's rupees under a
+   different label. Filtering by region leaked; the table is now withheld whole.
+
+**The notice itself leaked**, quoting *"including one accounting for 26,239
+rupees per day"* — the exact figure entitlement exists to withhold, and
+repeatable, so a reader entitled to one region could enumerate every other
+region's contribution by asking about each in turn. Existence and materiality
+are what a reader needs in order not to act on a partial picture; neither
+requires the number. `tests/test_personas.py` previously asserted the old
+behaviour and has been updated with the reasoning recorded.
+
+**Two more holes in the same wall:**
+
+- **`/api/candidates` took no entitlement parameter at all.** The console never
+  called it with a scope, so nothing broke, and a caller constructing the request
+  by hand could read every candidate cause and contribution for any region. A
+  restriction enforced on one endpoint and not on its neighbour is not enforced.
+- **`entitled=` granted everything.** `tuple(...) if entitled else None` — an
+  empty string is falsy, so the one input a caller fully controls was a way of
+  switching the restriction off. `None` (absent) now means unrestricted; `""`
+  (present but empty) means entitled to nothing.
+
+**Fix, and why it is a refusal rather than a better scrub:** redaction after
+computation cannot be made airtight on this shape of answer — the same figure
+appears in a contribution table, a scenario estimate, a narrative sentence, a
+validation block and a per-cause map, and one was still leaking after three
+passes. A region outside entitlement is now refused with **403 before anything is
+computed**. The partial-entitlement case still redacts, and now redacts all five
+surfaces.
+
+Note what is *not* claimed: the panel still contains every region, because
+difference-in-differences needs the unexposed ones as a control and filtering
+them out would turn every verdict into `CANNOT_VERIFY`. Using a region as a
+statistical control is not the same act as disclosing its figures to a reader,
+and only the second is what entitlement governs.
+
+**Why the existing checks missed it.** `scripts/audit.py` asserts that
+entitlement filters in SQL before any projection, and it does — on `kpi_series`,
+which the diagnosis path does not use. The check passed while the path it did not
+cover leaked. `tests/test_entitlement_leak.py` now asserts the *property* — no
+surface reaching the reader names a withheld cause — rather than the mechanism.
+
+### B-021 · An explicit "no model" read as "decide for me", in three places
+**Found:** 2026-08-30 · **Severity:** P0 · **Status:** fixed
+
+**Symptom:** a diagnosis requested with `backend=none` took 78 to 235 seconds
+over HTTP while the identical call in-process took 1.1. The console was
+unusable: every KPI click sat on "Testing candidate causes" for minutes, and the
+telemetry said `model_calls: 0` for eight stages and `narrate 30,318ms,
+calls: 1` for the ninth.
+
+**Root cause:** three components resolved their own backend when none was given,
+and each wrote the test as truthiness or `is None`:
+
+```python
+self.backend = backend or default_model(...)          # ModelWriter
+if self.backend is None: self.backend = model_for(...) # ModelExtractor, ModelQueryWriter
+```
+
+`None` was doing two incompatible jobs. From `model_for(Task.NARRATE, "none")`
+it means *the caller explicitly asked for no model*; as a constructor default it
+means *nobody said, so decide*. Written this way the second silently overrode the
+first, so the deterministic path — the one the benchmark is produced on and the
+one a reader picks to see the contrast — called the model anyway.
+
+**Fix:** a sentinel. `whychain/llm.UNSET` means "decide"; `None` means "run
+without a model", and an explicit choice now beats a default, which is the entire
+point of it being explicit. Deterministic diagnosis over HTTP: **0.9s, zero model
+calls.**
+
+**Why it survived so long:** nothing failed. The answers were right, the tests
+passed, and the only symptom was time. It was found by reading the per-stage
+telemetry rather than the output, which is the only thing that finds a defect
+whose sole cost is latency — and objective 8 names latency as a constraint the
+engine must operate within, so a stage silently ignoring the switch that governs
+it is a P0 rather than a performance note.
+
+**Three things came out of it:**
+
+1. **The suite must not depend on a backend.** Once `Task.EXPAND` was wired in,
+   every pipeline test began making real calls: 18 seconds became over ten
+   minutes and the result depended on whether Ollama happened to be running.
+   `tests/conftest.py` now forces `WHYCHAIN_LLM_BACKEND=none` for the session.
+   A test whose result depends on what a 7B generated is a sample of one.
+2. **Every call is now bounded.** `WHYCHAIN_LLM_TIMEOUT`, 20 seconds by default,
+   was 120. Past it the deterministic path stands in and the receipt says so.
+3. **Corroboration ran for candidates nobody reads.** It is consumed for
+   verified candidates only, and was computed for rejected ones too — wasted
+   milliseconds deterministically, a wasted model call each with a backend on.
+
+### B-020 · Five defects a pre-submission read-through found, four of them visible on screen
+**Found:** 2026-08-30 · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** none of these crashed, failed a test or tripped the audit. Each
+produced a plausible screen carrying a number that was wrong, or a sentence that
+contradicted the number beside it. They were found by reading the console output
+against its own arithmetic, which is the only thing that finds this class.
+
+**The five:**
+
+1. **Over-explanation scored as perfect coverage.** Three verified causes on the
+   flagship retail case contribute −₹26,239, −₹10,084 and −₹16,989 against a
+   total movement of −₹28,307: they sum to 188% of it. `explained_movement`
+   detected exactly this, capped the total, and threw the finding away. Coverage
+   is the largest single component of the confidence score at 0.35, and it was
+   paying full marks in precisely the case where the split between the causes
+   cannot be established. The cap was right; the silence was the defect. The
+   overlap ratio is now returned with the total and the coverage share is
+   divided by it — not an arbitrary penalty but the same statement read the
+   other way, since causes claiming 188% of a fall are on average overstated by
+   that factor.
+
+   **A second defect inside the fix.** Discounting coverage before the
+   `MIN_COVERAGE` gate moved the abstention boundary without anyone deciding to
+   move it, which is the silent-threshold failure `score()`'s own docstring
+   warns about for calibration. Measured: 16 extra abstentions and abstention
+   precision from 85.7% to 51.4%. The discount is now priced into the score and
+   kept out of the gate, which reads undiscounted coverage. Every benchmark rate
+   returned to baseline and held-out ECE improved 0.117 → 0.069 raw, 0.099 →
+   0.042 calibrated.
+
+2. **The narrative asserted a remainder that did not exist.** "Verified causes
+   account for −₹28,307 of the total movement; the remainder is unexplained" was
+   emitted unconditionally, so at 100% coverage it contradicted itself in the
+   same sentence. Three sentences now, chosen on whether coverage is whole,
+   partial, or overlapping — and the overlapping one states the ratio, because a
+   reader adding the per-cause column up otherwise finds it does not reconcile.
+
+3. **Corroboration was structurally impossible for every externally-caused
+   event.** `related_issues` maps the residual issue to an empty tuple, and an
+   empty expectation does not mean "nothing corroborates this" — it discards
+   every retrieved document before it is read, so the answer is identical
+   whether the record is silent or full. An operational note and the complaint
+   it produces are written in different registers: a terminal writes
+   "allocation reduced to 55 per cent of indent", the dealer writes "no stock at
+   the depot since Monday". Every petroleum and power cause classified as the
+   residual and reported an empty record while the tickets describing it sat in
+   the retrieved set. `Corpus.expected_for` now falls back to every recognised
+   code, the residual still counts as support for nothing, and petroleum's
+   vocabulary gained the operational phrasings. `TA-4411` went from
+   "Nothing in the record describes this" to 12 supporting documents.
+
+4. **The model extractor read every industry in retail's vocabulary.** The rule
+   table had been made per-industry; the model path had not. `SYSTEM` named
+   `checkout_failure, payment_failure, delivery_delay, stockout` in its
+   instruction and `SCHEMA` pinned the same enum, and `ModelExtractor.fallback`
+   defaulted to a retail `RuleExtractor` — so the API path, which always
+   constructs a `ModelExtractor`, classified fuel-dealer and generator tickets
+   into retail codes whatever industry was selected. `other` was the honest
+   answer every time. This is the path an API-keyed run takes, so it would have
+   surfaced the moment a backend was switched on for a demo. Prompt, schema and
+   fallback are now built from the vertical's `Vocabulary`.
+
+5. **A candidate named after a common noun, and colliding.**
+   `re.split(r"[:\s]", text)[0]` reads "Operations circular OC-2026-14: ..." as
+   the candidate `Operations`. A decision card headed by a common noun is the
+   visible half; the collision is worse, since every circular in the corpus
+   became the same candidate. The prefix before the first colon is now searched
+   for a token that looks like a reference.
+
+**Also fixed, latent:** `_NUMERAL` in the narrative validator was written
+`\d[\d,]*`, a thousands-separator class that also swallows a *trailing* comma,
+so "accounts for ₹35,323, which is all of it" scanned as the numeral
+"₹35,323," — a token appearing in no fact, and the sentence was rejected as
+fabricated for its punctuation. Harmless while the deterministic template
+avoided that construction; it would have silently dropped model-written
+sentences. `tests/test_overlap_and_corroboration.py` covers all of it.
+
 ### B-019 · Eight defects a second and third industry found in the first one's assumptions
 **Found:** 2026-08-29 · **Severity:** P1 · **Status:** fixed
 

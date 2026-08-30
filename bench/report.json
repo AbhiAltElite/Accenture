@@ -29,33 +29,40 @@
       "gap": -0.031
     },
     {
+      "range": "0.4-0.6",
+      "n": 1,
+      "mean_score": 0.577,
+      "accuracy": 0.0,
+      "gap": -0.577
+    },
+    {
       "range": "0.6-0.8",
-      "n": 11,
-      "mean_score": 0.701,
-      "accuracy": 1.0,
-      "gap": 0.299
+      "n": 23,
+      "mean_score": 0.706,
+      "accuracy": 0.826,
+      "gap": 0.12
     },
     {
       "range": "0.8-1.0",
-      "n": 21,
-      "mean_score": 0.896,
-      "accuracy": 0.714,
-      "gap": -0.182
+      "n": 8,
+      "mean_score": 0.917,
+      "accuracy": 0.875,
+      "gap": -0.042
     }
   ],
-  "ece": 0.117,
+  "ece": 0.069,
   "calibration_fit": {
     "fitted_on": 73,
     "split": "panels 0-4 of 10",
     "evaluated_on": 71,
-    "ece_before": 0.1171,
-    "ece_after": 0.0993,
+    "ece_before": 0.0687,
+    "ece_after": 0.0424,
     "improved": true
   },
   "latency": {
-    "p50_seconds": 0.066,
-    "p95_seconds": 0.18,
-    "total_seconds": 12.2
+    "p50_seconds": 0.078,
+    "p95_seconds": 0.212,
+    "total_seconds": 14.4
   },
   "cases": [
     {
@@ -80,7 +87,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.775,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -138,7 +145,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.6,
       "top1": false,
       "decoy_rejected": false,
       "verified": [
@@ -209,7 +216,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.665,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -265,7 +272,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.659,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
@@ -380,7 +387,7 @@
         "no_control_group"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.518,
       "top1": false,
       "decoy_rejected": null,
       "verified": [
@@ -395,7 +402,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.789,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
@@ -462,7 +469,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.523,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -520,7 +527,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.594,
       "top1": false,
       "decoy_rejected": null,
       "verified": [
@@ -536,7 +543,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.85,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
@@ -551,7 +558,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.739,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -566,7 +573,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.583,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -623,7 +630,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.938,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -719,7 +726,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.864,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -734,7 +741,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.968,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
@@ -749,7 +756,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.604,
       "top1": false,
       "decoy_rejected": false,
       "verified": [
@@ -794,7 +801,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.738,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -822,7 +829,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.597,
       "top1": false,
       "decoy_rejected": false,
       "verified": [
@@ -916,7 +923,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.749,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
@@ -961,7 +968,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.803,
       "top1": false,
       "decoy_rejected": null,
       "verified": [
@@ -977,7 +984,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.62,
       "top1": false,
       "decoy_rejected": false,
       "verified": [
@@ -1006,7 +1013,7 @@
         "decoy"
       ],
       "verdict": "unknown",
-      "confidence": 0.8,
+      "confidence": 0.504,
       "top1": false,
       "decoy_rejected": true,
       "verified": [
@@ -1159,7 +1166,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.785,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -1203,7 +1210,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.982,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -1218,7 +1225,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.633,
       "top1": true,
       "decoy_rejected": false,
       "verified": [
@@ -1273,7 +1280,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.974,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -1493,7 +1500,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.765,
       "top1": false,
       "decoy_rejected": true,
       "verified": [
@@ -1509,7 +1516,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.933,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
@@ -1590,7 +1597,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.748,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
@@ -1618,7 +1625,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.73,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -1633,7 +1640,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.987,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -1662,7 +1669,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.789,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
@@ -1690,7 +1697,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.706,
       "top1": true,
       "decoy_rejected": null,
       "verified": [
@@ -1747,7 +1754,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.704,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -1830,7 +1837,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.577,
       "top1": false,
       "decoy_rejected": null,
       "verified": [
@@ -1846,7 +1853,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.743,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -1915,7 +1922,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.738,
       "top1": true,
       "decoy_rejected": true,
       "verified": [
@@ -2038,7 +2045,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.611,
       "top1": false,
       "decoy_rejected": false,
       "verified": [
@@ -2196,7 +2203,7 @@
         "single_cause"
       ],
       "verdict": "explained",
-      "confidence": 0.8,
+      "confidence": 0.607,
       "top1": false,
       "decoy_rejected": null,
       "verified": [
@@ -2251,7 +2258,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.748,
       "top1": false,
       "decoy_rejected": false,
       "verified": [
@@ -2267,7 +2274,7 @@
         "decoy"
       ],
       "verdict": "explained",
-      "confidence": 1.0,
+      "confidence": 0.835,
       "top1": false,
       "decoy_rejected": false,
       "verified": [

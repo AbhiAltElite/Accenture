@@ -1,6 +1,11 @@
-# Internal — never publish
+# Internal — never publish. Working notes, not deliverables: session handoffs,
+# the onboarding brief, and the verbatim problem statement with its running
+# submission checklist. Local copies are kept in _internal/docs/.
 _internal/
 docs/STRATEGY.md
+HANDOFF.md
+CONTEXT.md
+docs/BRIEF.md
 
 # Python
 .venv/
@@ -45,3 +50,4 @@ data/feedback/
 # Local dev-server config for the preview pane. Machine-specific.
 .claude/launch.json
 dist/
+data/llm_cache/

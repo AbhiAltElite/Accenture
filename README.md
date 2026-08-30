@@ -22,6 +22,7 @@ polished false diagnosis is worse than an explicit UNKNOWN.
 - [The problem](#the-problem)
 - [Approach](#approach)
 - [Architecture](#architecture)
+- [Three industries, one engine](#three-industries-one-engine)
 - [Key features](#key-features)
 - [Where AI is used, and where it is not](#where-ai-is-used-and-where-it-is-not)
 - [Measured results](#measured-results)
@@ -31,6 +32,8 @@ polished false diagnosis is worse than an explicit UNKNOWN.
 - [Execution](#execution)
 - [What to look at first](#what-to-look-at-first)
 - [Troubleshooting and FAQ](#troubleshooting-and-faq)
+- [Scalability](#scalability)
+- [How this answers the challenge](#how-this-answers-the-challenge)
 - [Limitations](#limitations)
 - [Repository map](#repository-map)
 - [Maintainers](#maintainers)
@@ -120,6 +123,35 @@ project (persona + entitlement, applied before assembly)
    ↓
 feedback (bounded: business inputs only, never a computed value)
 ```
+
+### What is simulated, stated plainly
+
+Three things in this build are simulated rather than integrated, and it is worth
+reading them here rather than discovering them later. Each is a deliberate scope
+decision, not an oversight, and each is labelled in the system itself.
+
+**The sources are heterogeneous in grain, not in origin.** Six source tables with
+genuinely different grains (hourly checkout conversion against daily revenue),
+different declared freshness SLAs, and different business meanings — all emitted
+by one generator into one DuckDB file. There is no second system to disagree
+with, no late-arriving partition and no schema drift. What the engine
+demonstrably reconciles is *grain and cadence*; what it does not demonstrate is
+two systems that disagree about the same quantity, and cross-source semantic
+contradiction is correspondingly not implemented.
+
+**The external feed carries real provenance and generated rows.** Publisher
+names, source URLs, severities and lead times are the real ones; every row says
+`source: generated`, and the console shows that field.
+
+**The rupee cost is indicative.** Tokens, calls, cache hits and latency are
+measured. The cost line applies one reference rate uniformly, which is wrong for
+a self-hosted open-weight model (the cost is compute) and for a free tier (there
+isn't one). The receipt carries the basis alongside the number.
+
+**And one that is not simulated but is worth the same clarity:** entitlement is
+enforced — in SQL from the contract's own `row_filter`, at the request boundary,
+and again at the projection — but it enforces a *claim*, because there is no
+identity provider here. Binding an identity to a scope is the deployment's job.
 
 ## Three industries, one engine
 
@@ -227,19 +259,28 @@ derived. A cause with no lever — weather has none — returns `controllable:
 false` and a monitoring rule instead of an invented action. Nothing executes; a
 card is a draft for a named human to approve.
 
-**A bounded feedback loop.** Corrections never edit a past run and never move a
-computed value. They propose changes to business-owned inputs, require two
+**A governed correction workflow.** Corrections never edit a past run and never
+move a computed value. They propose changes to business-owned inputs, require two
 independent submitters, and go contested rather than averaged when readers
 disagree. Named misses become labelled regression cases.
 
-**A run receipt.** Per-stage latency, model calls, tokens, rupee cost and the
-deterministic share of wall time.
+Called a workflow rather than a learning loop, deliberately: **applying a
+proposal is a manual step and nothing in the engine consumes one yet.** The
+capture, the quorum rule and the contested state are real and are the parts that
+are hard to get right; the wiring that lets an applied proposal change a
+contract is the part that is missing, and it is named in the roadmap rather than
+implied by the word "learning".
+
+**A run receipt.** Per-stage latency, model calls, cache hits, tokens, the
+deterministic share of wall time, and a rupee figure carrying its own basis —
+a reference rate, which is not what a self-hosted or free-tier run actually
+costs.
 
 ## Where AI is used, and where it is not
 
-Three uses, and one pattern: **the model reads what humans wrote and proposes
-structure; deterministic code verifies the proposal against the source and can
-reject it.**
+Four uses, and one pattern: **the model handles what is language; deterministic
+code checks the proposal against the source and can reject it.** It never
+touches a number.
 
 | Job | Method | Why |
 |---|---|---|
@@ -249,10 +290,12 @@ reject it.**
 | Ranking, track B | ridge regression | generates candidates; never states one |
 | Verification | DiD, placebo, exposure consistency | the question is causal |
 | Retrieval | TF-IDF + SVD | offline, deterministic, no account |
+| **Writing the search query** | **language model** | an ops note and the complaint it causes are different registers; see below |
 | **Reading tickets** | **language model** | *"the card page just spins"* is a checkout failure no keyword table contains |
 | Confidence | weighted score + isotonic | must be reproducible and auditable |
 | Actions | contract lookup | owners and levers are governance, not inference |
 | Signal gap | set difference over the feed | the finding must not come from a model |
+| External context on a cause | window/region overlap over the feed | a published warning is a fact with a publisher, not an inference |
 | **Writing the narrative** | **language model** | prose is what models are for |
 | Validation | deterministic checks | the model must not mark its own work |
 
@@ -270,15 +313,52 @@ boundary. Qwen2.5 below 35B is the same licence and a drop-in alternative. Llama
 is deliberately not the default: its community licence caps free commercial use
 at 700M monthly active users and fails the Open Source Definition.
 
-Each task is routed to the model it needs. Extraction is classification against
-a closed vocabulary and runs on a small tier; narration is harder and runs on a
-standard one. Both are overridable per stage.
+**The clearest thing the model does here is translate between registers.** An
+operational note and the complaint it produces share almost no vocabulary. A
+terminal writes *"turnaround extended by nine days; downstream allocation
+reduced to 55 per cent of indent"*; the dealer writes *"no stock at the depot
+since Monday, allocation cut to half"*. Term-frequency retrieval bridges that
+only by accident, and the alternative is a synonym table written by hand for
+each new industry — which is exactly the part of onboarding that does not scale.
+Given the note above, the model returns `no stock dry out allocation cut supply
+delayed`, and the twelve dealer complaints that describe the event are found.
 
-**Without any model the engine still runs.** Extraction falls back to a rule
-table, the narrative to a deterministic template, and the receipt reports zero
-model calls rather than the two the design intends. **The entire benchmark below
-was produced in that mode** — which is the point: the accuracy does not come
-from the model.
+It is used **on the margin, not by default**: only where the deterministic
+query's best match falls below a floor, which is what a register mismatch looks
+like from inside retrieval. Retail's release notes already share vocabulary with
+retail's tickets and spend nothing.
+
+Each task is routed to the model it needs — expansion and extraction are
+classification-shaped and run on a small tier, narration is harder and runs on a
+standard one — and each is overridable per stage.
+
+**The economics are part of the design, not an afterthought.** Every call is
+content-addressed and cached on disk, keyed on the model, backend, prompt,
+schema and token ceiling, so nothing that could change the answer is left out of
+the key. Every call is bounded at 20 seconds, past which the deterministic path
+stands in and the receipt says so. Hits are counted apart from calls, and the
+token figures still report what the reading costs uncached — a receipt claiming
+free work would be the same dishonesty as an uncalibrated probability.
+
+**A hosted backend is configuration, not a rewrite.** `OpenAICompatibleModel`
+speaks the API that Groq, Together, OpenRouter, vLLM and Google's compatibility
+endpoint all implement, so running Gemini instead is four environment variables
+and no code. The trade is stated rather than hidden: inference leaves the
+boundary, which is what the local open-weight default exists to avoid.
+
+**Without any model the engine still runs.** Query expansion falls back to the
+deterministic query, extraction to a rule table, the narrative to a template,
+and the receipt reports zero model calls rather than the three the design
+intends. **The entire benchmark below was produced in that mode** — which is the
+point: the accuracy does not come from the model.
+
+**And the console never waits for one.** Every figure is computed
+deterministically, so the page renders complete and correct in about a second;
+a pinned backend is fetched second and swapped in when it lands, with the page
+saying meanwhile that the figures are final and the prose is still being
+written. That is also the honest demonstration of the claim this design rests
+on — the reader watches the numbers settle first and stay put while the prose
+changes around them.
 
 ## Measured results
 
@@ -293,7 +373,7 @@ and planted unanswerable cases (`make bench`).
 | Planted correlation traps rejected | 87.5% |
 | **Cases needing an abstention that got one** | **88.2%** (2 missed of 17) |
 | Abstentions that were right | 85.7% |
-| Expected calibration error | 0.117 raw, **0.104 calibrated** on held out |
+| Expected calibration error | 0.069 raw, **0.042 calibrated** on held out |
 | Latency p50 / p95 | 0.080s / 0.178s |
 
 The first two rows belong together. The engine explains movements that clear
@@ -308,8 +388,17 @@ conditional rate. The numbers got worse when the measurement got honest. B-016:
 abstention recall counted correct silences as failures, reading 20.9% while the
 engine was in fact abstaining on 16 of the 17 cases that called for it.
 
-274 tests, 114 marked `invariant`. `make audit` runs 30 executable security,
-logic and design checks.
+**And one moved because the engine got more honest rather than less accurate.**
+B-020: three verified causes could contribute 188% of a movement while coverage
+scored a perfect 100%, because the over-explanation was detected, clamped, and
+the finding thrown away. Pricing that overlap into the score took expected
+calibration error from 0.117 to 0.069 raw, and 0.099 to 0.042 on the held-out
+half, with every other rate above unchanged. A confidence score that is right
+about how uncertain it is was the point of having one.
+
+376 tests, `make audit` runs 30 executable security, logic and design checks.
+The suite forces the deterministic backend: a test whose result depends on what
+a 7B happened to generate is a sample of one, not a test.
 
 ## Requirements
 
@@ -427,6 +516,80 @@ is 78.6%. Lowering a threshold to raise the headline is trap T-14 in `BUGS.md`.
 **Can I run it on my own data?** Not yet. Contracts are hand-authored; inferring
 one from an uploaded CSV is on the roadmap.
 
+## Scalability
+
+The brief names scalability twice — once in the prototype criteria and again for
+the Grand Finale — and judges mean two different things by the word. They are
+answered separately, because one is demonstrated and the other is designed for.
+
+### Scaling across businesses — demonstrated
+
+Three industries run on this engine: an omnichannel retailer whose metrics move
+because of things it did to itself, and a fuel marketer and a generator whose
+metrics move because of things done to them — excise notifications, refinery
+turnarounds, port closures, tariff orders, grid constraints.
+
+**What a new industry costs is the measure.** It supplies five contracts, a
+generated warehouse against the same six source names, and four vocabularies:
+which words in an operational note name which driver, which complaint codes
+corroborate which cause, what its planning extract calls a planned intervention,
+and what reversing a cause recovers. It changes **no calculation**. Detection,
+the price/volume/mix bridge, both ranking tracks, the causal tests, confidence,
+calibration and every threshold are the contract's job in all three.
+
+The claim is checked rather than asserted. The retail warehouse regenerates byte
+for byte after the generator was parameterised — 1.8 million order lines,
+identical hashes — and the benchmark is identical on every rate. If adding two
+industries had cost the first one a single digit, it would be visible.
+`tests/test_verticals.py` keeps it true: 60 tests parameterised over all three,
+checking every pair of places that has to agree.
+
+### Scaling with data and load — designed for, not proven
+
+Worth being straight about which parts are built and which are argued.
+
+**Built.** Every contract declares `dialect_targets: [duckdb, databricks,
+snowflake]`, and the KPI is expressed as canonical SQL rather than as pandas, so
+the aggregation runs in the warehouse and only the series comes back. Reading a
+region-day series is a `GROUP BY` over the source, not a scan into memory.
+`bridge_facts` bounds itself to the window plus its baseline instead of three
+years. The series and decomposition cache is keyed on a snapshot of the warehouse
+mtime, the contract contents and the industry, so it drops rather than serves a
+stale or cross-industry answer. Model calls are content-addressed and cached on
+disk, and used on the margin: query expansion runs only where the deterministic
+query is measurably failing. Measured: **p95 0.185s** per diagnosis on the
+deterministic path, and the whole console composes in about a second cold.
+
+**Argued, not built.** Concurrency is single-process; the cache is in-process and
+would need externalising behind more than one worker. The retriever indexes the
+ticket corpus in memory, which is fine at seven thousand documents and is the
+first thing that would need a real vector store — the `PgVectorRetriever` seam
+exists for exactly that and is unexercised. Nothing here has been run against a
+warehouse large enough to test the pushdown claim, so it rests on the SQL being
+SQL rather than on a measurement.
+
+**The honest summary.** Scaling to another business is demonstrated and costs
+configuration. Scaling to another two orders of magnitude of data is designed for
+and not yet proven, and the specific unproven claim is that the aggregation stays
+in the warehouse.
+
+## How this answers the challenge
+
+The four things the prototype is judged on are not the same list as the eight
+objectives, and it is worth checking them separately — a build can satisfy every
+objective and answer none of these well.
+
+| Judged on | Where to look |
+|---|---|
+| **How the solution works in practice** | The console, and the six demo scenarios in *What to look at first* |
+| **How AI enables or enhances it** | *Where AI is used, and where it is not*; `make capture-ai` runs one case with the model and without and keeps both, so the claim that the numbers do not move is checkable rather than asserted |
+| **Potential scalability** | The section above, split into what is demonstrated and what is argued |
+| **The impact it can create** | The business proposal, and *Measured results* below for the evidence it rests on |
+
+`docs/REQUIREMENTS.md` maps all eight objectives and all ten minimum
+expectations to the module that satisfies each and the command that demonstrates
+it, including the rows only partly met.
+
 ## Limitations
 
 Stated plainly, because a limitation found by a reader costs more than one
@@ -463,11 +626,9 @@ declared by the author.
 | `data/ground_truth/` | **the engine must never read this.** Enforced by test |
 | `bench/` | benchmark harness and metrics |
 | `api/`, `ui/` | service and console |
-| `docs/BRIEF.md` | the problem statement, verbatim. The authority on scope |
 | `docs/REQUIREMENTS.md` | every objective mapped to code and a command |
 | `DECISIONS.md` | architectural decisions and why alternatives were rejected |
 | `BUGS.md` | traps identified in advance, and defects found with root cause |
-| `HANDOFF.md` | current state, honestly |
 
 ## Maintainers
 

@@ -4,6 +4,223 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 
 ## [Unreleased]
 
+### Added, the model earns a third job and the economics the brief asks for
+
+- **`whychain/corroborate/query.py`, model-proposed complaint vocabulary.** An
+  operational note and the complaint it produces are written in different
+  registers, and bridging them is a language problem the keyword table could
+  only solve by having synonyms written into it by hand, per industry, by a
+  person. The model proposes them instead: given "TA-4411: Turnaround at the
+  West refinery extended by nine days; downstream allocation reduced to 55 per
+  cent of indent" it returns *"no stock dry out allocation cut supply delayed"*,
+  which is the dealer's register and not the terminal's. Retrieval underneath is
+  unchanged, the proposal is filtered to language before use, and the
+  deterministic query stays in place beneath it, so a bad expansion retrieves
+  less rather than retrieving wrong. It cannot reach a number
+- **Used on the margin, not by default.** The expansion runs only where the
+  deterministic query's best match scores below `REGISTER_FLOOR`, which is what
+  a register mismatch looks like from inside retrieval. Retail's release notes
+  share vocabulary with retail's tickets and spend nothing; petroleum's and
+  power's do not and spend one call
+- **`whychain/llm/cache.py`, a content-addressed cache.** The brief names
+  caching under LLM economics and it is also the difference between a model path
+  that can be demonstrated and one that cannot: a cold diagnosis on a local 7B
+  made ten constrained calls and took over ten minutes. Keyed on everything that
+  could change the answer — model, backend, system, user, schema, token ceiling
+  — so a key that omitted the industry cannot serve one vertical's reading under
+  another's heading. Hits are counted separately from calls on the receipt, and
+  the token figures still report what the reading costs uncached, because a
+  receipt claiming free work is the same dishonesty as an uncalibrated
+  probability
+- **A free-tier guard.** `WHYCHAIN_LLM_FREE_ONLY` refuses any model id without
+  the provider's free marker. A key with credit on it bills happily for a
+  mistyped paid model and the mistake is invisible until an invoice arrives, so
+  this is a refusal rather than a warning: the backend reports itself
+  unavailable, the engine takes the deterministic path, and the console says why
+- **Verified TLS that works on a stock macOS Python.** A python.org build ships
+  without a usable root store, so every hosted call failed
+  `CERTIFICATE_VERIFY_FAILED` until someone ran `Install Certificates.command` by
+  hand. `certifi` is used when importable; verification is never disabled
+- **Transient provider errors are retried.** 429 and 503 with geometric backoff,
+  honouring `Retry-After`. A free tier is measured in requests per minute and a
+  diagnosis makes several in a row, so rate limiting is the ordinary case
+- **A bounded call and a stated fallback.** `WHYCHAIN_LLM_TIMEOUT`, 20 seconds,
+  after which the deterministic path stands in and says so
+- **`Task.EXPAND` joins the routing table**, so all three model jobs are named,
+  tiered and separately overridable
+- **Google Gemini needs no code.** `OpenAICompatibleModel` already speaks the
+  API Gemini's compatibility endpoint implements, so a hosted, materially faster
+  backend is four environment variables. The trade is stated rather than hidden:
+  inference leaves the boundary, which is what the local open-weight default
+  exists to avoid. `.env.example` carries both
+
+### Added, the access policy is enforced rather than declared
+
+- **`row_filter` is compiled from the contract** and fails closed. It was a
+  hardcoded `WHERE region IN (?)` that happened to match what every contract
+  declared, which made the field documentation rather than configuration
+- **`column_masks` are applied** to any frame handed out under a contract, at the
+  projection rather than in the SQL: the calculation may legitimately need a
+  column a reader may not see, and removing it from the query would change the
+  answer rather than restrict the view
+- **`domain_restriction: [pii]` redacts at the quarantine boundary**, the last
+  point before untrusted text becomes prompt tokens. Emails, mobile numbers,
+  Aadhaar- and card-shaped runs. Citations are checked against the redacted text
+  so a model cannot quote back what it was never shown, and injection scanning
+  runs first so a payload beside an email keeps its flag
+- **What cannot be enforced is reported.** `unenforceable_policy` names masks
+  pointing at columns this source does not have and domain classes with no
+  patterns, and `make audit` prints it. A mask that protects nothing looks
+  identical to a working one from outside
+- **Three new security checks** drive the endpoints a reader actually hits. The
+  existing entitlement check passed throughout B-022 because it covered
+  `kpi_series`, which the diagnosis path does not use
+
+### Changed, claims trimmed to what the code does
+
+- **"A bounded feedback loop" is now "a governed correction workflow"**, because
+  applying a proposal is manual and nothing in the engine consumes one
+- **The README states plainly what is simulated**: six source tables from one
+  generator (grain is heterogeneous, origin is not), an external feed with real
+  provenance and generated rows, an indicative cost rate, and entitlement that
+  enforces a claim because there is no identity provider
+- **The rupee cost carries its basis.** One reference rate is wrong for a
+  self-hosted model, where cost is compute, and for a free tier, where there
+  isn't one
+- **A short series returns a `sparse_history` verdict rather than HTTP 422.** The
+  refusal to fit is right; calling it a bad request was not. The level and
+  direction are reported, and nothing that needs a seasonality is — no bands, no
+  expected line, no anomalies
+
+### Fixed, entitlement, which was the requirement it was built to satisfy
+
+- **A reader entitled to one region received another region's causes (B-022).**
+  The analyst branch merged the raw result back over the filtered one, so the
+  default persona saw every withheld cause beneath a notice saying they were not
+  shown. Four more surfaces carried the same figure in different clothes: the
+  per-cause map, the scenarios, the ranking table under a non-region dimension,
+  and a second copy of the narrative's sentences in the validation block
+- **A region outside entitlement is now refused before anything is computed**,
+  with a 403 carrying the escalation role. Redaction after computation could not
+  be made airtight on this shape of answer -- one surface was still leaking after
+  three passes -- and refusing the question removes the class. The panel still
+  holds every region, because difference-in-differences needs the unexposed ones
+  as a control: using a region as a statistical control is not the same act as
+  disclosing its figures to a reader
+- **`/api/candidates` enforces entitlement**, which it previously did not take at
+  all -- a way round the restriction applied on its neighbour
+- **`entitled=` means entitled to nothing**, not unrestricted
+- **The redaction notice no longer quotes the redacted figure.** It was the exact
+  quantity the entitlement protects, and repeatable often enough to enumerate
+  every region's contribution one query at a time
+
+### Added, a question box, and the model's fourth job
+
+- **`whychain/intent/`, plain-language questions.** *"Why did West revenue drop
+  last week?"* previously had nowhere to go: the console required the reader to
+  know the KPI id, the region and the window before they could ask anything,
+  which is the analyst's interface rather than the business user's. The brief
+  names "LLM-assisted intent understanding" as its own solutioning area, and
+  this is it
+- **The proposal is constrained twice.** `kpi_id` and `region` are JSON-schema
+  enums built from *this* deployment's registry and the regions the caller is
+  entitled to, so a metric the business does not have is unrepresentable rather
+  than filtered out afterwards; and everything that does come back is checked
+  again against the registry, the entitlement and the warehouse's actual date
+  coverage. Nothing reaches a number: the output is a query, and the engine then
+  runs exactly as if the form had been filled in by hand
+- **Ambiguity is asked about, not guessed at.** *"Why are sales down"* returns
+  *"Do you mean net_revenue or orders when you say 'sales'?"* and runs nothing.
+  The model's uncertainty routes into the clarification mechanism objective 5
+  already required, rather than into a confident answer to a question nobody
+  asked. The reading is shown before the answer, so a misreading costs a click
+- **Anchored on the data, not the wall clock.** "Last week" resolves against the
+  last day the warehouse holds; against the real today every question would ask
+  for a window that does not exist
+- **Token ceilings are per task and centralised.** They were sized for a model
+  that emits the object and nothing else, which the open-weight reasoning models
+  on a free tier are not -- they spend most of a budget working before they
+  answer, and a truncated object is indistinguishable from a refusal. The intent
+  parser also scans for the first balanced JSON object rather than assuming the
+  whole body is JSON
+
+### Added, the external record reaches the cause card
+
+- **Every verified cause now carries the warnings published over the slice it
+  touched.** The section beside it asks what the *company* wrote down, which for
+  a retailer is usually the whole story: the cause was something it did to
+  itself. For a fuel marketer or a generator it is not, and the card said
+  "Nothing in the record describes this" for precisely the causes those two
+  verticals exist to demonstrate — while an IMD cyclone warning with a named
+  publisher and a measured lead time sat one table away. A port-closure cause in
+  East now shows four red warnings at 3.5 to 3.7 days of notice, each naming the
+  India Meteorological Department and whether it was public
+- **Foreseeability stays a separate question, and the card says so.** What was
+  published is context for judging the cause in front of you; whether the
+  planning cycle consumed it is the signal-gap verdict, and conflating the two
+  would let "a warning existed" read as "the business ignored it"
+
+### Changed, the console renders before the model does
+
+- **Two passes, and the first is always deterministic.** Every number on the
+  page is computed without a model, so a reader waits for none of them. A pinned
+  backend is fetched second and swapped in when it lands, and until it does the
+  page says the figures are final and the prose is still being written. This is
+  also the honest demonstration of the central claim: the figures settle first
+  and stay put while the prose changes around them
+- **The console defaults to the deterministic path.** A latency decision, stated
+  as one. The reader turns the model on for a diagnosis when they want to watch
+  it read and write
+- **The scope control opens on the whole estate** rather than on one region,
+  which is what the watchlist beneath it was already showing
+- **`Auto — whatever is configured` reworded to `Auto — routed by task
+  requirement`**
+
+### Fixed, correctness
+
+- **An explicit "no model" was read as "decide for me" in three places (B-021),
+  so `backend=none` called the model anyway.** A deterministic diagnosis took 78
+  to 235 seconds against 1.1 in-process, and the console sat on "Testing
+  candidate causes" for minutes. `UNSET` now separates "nobody said" from "no
+  model"; the deterministic path is 0.9s and zero calls
+- **The suite made live model calls** once expansion was wired in, taking it from
+  18 seconds to over ten minutes with a result that depended on whether Ollama
+  was running. `tests/conftest.py` forces the deterministic backend
+- **Over-explanation scored as perfect coverage (B-020).** Three causes summing
+  to 188% of the movement were detected, clamped and the finding discarded, so
+  the largest component of the confidence score paid full marks exactly where the
+  split between causes cannot be established. The overlap ratio is returned and
+  the share divided by it. Held-out ECE **0.117 → 0.069** raw, **0.099 → 0.042**
+  calibrated, with every other benchmark rate unchanged. The discount is
+  deliberately kept out of the abstention gate: crossing `MIN_COVERAGE` with it
+  moved the boundary at which the engine refuses without anyone choosing to, and
+  cost 16 abstentions and 34 points of abstention precision before it was caught
+- **The narrative asserted a remainder that did not exist**, saying causes
+  accounted for the whole movement and that the remainder was unexplained in one
+  sentence
+- **Corroboration was structurally impossible for every externally-caused
+  event.** `related_issues[residual] = ()` discarded every retrieved document
+  before it was read, so the answer was identical whether the record was silent
+  or full. `TA-4411` went from "Nothing in the record describes this" to twelve
+  supporting documents
+- **The model extractor read every industry in retail's vocabulary.** Prompt,
+  schema enum and rule-table fallback all named `checkout_failure` and
+  `stockout` whatever business was selected — and this is the path an API-keyed
+  run takes, so it would have surfaced the moment a backend was switched on for a
+  demo. All three now build from the vertical's `Vocabulary`
+- **`Operations circular OC-2026-14: …` was read as the candidate
+  `Operations`**, heading a decision card with a common noun and collapsing every
+  circular in the corpus into one candidate
+- **The narrative validator rejected figures for their punctuation.** `\d[\d,]*`
+  also swallows a trailing comma, so "accounts for ₹35,323, which is all of it"
+  scanned as the numeral `₹35,323,` and the sentence was dropped as fabricated.
+  Latent while the template avoided the construction; it would have silently
+  dropped model-written sentences
+- **Corroboration ran for candidates nobody reads**, one wasted model call per
+  rejected candidate
+- **Margin labels broke mid-word** — "Prior episod / es" — and the rail held one
+  fixed width until it dropped away entirely
+
 ### Added, the stages the handoff listed as empty
 
 - **`whychain/signalgap/`, Answer 2.** Reads `ext_signals` against the
