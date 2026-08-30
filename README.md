@@ -451,6 +451,8 @@ through the real loader and prints the graph.
 | `WHYCHAIN_LLM_MODEL` | `mistral:7b-instruct` by default |
 | `WHYCHAIN_LLM_BASE_URL` | for any OpenAI-compatible endpoint |
 | `WHYCHAIN_LLM_API_KEY` | only for the hosted path |
+| `WHYCHAIN_OLLAMA_BASE_URL` | a remote Ollama; the local path never reads `WHYCHAIN_LLM_BASE_URL` |
+| `WHYCHAIN_OLLAMA_MODEL` | the local model, when `WHYCHAIN_LLM_MODEL` describes a hosted one |
 | `WHYCHAIN_EXTRACTION_MODEL` | per-stage override, small tier |
 | `WHYCHAIN_NARRATIVE_MODEL` | per-stage override, standard tier |
 
