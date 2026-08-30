@@ -59,11 +59,14 @@ jobs:
 
       - name: No AI attribution in commit history
         run: |
-          # `generated with` needs the word boundary: without it the pattern
-          # also matches "generated without", and one commit message explaining
-          # that an artefact must never be "generated without running one" was
-          # failing this job as if it were an AI attribution.
-          if git log --format='%an%n%ae%n%B' | grep -iE 'claude|anthropic|copilot|generated with\b|co-authored-by'; then
+          # The tool names are matched on their own, because every real
+          # attribution carries one -- a trailer naming an assistant, or a
+          # generated-by line pointing at its website. The generated-by phrase
+          # is only matched when a tool name follows it, so a commit message
+          # that merely discusses the wording in English is not mistaken for
+          # one that carries it. That mistake failed this job twice.
+          pattern='claude|anthropic|copilot|chatgpt|co-authored-by|generated (with|by) [^ ]*(claude|copilot|chatgpt|gemini|cursor|codex)'
+          if git log --format='%an%n%ae%n%B' | grep -iE "$pattern"; then
             echo "::error::AI attribution found in commit history"
             exit 1
           fi
