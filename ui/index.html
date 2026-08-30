@@ -121,6 +121,13 @@ body{background:var(--paper);color:var(--ink);
   .content{grid-template-columns:minmax(0,1fr);gap:var(--sp-6)}
   .margin{order:2;border-top:1px solid var(--line);padding-top:var(--sp-5)}
 }
+/* Between the two breakpoints the rail was still held at its full fixed width
+   while the document column had already lost the margin, so the reading measure
+   collapsed before the layout ever changed. It now narrows with the viewport
+   instead of holding one width until it drops away entirely. */
+@media (max-width:1180px){
+  .shell{grid-template-columns:minmax(180px,var(--rail-w)) minmax(0,1fr)}
+}
 @media (max-width:900px){
   .shell{grid-template-columns:1fr}
   .rail{position:static;height:auto;border-right:none;
@@ -173,6 +180,7 @@ select:hover,button.ctl:hover{border-color:var(--ink-3)}
 .seg button:hover{color:var(--ink);background:var(--sunk)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);
   font-weight:500}
+.rail select,.rail input{max-width:100%;box-sizing:border-box}
 .railnote{font-size:var(--t-xs);color:var(--ink-3);line-height:var(--lh-snug);
   margin-top:var(--sp-3)}
 
@@ -326,10 +334,44 @@ table.watch td.n{text-align:right;white-space:nowrap}
 .margin section{margin-bottom:var(--sp-6)}
 .margin section:last-child{margin-bottom:0}
 .margin .label{margin-bottom:var(--sp-2)}
-.margin dl{display:grid;grid-template-columns:1fr auto;gap:var(--sp-2) var(--sp-3);
+/* `#main` is the two-column document grid, so anything inserted into it takes
+   a cell and pushes every following child one place along -- which emptied the
+   document column and rendered the whole report inside the narrow margin. The
+   status note spans instead of occupying. */
+.ask{margin:0 0 var(--sp-6);padding-bottom:var(--sp-5);
+  border-bottom:1px solid var(--line)}
+.askrow{display:flex;gap:var(--sp-2);align-items:stretch}
+.ask input{flex:1;min-width:0;padding:var(--sp-2) var(--sp-3);
+  font:inherit;font-size:var(--t-sm);color:var(--ink);
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm)}
+.ask button{padding:var(--sp-2) var(--sp-4);font:inherit;font-size:var(--t-xs);
+  letter-spacing:.02em;color:var(--paper,#faf7f0);background:var(--ink);
+  border:1px solid var(--ink);border-radius:var(--r-sm);cursor:pointer;white-space:nowrap;
+  -webkit-appearance:none;appearance:none;line-height:1.4}
+.ask button[disabled]{opacity:.5;cursor:default}
+.askhint{margin:var(--sp-2) 0 0;font-size:var(--t-xs);color:var(--ink-3);
+  line-height:var(--lh-snug);max-width:60ch}
+.askread{margin:var(--sp-3) 0 0;padding:var(--sp-3);border-left:2px solid var(--line)}
+.askread p{margin:0 0 var(--sp-2)}
+.askread p:last-child{margin-bottom:0}
+.askread .q{font-size:var(--t-xs);color:var(--ink-3)}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+#refining{grid-column:1/-1;margin:0 0 var(--sp-4);padding:var(--sp-2) var(--sp-3);
+  border-left:2px solid var(--line);color:var(--ink-3);font-size:var(--t-xs);
+  line-height:var(--lh-snug)}
+.margin dl{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto);
+  gap:var(--sp-2) var(--sp-3);
   align-items:baseline}
-.margin dt{color:var(--ink-3);min-width:0;overflow-wrap:anywhere}
-.margin dd{text-align:right;color:var(--ink);white-space:nowrap}
+/* Labels wrap between words, never inside one. `overflow-wrap:anywhere` broke
+   "Prior episodes" into "Prior episod / es" as soon as the value beside it was
+   long, which reads as a rendering fault rather than as a narrow column. */
+.margin dt{color:var(--ink-3);min-width:0;overflow-wrap:normal;word-break:normal;
+  hyphens:none}
+/* The value may wrap; it must not force the row wider than the column. A
+   long one used to hold `nowrap` and push the label into the broken state
+   above rather than wrapping itself. */
+.margin dd{text-align:right;color:var(--ink);overflow-wrap:anywhere;
+  text-wrap:balance}
 .margin dd.mono{font-family:var(--mono);font-size:var(--t-2xs)}
 .margin .rule{border:none;border-top:1px solid var(--line);margin:var(--sp-4) 0}
 .margin p{line-height:var(--lh-snug);color:var(--ink-3)}
@@ -570,7 +612,7 @@ table.components tr:last-child td{border-bottom:none}
 .gate b.no{color:var(--down)}
 
 /* Which model did which job. Each task is routed to the cheapest tier that can
-   do it rather than everything going to whatever is configured, so a reader can
+   do it rather than every stage defaulting to a single configured model, so a reader can
    see the routing was a decision. */
 function routingMarkup(){
   const rows = ((STATE.diagnosis||{}).llm||{}).routing || [];
@@ -742,6 +784,18 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
 
   <main class="content" id="main" aria-busy="true">
     <div class="doc">
+      <form class="ask" id="askform" autocomplete="off">
+        <label class="askrow">
+          <span class="visually-hidden">Ask about a metric</span>
+          <input id="askbox" type="text" placeholder="Ask in plain language &#8212; why did West revenue drop last week?">
+          <button type="submit" id="askgo">Read the question</button>
+        </label>
+        <p class="askhint" id="askhint">The model turns the sentence into a query
+          and shows you what it understood. It does not answer it: the engine
+          runs the query exactly as it would if you had chosen the metric and
+          window yourself.</p>
+        <div id="askresult"></div>
+      </form>
       <div id="overview"></div>
       <div id="diagnosis" hidden>
         <p class="eyebrow" id="eyebrow"></p>
@@ -935,7 +989,19 @@ async function boot(){
   }
   $('#region').innerHTML += ['North','South','East','West']
     .map(r=>`<option>${r}</option>`).join('');
-  $('#region').value='West';
+  // Every industry opens on the whole estate rather than on one region: the
+  // watchlist below is national, and a scope control disagreeing with the
+  // table under it is the first thing a reader notices. Narrowing is then a
+  // deliberate act the reader performs, which is also how it demonstrates.
+  $('#region').value='';
+  const askform = document.getElementById('askform');
+  if(askform){
+    askform.addEventListener('submit', e => {
+      e.preventDefault();
+      const q = document.getElementById('askbox').value.trim();
+      if(q) askQuestion(q);
+    });
+  }
   const params = new URLSearchParams(location.search);
   if(params.get('region')) $('#region').value = params.get('region');
   if(params.get('range')) $('#range').value = params.get('range');
@@ -951,10 +1017,23 @@ async function boot(){
     // choice demonstrable; leaving it on Auto is what a deployment actually
     // does, and the two should not be the same control setting.
     $('#backend').innerHTML =
-      `<option value="">Auto \u2014 whatever is configured</option>` +
+      `<option value="">Auto \u2014 routed by task requirement</option>` +
       STATE.backends.map(b=>
         `<option value="${b.id}" ${b.available?'':'disabled'}>${escapeHtml(b.label)}${
           b.available?'':' \u2014 not reachable'}</option>`).join('');
+    // Deterministic by default, and this is a latency decision rather than a
+    // statement about the model. Objective 8 names latency as a constraint the
+    // engine has to work inside; a diagnosis makes one constrained call per
+    // verified candidate plus the narrative, and on a 7B running locally that
+    // is tens of seconds per page. So the console composes deterministically --
+    // about a second -- and the reader turns the model on for a diagnosis when
+    // they want to see it read and write. Every figure is identical either way,
+    // which is the whole claim, and switching between them is how you check it.
+    // Auto, and the model does run. It is safe to default to because the page
+    // no longer waits for it: the deterministic pass renders in about a second
+    // and the model's reading and prose are swapped in when they land. Before
+    // the render was split this default cost thirty seconds a page, which is
+    // why it briefly was not the default.
     $('#backend').value = '';
     STATE.backend = null;
     STATE.activeBackend = cat.active_id;
@@ -1293,7 +1372,19 @@ async function load(){
     // the row filter is a claim in a README rather than something a reader can
     // trigger and watch happen.
     if(STATE.entitled) p.set('entitled', STATE.entitled);
-    if(STATE.backend) p.set('backend', STATE.backend);
+    // The first pass is always deterministic, whatever backend is pinned.
+    //
+    // Every number on the page is computed without a model, so there is no
+    // reason to make a reader wait for one to see them. A pinned backend changes
+    // which tickets are found and how the narrative reads -- language, not
+    // arithmetic -- so it is fetched second and swapped in when it lands. The
+    // page is complete and correct in the meantime, and the part the model
+    // actually affects is the part that says it is still being written.
+    //
+    // This is also the honest demonstration of the central claim. The reader
+    // watches the figures settle first and stay put, then watches the prose
+    // change around them.
+    p.set('backend', 'none');
     stage('Testing candidate causes');
     // Keep the reason a request declined. "Could not be built" tells a reader
     // nothing; the server already knows why and says so.
@@ -1316,6 +1407,155 @@ async function load(){
            declined, region, kpi};
   render();
   $('#main').setAttribute('aria-busy','false');
+
+  // `null` is Auto, which is a model backend if one is reachable; only the
+  // explicit "No model" choice means the second pass has nothing to add.
+  const wantsModel = STATE.backend !== 'none'
+    && (STATE.activeBackend && STATE.activeBackend !== 'none');
+  if(wantsModel && diagnosis && win){
+    const q2 = new URLSearchParams({kpi, start: win.start, end: win.end});
+    if(region) q2.set('region', region);
+    q2.set('persona', STATE.persona || 'analyst');
+    if(STATE.entitled) q2.set('entitled', STATE.entitled);
+    if(STATE.backend) q2.set('backend', STATE.backend);
+    refineWithModel(q2);
+  }
+}
+
+/* The second pass, which never blocks the first.
+
+   Only the narrative, the citations and the run receipt can move: the model
+   reads tickets and writes prose, and the figures it is written from were
+   settled before this request was sent. A failure here therefore costs the page
+   nothing, which is why it is allowed to fail quietly. */
+let REFINE = 0;
+
+async function refineWithModel(params){
+  const token = ++REFINE;
+  document.getElementById('refining')?.remove();
+  const note = document.createElement('p');
+  note.id = 'refining';
+  note.textContent =
+    'The model is re-reading the tickets and rewriting the narrative. '
+    + 'The figures above are final and will not change.';
+  $('#main').prepend(note);
+  try{
+    const res = await fetch('/api/diagnose?' + params);
+    // A slower request that has been superseded must not overwrite a newer one.
+    if(token !== REFINE) return;
+    if(!res.ok){ note.remove(); return; }
+    const refined = await res.json();
+    if(token !== REFINE) return;
+    STATE = {...STATE, diagnosis: refined};
+    render();
+  }catch(e){
+    if(token === REFINE) note.remove();
+  }
+}
+
+/* What was published outside the business over the slice this cause touched.
+
+   The section above it asks what the *company* wrote down, and for a retailer
+   that is usually the whole answer: the cause was something it did to itself.
+   For a fuel marketer or a generator it is not — those businesses move because
+   of port closures, refinery turnarounds and tariff orders, and the record of
+   those is external, public, and carries a publisher and a lead time. Leaving
+   it off the card meant the two verticals chosen to demonstrate external
+   causation showed nothing but an empty internal record.
+
+   Foreseeability is a separate question answered elsewhere on the page: that
+   asks whether the planning process consumed the signal. This states only what
+   was published, which is what a reader needs to judge the cause in front of
+   them. */
+function externalSignals(c){
+  const rows = c.external_signals || [];
+  // Shown even when empty, because the absence is the informative half. "No
+  // external warning covered this window" is what separates a cause the
+  // business did to itself from one done to it, and silently dropping the
+  // section made those two look identical.
+  if(!rows.length) return `<dl class="field">
+    <dt>Published outside the business, covering this window</dt>
+    <dd><span class="muted">No public warning covered this slice and window, so
+    nothing external anticipated it. A cause with no external signal behind it
+    is one the business originated.</span></dd></dl>`;
+  const hours = h => h >= 48 ? `${(h/24).toFixed(1)} days` : `${h.toFixed(0)} hours`;
+  return `<dl class="field"><dt>Published outside the business, covering this window</dt>
+    <dd><table><tbody>${rows.map(r=>`<tr>
+      <td style="width:64px"><span class="pill${
+        ['red','orange','amber'].includes(r.severity)?'':' na'}">${escapeHtml(r.severity)}</span></td>
+      <td>${escapeHtml(sentence(r.signal_type))} \u00b7 ${escapeHtml(r.city)}
+        <div class="muted">${escapeHtml(r.publisher)}${
+          r.is_public?' \u00b7 public':' \u00b7 not public'} \u00b7
+          ${hours(r.lead_time_hours)} of notice before it took effect</div></td>
+    </tr>`).join('')}</tbody></table>
+    <p class="muted">Whether the planning cycle actually consumed these is a
+    separate question, answered under foreseeability.</p></dd></dl>`;
+}
+
+/* Reading a question into a query, and showing the reading before the answer.
+
+   The model proposes; the contract registry decides. What it comes back with is
+   rendered as a sentence the reader can check *before* anything runs, because a
+   misreading shown as a misreading costs a click and a misreading shown as a
+   confident answer costs trust.
+
+   An unclear question is not resolved by guessing. `clarification` is the model
+   saying which of two metrics it could not choose between, and it is rendered as
+   the question it is -- the same shape as the engine's own abstention, which is
+   what objective 5 asks for. */
+async function askQuestion(question){
+  const out = document.getElementById('askresult');
+  // Not named `go`: that is the navigation function this very handler calls at
+  // the end, and shadowing it made the handover fail silently after the reading
+  // had already been rendered -- the reader saw a correct interpretation and no
+  // answer.
+  const submit = document.getElementById('askgo');
+  submit.disabled = true;
+  out.innerHTML = '<p class="askread q">Reading the question\u2026</p>';
+  const p = new URLSearchParams({q: question});
+  if(STATE.industry) p.set('industry', STATE.industry);
+  if(STATE.entitled) p.set('entitled', STATE.entitled);
+  let d;
+  try{
+    const res = await fetch('/api/ask?' + p);
+    d = await res.json();
+    if(!res.ok) throw new Error(d.detail || 'the question could not be read');
+  }catch(e){
+    out.innerHTML = `<p class="askread q">${escapeHtml(String(e.message || e))}</p>`;
+    submit.disabled = false; return;
+  }
+  submit.disabled = false;
+
+  if(d.problem){
+    out.innerHTML = `<div class="askread"><p>${escapeHtml(d.problem)}</p>
+      <p class="q">Choose a metric and window from the rail instead.</p></div>`;
+    return;
+  }
+  if(d.clarification){
+    out.innerHTML = `<div class="askread">
+      <p><strong>${escapeHtml(d.clarification)}</strong></p>
+      <p class="q">${escapeHtml(d.reading || '')}</p>
+      <p class="q">Nothing was run. The engine asks rather than choosing for you
+        when a question could mean two different metrics.</p></div>`;
+    return;
+  }
+
+  const rejected = (d.rejected || []).length
+    ? `<p class="q">${(d.rejected).map(escapeHtml).join('. ')}.</p>` : '';
+  out.innerHTML = `<div class="askread">
+    <p>${escapeHtml(d.reading || '')}</p>
+    <p class="q">Running <strong>${escapeHtml(d.kpi_id)}</strong>
+      ${d.region ? '· ' + escapeHtml(d.region) : '· all regions'}
+      · ${escapeHtml(d.start)} to ${escapeHtml(d.end)}
+      · read by ${escapeHtml(d.model)}, ${d.tokens_in + d.tokens_out} tokens.
+      Everything after this point is deterministic.</p>${rejected}</div>`;
+
+  // Hand over to the ordinary path. The engine cannot tell that the query came
+  // from a sentence, which is the point: there is no second code path to keep
+  // correct.
+  STATE.pending = {region: d.region || '', day: d.end};
+  if(d.region !== null && d.region !== undefined) $('#region').value = d.region || '';
+  go('/kpi/' + d.kpi_id);
 }
 
 /* How much of the series to show before the reader touches anything.
@@ -1437,9 +1677,25 @@ function unknownStory(d){
     // genuinely does not apply to them yet, and saying that is more useful than
     // reporting that something could not be built.
     const why = STATE.declined;
+    // A refusal on entitlement is a different thing from a metric that has no
+    // causal identity, and the reader needs to be able to tell them apart. The
+    // first is "you may not see this", answerable by escalating to a named
+    // role; the second is "this cannot be computed for this metric at all".
+    if(why && typeof why === 'object' && why.error === 'outside your entitlement'){
+      return `<p><strong>Nothing was computed.</strong> You are entitled to
+        ${escapeHtml((why.entitled_regions || []).join(', ') || 'no regions')},
+        and this question is about
+        ${escapeHtml(why.requested_region || 'another region')}.</p>
+        <p class="q">The refusal happens before the diagnosis runs, not after it:
+        no figure for ${escapeHtml(why.requested_region || 'that region')} was
+        produced, so none can leak through a contribution table, a scenario or a
+        sentence. Escalate to <strong>${escapeHtml(why.escalate_to || 'the metric owner')}</strong>
+        for access.</p>`;
+    }
+    const reason = typeof why === 'string' ? why : (why && why.detail) || '';
     return `<p>The movement is real and detection stands. A causal diagnosis is
       not available for this metric.</p>
-      ${why ? `<p class="q">${escapeHtml(why)}</p>` : ''}
+      ${reason ? `<p class="q">${escapeHtml(reason)}</p>` : ''}
       <p class="q">The chart, the material movements and source freshness below
       are unaffected.</p>`;
   }
@@ -1640,7 +1896,7 @@ function narrativeBlock(){
 }
 
 /* Which model did which job. Each task is routed to the cheapest tier that can
-   do it rather than everything going to whatever is configured, so a reader can
+   do it rather than every stage defaulting to a single configured model, so a reader can
    see the routing was a decision. */
 function routingMarkup(){
   const rows = ((STATE.diagnosis||{}).llm||{}).routing || [];
@@ -2200,7 +2456,8 @@ function openDrawer({cause,panel}){
           <div class="quote">${x.quote}
           <cite><button class="linkback" data-doc="${x.doc_id}">${x.doc_id}</button>
           · characters ${x.span[0]}\u2013${x.span[1]} · open the record</cite></div>`).join('')
-          : '<span class="muted">Nothing in the record describes this.</span>'}</dd></dl>`;
+          : '<span class="muted">Nothing the company wrote down describes this.</span>'}</dd></dl>`
+      + externalSignals(c);
   } else if(panel==='confidence'){
     html = `<h3>How the score was reached</h3>
       <p class="muted">Arithmetic over evidence already established. Not a judgement,
