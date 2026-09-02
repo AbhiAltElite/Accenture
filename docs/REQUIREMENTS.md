@@ -78,7 +78,7 @@ planted unanswerable cases (`make bench`).
 
 | | |
 |---|---|
-| **Top-1 among movements worth explaining** | **78.6%** (55 of 70) |
+| **Top-1 among movements worth explaining** | **64.4%** (56 of 87) |
 | Top-1 over the whole population | 38.9% |
 | True cause verified at all | 48.6% |
 | **False alarms on noise-only cases** | **0.0%** |

@@ -239,6 +239,17 @@ def compute_metrics(outcomes: list[Outcome], bins: int = 5) -> Metrics:
     m.rates = {
         # Of cases with a planted cause, how often the engine named it.
         "top1_accuracy": rate(sum(1 for o in with_cause if o.top1), len(with_cause)),
+        # The same rate among the cases the engine actually took a view on. The
+        # population figure is bounded by how many movements clear materiality
+        # at all, so on its own it reads as an error rate when it is largely a
+        # coverage one. Emitted rather than left to be computed by hand for the
+        # README, because a headline nobody can reproduce from `make bench` is
+        # worse than a lower one that reconciles -- this replaced a figure of
+        # 78.6% that no version of this harness produces.
+        "top1_when_material": rate(
+            sum(1 for o in with_cause if o.top1 and o.verdict != "no_movement"),
+            sum(1 for o in with_cause if o.verdict != "no_movement"),
+        ),
         "topk_accuracy": rate(sum(1 for o in with_cause if o.topk), len(with_cause)),
         # Of cases with nothing planted, how often it claimed an explanation anyway.
         "false_alarm_rate": rate(
@@ -380,6 +391,7 @@ def print_report(metrics: Metrics) -> None:
         "detection_rate": "planted movements seen by the detector",
         "material_detection_rate": "and large enough to be worth reporting",
         "top1_accuracy": "true cause ranked first",
+        "top1_when_material": "  ... among movements worth explaining",
         "topk_accuracy": "true cause verified at all",
         "false_alarm_rate": "explained something on noise",
         "negative_control_rejection": "correlation traps rejected",

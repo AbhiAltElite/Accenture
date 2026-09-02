@@ -96,10 +96,12 @@ a cause. Rejected sentences are dropped and counted on the receipt.
 ## Architecture
 
 ```
-sources (3 grains + 1 external feed)
-   ↓ reconcile · freshness gate
+sources (3 grains + 1 external feed + a second system posting the same number)
+   ↓ reconcile grain · freshness gate
 detect (MSTL → robust z on the residual, per the contract's grain)
    ↓ materiality (statistical AND ₹)
+reconcile against the ledger → CONTRADICTED stops here, before any explanation
+   ↓
 decompose (price/volume/mix bridge — exact identity)
    ↓
 rank  ├─ track A: exact, from the bridge
@@ -115,7 +117,10 @@ actions (driver → lever → action → impact → owner → confidence → mon
    ↓
 signal gap (Answer 2) → monitoring plan
    ↓
-narrate (constrained to the evidence table)         ← model call 2 of 2
+next check, when abstaining (gated: no cause, no invented name, no invented
+   figure)                                          ← model call 2 of 3
+   ↓
+narrate (constrained to the evidence table)         ← model call 3 of 3
    ↓
 validate (binding + numeral + entity + rejected-cause checks)
    ↓
@@ -460,7 +465,7 @@ and planted unanswerable cases (`make bench`).
 
 | | |
 |---|---|
-| **Top-1 among movements worth explaining** | **78.6%** (55 of 70) |
+| **Top-1 among movements worth explaining** | **64.4%** (56 of 87) |
 | Top-1 over the whole population | 38.9% |
 | **False alarms on noise-only cases** | **0.0%** |
 | Planted correlation traps rejected | 87.5% |
@@ -604,9 +609,10 @@ parameters. A stale `uvicorn` from before those landed is the most likely cause.
 **`make audit` reports ten failures.** They are all the same missing file. Run
 `make gen`.
 
-**Why is top-1 only 38.2%?** Because it is measured over every case including
+**Why is top-1 only 38.9%?** Because it is measured over every case including
 those the engine correctly declines. Among movements that clear materiality it
-is 78.6%. Lowering a threshold to raise the headline is trap T-14 in `BUGS.md`.
+is **64.4%**, and `make bench` prints both lines so neither has to be taken on
+trust. Lowering a threshold to raise the headline is trap T-14 in `BUGS.md`.
 
 **Can I run it on my own data?** Not yet. Contracts are hand-authored; inferring
 one from an uploaded CSV is on the roadmap.
@@ -745,11 +751,14 @@ declared by the author.
 |---|---|
 | `whychain/` | the engine, one package per pipeline stage |
 | `whychain/evidence/` | the `Evidence` type — the spine of the system |
+| `whychain/reconcile/` | does a second system agree the movement happened |
+| `whychain/feedback/apply.py` | applying a proposal, as an audited contract overlay |
 | `whychain/llm/` | the model protocol and its backends |
 | `contracts/` | KPI semantic contracts (YAML) — executable governance |
 | `datagen/` | synthetic dataset generator and planted causes |
 | `data/ground_truth/` | **the engine must never read this.** Enforced by test |
-| `bench/` | benchmark harness and metrics |
+| `bench/run.py` | accuracy, trap rejection, calibration, latency |
+| `bench/scale.py` | what happens with more data and more readers (`make scale`) |
 | `api/`, `ui/` | service and console |
 | `docs/REQUIREMENTS.md` | every objective mapped to code and a command |
 | `DECISIONS.md` | architectural decisions and why alternatives were rejected |
