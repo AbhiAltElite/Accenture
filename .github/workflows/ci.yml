@@ -5,8 +5,18 @@ on:
     branches: [main]
   pull_request:
 
+# A second push supersedes the first: the older run is cancelled rather than
+# left to finish against a commit nobody is looking at any more.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   test:
+    name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -16,9 +26,9 @@ jobs:
         python-version: ["3.12", "3.14"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -49,25 +59,14 @@ jobs:
         run: pytest -m invariant -q
 
   attribution:
+    name: Attribution
     # The submission must read as the team's own work. This fails the build
     # rather than leaving it to be noticed the day the repo goes public.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: No AI attribution in commit history
-        run: |
-          # The tool names are matched on their own, because every real
-          # attribution carries one -- a trailer naming an assistant, or a
-          # generated-by line pointing at its website. The generated-by phrase
-          # is only matched when a tool name follows it, so a commit message
-          # that merely discusses the wording in English is not mistaken for
-          # one that carries it. That mistake failed this job twice.
-          pattern='claude|anthropic|copilot|chatgpt|co-authored-by|generated (with|by) [^ ]*(claude|copilot|chatgpt|gemini|cursor|codex)'
-          if git log --format='%an%n%ae%n%B' | grep -iE "$pattern"; then
-            echo "::error::AI attribution found in commit history"
-            exit 1
-          fi
-          echo "Commit history clean."
+        run: ./.github/scripts/check-attribution.sh

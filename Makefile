@@ -1,4 +1,13 @@
-.PHONY: setup gen demo test bench scale status audit guardrails smoke verify-ai capture-ai warm-ai readme-pdf docker docker-ai lint clean
+.PHONY: help setup gen gen-all demo test bench scale status audit guardrails smoke verify-ai capture-ai warm-ai readme-pdf docker docker-ai lint check-attribution ci clean
+
+# `make` with no target lists the targets, so the entry point to this
+# repository is the same command whether or not you have read the README.
+.DEFAULT_GOAL := help
+
+help:             ## list the targets in this file
+	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
+		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+
 
 setup:            ## create venv and install dependencies
 	python3 -m venv .venv
@@ -53,8 +62,18 @@ verify-ai:        ## prove both model stages work before a demo depends on them
 audit:            ## run the security and logic checklists
 	PYTHONPATH=. .venv/bin/python scripts/audit.py
 
-lint:
+lint:             ## static checks, the same ones CI runs
 	.venv/bin/ruff check .
 
-clean:
+check-attribution: ## the guard CI runs over the commit history
+	./.github/scripts/check-attribution.sh
+
+ci:               ## everything CI runs, in CI's order
+	$(MAKE) lint
+	$(MAKE) gen
+	$(MAKE) test
+	.venv/bin/pytest -m invariant -q
+	$(MAKE) check-attribution
+
+clean:            ## remove generated data and caches
 	rm -rf data/warehouse/*.duckdb .pytest_cache __pycache__
