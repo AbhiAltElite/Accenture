@@ -98,9 +98,14 @@ raise the headline is T-14 in `BUGS.md`.
 
 Stated here so no row above has to be read carefully.
 
-- **The corroboration extractor is rule-based**, so a keyless run makes zero
-  model calls rather than the two the design intends. The receipt reports what
-  happened.
+- **The corroboration extractor is rule-based** without a backend, so a keyless
+  run makes zero model calls rather than the two the design intends. The receipt
+  reports what happened.
+- **Query expansion never fires on this dataset.** It runs only where the
+  deterministic query's best match falls below a floor, and the planted data
+  never puts it there. The stage works when called directly; the register
+  mismatch it exists for is not present in the generated corpus, so the model's
+  contribution to retrieval is currently nil and `make capture-ai` shows it.
 - **`ext_signals` is generated.** The schema is the one a cached IMD or
   Open-Meteo snapshot drops into unchanged.
 - **Contract-to-warehouse compilation is roadmap.** `dialect_targets` is

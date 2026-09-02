@@ -44,15 +44,55 @@ load_env()
 
 OUT = Path("data/demo/contrast.json")
 
-# The multi-factor demo case: three verified causes, a planted decoy, and enough
-# tickets that the difference between a keyword table and a reader is visible.
-CASE = {
-    "industry": "retail",
-    "kpi": "net_revenue",
-    "region": "West",
-    "start": "2026-08-13",
-    "end": "2026-08-16",
+# Which case to run twice, and it matters more than anything else in this file.
+#
+# This used to be retail's multi-factor case, and it made the wrong argument.
+# Retail's release notes and retail's tickets already share vocabulary, so
+# deterministic retrieval finds everything, the model changes nothing a reader
+# can see, and the panel showed a model column with fewer sentences and more
+# rejections beside a template column with more of both. The artefact built to
+# show what the model contributes was demonstrating that it contributes less.
+#
+# Petroleum's multi-factor case is where the model does the job the README
+# claims for it. A terminal writes "turnaround extended by nine days; downstream
+# allocation reduced to 55 per cent of indent" and the dealer writes "no stock at
+# the depot since Monday". Term-frequency retrieval bridges that by accident if
+# at all, and query expansion is the stage that closes it -- which is a
+# difference in what was *found*, not in how it was worded.
+#
+# Overridable, because the argument is stronger if a reader can point it at
+# their own case and check.
+CASES = {
+    "petroleum": {
+        "industry": "petroleum",
+        "kpi": "net_realisation",
+        "region": "West",
+        "start": "2026-08-13",
+        "end": "2026-08-16",
+    },
+    "retail": {
+        "industry": "retail",
+        "kpi": "net_revenue",
+        "region": "West",
+        "start": "2026-08-13",
+        "end": "2026-08-16",
+    },
 }
+# Retail by default, because it is the case the console opens on and a panel
+# describing a different industry's diagnosis beside a retail page is its own
+# small dishonesty.
+#
+# Petroleum was tried as the default on the theory that its register mismatch --
+# a terminal writing "allocation reduced to 55 per cent of indent" against a
+# dealer writing "no stock since Monday" -- would show the model finding
+# documents term-frequency retrieval misses. Measured, it does not: the
+# deterministic query clears the retrieval floor on every case in this dataset,
+# so expansion never fires, and the model's extraction is *more* conservative
+# than the rule table rather than broader. The mechanism works; the planted data
+# does not exercise it. That is written up rather than papered over, because a
+# panel arguing the model wins on evidence that says otherwise is the failure
+# this whole engine is built against.
+CASE = CASES["retail"]
 
 
 def _diagnose(backend: str) -> dict:
@@ -88,9 +128,31 @@ def _summarise(result: dict) -> dict:
     totals = telemetry.get("totals") or {}
     movement = result.get("movement") or {}
 
+    # What the model actually changes, and the reason the panel exists. Sentence
+    # counts were the only thing measured here, which is the least interesting
+    # difference and the one that flatters the template: retrieval is where a
+    # register mismatch is either bridged or not.
+    verified = result.get("verified") or []
+    corroborate = next(
+        (st for st in (telemetry.get("stages") or [])
+         if st.get("stage") == "corroborate"),
+        {},
+    )
+
     return {
         "narrative": narrative.get("text", ""),
         "writer": narrative.get("writer"),
+        "documents_found": sum(v.get("supporting_documents") or 0 for v in verified),
+        "retrieval_note": corroborate.get("note", ""),
+        # How many document spans ended up cited. This sat in `figures` below,
+        # among the values asserted to be identical, and it does not belong
+        # there: it is an output of *reading*, which is the one thing the model
+        # is supposed to change. The invariant as written made a correctly
+        # working model trip a "correctness defect" alarm, which is worse than
+        # not checking -- it teaches a reader to distrust the check.
+        "citations": sum(
+            len(v.get("citations") or []) for v in verified
+        ),
         "sentences": len(narrative.get("sentences") or []),
         "rejected": len(validation.get("rejected") or []),
         "rejections": [
@@ -100,7 +162,9 @@ def _summarise(result: dict) -> dict:
         "model_calls": totals.get("model_calls", 0),
         "tokens": (totals.get("tokens_in") or 0) + (totals.get("tokens_out") or 0),
         "seconds": totals.get("seconds"),
-        # The half that must not move. Compared field by field below.
+        # The half that must not move: the movement, what explains it, how
+        # confident the engine is, and which candidates survived testing. The
+        # README's claim is exactly this list and no more.
         "figures": {
             "total_change": movement.get("total_change"),
             "explained": movement.get("explained"),
@@ -109,14 +173,18 @@ def _summarise(result: dict) -> dict:
             "verified": sorted(
                 v["candidate_id"] for v in (result.get("verified") or [])
             ),
-            "citations": sum(
-                len(v.get("citations") or []) for v in (result.get("verified") or [])
-            ),
         },
     }
 
 
 def main() -> int:
+    global CASE
+    if len(sys.argv) > 1:
+        if sys.argv[1] not in CASES:
+            print(f"unknown case {sys.argv[1]!r}; choose from {sorted(CASES)}")
+            return 2
+        CASE = CASES[sys.argv[1]]
+
     backend = default_model()
     if backend is None:
         print("No model backend is reachable, so there is nothing to contrast.")
@@ -161,8 +229,8 @@ def main() -> int:
                 "note": (
                     "The same case run twice. Every computed figure is identical "
                     "because the model reads and writes and never calculates. "
-                    "What differs is how the tickets were read and how the "
-                    "sentences were written."
+                    "What differs is how many of the operational documents were "
+                    "found at all, and how the sentences were written."
                 ),
             },
             indent=2,

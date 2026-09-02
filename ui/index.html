@@ -681,21 +681,34 @@ function contrastMarkup(){
     return `<p class="muted" style="margin-top:var(--sp-5)">${escapeHtml(c.note)}</p>`;
   }
   const a = c.with_model, b = c.without_model;
+  // Name the case. This panel is a capture, not a rerun of whatever is on
+  // screen, and it was rendered with no indication of that -- so a reader
+  // comparing its figures against the page above found two sets that did not
+  // reconcile and no reason given.
+  const which = c.case
+    ? `${title(c.case.kpi)}, ${escapeHtml(c.case.region)}, ${escapeHtml(c.case.start)} to ${escapeHtml(c.case.end)}`
+    : '';
+  // Reading is where the model does its work here, so it is counted rather than
+  // left to be inferred from the prose. Sentence counts alone were the whole
+  // caption, which measured the least interesting difference.
+  const read = v => `${v.documents_found} document(s) read, ${v.citations} span(s) cited`;
   return `
     <h4 class="label" style="margin-top:var(--sp-5)">With the model, and without</h4>
-    <p class="muted">${escapeHtml(c.note)} Captured ${escapeHtml((c.captured_at||'').slice(0,10))}
-      against ${escapeHtml(c.backend)}.</p>
+    <p class="muted">${escapeHtml(c.note)}</p>
+    <p class="muted">A captured run of <b>${which}</b>, not the diagnosis above:
+      ${escapeHtml((c.captured_at||'').slice(0,10))} against ${escapeHtml(c.backend)}.
+      Its figures belong to that case.</p>
     <div class="tracks" style="margin-top:var(--sp-4)">
       <div>
         <h4 class="exactly">Model on</h4>
         <p class="caption">${a.model_calls} call(s) · ${a.tokens} tokens ·
-          ${a.sentences} sentence(s), ${a.rejected} rejected</p>
+          ${read(a)} · ${a.sentences} sentence(s), ${a.rejected} rejected</p>
         <p class="prose" style="font-size:var(--t-base)">${escapeHtml(a.narrative)}</p>
       </div>
       <div>
         <h4 class="merely">Model off</h4>
-        <p class="caption">${b.model_calls} call(s) · ${b.sentences} sentence(s),
-          ${b.rejected} rejected</p>
+        <p class="caption">${b.model_calls} call(s) · ${read(b)} ·
+          ${b.sentences} sentence(s), ${b.rejected} rejected</p>
         <p class="prose" style="font-size:var(--t-base)">${escapeHtml(b.narrative)}</p>
       </div>
     </div>
@@ -2022,21 +2035,34 @@ function contrastMarkup(){
     return `<p class="muted" style="margin-top:var(--sp-5)">${escapeHtml(c.note)}</p>`;
   }
   const a = c.with_model, b = c.without_model;
+  // Name the case. This panel is a capture, not a rerun of whatever is on
+  // screen, and it was rendered with no indication of that -- so a reader
+  // comparing its figures against the page above found two sets that did not
+  // reconcile and no reason given.
+  const which = c.case
+    ? `${title(c.case.kpi)}, ${escapeHtml(c.case.region)}, ${escapeHtml(c.case.start)} to ${escapeHtml(c.case.end)}`
+    : '';
+  // Reading is where the model does its work here, so it is counted rather than
+  // left to be inferred from the prose. Sentence counts alone were the whole
+  // caption, which measured the least interesting difference.
+  const read = v => `${v.documents_found} document(s) read, ${v.citations} span(s) cited`;
   return `
     <h4 class="label" style="margin-top:var(--sp-5)">With the model, and without</h4>
-    <p class="muted">${escapeHtml(c.note)} Captured ${escapeHtml((c.captured_at||'').slice(0,10))}
-      against ${escapeHtml(c.backend)}.</p>
+    <p class="muted">${escapeHtml(c.note)}</p>
+    <p class="muted">A captured run of <b>${which}</b>, not the diagnosis above:
+      ${escapeHtml((c.captured_at||'').slice(0,10))} against ${escapeHtml(c.backend)}.
+      Its figures belong to that case.</p>
     <div class="tracks" style="margin-top:var(--sp-4)">
       <div>
         <h4 class="exactly">Model on</h4>
         <p class="caption">${a.model_calls} call(s) · ${a.tokens} tokens ·
-          ${a.sentences} sentence(s), ${a.rejected} rejected</p>
+          ${read(a)} · ${a.sentences} sentence(s), ${a.rejected} rejected</p>
         <p class="prose" style="font-size:var(--t-base)">${escapeHtml(a.narrative)}</p>
       </div>
       <div>
         <h4 class="merely">Model off</h4>
-        <p class="caption">${b.model_calls} call(s) · ${b.sentences} sentence(s),
-          ${b.rejected} rejected</p>
+        <p class="caption">${b.model_calls} call(s) · ${read(b)} ·
+          ${b.sentences} sentence(s), ${b.rejected} rejected</p>
         <p class="prose" style="font-size:var(--t-base)">${escapeHtml(b.narrative)}</p>
       </div>
     </div>

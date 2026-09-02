@@ -345,9 +345,27 @@ query's best match falls below a floor, which is what a register mismatch looks
 like from inside retrieval. Retail's release notes already share vocabulary with
 retail's tickets and spend nothing.
 
+**And on this dataset that margin is never reached, which is worth stating
+plainly.** The mechanism works — given the terminal note above, the model does
+return `stock supply delivery delay stockout` — but the deterministic query
+clears the retrieval floor on every case in all three verticals, so expansion
+does not fire in a normal run and the documents found are the same either way.
+`make capture-ai` measures it: 28 documents read with the model against 31
+without, every computed figure identical. The register-mismatch claim is
+therefore **demonstrated as a capability and not exercised by the planted data**,
+and closing that gap means generating a case where operational and complaint
+vocabulary genuinely do not overlap, which is a change to the generator rather
+than to the engine. It is not made here.
+
 Each task is routed to the model it needs — expansion and extraction are
 classification-shaped and run on a small tier, narration is harder and runs on a
-standard one — and each is overridable per stage.
+standard one — and each is overridable per stage. **Routing is real and the
+default configuration does not use it**: `WHYCHAIN_INTENT_MODEL`,
+`WHYCHAIN_EXPANSION_MODEL`, `WHYCHAIN_EXTRACTION_MODEL` and
+`WHYCHAIN_NARRATIVE_MODEL` each override their stage, and with none of them set
+all four stages show the same model on the receipt. A genuine tier split needs
+two model ids configured, and which two is a licence decision rather than a
+performance one.
 
 **The economics are part of the design, not an afterthought.** Every call is
 content-addressed and cached on disk, keyed on the model, backend, prompt,

@@ -194,12 +194,35 @@ class OpenAICompatibleModel:
         # schema rejection just doubles the wait before the deterministic path
         # takes over.
         payload = None
+        empty: ModelError | None = None
         for attempt in range(RETRY_ATTEMPTS):
             try:
                 with urllib.request.urlopen(
                     request, timeout=TIMEOUT_SECONDS, context=_ssl_context()
                 ) as response:
                     payload = json.loads(response.read())
+                # An empty 200 is a free tier shedding load wearing a success
+                # code, and it is transient in exactly the way 429 is: the same
+                # request succeeds a moment later. Measured against the
+                # configured default, a five-document extraction came back empty
+                # while a twenty-five-document one went through, seconds apart.
+                # So it retries on the same backoff rather than falling straight
+                # through to the deterministic path -- a fallback that fires on
+                # a blip costs the reader the model's contribution for the whole
+                # run, and the receipt then honestly reports a degradation that
+                # one more second would have avoided.
+                try:
+                    require_content(
+                        ((payload.get("choices") or [{}])[0].get("message") or {})
+                        .get("content", ""),
+                        backend=self.backend, model=str(self.name),
+                    )
+                except ModelError as exc:
+                    empty = exc
+                    if attempt < RETRY_ATTEMPTS - 1 and not payload.get("error"):
+                        time.sleep(min(RETRY_PAUSE_SECONDS * (2**attempt),
+                                       MAX_RETRY_PAUSE_SECONDS))
+                        continue
                 break
             except urllib.error.HTTPError as exc:
                 last = attempt == RETRY_ATTEMPTS - 1
@@ -226,6 +249,11 @@ class OpenAICompatibleModel:
         # free tiers use it for the upstream refusals they do not want to spend
         # a status code on. Read before the choices, or the failure arrives
         # downstream as an empty string.
+        # Raised here rather than inside the loop so a retried-and-still-empty
+        # response reports the same way an unretried one does.
+        if empty is not None and not payload.get("error"):
+            raise empty
+
         error = payload.get("error")
         if error:
             message = error.get("message") if isinstance(error, dict) else error
