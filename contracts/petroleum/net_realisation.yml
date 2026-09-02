@@ -69,6 +69,12 @@ materiality:
   # The metric is already rupees, so a rupee of movement is a rupee of impact.
   value_per_unit_inr: 1.0
 
+economics:
+  # Fuel marketing is a thin-margin business: most of the pump price is
+  # product cost, excise and dealer commission. At this margin almost any
+  # discount is gross-profit negative, which is the point of showing it.
+  gross_margin_pct: 0.05
+
 freshness_sla:
   pos_txn: 6h
   plan_ops: 72h

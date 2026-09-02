@@ -31,7 +31,7 @@ verticals, which is what the scalability criterion rests on.
 | 4 | Persona-specific narratives supported by traceable evidence | `whychain/personas/`, `whychain/narrate/` | Masthead **Reading as**: Analyst / CFO / Ops. Every figure in the narrative resolves on click to its query or document span | Built |
 | 5 | Communicate uncertainty and abstain when evidence is insufficient | `whychain/confidence/score.py` (banding, abstention), `whychain/confidence/calibrate.py` (isotonic, held-out) | Select **South**, period 90 days: the engine reports UNKNOWN with what it ruled out and the next check. Measured: abstention precision **85.7%** | Built |
 | 6 | Actions grounded in levers, constraints and decision rights | `whychain/actions/` | Console section **The decision**: driver → lever → action → expected impact → owner → confidence → monitoring. Every field derived; a cause with no lever returns `controllable: false` and a monitoring rule instead of an invented action | Built |
-| 7 | Learns from analyst and business-user feedback | `whychain/feedback/` | Console section **Tell the engine it was wrong**. Corrections never edit a run and never move a computed value; they propose changes to business-owned inputs and need two independent submitters | Built |
+| 7 | Learns from analyst and business-user feedback | `whychain/feedback/`, `whychain/feedback/apply.py`, overlay composition in `whychain/contracts/registry.py` | Console section **Analyst review and corrections**. Corrections never edit a run and never move a computed value; they propose changes to business-owned inputs and need two independent submitters. A proposal on `materiality_threshold` can then be **applied by a named person and is consumed on the next run** — two analysts rejecting a ₹26,963/day movement takes West's flagged days from 23 to 16. The applied change is an audited overlay, not an edit to the contract, and the new floor is derived from the movements cited rather than typed. The other four targets have no consumer and refuse by name | Built, one of five targets consumable |
 | 8 | Realistic security, cost, latency and scalability constraints | `whychain/telemetry/`, `AccessPolicy` in contracts, `whychain/personas/` | Console section **Run receipt** and the margin column: per-stage latency, model calls, tokens, rupee cost. p95 **0.18s** per diagnosis | Built |
 
 ---
@@ -106,8 +106,11 @@ Stated here so no row above has to be read carefully.
 - **Contract-to-warehouse compilation is roadmap.** `dialect_targets` is
   declared; the Databricks and Snowflake renderings are hand-written examples,
   not generated.
-- **Applying a feedback proposal is manual.** Corrections reach quorum and the
-  console says so; a human still edits the contract.
+- **Four of the five feedback targets still need a human.** `materiality_threshold`
+  is applied by a named person and consumed on the next run; `candidate_ranking`,
+  `candidate_source`, `driver_mapping` and `retrieval_filter` have no consumer in
+  the engine and are refused by name rather than queued. Nothing here retrains
+  anything, and the word "learning loop" is still not used.
 - **Scalability is argued, not demonstrated at scale.** The brief names it in
   the prototype criteria and again for the finale, and objective 8 above maps to
   telemetry, entitlement and cost, which are the security/cost/latency half.

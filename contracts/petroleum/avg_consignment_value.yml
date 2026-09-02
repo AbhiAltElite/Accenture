@@ -57,6 +57,10 @@ materiality:
   # consignment lifted in the region that day, which is about 646.
   value_per_unit_inr: 646.0
 
+economics:
+  # As net_realisation: the same litres, the same cost base.
+  gross_margin_pct: 0.05
+
 freshness_sla:
   pos_txn: 6h
   plan_ops: 72h

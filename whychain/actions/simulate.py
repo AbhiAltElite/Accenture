@@ -60,6 +60,13 @@ class Scenario:
     bounded_by: str | None = None
     unavailable_because: str | None = None
     kind: str = "scenario_estimate"
+    # What `effect_inr_per_day` is a quantity *of*. Every scenario here used to
+    # report revenue and say so nowhere, which is safe until one of them has a
+    # reason to report something else.
+    effect_of: str = "revenue"
+    # Figures the headline must be read against rather than instead of. A price
+    # move has two, and showing one is how a reader is talked into it.
+    alongside: tuple[tuple[str, float], ...] = ()
 
     def as_dict(self) -> dict:
         return {
@@ -76,6 +83,10 @@ class Scenario:
                 if self.effect_inr_total is not None else None
             ),
             "horizon_days": self.horizon_days,
+            "effect_of": self.effect_of,
+            "alongside": [
+                {"name": n, "inr_per_day": round(v, 2)} for n, v in self.alongside
+            ],
             "assumptions": [a.as_dict() for a in self.assumptions],
             "bounded_by": self.bounded_by,
             "unavailable_because": self.unavailable_because,
@@ -161,6 +172,25 @@ def price_move(
 
     The elasticity is the contract's declared prior, not a fitted value, so this
     is a planning estimate and the assumption says as much.
+
+    **Revenue is not the number this decides on.** Below an elasticity of -1 a
+    price cut raises revenue and lowers gross profit at the same time, and this
+    scenario used to report only the first: on retail's -1.4 it offered a finance
+    director "+₹10,373 per day" for a move that costs about twice that in gross
+    profit. Nothing was miscalculated -- it was the half of the arithmetic that
+    argues for the decision, presented as the result of it, which is a
+    better-evidenced version of exactly the failure this engine exists to
+    prevent.
+
+    So where the contract declares a margin, gross profit is the headline and
+    revenue is shown beside it:
+
+        gp'    = R (1 + e d) [(1 + d) - (1 - m)]
+        change = gp' - R m
+
+    with unit cost held constant, which is the assumption doing the work. Where
+    no margin is declared the revenue figure still stands, and the scenario says
+    in the open that it cannot tell whether the move is worth making.
     """
     question = (
         f"What happens if we move {recovery.price_noun} by {delta_pct:+.0%} "
@@ -179,21 +209,62 @@ def price_move(
         )
 
     e = driver.elasticity_prior
-    change = base_revenue_per_day * ((1 + delta_pct) * (1 + e * delta_pct) - 1)
+    d = delta_pct
+    volume = 1 + e * d
+    revenue_change = base_revenue_per_day * ((1 + d) * volume - 1)
+    margin = contract.economics.gross_margin_pct
+
+    assumptions = [
+        Assumption("current revenue", f"{base_revenue_per_day:,.0f} INR/day",
+                   "observed over the event window"),
+        Assumption("price elasticity", f"{e:+.2f}",
+                   f"elasticity_prior declared on the {driver.id} driver in "
+                   f"{contract.kpi_id}.yml, version {contract.version}"),
+        Assumption(f"{recovery.price_noun} change applied", f"{d:+.0%}",
+                   "the scenario input"),
+    ]
+
+    if margin is None:
+        return Scenario(
+            "price_move", question, True, revenue_change, None, None,
+            tuple(assumptions),
+            effect_of="revenue",
+            bounded_by=(
+                "a single-period elasticity: it does not model competitor "
+                "response, and it is unreliable far outside the range prices "
+                "have actually moved. It is also revenue alone: this contract "
+                "declares no gross_margin_pct, so whether the move earns or "
+                "costs money is not a question this figure answers"
+            ),
+        )
+
+    # Unit cost is held at its current level, so the whole of a price move lands
+    # on the margin. That is the assumption doing the work here and it is stated
+    # rather than folded into the formula.
+    gross_profit_change = (
+        base_revenue_per_day * volume * ((1 + d) - (1 - margin))
+        - base_revenue_per_day * margin
+    )
+    assumptions.append(
+        Assumption("gross margin", f"{margin:.0%}",
+                   f"gross_margin_pct declared in {contract.kpi_id}.yml, version "
+                   f"{contract.version}; a business-owned input, not a measured "
+                   f"one -- no cost column exists in the source")
+    )
+
+    below_cost = (1 + d) < (1 - margin)
     return Scenario(
-        "price_move", question, True, change, None, None,
-        (
-            Assumption("current revenue", f"{base_revenue_per_day:,.0f} INR/day",
-                       "observed over the event window"),
-            Assumption("price elasticity", f"{e:+.2f}",
-                       f"elasticity_prior declared on the {driver.id} driver in "
-                       f"{contract.kpi_id}.yml, version {contract.version}"),
-            Assumption(f"{recovery.price_noun} change applied", f"{delta_pct:+.0%}",
-                       "the scenario input"),
-        ),
+        "price_move", question, True, gross_profit_change, None, None,
+        tuple(assumptions),
+        effect_of="gross profit",
+        alongside=(("revenue", revenue_change),),
         bounded_by=(
-            "a single-period elasticity: it does not model competitor response, "
-            "and it is unreliable far outside the range prices have actually moved"
+            "a single-period elasticity, holding unit cost constant: it does "
+            "not model competitor response, and it is unreliable far outside "
+            "the range prices have actually moved"
+            + (". At this size the price falls below unit cost, so every "
+               "additional unit sold loses money and the elasticity stops "
+               "being the relevant question" if below_cost else "")
         ),
     )
 

@@ -573,6 +573,17 @@ table.components tr:last-child td{border-bottom:none}
   margin-bottom:var(--sp-4);letter-spacing:-.01em}
 .scenario.off h4{color:var(--ink-3)}
 .scenario .bounded{margin-top:var(--sp-3);font-size:var(--t-sm)}
+/* The figure the headline has to be read against. Same size as body text, not
+   the display size above it: it qualifies the headline rather than competing
+   with it, and a reader who takes in only the big number should still be
+   stopped by the word beside it. */
+.scenario .figure small{font-family:var(--sans);font-size:var(--t-xs);
+  color:var(--ink-3);letter-spacing:0;margin-left:var(--sp-2);font-weight:400}
+.scenario .alongsiderow{margin-top:var(--sp-2);font-size:var(--t-sm);
+  color:var(--ink-3)}
+.scenario .alongside{font-weight:600}
+.scenario .alongside.up{color:var(--up)}
+.scenario .alongside.down{color:var(--down)}
 
 /* ═══ signal gap (answer 2) ══════════════════════════════════════════════
    The product's differentiator, so it gets the strongest single device on the
@@ -2057,8 +2068,96 @@ function feedbackBlock(){
       ${JUDGEMENTS.map(([k,lab])=>
         `<button data-j="${k}" aria-pressed="false">${lab}</button>`).join('')}
     </div>
-    <p class="fbnote" id="fbnote">No review recorded for this run.</p>`,
+    <p class="fbnote" id="fbnote">No review recorded for this run.</p>
+    <div id="fbproposals"></div>`,
     false, '');
+}
+
+/* What the corrections have added up to, and what applying one would do.
+   Without this the workflow ends at "recorded", which is where it used to end
+   in the engine too: quorum was reached, a proposal existed, and nothing ever
+   consumed one. A proposal a reader can see and a named person can apply is
+   the difference between a feedback form and a loop. */
+async function renderProposals(){
+  const host = document.getElementById('fbproposals');
+  if(!host) return;
+  let data;
+  try{ data = await (await fetch('/api/feedback')).json(); }catch(e){ return; }
+  const props = data.proposals || [], applied = data.applied || [];
+  if(!props.length && !applied.length){ host.innerHTML = ''; return; }
+
+  const rows = props.map(p=>{
+    // Only the state is different, never the evidence: a proposal short of
+    // quorum shows the same counts as one that has it, so a reader can see how
+    // close it is rather than being shown nothing until it arrives.
+    // Four states, and three of them decline. "Ready" is reserved for a
+    // proposal that has quorum *and* something in the engine that can consume
+    // it: offering to apply a change nothing reads is a button that can only
+    // fail, and the honest version says why instead.
+    const why = p.contested
+      ? '<span class="state na">contested</span> readers disagree; this stays unapplied'
+      : !p.applicable
+        ? `<span class="state off">${p.supporting} of ${p.quorum}</span> one person is an opinion`
+        : p.consumable
+          ? '<span class="state ok">ready</span>'
+          : `<span class="state na">by hand</span> <span class="q">${
+              escapeHtml(p.why_not || 'nothing in the engine consumes this yet')}</span>`;
+    return `<tr>
+      <td><code>${escapeHtml(p.target)}</code><br>
+          <span class="q">${escapeHtml(p.change)}</span></td>
+      <td>${why}<br><span class="q">${escapeHtml(p.submitters.join(', '))} over ${
+        p.runs.length} run(s)</span></td>
+      <td class="n">${p.applicable && p.consumable
+        ? `<button class="linkback" data-apply="${escapeHtml(p.target)}"
+             data-subject="${escapeHtml(p.subject)}">apply</button>`
+        : '<span class="na">&mdash;</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  const history = applied.map(c=>`<tr>
+      <td><code>${escapeHtml(c.field_path)}</code><br>
+          <span class="q">${escapeHtml(c.basis)}</span></td>
+      <td>${inr(c.from_value)} &rarr; <b>${inr(c.to_value)}</b><br>
+          <span class="q">applied by ${escapeHtml(c.applied_by)}</span></td>
+      <td class="n"><span class="state ok">in force</span></td>
+    </tr>`).join('');
+
+  host.innerHTML = `
+    ${props.length ? `<h4 class="label" style="margin-top:var(--sp-5)">What the corrections propose</h4>
+    <table class="chain"><tbody>${rows}</tbody></table>` : ''}
+    ${history.length ? `<h4 class="label" style="margin-top:var(--sp-5)">Applied, and in force</h4>
+    <table class="chain"><tbody>${history}</tbody></table>
+    <p class="q">An applied change is an overlay on the contract, not an edit to
+    it: the reviewed definition is untouched and the change carries who made it
+    and on what evidence. Past runs are unchanged; the next diagnosis reads the
+    new value.</p>` : ''}
+    <p class="q" id="applynote"></p>`;
+
+  host.querySelectorAll('[data-apply]').forEach(b=>b.addEventListener('click', async ()=>{
+    const note = document.getElementById('applynote');
+    const who = prompt('Applying this change is attributed. Who is applying it?');
+    if(!who) return;
+    note.textContent = 'Applying…';
+    try{
+      const res = await fetch('/api/feedback/apply',{
+        method:'POST', headers:{'content-type':'application/json'},
+        body: JSON.stringify({
+          target:b.dataset.apply, subject:b.dataset.subject,
+          applied_by:who, industry:STATE.industry,
+        })
+      });
+      const out = await res.json();
+      if(!res.ok){
+        // A refusal is the interesting output here, so it is shown in full
+        // rather than collapsed into "could not apply".
+        const d = out.detail;
+        note.textContent = (d && d.refused) || d || 'That could not be applied.';
+        return;
+      }
+      note.textContent = out.effective;
+      await renderProposals();
+    }catch(e){ note.textContent = 'That could not be applied.'; }
+  }));
 }
 
 /* Selecting a movement re-runs the diagnosis for that window. It re-fetches
@@ -2098,13 +2197,20 @@ function wireFeedback(){
           run_id:d.run_id, kpi_id:d.kpi_id, persona:d.persona||'analyst',
           judgement:b.dataset.j, submitted_by:'console-user', region:d.region,
           candidate_id:(d.verified&&d.verified[0]||{}).candidate_id,
+          // "Not material" is a judgement about a size, and the size is on
+          // screen. Sending it is what lets an applied threshold be derived
+          // from the evidence rather than typed by whoever applies it.
+          movement_inr: d.movement && d.movement.total_change != null
+            ? Math.abs(d.movement.total_change) : null,
         })
       });
       const out = await res.json();
       const p = (out.summary&&out.summary.proposals||[]).filter(x=>x.applicable).length;
       note.textContent = out.note + (p?` ${p} proposal(s) now have quorum.`:'');
     }catch(e){ note.textContent = 'Could not record that.'; }
+    renderProposals();
   }));
+  renderProposals();
 }
 
 /* ---------- disclosure sections ---------- */
@@ -2262,11 +2368,22 @@ function simulatorBlock(){
     const total = s.effect_inr_total != null
       ? ` &middot; ${inr(s.effect_inr_total)} over ${s.horizon_days} days` : '';
     const sign = s.effect_inr_per_day < 0 ? 'down' : 'up';
+    // Name what the figure is a quantity of, and print anything it has to be
+    // read against directly underneath. A price move returns gross profit with
+    // revenue beside it, and the two routinely disagree about whether to act --
+    // which is the entire reason for showing both. Rendering the headline alone
+    // and unlabelled is how the old panel offered a gain for a losing move.
+    const also = (s.alongside || []).map(a => `
+        <span class="alongside ${a.inr_per_day < 0 ? 'down' : 'up'}">${
+          a.inr_per_day < 0 ? '\u2212' : '+'}${inr(a.inr_per_day)} ${
+          escapeHtml(a.name)}</span>`).join('');
     return `
       <article class="scenario">
         <h4>${escapeHtml(s.question)}</h4>
         <p class="figure ${sign}">${s.effect_inr_per_day<0?'\u2212':'+'}${
-          inr(s.effect_inr_per_day)} per day${total}</p>
+          inr(s.effect_inr_per_day)} <small>${escapeHtml(s.effect_of || 'revenue')
+          } per day</small>${total}</p>
+        ${also ? `<p class="alongsiderow">against ${also}</p>` : ''}
         <table class="chain">${s.assumptions.map(a=>`
           <tr><th scope="row">${escapeHtml(a.name)}</th>
               <td>${escapeHtml(a.value)}<br><span class="q">${escapeHtml(a.basis)}</span></td>

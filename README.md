@@ -264,12 +264,29 @@ move a computed value. They propose changes to business-owned inputs, require tw
 independent submitters, and go contested rather than averaged when readers
 disagree. Named misses become labelled regression cases.
 
-Called a workflow rather than a learning loop, deliberately: **applying a
-proposal is a manual step and nothing in the engine consumes one yet.** The
-capture, the quorum rule and the contested state are real and are the parts that
-are hard to get right; the wiring that lets an applied proposal change a
-contract is the part that is missing, and it is named in the roadmap rather than
-implied by the word "learning".
+**The loop closes on one target, and says so about the other four.** A proposal
+that reaches quorum on `materiality_threshold` can be applied by a named person,
+and the next diagnosis reads the new floor: measured, two analysts calling a
+₹26,963/day movement not worth diagnosing takes West's flagged days from 23 to
+16. Three properties make that safe to have built:
+
+- **The new value is derived, not typed.** The floor moves to 1% clear of the
+  largest movement the supporting readers rejected, capped at twice the previous
+  floor, and the record carries the movements it was computed from. A threshold
+  somebody picked to make a complaint go away is how a materiality floor becomes
+  the place inconvenient findings are buried.
+- **An applied change is an overlay, not an edit.** The `.yml` stays the
+  reviewed definition; applications are appended to `data/feedback/applied.jsonl`
+  and composed at load, before validation, so feedback cannot produce a contract
+  a person could not have written. Lifting a change is deleting a line.
+- **Everything else refuses by name.** `candidate_ranking`, `candidate_source`,
+  `driver_mapping` and `retrieval_filter` have no consumer, and the console says
+  which and why rather than offering a button that can only fail. A refusal a
+  reader can act on beats a queue nobody drains.
+
+Still called a workflow rather than a learning loop: **nothing here retrains
+anything, and four of the five targets remain a proposal a human acts on.** What
+changed is that the fifth is no longer a promise.
 
 **A run receipt.** Per-stage latency, model calls, cache hits, tokens, the
 deterministic share of wall time, and a rupee figure carrying its own basis —

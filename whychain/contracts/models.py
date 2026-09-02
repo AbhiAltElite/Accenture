@@ -155,6 +155,25 @@ class Driver(BaseModel):
         return self
 
 
+class Economics(BaseModel):
+    """What a rupee of this metric is actually worth to the business.
+
+    Revenue is not profit, and a price scenario that reports only revenue is the
+    exact shape of well-evidenced wrong answer this engine exists to prevent. At
+    an elasticity below -1 a price cut raises revenue and lowers gross profit
+    simultaneously, so a reader shown the revenue line alone is shown the half of
+    the arithmetic that argues for the decision.
+
+    Declared rather than measured, and deliberately so: `pos_txn` carries no cost
+    column, and deriving a margin from a price series would be inventing one.
+    This is a business-owned input in the same sense as `elasticity_prior` -- the
+    finance function owns it, the contract carries its version, and the
+    correction workflow can propose a change to it.
+    """
+
+    gross_margin_pct: float | None = Field(default=None, gt=0, lt=1)
+
+
 class Materiality(BaseModel):
     """Both tests must pass before a movement is worth an analyst's attention.
 
@@ -278,6 +297,7 @@ class KPIContract(BaseModel):
     dimensions: tuple[str, ...]
     drivers: tuple[Driver, ...]
     materiality: Materiality
+    economics: Economics = Economics()
     freshness_sla: dict[str, timedelta]
     access_policy: AccessPolicy = AccessPolicy()
     signals_consumed: SignalsConsumed = SignalsConsumed()

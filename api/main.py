@@ -30,7 +30,14 @@ from whychain.decompose.bridge import BridgeError
 from whychain.detect import decompose_for, find_anomalies, material
 from whychain.env import load_env
 from whychain.evidence import MethodClass, Unit
-from whychain.feedback import FeedbackStore, Judgement, new_feedback
+from whychain.feedback import FeedbackStore, Judgement, new_feedback, proposals
+from whychain.feedback.apply import (
+    CONSUMABLE,
+    WHY_NOT,
+    AppliedStore,
+    ApplyRefused,
+    apply_proposal,
+)
 from whychain.ingest import IngestError, Warehouse
 from whychain.intent import interpret
 from whychain.llm import (
@@ -68,6 +75,7 @@ UI = Path("ui")
 _retriever: object | None = None
 _retriever_rows: int = 0
 _feedback = FeedbackStore()
+_applied = AppliedStore()
 # Keyed on the file's mtime rather than loaded once at import. `make bench`
 # refits the curve while the service is running, and a calibration that only
 # takes effect after a restart is one that silently disagrees with the report
@@ -270,7 +278,9 @@ def registry(industry: str | None = None) -> ContractRegistry:
     if cached is not None and cached[0] == stamp:
         return cached[1]
     try:
-        loaded = ContractRegistry.from_directory(vertical.contracts_dir)
+        loaded = ContractRegistry.from_directory(
+            vertical.contracts_dir, overlay=_applied.overlay()
+        )
     except ContractError as exc:
         raise HTTPException(500, f"contracts failed to load: {exc}") from exc
     _registries[vertical.id] = (stamp, loaded)
@@ -278,9 +288,17 @@ def registry(industry: str | None = None) -> ContractRegistry:
 
 
 def _contract_stamp(vertical: Vertical) -> tuple:
-    return tuple(sorted(
-        (p.name, p.stat().st_mtime) for p in vertical.contracts_dir.glob("*.yml")
-    ))
+    # The applied-feedback log is part of what a contract set *is* once an
+    # overlay exists, so it belongs in the stamp. Without it an applied proposal
+    # would sit in the file and change nothing until the process restarted,
+    # which is the same as not having applied it.
+    applied = _applied.path
+    return (
+        tuple(sorted(
+            (p.name, p.stat().st_mtime) for p in vertical.contracts_dir.glob("*.yml")
+        )),
+        applied.stat().st_mtime if applied.exists() else 0,
+    )
 
 
 def warehouse(vertical: Vertical) -> Warehouse:
@@ -1838,6 +1856,13 @@ def submit_feedback(payload: dict) -> dict:
             correction=payload.get("correction"),
             note=str(payload.get("note", "")),
             region=payload.get("region"),
+            # "This was not worth flagging" is a judgement about a size, and
+            # without the size an applied threshold could only move to a number
+            # somebody typed. Sent by the console from the run it is judging.
+            movement_inr=(
+                float(payload["movement_inr"])
+                if payload.get("movement_inr") not in (None, "") else None
+            ),
         )
     except ValueError:
         raise HTTPException(
@@ -1860,6 +1885,76 @@ def submit_feedback(payload: dict) -> dict:
     }
 
 
+@app.post("/api/feedback/apply")
+def apply_feedback(payload: dict) -> dict:
+    """Apply one proposal that has reached quorum, or refuse and say why.
+
+    This is the step that turns a correction workflow into a loop that closes.
+    Everything it changes is a business input; nothing it changes is a computed
+    value; and what it writes is an audit record, not an edit to the contract.
+
+    A person applies it. That is not decoration -- `applied_by` is required, is
+    written into the record, and is shown beside the changed value for as long
+    as it stands.
+    """
+    target = str(payload.get("target", "")).strip()
+    subject = str(payload.get("subject", "")).strip()
+    applied_by = str(payload.get("applied_by", "")).strip()
+    if not target or not subject:
+        raise HTTPException(422, "target and subject are both required")
+    if not applied_by:
+        raise HTTPException(422, "applied_by is required; a change needs an author")
+
+    found = next(
+        (p for p in proposals(list(_feedback.all()))
+         if p.target == target and p.subject == subject),
+        None,
+    )
+    if found is None:
+        raise HTTPException(404, f"no proposal for {target!r} on {subject!r}")
+
+    reg = registry(_vertical(payload.get("industry")))
+    try:
+        contract = reg.get(found.subject)
+    except KeyError:
+        raise HTTPException(
+            422,
+            f"{found.subject!r} is not a metric in this industry's contract set, "
+            f"so there is no threshold to move",
+        ) from None
+
+    try:
+        change = apply_proposal(
+            found,
+            kpi_id=contract.kpi_id,
+            current_value=contract.materiality.min_abs_delta_inr,
+            movements=list(found.movements),
+            applied_by=applied_by,
+            store=_applied,
+        )
+    except ApplyRefused as exc:
+        # 409 rather than 400: the request was well formed and the engine
+        # declined it. The reason is the point, so it is the body.
+        raise HTTPException(409, {"refused": str(exc), "target": target}) from None
+
+    return {
+        "applied": change.as_dict(),
+        "effective": (
+            "the next diagnosis reads the new floor; every past run is unchanged"
+        ),
+    }
+
+
+@app.get("/api/feedback/applied")
+def applied_feedback(kpi_id: str | None = None) -> dict:
+    """What feedback has actually changed, and what it still cannot change."""
+    return {
+        "changes": [c.as_dict() for c in _applied.history(kpi_id)],
+        "consumable": CONSUMABLE,
+        "not_consumable": WHY_NOT,
+    }
+
+
 @app.get("/api/feedback")
 def read_feedback(run_id: str | None = None) -> dict:
     """The loop's own state: what readers said, and what it would change."""
@@ -1868,7 +1963,19 @@ def read_feedback(run_id: str | None = None) -> dict:
             "run_id": run_id,
             "entries": [f.as_dict() for f in _feedback.for_run(run_id)],
         }
-    return _feedback.summary()
+    return {
+        **_feedback.summary(),
+        "proposals": [
+            # Whether the engine can consume this target travels with the
+            # proposal. Without it the console offers "apply" on a proposal that
+            # can only ever be refused, which reads as a broken button rather
+            # than as a boundary.
+            {**p.as_dict(), "consumable": p.target in CONSUMABLE,
+             "why_not": WHY_NOT.get(p.target)}
+            for p in proposals(list(_feedback.all()))
+        ],
+        "applied": [c.as_dict() for c in _applied.history()],
+    }
 
 
 @app.get("/")

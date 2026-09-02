@@ -56,6 +56,10 @@ materiality:
   # despatched in the region that day, which is about 1,060.
   value_per_unit_inr: 1060.0
 
+economics:
+  # As dispatch_realisation: the same units, the same fuel cost.
+  gross_margin_pct: 0.22
+
 freshness_sla:
   pos_txn: 6h
   plan_ops: 72h

@@ -68,6 +68,11 @@ materiality:
   # The metric is already rupees, so a rupee of movement is a rupee of impact.
   value_per_unit_inr: 1.0
 
+economics:
+  # Generation margin after fuel. Fuel is the dominant variable cost and
+  # moves with coal and gas, so this is a period figure finance owns.
+  gross_margin_pct: 0.22
+
 freshness_sla:
   pos_txn: 6h
   plan_ops: 72h

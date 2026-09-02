@@ -62,6 +62,12 @@ materiality:
   # The metric is already rupees, so a rupee of movement is a rupee of impact.
   value_per_unit_inr: 1.0
 
+economics:
+  # Retail CPG blended gross margin. Indicative and business-owned: the
+  # source carries no cost column, so this is declared by finance rather
+  # than measured, and the scenario says so where it uses it.
+  gross_margin_pct: 0.32
+
 freshness_sla:
   pos_txn: 6h
   plan_ops: 72h

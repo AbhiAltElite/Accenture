@@ -3,11 +3,20 @@
 Individual contracts validate themselves. The registry validates the things that
 only make sense across contracts: that the KPI graph agrees with itself, that it
 has no cycles, and that nothing references a metric that does not exist.
+
+It is also where an applied feedback proposal reaches the engine. Corrections
+that clear quorum are recorded as an overlay rather than written into the YAML,
+and composed here at load: the contract file stays the reviewed definition, and
+the change carries who applied it and on what evidence. The overlay is applied
+before validation, so an overlaid contract has to satisfy every rule an
+authored one does -- feedback cannot produce a contract a person could not have
+written.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterator
+from copy import deepcopy
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -39,13 +48,39 @@ def _parse_durations(raw: dict[str, Any]) -> dict[str, Any]:
     return {**raw, "freshness_sla": parsed}
 
 
-def load_contract(path: Path) -> KPIContract:
+def _compose(raw: dict[str, Any], fields: dict[str, float]) -> dict[str, Any]:
+    """Set dotted `field_path`s on a raw contract mapping, without mutating it.
+
+    Deliberately dumb: it walks an existing path and refuses to create anything
+    that is not already there. An overlay may change a value the contract's
+    author declared; it may not introduce a section they never wrote. A typo in
+    a field path is therefore a change that does nothing, rather than a new key
+    the model would reject at a confusing distance from its cause.
+    """
+    out = deepcopy(raw)
+    for path, value in fields.items():
+        *parents, leaf = path.split(".")
+        cursor: Any = out
+        for key in parents:
+            cursor = cursor.get(key) if isinstance(cursor, dict) else None
+            if not isinstance(cursor, dict):
+                break
+        if isinstance(cursor, dict) and leaf in cursor:
+            cursor[leaf] = value
+    return out
+
+
+def load_contract(
+    path: Path, overlay: dict[str, float] | None = None
+) -> KPIContract:
     try:
         raw = yaml.safe_load(path.read_text())
     except yaml.YAMLError as exc:
         raise ContractError(f"{path.name}: not valid YAML: {exc}") from exc
     if not isinstance(raw, dict):
         raise ContractError(f"{path.name}: expected a mapping at the top level")
+    if overlay:
+        raw = _compose(raw, overlay)
     try:
         return KPIContract(**_parse_durations(raw))
     except Exception as exc:
@@ -60,7 +95,19 @@ class ContractRegistry:
         self._validate_graph()
 
     @classmethod
-    def from_directory(cls, directory: Path | str) -> ContractRegistry:
+    def from_directory(
+        cls,
+        directory: Path | str,
+        overlay: dict[str, dict[str, float]] | None = None,
+    ) -> ContractRegistry:
+        """Load every contract, with any applied feedback composed over it.
+
+        `overlay` is keyed by kpi_id, and comes from
+        `whychain.feedback.apply.AppliedStore.overlay()`. Passed in rather than
+        read here so that loading a contract set stays a pure function of its
+        arguments: a test, the benchmark and the console can each decide whether
+        applied feedback is in scope, and none of them gets it by accident.
+        """
         directory = Path(directory)
         if not directory.is_dir():
             raise ContractError(f"no such contract directory: {directory}")
@@ -68,9 +115,12 @@ class ContractRegistry:
         if not paths:
             raise ContractError(f"no contracts found in {directory}")
 
+        overlay = overlay or {}
         contracts: dict[str, KPIContract] = {}
         for path in paths:
             contract = load_contract(path)
+            if contract.kpi_id in overlay:
+                contract = load_contract(path, overlay[contract.kpi_id])
             if contract.kpi_id in contracts:
                 raise ContractError(
                     f"{path.name}: duplicate kpi_id {contract.kpi_id!r}; "

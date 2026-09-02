@@ -95,6 +95,11 @@ class Feedback:
     correction: str | None = None
     note: str = ""
     region: str | None = None
+    # The size of the movement this judgement is about, in rupees. Carried
+    # because "this was not worth flagging" is evidence about a magnitude, and
+    # without it a materiality floor could only be moved to a number somebody
+    # typed. Optional: a judgement about a cause is not about a size.
+    movement_inr: float | None = None
 
     @property
     def learnable(self) -> bool:
@@ -125,6 +130,10 @@ class Proposal:
     runs: tuple[str, ...]
     submitters: tuple[str, ...]
     contested: bool
+    # The movement sizes the supporting feedback was about. What lets an applied
+    # threshold be derived from the evidence rather than typed by whoever
+    # applies it.
+    movements: tuple[float, ...] = ()
 
     @property
     def applicable(self) -> bool:
@@ -141,6 +150,7 @@ class Proposal:
             "submitters": list(self.submitters),
             "contested": self.contested,
             "applicable": self.applicable,
+            "movements": [round(m, 2) for m in self.movements],
             "quorum": QUORUM,
         }
 
@@ -189,6 +199,10 @@ class FeedbackStore:
                     "submitted_at": datetime.fromisoformat(raw["submitted_at"]),
                 }
             )
+
+    def all(self) -> tuple[Feedback, ...]:
+        """Every record, for callers that derive proposals from the whole log."""
+        return tuple(self._all())
 
     def for_run(self, run_id: str) -> tuple[Feedback, ...]:
         return tuple(f for f in self._all() if f.run_id == run_id)
@@ -247,6 +261,9 @@ def proposals(entries: list[Feedback]) -> tuple[Proposal, ...]:
                 runs=tuple(sorted({f.run_id for f in group})),
                 submitters=tuple(sorted({f.submitted_by for f in group})),
                 contested=bool(total) and (against / total) > CONTESTED_ABOVE,
+                movements=tuple(
+                    f.movement_inr for f in group if f.movement_inr is not None
+                ),
             )
         )
     return tuple(out)
@@ -273,7 +290,11 @@ def _describe(entry: Feedback) -> str:
             )
         case Judgement.WRONG_OWNER:
             return (
-                f"remap the driver behind {entry.candidate_id} in the "
+                # A judgement submitted without a candidate rendered as "the
+                # driver behind None", which reads as a rendering fault in the
+                # one panel whose job is to be trusted.
+                f"remap the driver behind "
+                f"{entry.candidate_id or 'the cause on that run'} in the "
                 f"{entry.kpi_id} contract"
                 + (f" to {entry.correction!r}" if entry.correction else "")
             )
@@ -316,6 +337,7 @@ def new_feedback(
     correction: str | None = None,
     note: str = "",
     region: str | None = None,
+    movement_inr: float | None = None,
 ) -> Feedback:
     """Build a record with a server-side timestamp and id.
 
@@ -335,4 +357,5 @@ def new_feedback(
         correction=correction,
         note=note[:2000],
         region=region,
+        movement_inr=movement_inr,
     )

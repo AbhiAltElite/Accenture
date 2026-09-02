@@ -74,9 +74,45 @@ def test_price_move_uses_the_contract_elasticity(contract):
     """The coefficient must be the declared one, not a plausible one."""
     prior = next(d for d in contract.drivers if d.id == "unit_price").elasticity_prior
     s = price_move(contract, 100_000.0, -0.05)
-    expected = 100_000.0 * ((1 - 0.05) * (1 + prior * -0.05) - 1)
-    assert s.effect_inr_per_day == pytest.approx(expected)
+    revenue = 100_000.0 * ((1 - 0.05) * (1 + prior * -0.05) - 1)
+    assert dict(s.alongside)["revenue"] == pytest.approx(revenue)
     assert any(f"{prior:+.2f}" in a.value for a in s.assumptions)
+
+
+def test_the_price_headline_is_gross_profit_where_a_margin_is_declared(contract):
+    """Revenue is the half of this arithmetic that argues for the decision.
+
+    Below an elasticity of -1 a price cut raises revenue and lowers gross profit
+    at the same time. Reporting the first alone offers a finance director a gain
+    for a move that loses money -- a better-evidenced version of the failure this
+    engine exists to prevent, which is why the headline is the figure that
+    decides and revenue is shown beside it rather than instead of it.
+    """
+    margin = contract.economics.gross_margin_pct
+    assert margin, "the fixture contract must declare a margin for this test"
+    e = next(d for d in contract.drivers if d.id == "unit_price").elasticity_prior
+    d = -0.05
+
+    s = price_move(contract, 100_000.0, d)
+    expected = (
+        100_000.0 * (1 + e * d) * ((1 + d) - (1 - margin)) - 100_000.0 * margin
+    )
+    assert s.effect_of == "gross profit"
+    assert s.effect_inr_per_day == pytest.approx(expected)
+    # The case that motivated this: the two figures disagree about the decision.
+    assert dict(s.alongside)["revenue"] > 0 > s.effect_inr_per_day
+    assert any(a.name == "gross margin" for a in s.assumptions)
+
+
+def test_price_move_without_a_declared_margin_says_what_it_cannot_answer(contract):
+    """Silence about margin is what made the old figure misleading."""
+    bare = contract.model_copy(update={
+        "economics": contract.economics.model_copy(update={"gross_margin_pct": None})
+    })
+    s = price_move(bare, 100_000.0, -0.05)
+    assert s.available and s.effect_of == "revenue"
+    assert not s.alongside
+    assert "no gross_margin_pct" in s.bounded_by
 
 
 def test_price_move_declines_when_the_contract_declares_no_elasticity(contract):
@@ -101,15 +137,21 @@ def test_a_price_cut_can_raise_revenue_only_when_demand_is_elastic(contract):
     At elasticity -1.4 a 5% cut sells enough extra units to more than pay for
     itself; at -0.5 it does not. If the sign does not flip with elasticity the
     formula is not doing what it claims.
+
+    Read on revenue, which is what "pay for itself" means here. Whether it is
+    worth doing is the gross-profit question, and the test above it is the one
+    that asks that.
     """
-    elastic = price_move(contract, 100_000.0, -0.05).effect_inr_per_day
+    elastic = dict(price_move(contract, 100_000.0, -0.05).alongside)["revenue"]
     inelastic_contract = contract.model_copy(update={
         "drivers": tuple(
             d.model_copy(update={"elasticity_prior": -0.5}) if d.id == "unit_price" else d
             for d in contract.drivers
         )
     })
-    inelastic = price_move(inelastic_contract, 100_000.0, -0.05).effect_inr_per_day
+    inelastic = dict(
+        price_move(inelastic_contract, 100_000.0, -0.05).alongside
+    )["revenue"]
     assert elastic > 0 > inelastic
 
 
