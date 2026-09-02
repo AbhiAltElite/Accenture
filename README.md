@@ -1,4 +1,5 @@
-# WhyChain
+# WhyChain - Accenture Innovation Challenge 2026 Team- CtrlAltReinvent , IIT Hyderabad 
+# Abhiram Ramachandran , Madiha Ahmed ,Polisetti Likhit Sai
 
 [![CI](https://github.com/AbhiAltElite/Accenture/actions/workflows/ci.yml/badge.svg)](https://github.com/AbhiAltElite/Accenture/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
