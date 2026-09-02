@@ -1,5 +1,10 @@
 # WhyChain
 
+[![CI](https://github.com/AbhiAltElite/Accenture/actions/workflows/ci.yml/badge.svg)](https://github.com/AbhiAltElite/Accenture/actions/workflows/ci.yml)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/tests-486-informational)](tests/)
+[![Audit checks](https://img.shields.io/badge/audit-33%2F33-informational)](docs/SECURITY-LOGIC-CHECKLIST.md)
+
 An evidence-backed diagnosis engine for business metric movements.
 
 When a KPI moves materially, WhyChain answers two questions. **What caused it**,
@@ -17,8 +22,39 @@ polished false diagnosis is worse than an explicit UNKNOWN.
 
 ---
 
+## For reviewers, in twenty minutes
+
+Four commands and one page. Nothing here needs an API key, a database server or
+a network connection.
+
+```bash
+make setup && make gen     # environment, then the synthetic warehouse (~40s)
+make demo                  # console at http://localhost:8000
+```
+
+1. **Open `net_revenue`, West, Aug 2026.** Three verified causes, and a planted
+   decoy that correlates perfectly and caused nothing. Click any sentence and it
+   resolves to the query, the rows, or the character span behind it.
+2. **Open `net_revenue`, South.** The engine returns UNKNOWN, says what it ruled
+   out, and asks a clarifying question. Refusal is the feature.
+3. **Set Entitlement to "South only" while viewing West.** The redaction fires
+   and names what was withheld, what it was worth, and who to escalate to.
+4. **Run `make bench`** for accuracy, trap rejection, calibration and latency,
+   and **`make audit`** for 33 executable security, logic and design checks.
+
+Then read **[docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)**, which maps every
+objective in the brief to the module that satisfies it and the command that
+demonstrates it, and marks the rows only partly met. The other working documents
+are indexed in **[docs/README.md](docs/README.md)**.
+
+If you have twenty minutes and not twenty-five, skip step 4 and read
+[*Measured results*](#measured-results) instead — `make bench` reproduces it.
+
+---
+
 ## Table of contents
 
+- [For reviewers, in twenty minutes](#for-reviewers-in-twenty-minutes)
 - [The problem](#the-problem)
 - [Approach](#approach)
 - [Architecture](#architecture)
@@ -494,7 +530,7 @@ calibration error from 0.117 to 0.069 raw, and 0.099 to 0.042 on the held-out
 half, with every other rate above unchanged. A confidence score that is right
 about how uncertain it is was the point of having one.
 
-376 tests, `make audit` runs 30 executable security, logic and design checks.
+486 tests, `make audit` runs 33 executable security, logic and design checks.
 The suite forces the deterministic backend: a test whose result depends on what
 a 7B happened to generate is a sample of one, not a test.
 
@@ -518,7 +554,7 @@ pydantic, fastapi, uvicorn, PyYAML. No LLM SDK.
 ## Installation
 
 ```bash
-git clone <repository-url> && cd whychain
+git clone https://github.com/AbhiAltElite/Accenture.git && cd Accenture
 make setup        # venv and pinned dependencies
 make gen          # generate the synthetic warehouse and ground truth (~40s)
 make demo         # console at http://localhost:8000
@@ -562,9 +598,9 @@ The backend is also selectable at runtime from the console, and per request via
 | Command | What it does |
 |---|---|
 | `make demo` | the console |
-| `make test` | 274 tests; `-m invariant` for the 114 correctness ones |
+| `make test` | 486 tests; `-m invariant` for the 227 correctness ones |
 | `make bench` | accuracy, trap rejection, calibration, latency |
-| `make audit` | 30 executable security, logic and design checks |
+| `make audit` | 33 executable security, logic and design checks |
 | `make status` | the KPI graph through the real contract loader |
 | `make guardrails` | watch the guardrails refuse bad input |
 | `make verify-ai` | prove both model stages work before a demo depends on them |
@@ -642,7 +678,7 @@ The claim is checked rather than asserted. The retail warehouse regenerates byte
 for byte after the generator was parameterised — 1.8 million order lines,
 identical hashes — and the benchmark is identical on every rate. If adding two
 industries had cost the first one a single digit, it would be visible.
-`tests/test_verticals.py` keeps it true: 60 tests parameterised over all three,
+`tests/test_verticals.py` keeps it true: 69 tests parameterised over all three,
 checking every pair of places that has to agree.
 
 ### Scaling with data and load — measured, and one wall found
@@ -760,6 +796,7 @@ declared by the author.
 | `bench/run.py` | accuracy, trap rejection, calibration, latency |
 | `bench/scale.py` | what happens with more data and more readers (`make scale`) |
 | `api/`, `ui/` | service and console |
+| `docs/README.md` | index of the working documents, with what each is for |
 | `docs/REQUIREMENTS.md` | every objective mapped to code and a command |
 | `DECISIONS.md` | architectural decisions and why alternatives were rejected |
 | `BUGS.md` | traps identified in advance, and defects found with root cause |

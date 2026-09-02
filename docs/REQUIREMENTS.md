@@ -9,8 +9,8 @@ Run these first, in order. Everything below is reachable from them.
 
 ```bash
 make setup && make gen-all    # venv, dependencies, all three industries' datasets
-make test                     # 440 tests, of which many are marked invariant
-make audit                    # 30 executable security, logic and design checks
+make test                     # 486 tests, 227 of them marked invariant
+make audit                    # 33 executable security, logic and design checks
 make bench                    # accuracy, trap rejection, calibration, latency
 make demo                     # console at http://localhost:8000
 ```

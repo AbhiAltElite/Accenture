@@ -11,6 +11,6 @@
 ## Checklist
 - [ ] `make test` passes, including `-m invariant`
 - [ ] `ruff check .` clean
-- [ ] `HANDOFF.md` updated if stopping mid-stage
+- [ ] `make ci` passes locally — the same steps CI runs, in CI's order
 - [ ] `CHANGELOG.md` entry added
 - [ ] New trap recorded in `BUGS.md`, if one was found
