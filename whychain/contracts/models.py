@@ -167,8 +167,13 @@ class Reconciliation(BaseModel):
     business fact rather than a statistical one: it is set by posting policy --
     when returns are netted, how invoices round -- so the contract is where it
     belongs. Measured on this dataset the two systems sit 2.1% apart on a median
-    day and 3.6% apart at the 99th percentile, which is what 5% is calibrated
-    against.
+    region-day, which is what 5% is calibrated against. The tail is wider than
+    that median suggests and the width is not uniform: North, South and West
+    each breach 5% on well under 1% of days, while East -- the smallest region,
+    where the same absolute posting lag is a larger share of a smaller number --
+    breaches on 55.7% of them and passes the 15% contradiction threshold on
+    10.7%. A tolerance stated as a share of the figure is doing different work
+    in a large region and a small one. See the note in `contracts/net_revenue.yml`.
     """
 
     source: str | None = None

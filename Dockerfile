@@ -46,7 +46,6 @@ EXPOSE 8000
 # deterministic path and the receipt honestly reports zero model calls. Point
 # WHYCHAIN_LLM_BASE_URL at an Ollama service to turn the model stages on; the
 # compose file does that under the `ai` profile.
-ENV WHYCHAIN_DB_PATH=data/warehouse/whychain.duckdb
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=5 \
     CMD python -c "import urllib.request,sys; \

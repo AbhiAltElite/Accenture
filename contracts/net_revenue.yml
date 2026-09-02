@@ -72,9 +72,20 @@ reconciliation:
   # The second system posting the same rupees. Finance nets returns on the date
   # the credit note is raised rather than the date of sale, and posts to the
   # rupee at invoice level, so the two are a couple of per cent apart every
-  # ordinary day and that is not a defect. 5% is calibrated on the measured
-  # distribution: median 2.1%, p99 3.6%. Past three times it the two systems are
-  # not drifting, they are disagreeing.
+  # ordinary day and that is not a defect. Past three times the tolerance they
+  # are not drifting, they are disagreeing.
+  #
+  # 5% is calibrated on the median region-day, which measures 2.1%. Measured
+  # again over the whole warehouse, that is the right floor for North, South and
+  # West -- each breaches on under 1% of days -- and the wrong one for East,
+  # which breaches on 55.7% and reaches the 15% contradiction threshold on
+  # 10.7%. East is the smallest region, so an unchanged absolute posting lag is
+  # a larger share of a smaller number, and a tolerance expressed as a share of
+  # the figure does not hold that constant. This is recorded rather than quietly
+  # retuned: a materiality-style threshold is business-owned, and moving one to
+  # make a verdict look better is the failure mode the whole feedback design
+  # exists to prevent. The open options are a floor in rupees alongside the
+  # percentage, or a per-region tolerance.
   source: finance_ledger
   compare_column: net_revenue_posted
   date_column: business_date
@@ -92,8 +103,11 @@ access_policy:
   column_masks: [unit_margin, customer_email]
   domain_restriction: [pii]
 
-# Derived at registration from a published S&OP process description, a document
-# nobody on this team wrote. Note what the standard cycle consumes: sales history,
+# Derived at registration from an S&OP process description that is
+# representative rather than a third party's own: a public repository cannot
+# redistribute somebody else's SOP, and the README says so under Limitations.
+# What it describes is the standard cycle, and what the standard cycle consumes
+# is the point. Note the list: sales history,
 # inventory, capacity, financials. No external risk signal. That absence is the
 # finding, and it is visible in the industry's own description of its own process.
 signals_consumed:

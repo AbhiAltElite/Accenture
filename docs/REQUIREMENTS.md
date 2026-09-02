@@ -86,7 +86,7 @@ planted unanswerable cases (`make bench`).
 | **Cases needing an abstention that got one** | **88.2%** (2 missed of 17) |
 | Abstentions that were right | 85.7% |
 | Expected calibration error | 0.069 raw, **0.042 calibrated** on held out |
-| Latency p50 / p95 | 0.080s / 0.178s |
+| Latency p50 / p95 | 0.07s / 0.18s (Apple M4, 16 GB; `make bench` prints yours) |
 
 The first two rows belong together. The engine explains movements that clear
 both materiality tests and declines the rest, so top-1 across the whole

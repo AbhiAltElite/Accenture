@@ -109,8 +109,9 @@ returned as untestable rather than as answers.
 
 **Make refusal a first-class output.** `UNKNOWN`, `CANNOT_VERIFY`,
 `not_foreseeable` and `coverage_unknown` are designed states with their own
-rendering, not error paths. The engine abstains on 94.1% of the cases whose
-correct answer is an abstention.
+rendering, not error paths. The engine abstains on 88.2% of the cases whose
+correct answer is an abstention — 15 of 17, the same figure as the results
+table, which `make bench` prints.
 
 **Keep the human in the lead, structurally rather than as a slogan.** Nothing
 in this engine executes. A decision card is a draft addressed to a named role
@@ -180,9 +181,16 @@ late-arriving partition and no schema drift.
 One of them is a **second system posting the same quantity**, which is the part
 that was missing. `finance_ledger` nets returns on the date the credit note is
 raised rather than the date of sale, and posts to the rupee at invoice level, so
-it and `pos_txn` sit **2.1% apart on a median day and 3.6% at the 99th
-percentile** — an ordinary disagreement that a reconciliation has to tolerate
-rather than escalate, and the thing a tolerance is calibrated against. Reconciling
+it and `pos_txn` sit **2.1% apart on a median region-day** — an ordinary
+disagreement that a reconciliation has to tolerate rather than escalate, and the
+thing a tolerance is calibrated against. Measuring the whole distribution rather
+than its middle found the limit of stating that tolerance as a percentage: North,
+South and West breach 5% on under 1% of days, and East, the smallest region,
+breaches on 55.7% and reaches the contradiction threshold on 10.7%, because an
+unchanged absolute posting lag is a larger share of a smaller number. It is
+recorded in the contract rather than retuned, for the reason the feedback design
+gives: a threshold moved to improve a verdict is how thresholds stop meaning
+anything. Reconciling
 *grain* is a shape problem and the engine already solved it. Reconciling two
 independent postings of one number is a different problem, and it needed
 something capable of disagreeing.
@@ -425,7 +433,10 @@ model would let a hallucinated citation point at real text.
 system prompt and a user message, return text matching a JSON schema, report
 what it cost. No LLM SDK is in `requirements.txt`. The default is Mistral 7B
 Instruct on Ollama — Apache 2.0, no account, no egress, inference inside the
-boundary. Qwen2.5 below 35B is the same licence and a drop-in alternative. Llama
+boundary. Qwen2.5 at 7B, 14B or 32B is the same licence and a drop-in
+alternative — not the 3B or the 72B, which Alibaba ships under its own licences
+rather than Apache 2.0, a distinction worth making because "the small ones are
+Apache" is the version of this fact that circulates. Llama
 is deliberately not the default: its community licence caps free commercial use
 at 700M monthly active users and fails the Open Source Definition.
 
@@ -469,8 +480,9 @@ performance one.
 **The economics are part of the design, not an afterthought.** Every call is
 content-addressed and cached on disk, keyed on the model, backend, prompt,
 schema and token ceiling, so nothing that could change the answer is left out of
-the key. Every call is bounded at 20 seconds, past which the deterministic path
-stands in and the receipt says so. Hits are counted apart from calls, and the
+the key. Every call is bounded at 45 seconds by default and
+`WHYCHAIN_LLM_TIMEOUT` moves it, past which the deterministic path stands in and
+the receipt says so. Hits are counted apart from calls, and the
 token figures still report what the reading costs uncached — a receipt claiming
 free work would be the same dishonesty as an uncalibrated probability.
 
@@ -508,7 +520,7 @@ and planted unanswerable cases (`make bench`).
 | **Cases needing an abstention that got one** | **88.2%** (2 missed of 17) |
 | Abstentions that were right | 85.7% |
 | Expected calibration error | 0.069 raw, **0.042 calibrated** on held out |
-| Latency p50 / p95 | 0.080s / 0.178s |
+| Latency p50 / p95 | 0.07s / 0.18s (Apple M4, 16 GB; `make bench` prints yours) |
 
 The first two rows belong together. The engine explains movements that clear
 both a statistical and a rupee materiality test and declines the rest, so top-1
@@ -520,7 +532,9 @@ written up in `BUGS.md`.** B-014: benchmark cases were sitting inside each
 other's baseline windows, so an earlier run reported 46.4% top-1 and a perfect
 conditional rate. The numbers got worse when the measurement got honest. B-016:
 abstention recall counted correct silences as failures, reading 20.9% while the
-engine was in fact abstaining on 16 of the 17 cases that called for it.
+engine was, at that run, abstaining on 16 of the 17 cases that called for it.
+It is 15 of 17 now: one case that used to abstain no longer does, and the table
+above is the current measurement rather than the one B-016 was fixed against.
 
 **And one moved because the engine got more honest rather than less accurate.**
 B-020: three verified causes could contribute 188% of a movement while coverage
@@ -587,8 +601,16 @@ through the real loader and prints the graph.
 | `WHYCHAIN_LLM_API_KEY` | only for the hosted path |
 | `WHYCHAIN_OLLAMA_BASE_URL` | a remote Ollama; the local path never reads `WHYCHAIN_LLM_BASE_URL` |
 | `WHYCHAIN_OLLAMA_MODEL` | the local model, when `WHYCHAIN_LLM_MODEL` describes a hosted one |
+| `WHYCHAIN_INTENT_MODEL` | per-stage override, small tier |
+| `WHYCHAIN_EXPANSION_MODEL` | per-stage override, small tier |
 | `WHYCHAIN_EXTRACTION_MODEL` | per-stage override, small tier |
 | `WHYCHAIN_NARRATIVE_MODEL` | per-stage override, standard tier |
+| `WHYCHAIN_LLM_TIMEOUT` | seconds one call may take before the deterministic path stands in; 45 |
+| `WHYCHAIN_LLM_CACHE` | where the content-addressed cache lives; `data/llm_cache` |
+| `WHYCHAIN_LLM_FREE_ONLY` | refuse a model id carrying no free marker, rather than warn |
+
+That is every variable the engine reads. `.env.example` carries the same list
+with the reasoning; `grep -rho 'WHYCHAIN_[A-Z_]*' whychain api` checks it.
 
 The backend is also selectable at runtime from the console, and per request via
 `?backend=`, so the choice is demonstrable rather than only configurable.
