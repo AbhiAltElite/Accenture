@@ -202,8 +202,21 @@ select:hover,button.ctl:hover{border-color:var(--ink-3)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);
   font-weight:500}
 .rail select,.rail input{max-width:100%;box-sizing:border-box}
+/* The rail carried three explanatory paragraphs, 585 characters between them,
+   stacked under three controls a returning reader has already understood. They
+   are worth having once and in the way, so they fold: the summary line is one
+   word, and the prose is a click away for whoever has not met the control
+   before. */
 .railnote{font-size:var(--t-xs);color:var(--ink-3);line-height:var(--lh-snug);
-  margin-top:var(--sp-3)}
+  margin-top:var(--sp-2)}
+details.railnote > summary{list-style:none;cursor:pointer;
+  font-size:var(--t-2xs);letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-4);padding:2px 0}
+details.railnote > summary::-webkit-details-marker{display:none}
+details.railnote > summary::after{content:"\2009+";font-family:var(--mono)}
+details.railnote[open] > summary::after{content:"\2009\2212"}
+details.railnote > summary:hover{color:var(--ink-2)}
+details.railnote > p{margin-top:var(--sp-2)}
 
 /* ═══ document head ══════════════════════════════════════════════════════ */
 .eyebrow{font-family:var(--mono);font-size:var(--t-xs);color:var(--ink-3);
@@ -232,6 +245,24 @@ h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
   -webkit-box-decoration-break:clone;box-decoration-break:clone;text-align:left}
 .claim:hover{background:var(--evidence);color:var(--surface)}
 .claim::after{content:"\2009\203A";opacity:.6}
+
+/* ═══ section groups ═════════════════════════════════════════════════════
+   Three movements over twelve sections. A rule and a word: these live inside a
+   document that is already ruled and numbered, so a bordered container would
+   add edges to the problem it is meant to solve. The generous space above each
+   is what does the separating. */
+.secgroup{margin-top:var(--sp-8)}
+.secgroup:first-of-type{margin-top:var(--sp-6)}
+.grouphead{border-top:1px solid var(--line-heavy);padding-top:var(--sp-3);
+  margin-bottom:var(--sp-4);display:flex;align-items:baseline;gap:var(--sp-4);
+  flex-wrap:wrap}
+.grouphead h2{font-family:var(--serif);font-size:var(--t-md);font-weight:600;
+  letter-spacing:-.01em;margin:0;flex:none}
+.grouphead p{font-size:var(--t-xs);color:var(--ink-3);margin:0;flex:1;
+  min-width:16ch;line-height:var(--lh-snug)}
+/* Inside a group the sections stack tighter: the group heading is doing the
+   separating that the top margin used to do alone. */
+.secgroup .sec:first-child{margin-top:0}
 
 /* ═══ numbered sections ══════════════════════════════════════════════════
    The report device that does the most work here. Each section carries a
@@ -359,7 +390,7 @@ table.watch td.n{text-align:right;white-space:nowrap}
    a cell and pushes every following child one place along -- which emptied the
    document column and rendered the whole report inside the narrow margin. The
    status note spans instead of occupying. */
-.ask{margin:0 0 var(--sp-6);padding-bottom:var(--sp-5);
+.ask{margin:0 0 var(--sp-5);padding-bottom:var(--sp-4);
   border-bottom:1px solid var(--line)}
 .askrow{display:flex;gap:var(--sp-2);align-items:stretch}
 .ask input{flex:1;min-width:0;padding:var(--sp-2) var(--sp-3);
@@ -377,8 +408,13 @@ table.watch td.n{text-align:right;white-space:nowrap}
 .drivenby span{display:block;font-family:var(--mono);font-size:var(--t-2xs);
   letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);
   margin-bottom:var(--sp-1)}
-.askhint{margin:var(--sp-2) 0 0;font-size:var(--t-xs);color:var(--ink-3);
-  line-height:var(--lh-snug);max-width:60ch}
+.askhint{margin:0;font-size:var(--t-xs);color:var(--ink-3);
+  line-height:var(--lh-snug);max-width:60ch;
+  max-height:0;overflow:hidden;opacity:0;
+  transition:max-height .18s ease,opacity .18s ease,margin .18s ease}
+.ask:focus-within .askhint,.ask.open .askhint{max-height:8em;opacity:1;
+  margin-top:var(--sp-2)}
+@media (prefers-reduced-motion:reduce){.askhint{transition:none}}
 .askread{margin:var(--sp-3) 0 0;padding:var(--sp-3);border-left:2px solid var(--line)}
 .askread p{margin:0 0 var(--sp-2)}
 .askread p:last-child{margin-bottom:0}
@@ -821,8 +857,8 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
           <option value="0">Full history</option>
         </select>
       </div>
-      <p class="railnote">Switching reader changes the projection, never the
-        evidence. Nothing is recomputed.</p>
+      <details class="railnote"><summary>What this changes</summary><p>Switching reader changes the projection, never the
+        evidence. Nothing is recomputed.</p></details>
     </div>
 
     <div class="railgroup">
@@ -831,10 +867,10 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
         <label for="backend">Which model reads and writes</label>
         <select id="backend"></select>
       </div>
-      <p class="railnote" id="backendnote">Model choice is a governance decision
+      <details class="railnote"><summary>Why this is on the page</summary><p id="backendnote">Model choice is a governance decision
         before it is a quality one, so it is shown rather than buried in an
         environment variable. Switching it changes what is read and written,
-        never what is computed.</p>
+        never what is computed.</p></details>
     </div>
 
     <div class="railgroup">
@@ -848,10 +884,10 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
           <option value="North,East">North and East only</option>
         </select>
       </div>
-      <p class="railnote">Try picking a region you are <em>not</em> looking at.
+      <details class="railnote"><summary>Try this</summary><p>Try picking a region you are <em>not</em> looking at.
         Any cause outside that reader's access is dropped before the answer is
         written, rather than written and then hidden. If that changes the
-        answer, the page says how much was left out and who to ask for it.</p>
+        answer, the page says how much was left out and who to ask for it.</p></details>
     </div>
   </nav>
 
@@ -867,6 +903,10 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
           and shows you what it understood. It does not answer it: the engine
           runs the query exactly as it would if you had chosen the metric and
           window yourself.</p>
+        <!-- Shown on focus. Four lines of explanation for a control nobody has
+             touched yet sat above the headline on every page and pushed the
+             answer 200px down the document. The explanation is worth having
+             the moment a reader starts typing and not before. -->
         <div id="askresult"></div>
       </form>
       <div id="overview"></div>
@@ -1768,16 +1808,23 @@ function render(){
   $('#rest').innerHTML =
     entitlementBlock()
     + reconciliationBlock()
-    + section('The movement', chartMarkup(), true)
-    + narrativeBlock()
-    + signalGapBlock()
-    + decisionsBlock()
-    + simulatorBlock()
-    + movementsBlock()
-    + (persona === 'analyst' ? rankingBlock() + decompositionBlock() + candidatesBlock() : '')
-    + freshnessBlock()
-    + (persona === 'analyst' ? receiptBlock() : '')
-    + feedbackBlock()
+    + group('The answer',
+        'What moved, what caused it, whether anything warned first, and what to do about it.',
+        section('The movement', chartMarkup(), true)
+        + narrativeBlock()
+        + signalGapBlock()
+        + decisionsBlock()
+        + simulatorBlock())
+    + group('The working',
+        'Every step between the movement and the answer above, in the order it ran.',
+        movementsBlock()
+        + (persona === 'analyst'
+            ? rankingBlock() + decompositionBlock() + candidatesBlock() : ''))
+    + group('Provenance and review',
+        'Where the numbers came from, what the run cost, and how to tell the engine it was wrong.',
+        freshnessBlock()
+        + (persona === 'analyst' ? receiptBlock() : '')
+        + feedbackBlock())
     + withheldBlock();
   drawChart();
   bindChart();
@@ -2328,6 +2375,25 @@ function wireFeedback(){
    rather than leaving a hole. */
 let SECTION_N = 0;
 function resetSections(){ SECTION_N = 0; }
+
+/* Twelve numbered sections in a flat list is twelve decisions about what to
+   open, taken with nothing to go on. The reading order already carries an
+   argument -- what happened, what caused it, what to do, then the working, then
+   the provenance -- and it was legible only to someone who already knew it.
+   Naming the three movements turns a list of twelve into three groups of four,
+   which is a page a reader can hold in their head, and costs no content at all.
+
+   A rule and a word, not a box. These sit inside a document that is already
+   ruled and numbered; wrapping each group in a card would add three more edges
+   to the exact problem this is solving. */
+function group(name, why, body){
+  if(!body) return '';
+  return `<section class="secgroup">
+    <div class="grouphead">
+      <h2>${escapeHtml(name)}</h2>
+      <p>${escapeHtml(why)}</p>
+    </div>${body}</section>`;
+}
 function section(title, body, open=false, count=''){
   const n = String(++SECTION_N).padStart(2,'0');
   return `<details class="sec" ${open?'open':''}><summary>
