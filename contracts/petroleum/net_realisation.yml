@@ -75,6 +75,17 @@ economics:
   # discount is gross-profit negative, which is the point of showing it.
   gross_margin_pct: 0.05
 
+reconciliation:
+  # SAP FI-CO posts the same litres after excise and dealer commission settle,
+  # which lands a few days after the sale.
+  # Same tolerance as retail: the disagreement is a posting-policy artefact and
+  # its size is a property of the policies, not of the industry.
+  source: finance_ledger
+  compare_column: net_revenue_posted
+  date_column: business_date
+  tolerance_pct: 0.05
+  contradiction_multiple: 3.0
+
 freshness_sla:
   pos_txn: 6h
   plan_ops: 72h

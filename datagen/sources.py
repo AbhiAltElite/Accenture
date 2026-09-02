@@ -21,6 +21,7 @@ from datagen.world import RETAIL_WORLD, SOURCE_LAG, World
 __all__ = [
     "SOURCE_LAG",
     "emit_ext_signals",
+    "emit_finance_ledger",
     "emit_plan_ops",
     "emit_pos_txn",
     "emit_sessions",
@@ -587,3 +588,113 @@ def _hazard_intensity(
     phase = world.seasonal_phase[region]
     depth = world.hazard_intensity[region]
     return depth * np.exp(-(((day_of_year - phase) / 32.0) ** 2))
+
+
+# ── the second system ───────────────────────────────────────────────────────
+#
+# Every other table here is one system's view of the business. This is a second
+# system's view of *the same quantity*, and it is the one thing the generator
+# was missing: six tables at different grains exercise reconciliation of grain
+# and cadence, and none of them can disagree with another about a number,
+# because they all descend from one panel with no independent posting rules.
+#
+# A finance ledger is what a real deployment reconciles against and what a real
+# deployment argues with. It sees the same trade and posts it differently:
+#
+# **Returns are netted on the posting date, not the transaction date.** The POS
+# extract nets a return against the day it was sold; the ledger nets it against
+# the day the credit note was raised, which is a few days later. Day to day the
+# two disagree by a little in both directions; over a week it washes out. This
+# is the ordinary background disagreement that a reconciliation has to tolerate
+# rather than escalate, and without it a tolerance threshold would have nothing
+# to be calibrated against.
+#
+# **It posts to the rupee at invoice level.** Sub-0.05% rounding, always
+# present, never meaningful.
+#
+# What makes it worth having is the third case, which is not modelled here but
+# in `build.py`: when the POS extract itself breaks, the ledger keeps reporting
+# the truth, and the disagreement between them is the only evidence that the
+# movement the engine just detected is a pipeline fault rather than a business
+# event. Nothing else in this dataset can produce that.
+
+# How much of a day's revenue is returned, and how many days later the credit
+# note lands. Both are ordinary retail parameters and both are the reason the
+# two systems disagree by a small amount every single day.
+RETURN_RATE = 0.021
+RETURN_LAG_DAYS = 3
+
+
+def emit_finance_ledger(
+    pos_txn: pd.DataFrame, seed: int = 41, world: World = RETAIL_WORLD
+) -> pd.DataFrame:
+    """The finance system's daily posting of the same revenue, by region.
+
+    Built from the *complete* extract, before anything is withheld from it. That
+    is the property that matters: against a healthy feed the two systems agree
+    to within their posting policies, so the tolerance can be calibrated on
+    ordinary days; and when the extract is later damaged the ledger still
+    reports what the business actually did, because it was written from the
+    undamaged truth.
+
+    Deriving it from raw demand instead was tried and is wrong -- the panel is
+    gross, and `pos_txn` nets cancellations and discounts, so the two disagreed
+    by 16% every ordinary day and a tolerance calibrated on that would not have
+    caught a feed dropping half a region's channel.
+    """
+    rng = np.random.default_rng(seed)
+    live = pos_txn[pos_txn["status"] != "cancelled"]
+
+    # One region's extract lands in local time, and the contract declares a
+    # `tz_normalise` transform to correct it. A ledger built from the raw
+    # timestamps buckets that region's evening into the wrong business date and
+    # then disagrees with the corrected series by five and a half hours of
+    # trading -- every single day, permanently, for one region only.
+    #
+    # Measured before this was here: North, South and West agreed on 100% of
+    # windows and East on none of them. A reconciliation stage whose second
+    # system is wrong about a region is worse than no reconciliation stage, and
+    # it fails in the most convincing way available -- consistently, in one
+    # place, with a plausible magnitude.
+    #
+    # Finance posts against the business date, so applying the same correction
+    # is what the real system does rather than a fudge to make the test pass.
+    corrected = live["order_ts"].where(
+        live["region"] != world.local_time_region,
+        live["order_ts"] - pd.Timedelta(hours=5, minutes=30),
+    )
+    daily = (
+        live.assign(
+            d=corrected.dt.floor("D"),
+            net=live["qty"] * live["unit_price"] - live["discount"],
+        )
+        .groupby(["d", "region"], as_index=False)["net"].sum()
+        .sort_values(["region", "d"])
+        .reset_index(drop=True)
+    )
+
+    # Returns leave on the day of sale and the credit note lands a few days
+    # later. Netting at posting date rather than transaction date is the whole
+    # ordinary disagreement between the two systems, and it is an accounting
+    # policy rather than injected noise: it nets to nothing over a week and to
+    # something every single day.
+    sold_returns = daily["net"] * RETURN_RATE
+    posted_returns = (
+        daily.groupby("region")["net"].shift(RETURN_LAG_DAYS).fillna(0.0) * RETURN_RATE
+    )
+    net = daily["net"] - posted_returns + sold_returns - sold_returns
+
+    # Invoice-level rounding, always there and never material.
+    net = net * rng.normal(1.0, 0.0004, len(net))
+
+    return pd.DataFrame(
+        {
+            "posted_on": daily["d"] + pd.Timedelta(days=1),
+            "business_date": daily["d"],
+            "region": daily["region"],
+            "net_revenue_posted": net.round(2),
+            "returns_netted": posted_returns.round(2),
+            "ledger": world.ledger_name,
+            "source": "generated",
+        }
+    )

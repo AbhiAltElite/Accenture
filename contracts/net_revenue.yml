@@ -68,6 +68,19 @@ economics:
   # than measured, and the scenario says so where it uses it.
   gross_margin_pct: 0.32
 
+reconciliation:
+  # The second system posting the same rupees. Finance nets returns on the date
+  # the credit note is raised rather than the date of sale, and posts to the
+  # rupee at invoice level, so the two are a couple of per cent apart every
+  # ordinary day and that is not a defect. 5% is calibrated on the measured
+  # distribution: median 2.1%, p99 3.6%. Past three times it the two systems are
+  # not drifting, they are disagreeing.
+  source: finance_ledger
+  compare_column: net_revenue_posted
+  date_column: business_date
+  tolerance_pct: 0.05
+  contradiction_multiple: 3.0
+
 freshness_sla:
   pos_txn: 6h
   plan_ops: 72h

@@ -144,6 +144,13 @@ class World:
     # What this industry's people say, and how. See datagen/voices.py.
     voices: VoicePack = RETAIL_VOICES
 
+    # What this industry calls the system that posts the money. The ledger is
+    # the second view of the same quantity, so it needs the industry's own name
+    # for it: a fuel marketer reconciles against SAP FI-CO, a generator against
+    # a regulated energy-accounting ledger, and calling all three "finance" would
+    # be the same flattening the rest of this file exists to avoid.
+    ledger_name: str = "finance_gl"
+
     # The external hazard feed: what it warns about, how intense it ordinarily
     # gets in each region, and who publishes it.
     hazard_kind: str = ""

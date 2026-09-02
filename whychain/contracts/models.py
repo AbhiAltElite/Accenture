@@ -155,6 +155,38 @@ class Driver(BaseModel):
         return self
 
 
+class Reconciliation(BaseModel):
+    """A second system reporting the same quantity, and how far apart is normal.
+
+    Two source tables at different grains exercise reconciliation of *grain*.
+    They cannot disagree about a number, because a disagreement needs two
+    independent postings of one quantity, and until there was a second system
+    here there was nothing for the engine to be contradicted by.
+
+    `tolerance_pct` is the ordinary distance between the two, and it is a
+    business fact rather than a statistical one: it is set by posting policy --
+    when returns are netted, how invoices round -- so the contract is where it
+    belongs. Measured on this dataset the two systems sit 2.1% apart on a median
+    day and 3.6% apart at the 99th percentile, which is what 5% is calibrated
+    against.
+    """
+
+    source: str | None = None
+    # The column in that source carrying the same quantity this KPI measures.
+    compare_column: str | None = None
+    # The source's own name for the business date, which is rarely `d`.
+    date_column: str = "business_date"
+    tolerance_pct: float = Field(default=0.05, gt=0, lt=1)
+    # Beyond this multiple of the tolerance the two systems are not drifting,
+    # they are disagreeing, and a movement neither of them agrees on is not a
+    # movement anybody should be handed an explanation for.
+    contradiction_multiple: float = Field(default=3.0, ge=1.0)
+
+    @property
+    def declared(self) -> bool:
+        return bool(self.source and self.compare_column)
+
+
 class Economics(BaseModel):
     """What a rupee of this metric is actually worth to the business.
 
@@ -298,6 +330,7 @@ class KPIContract(BaseModel):
     drivers: tuple[Driver, ...]
     materiality: Materiality
     economics: Economics = Economics()
+    reconciliation: Reconciliation = Reconciliation()
     freshness_sla: dict[str, timedelta]
     access_policy: AccessPolicy = AccessPolicy()
     signals_consumed: SignalsConsumed = SignalsConsumed()

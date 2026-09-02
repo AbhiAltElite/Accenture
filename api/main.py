@@ -53,6 +53,7 @@ from whychain.narrate import narrate
 from whychain.narrate.writer import ModelWriter
 from whychain.personas import Persona, project
 from whychain.rank import rank
+from whychain.reconcile import reconcile
 from whychain.signalgap import PRECEDENT_LOOKBACK_DAYS, find_gap
 from whychain.signalgap.gap import read_signals
 from whychain.telemetry import Telemetry
@@ -1472,6 +1473,13 @@ def diagnose(
             plan = wh.table("plan_ops")
             ext = wh.table("ext_signals")
             sources = wh.freshness(contract)
+            # The second system's posting of the same quantity, if the contract
+            # declares one. Read here with everything else so the reconciliation
+            # costs one trip rather than its own.
+            ledger = (
+                wh.table(contract.reconciliation.source)
+                if contract.reconciliation.declared else None
+            )
     except IngestError as exc:
         raise HTTPException(503, str(exc)) from exc
 
@@ -1513,6 +1521,34 @@ def diagnose(
                        revenue=base["revenue"] / baseline_days)
     current = current.assign(units=current["units"] / event_days,
                              revenue=current["revenue"] / event_days)
+    # Before anything is explained, not after. A movement two systems disagree
+    # about is not a movement with lower confidence -- it may not have happened,
+    # and every stage below this one will do its job correctly on it and arrive
+    # at a confident, well-evidenced, completely false explanation. Detection
+    # flags it because the series really does fall; ranking finds the slice
+    # because that slice really is missing; the causal tests confirm the fall is
+    # isolated because it is. Nothing downstream can catch this, which is why
+    # the check sits above them rather than among them.
+    with tel.stage("reconcile", MethodClass.DETERMINISTIC) as t:
+        day_series = (
+            scoped.assign(_d=pd.to_datetime(scoped["d"]).dt.date)
+            .groupby("_d", as_index=False)["revenue"].sum()
+            .rename(columns={"_d": "d", "revenue": "value"})
+        )
+        agreement = reconcile(
+            contract, day_series,
+            None if ledger is None else (
+                ledger[ledger["region"] == region] if region and "region" in ledger
+                else ledger
+            ),
+            window=(event_start, event_end),
+        )
+        t.note = (
+            f"{agreement.state.value}"
+            + (f" against {agreement.source}, worst {agreement.worst_residual:.1%}"
+               if agreement.days else "")
+        )
+
     try:
         with tel.stage("decompose", MethodClass.DETERMINISTIC):
             bridge = compute_bridge(base, current)
@@ -1738,6 +1774,7 @@ def diagnose(
         },
         "ranking": ranking.as_dict(),
         "signal_gap": gap.as_dict(),
+        "reconciliation": agreement.as_dict(),
         "set_aside": [
             {"candidate_id": c.candidate_id, "reason": why} for c, why in set_aside
         ],
@@ -1772,7 +1809,33 @@ def diagnose(
         ],
     }
 
-    if confidence.abstained:
+    if agreement.blocks_diagnosis:
+        # Its own verdict, not an abstention with a footnote. "We could not tell
+        # what caused this" and "we cannot agree that this happened" are
+        # different answers to the reader, and only the second one makes the
+        # decisive next step a question for data engineering rather than for the
+        # business. Collapsing them into `unknown` would send a finance director
+        # looking for a commercial explanation of a broken extract.
+        #
+        # The causes are still carried, and still marked. A reader is entitled
+        # to see what the engine would have said, provided it is not offered as
+        # what the engine does say.
+        result["verdict"] = "contradicted"
+        result["abstention"] = {
+            "coverage": 0.0,
+            "ruled_out": [],
+            "blocking": [agreement.reason],
+            "next_check": (
+                f"reconcile {kpi} against {agreement.source} for this window "
+                f"before asking what moved it; the two systems disagree by "
+                f"{agreement.worst_residual:.0%} and one of them is wrong"
+            ),
+            "question": (
+                f"Is the {kpi} extract complete for "
+                f"{event_start.isoformat()} to {event_end.isoformat()}?"
+            ),
+        }
+    elif confidence.abstained:
         a = abstain(verifications, confidence, blocking=stale)
         result["verdict"] = "unknown"
         result["abstention"] = {

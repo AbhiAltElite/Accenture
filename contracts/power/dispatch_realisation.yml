@@ -73,6 +73,17 @@ economics:
   # moves with coal and gas, so this is a period figure finance owns.
   gross_margin_pct: 0.22
 
+reconciliation:
+  # Regional energy accounting settles the same units before they reach the
+  # ledger, and settlement lags dispatch.
+  # Same tolerance as retail: the disagreement is a posting-policy artefact and
+  # its size is a property of the policies, not of the industry.
+  source: finance_ledger
+  compare_column: net_revenue_posted
+  date_column: business_date
+  tolerance_pct: 0.05
+  contradiction_multiple: 3.0
+
 freshness_sla:
   pos_txn: 6h
   plan_ops: 72h

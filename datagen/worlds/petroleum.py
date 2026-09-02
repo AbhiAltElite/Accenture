@@ -295,6 +295,9 @@ PETROLEUM_WORLD = World(
     delivery_event_kinds=(CauseKind.PORT_CLOSURE, CauseKind.PIPELINE_OUTAGE),
     release_kind=CauseKind.REFINERY_TURNAROUND,
     voices=VOICES,
+    # A fuel marketer posts to SAP FI-CO; the marketing company code is what a
+    # terminal's sales land in.
+    ledger_name="sap_fico_marketing",
     hazard_kind=CauseKind.PORT_CLOSURE,
     hazard_intensity={"West": 0.58, "South": 0.40, "East": 0.66, "North": 0.14},
     hazard_signal_type="port_closure",

@@ -130,14 +130,21 @@ Three things in this build are simulated rather than integrated, and it is worth
 reading them here rather than discovering them later. Each is a deliberate scope
 decision, not an oversight, and each is labelled in the system itself.
 
-**The sources are heterogeneous in grain, not in origin.** Six source tables with
-genuinely different grains (hourly checkout conversion against daily revenue),
-different declared freshness SLAs, and different business meanings — all emitted
-by one generator into one DuckDB file. There is no second system to disagree
-with, no late-arriving partition and no schema drift. What the engine
-demonstrably reconciles is *grain and cadence*; what it does not demonstrate is
-two systems that disagree about the same quantity, and cross-source semantic
-contradiction is correspondingly not implemented.
+**The sources are heterogeneous in grain, and in one case in origin.** Seven
+source tables with genuinely different grains (hourly checkout conversion against
+daily revenue), different declared freshness SLAs, and different business
+meanings — all emitted by one generator into one DuckDB file, so there is no
+late-arriving partition and no schema drift.
+
+One of them is a **second system posting the same quantity**, which is the part
+that was missing. `finance_ledger` nets returns on the date the credit note is
+raised rather than the date of sale, and posts to the rupee at invoice level, so
+it and `pos_txn` sit **2.1% apart on a median day and 3.6% at the 99th
+percentile** — an ordinary disagreement that a reconciliation has to tolerate
+rather than escalate, and the thing a tolerance is calibrated against. Reconciling
+*grain* is a shape problem and the engine already solved it. Reconciling two
+independent postings of one number is a different problem, and it needed
+something capable of disagreeing.
 
 **The external feed carries real provenance and generated rows.** Publisher
 names, source URLs, severities and lead times are the real ones; every row says
@@ -224,6 +231,28 @@ report order counts.
 
 ## Key features
 
+**A contradiction is its own verdict, not a lower confidence.** Before anything
+is explained, the engine asks whether the second system agrees that the movement
+happened. Three states, and the middle one is the useful one: `agreed` is the
+ordinary day; `drift` is further apart than posting policy explains, which lowers
+confidence and gets said out loud without stopping anything; `contradicted` is
+far enough apart that the quantity itself is in question.
+
+The reason it sits *above* the explanation rather than among it is that nothing
+below can catch this. The dataset plants a window where the POS extract silently
+loses a channel while the ledger keeps posting the truth. Detection flags the
+movement, because the series really does fall. Ranking finds the slice, because
+that slice really is missing. The causal tests confirm the fall is isolated,
+because it is. **Every stage does its job correctly and arrives at a confident,
+well-evidenced diagnosis of an event that did not happen** — and from inside the
+POS extract there is no way to know, because in there the orders genuinely are
+not present. The only available evidence is a second system that disagrees.
+
+So the verdict is `contradicted` rather than `unknown`, and the distinction is
+not cosmetic: "we could not tell what caused this" sends a finance director
+looking for a commercial explanation, and "two systems disagree that this
+happened" sends someone to the pipeline. Select **North, 10–12 June 2026**.
+
 **Answer 2, the signal gap.** For a verified cause, the engine asks whether a
 public warning existed, whether it was severe enough and early enough to act on,
 whether the registered planning process has a step that consumes it, how often
@@ -306,6 +335,7 @@ touches a number.
 | Ranking, track A | dimensional contribution | exact, reconciles to the total |
 | Ranking, track B | ridge regression | generates candidates; never states one |
 | Verification | DiD, placebo, exposure consistency | the question is causal |
+| Cross-source reconciliation | residual against a declared tolerance | two systems agreeing is arithmetic, not a judgement |
 | Retrieval | TF-IDF + SVD | offline, deterministic, no account |
 | **Writing the search query** | **language model** | an ops note and the complaint it causes are different registers; see below |
 | **Reading tickets** | **language model** | *"the card page just spins"* is a checkout failure no keyword table contains |

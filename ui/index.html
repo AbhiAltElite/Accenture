@@ -489,6 +489,23 @@ code{font-family:var(--mono);font-size:var(--t-xs)}
 .linkback:hover{color:var(--ink)}
 td.num,th.num{text-align:right}
 
+/* ═══ reconciliation ═════════════════════════════════════════════════════
+   Quiet on an ordinary day, loud on the day two systems disagree. The quiet
+   state is one line because a panel that shouts every day is one nobody reads
+   on the day it matters. */
+.agreed{font-size:var(--t-sm);color:var(--ink-3);margin-bottom:var(--sp-5);
+  line-height:var(--lh-snug);max-width:var(--measure)}
+.agreed .state{margin-right:var(--sp-2)}
+.contradiction{border-top:2px solid var(--down);background:var(--down-soft);
+  padding:var(--sp-4) var(--sp-5) var(--sp-5);margin-bottom:var(--sp-6);
+  border-radius:0 0 var(--r-md) var(--r-md)}
+.contradiction.drift{border-top-color:var(--flag);background:var(--flag-soft)}
+.contradiction .label{color:var(--ink-2);margin-bottom:var(--sp-3)}
+.contradiction p{font-size:var(--t-sm);color:var(--ink);max-width:var(--measure);
+  margin-bottom:var(--sp-4);line-height:var(--lh-snug)}
+.contradiction table{margin-top:var(--sp-2)}
+.contradiction th{border-bottom-color:var(--line-strong)}
+
 /* ═══ verdict block ══════════════════════════════════════════════════════
    The one place in the page that gets a filled ground, because it is the one
    place where the answer itself is the content. No border, no left stripe,
@@ -1716,10 +1733,22 @@ function render(){
   }
 
   const w = win.worst;
-  $('#headline').textContent =
-    `${title(kpi)} fell ${pct(Math.abs(w.pct))} in ${where} on ${w.day}`;
+  // On a contradiction the headline must not assert the fall. The page said
+  // "net revenue fell 32.5%" and then, two lines down, that the movement may
+  // not have happened -- and a reader who reads only the headline, which is
+  // most of them, takes away the opposite of the finding.
+  const contradicted = diagnosis && diagnosis.verdict === 'contradicted';
+  $('#headline').textContent = contradicted
+    ? `${title(kpi)} appears to fall ${pct(Math.abs(w.pct))} in ${where} on ${w.day} — unconfirmed`
+    : `${title(kpi)} fell ${pct(Math.abs(w.pct))} in ${where} on ${w.day}`;
 
-  if(!diagnosis || diagnosis.verdict === 'unknown'){
+  if(diagnosis && diagnosis.verdict === 'contradicted'){
+    // Its own answer, not an abstention with a footnote. "We could not tell
+    // what caused this" sends a reader looking for a commercial explanation;
+    // "two systems disagree that this happened" sends them to the pipeline,
+    // and only one of those is the right next hour of somebody's day.
+    $('#story').innerHTML = contradictedStory(diagnosis);
+  } else if(!diagnosis || diagnosis.verdict === 'unknown'){
     $('#story').innerHTML = unknownStory(diagnosis);
   } else if(diagnosis.persona === 'cfo'){
     $('#story').innerHTML = cfoStory(diagnosis);
@@ -1738,6 +1767,7 @@ function render(){
   // makes the decision a process finding rather than an incident report.
   $('#rest').innerHTML =
     entitlementBlock()
+    + reconciliationBlock()
     + section('The movement', chartMarkup(), true)
     + narrativeBlock()
     + signalGapBlock()
@@ -1775,6 +1805,56 @@ function explainedStory(d){
       d.confidence.probability != null
         ? `, calibrated to ${d.confidence.probability}`
         : `, scoring ${d.confidence.score}`}</button>.</p>`;
+}
+
+function contradictedStory(d){
+  const r = d.reconciliation || {}, a = d.abstention || {};
+  return `
+    <p><strong>The two systems that post this number do not agree that it
+    moved.</strong> ${escapeHtml(title(d.kpi_id))} and
+    <code>${escapeHtml(r.source || 'the second system')}</code> are
+    ${r.worst_residual != null ? `<strong>${pct(Math.abs(r.worst_residual))}</strong> apart` : 'far apart'}
+    over this window, against a ${r.tolerance_pct != null ? pct(r.tolerance_pct) : ''} tolerance
+    their posting policies account for.</p>
+    <p>No cause is proposed. A movement one source reports and another does not
+    is not a movement with lower confidence: it may not have happened, and every
+    test below would have passed on it.</p>
+    <p class="q"><strong>The next check.</strong>
+      ${escapeHtml(a.next_check || '')}</p>
+    ${a.question ? `<p><strong>Question.</strong> ${escapeHtml(a.question)}</p>` : ''}`;
+}
+
+/* Whether a second system agrees. Rendered above the chart rather than beside
+   the freshness table, because it is not a data-quality footnote: on a
+   contradiction it is the answer, and a reader who scrolls past it has been
+   allowed to read a diagnosis the engine is refusing to make. */
+function reconciliationBlock(){
+  const r = STATE.diagnosis && STATE.diagnosis.reconciliation;
+  if(!r || r.state === 'not_reconciled') return '';
+  if(r.state === 'agreed') {
+    // Quiet when it agrees. A panel that shouts on every ordinary day is a
+    // panel that gets ignored on the day it matters.
+    return `<p class="agreed"><span class="state ok">reconciled</span>
+      ${escapeHtml(r.reason)}</p>`;
+  }
+  const rows = (r.breaches || []).slice(0, 6).map(b => `<tr>
+      <td>${escapeHtml(b.day)}</td>
+      <td class="n">${inr(b.primary)}</td>
+      <td class="n">${inr(b.secondary)}</td>
+      <td class="n ${b.residual < 0 ? 'down' : 'up'}">${
+        b.residual > 0 ? '+' : ''}${pct(b.residual)}</td>
+    </tr>`).join('');
+  return `<div class="contradiction ${escapeHtml(r.state)}">
+    <span class="label">${r.state === 'contradicted'
+      ? 'Two systems disagree about this movement'
+      : 'The two systems are further apart than usual'}</span>
+    <p>${escapeHtml(r.reason)}</p>
+    ${rows ? `<table class="watch"><thead><tr>
+        <th>Business date</th><th class="n">${escapeHtml(title(STATE.kpi))}</th>
+        <th class="n">${escapeHtml(r.source || 'second system')}</th>
+        <th class="n">Gap</th>
+      </tr></thead><tbody>${rows}</tbody></table>` : ''}
+  </div>`;
 }
 
 function unknownStory(d){

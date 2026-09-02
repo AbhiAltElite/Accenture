@@ -283,6 +283,9 @@ POWER_WORLD = World(
     ),
     release_kind=CauseKind.PLANT_OUTAGE,
     voices=VOICES,
+    # A generator's revenue is settled through regional energy accounting before
+    # it reaches the general ledger, which is why the two disagree at all.
+    ledger_name="energy_accounting_gl",
     hazard_kind=CauseKind.HEAT_WAVE,
     hazard_intensity={"West": 0.54, "South": 0.38, "East": 0.44, "North": 0.68},
     hazard_signal_type="heat_wave",

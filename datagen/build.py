@@ -20,6 +20,7 @@ from datagen.scenarios import Scenario
 from datagen.series import build_panel
 from datagen.sources import (
     emit_ext_signals,
+    emit_finance_ledger,
     emit_plan_ops,
     emit_pos_txn,
     emit_sessions,
@@ -39,6 +40,54 @@ def _json_default(value):
     if isinstance(value, frozenset | set):
         return sorted(value)
     return str(value)
+
+
+# ── the planted feed break ──────────────────────────────────────────────────
+#
+# One window in which the POS extract silently loses a channel while the ledger
+# keeps posting the truth. Every other planted event in this dataset is a real
+# thing that happened to the business; this one is a thing that happened to the
+# *pipeline*, and the difference is the point.
+#
+# It produces a movement that is large, statistically clean, regionally
+# specific, and completely false. Detection will flag it. Ranking will find the
+# channel that "collapsed". The causal tests will happily confirm that the fall
+# is isolated to one channel in one region, because it is. Every stage does its
+# job correctly and arrives at a confident diagnosis of an event that did not
+# occur -- and there is no way to know that from inside the POS extract, because
+# from in there the orders genuinely are not present.
+#
+# The only evidence available is a second system that disagrees. That is the
+# case for having one, and it is why this is planted rather than argued.
+FEED_BREAK = {
+    "channel": "app",
+    "region": "North",
+    "start": date(2026, 6, 10),
+    "end": date(2026, 6, 12),
+}
+
+
+def _break_the_feed(pos_txn, world: World):
+    """Drop one channel's rows from the extract for a few days.
+
+    Applied to `pos_txn` after emission and to nothing else, because that is
+    what a broken extract is: the rows never arrive, and no downstream table
+    knows they were meant to.
+    """
+    channel = FEED_BREAK["channel"]
+    if channel not in world.channel_devices:
+        # A world with no such channel gets no break rather than a break on a
+        # channel it does not have. Silently planting it somewhere else would
+        # make the benchmark case mean something different per industry.
+        return pos_txn, None
+    day = pos_txn["order_ts"].dt.date
+    lost = (
+        (pos_txn["channel"] == channel)
+        & (pos_txn["region"] == FEED_BREAK["region"])
+        & (day >= FEED_BREAK["start"])
+        & (day <= FEED_BREAK["end"])
+    )
+    return pos_txn[~lost].reset_index(drop=True), int(lost.sum())
 
 
 def write_ground_truth(
@@ -70,6 +119,14 @@ def build(
 
     print("emitting sources...")
     pos_txn = emit_pos_txn(panel, world=world)
+    # Built from the complete extract, before anything is withheld from it, so
+    # it still reports what actually happened.
+    finance_ledger = emit_finance_ledger(pos_txn, world=world)
+    pos_txn, dropped = _break_the_feed(pos_txn, world)
+    if dropped:
+        print(f"  planted feed break: {dropped:,} pos_txn rows withheld "
+              f"({FEED_BREAK['channel']}, {FEED_BREAK['region']}, "
+              f"{FEED_BREAK['start']} to {FEED_BREAK['end']})")
     sessions = emit_sessions(panel, world=world)
     shipments = emit_shipments(panel, events, world=world)
     plan_ops = emit_plan_ops(panel, events, world=world)
@@ -89,6 +146,7 @@ def build(
         ("shipments", shipments),
         ("plan_ops", plan_ops),
         ("voice_ops", voice_ops),
+        ("finance_ledger", finance_ledger),
         ("ext_signals", ext_signals),
         ("source_freshness", freshness),
         # The panel is kept as a convenience for inspection. The engine reads the

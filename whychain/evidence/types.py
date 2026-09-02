@@ -35,6 +35,8 @@ class EvidenceKind(StrEnum):
     SIGNAL_GAP = "signal_gap"
     FRESHNESS = "freshness"
     PRECEDENT = "precedent"
+    # A second system's posting of the same quantity, and whether it agrees.
+    RECONCILIATION = "reconciliation"
 
 
 class ClaimState(StrEnum):

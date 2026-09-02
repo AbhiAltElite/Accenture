@@ -28,7 +28,7 @@ DEFAULT_WAREHOUSE = Path("data/warehouse/whychain.duckdb")
 # sources through a contract.
 READABLE_TABLES = frozenset(
     {"pos_txn", "sessions", "shipments", "plan_ops", "voice_ops",
-     "ext_signals", "source_freshness"}
+     "ext_signals", "finance_ledger", "source_freshness"}
 )
 
 # Each declared transform is a SQL rewrite applied to the base table before the
