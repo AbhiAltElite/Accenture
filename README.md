@@ -344,7 +344,35 @@ touches a number.
 | Signal gap | set difference over the feed | the finding must not come from a model |
 | External context on a cause | window/region overlap over the feed | a published warning is a fact with a publisher, not an inference |
 | **Writing the narrative** | **language model** | prose is what models are for |
+| **Proposing the next check** | **language model** | the useful next step depends on the shape of a particular failure, which is what a three-way branch cannot reach |
 | Validation | deterministic checks | the model must not mark its own work |
+
+**The most useful sentence in the product is written by the model, and it is the
+one it is hardest to let it write.** On the days there is no diagnosis, what an
+analyst gets is the next check — and an abstention that only says "unknown"
+wastes the hour as surely as a wrong answer. That sentence was three template
+branches, and templates are exactly wrong for it: the useful next step depends
+on which candidates were rejected and why, which sources were stale, whether the
+two systems reconciled. On the planted feed break the model writes *"Verify that
+the net_revenue extract for North region from 2026-06-10 to 2026-06-12 is
+complete"*, which no branch would have produced.
+
+It is also the one place a model is asked to be constructive about a movement
+nobody has explained, which is precisely where a plausible suggestion becomes a
+stated cause in somebody's retelling. So four deterministic gates run before a
+reader sees it, and the template stands if any fails:
+
+| The gate | Why |
+|---|---|
+| It may not assert a cause | `caused by`, `due to`, `is the cause` and nine more. The sentence proposes an action or it is dropped |
+| It may name only what the run contains | An invention is a *name* and looks like one — capitalised, or carrying an underscore or a digit. Ordinary English is not checked, because it cannot name a system |
+| Figures must appear in the facts, character for character | The same rule the narrative validator enforces |
+| One sentence, under 30 words, imperative | A next check nobody reads is not one |
+
+The first version of the second gate checked every word against the run's own
+vocabulary and rejected "shipped", "request" and "re-running" — almost nothing
+could pass, and widening the list until they did would have left the check doing
+nothing. `tests/test_nextcheck.py` pins all four.
 
 **The verification is what makes a small open-weight model safe here.** When the
 model quotes a ticket, the code locates that sentence in the source to derive

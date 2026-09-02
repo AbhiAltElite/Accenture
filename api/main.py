@@ -50,6 +50,7 @@ from whychain.llm import (
     routing,
 )
 from whychain.narrate import narrate
+from whychain.narrate.nextcheck import propose as propose_next_check
 from whychain.narrate.writer import ModelWriter
 from whychain.personas import Persona, project
 from whychain.rank import rank
@@ -1847,6 +1848,38 @@ def diagnose(
         }
     else:
         result["verdict"] = "explained"
+
+    # The most useful sentence in the product on the days there is no answer,
+    # and it was three template branches. The model rewrites it from the shape
+    # of this particular failure; a deterministic check rejects any sentence
+    # that proposes a cause, names something the run does not contain, or
+    # restates a figure, and the template stands when it does.
+    if result.get("abstention"):
+        with tel.stage("nextcheck", MethodClass.LLM) as t:
+            known = {c.kpi_id for c in registry(vertical)} | set(all_regions) | {
+                d.id for d in contract.drivers
+            } | {d.owner_role for d in contract.drivers if d.owner_role} | {
+                contract.owner_role, contract.kpi_id,
+                contract.reconciliation.source or "",
+            }
+            proposal = propose_next_check(
+                result,
+                fallback=result["abstention"]["next_check"],
+                backend=(
+                    model_for(Task.NARRATE, backend) if not llm_model
+                    else default_model(llm_model, backend)
+                ),
+                extra_terms=frozenset(k.lower() for k in known if k),
+            )
+            result["abstention"]["next_check"] = proposal.text
+            result["abstention"]["next_check_by"] = proposal.as_dict()
+            t.model_calls = proposal.model_calls
+            t.cache_hits = proposal.cache_hits
+            t.tokens_in, t.tokens_out = proposal.tokens_in, proposal.tokens_out
+            t.note = (
+                f"{proposal.writer}"
+                + (f"; rejected: {proposal.rejected}" if proposal.rejected else "")
+            )
 
     # The narrative is written from the finished result and nothing else, so it
     # can only describe what the pipeline concluded. It runs after abstention is
