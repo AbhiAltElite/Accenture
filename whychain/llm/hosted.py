@@ -31,7 +31,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
-from whychain.llm import Completion
+from whychain.llm import Completion, ModelError, require_content
 
 # Apache 2.0, and served by every free tier worth using. The hosted providers
 # name it slightly differently, so the id is configuration rather than a
@@ -221,10 +221,35 @@ class OpenAICompatibleModel:
                     f"{self.backend} endpoint returned HTTP {exc.code}"
                 ) from None
 
+        # A provider may answer HTTP 200 and still be reporting a failure: the
+        # OpenAI-compatible shape carries an `error` object in the body, and
+        # free tiers use it for the upstream refusals they do not want to spend
+        # a status code on. Read before the choices, or the failure arrives
+        # downstream as an empty string.
+        error = payload.get("error")
+        if error:
+            message = error.get("message") if isinstance(error, dict) else error
+            raise ModelError(
+                f"{self.backend} endpoint returned an error in a 200 body: "
+                f"{str(message)[:200]}"
+            )
+
         choice = (payload.get("choices") or [{}])[0]
         usage = payload.get("usage") or {}
+        # `finish_reason` is the difference between a short answer and a
+        # truncated one, and a reasoning model that spends its whole budget
+        # before the object returns empty content with `length`. Naming it makes
+        # the receipt say "raise the ceiling" rather than "the model failed".
+        reason = choice.get("finish_reason") or ""
+        text = (choice.get("message") or {}).get("content", "")
+        if not (text or "").strip() and reason == "length":
+            raise ModelError(
+                f"{self.backend} \u00b7 {self.name} hit the {max_tokens}-token "
+                "ceiling before returning an object"
+            )
+
         return Completion(
-            text=(choice.get("message") or {}).get("content", ""),
+            text=require_content(text, backend=self.backend, model=str(self.name)),
             model=str(self.name),
             tokens_in=int(usage.get("prompt_tokens") or 0),
             tokens_out=int(usage.get("completion_tokens") or 0),

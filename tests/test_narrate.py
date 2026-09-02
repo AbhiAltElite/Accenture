@@ -212,6 +212,50 @@ class TestTheWholeStage:
         # and threw the output away has still spent the money.
         assert story.model_calls == 1
 
+    def test_a_writer_that_returns_nothing_falls_back(self):
+        """The empty answer is the dangerous one, because it looks like silence.
+
+        A writer whose sentences are all rejected was always covered. A writer
+        that returns *no* sentences was not: the fallback required output to
+        exist before it would replace it, so an empty answer produced an empty
+        narrative reported as model-written, clean, and not fallen back. The
+        receipt described work that never happened, on the one page whose whole
+        argument is that the receipt can be trusted.
+        """
+        class Silent:
+            def write(self, brief):
+                from whychain.narrate.writer import Written
+                return Written(
+                    sentences=(), model_calls=1, tokens_in=700, tokens_out=0,
+                    writer="model",
+                )
+
+        story = narrate(RESULT, writer=Silent(), known_entities=KNOWN)
+        assert story.text, "an empty narrative must never reach a reader"
+        assert story.sentences
+        assert story.fell_back
+        assert "returned no sentences" in story.note
+        # The call still happened and is still charged for.
+        assert story.model_calls == 1
+
+    @pytest.mark.invariant
+    def test_a_narrative_is_never_both_empty_and_clean(self):
+        """The invariant the bug above broke, stated directly.
+
+        `clean` means the validator had nothing to reject. On an empty narrative
+        that is true and worthless, and printed beside "written by: model" it
+        reads as a model that wrote nothing wrong rather than one that wrote
+        nothing at all.
+        """
+        class Silent:
+            def write(self, brief):
+                from whychain.narrate.writer import Written
+                return Written(sentences=(), model_calls=1, writer="model")
+
+        for writer in (Silent(), TemplateWriter()):
+            story = narrate(RESULT, writer=writer, known_entities=KNOWN)
+            assert not (story.validation.clean and not story.text)
+
     def test_an_abstention_is_narrated_as_an_abstention(self):
         unknown = {**RESULT, "verdict": "unknown", "verified": [], "decisions": []}
         story = narrate(unknown, writer=TemplateWriter(), known_entities=KNOWN)

@@ -73,6 +73,36 @@ class _Unset:
 UNSET = _Unset()
 
 
+class ModelError(RuntimeError):
+    """The backend did not return a usable answer.
+
+    A subclass of `RuntimeError` so every existing degradation path catches it
+    unchanged, and named so the receipt says which kind of failure it was.
+    """
+
+
+def require_content(text: str | None, *, backend: str, model: str) -> str:
+    """A completion with no content is a failure, not an answer.
+
+    Both backends can return HTTP 200 carrying nothing: a free tier shedding
+    load, a provider putting an error object in a 200 body, a reasoning model
+    truncated before it reaches the object it was asked for. Returning that as
+    an empty `Completion` makes it indistinguishable from a model that read the
+    brief and had nothing to say -- and the two must not look alike, because the
+    first is a fault to report and the second is an answer to print.
+
+    This is the fault that produced the worst possible output here: an empty
+    narrative on the page, and a receipt calling it clean, model-written and not
+    fallen back. Raising instead routes it into the fallback every caller
+    already has, and the reason lands on the receipt.
+    """
+    if text and text.strip():
+        return text
+    raise ModelError(
+        f"{backend} \u00b7 {model} returned an empty completion"
+    )
+
+
 @dataclass(frozen=True)
 class Completion:
     """What a model returned, and what it cost to get it."""
@@ -119,7 +149,14 @@ class ChatModel(Protocol):
 # receipt reports the tokens actually spent. Sized as roughly three times the
 # longest well-formed answer observed for each task.
 MAX_TOKENS: dict[str, int] = {
-    "expand": 512,      # a dozen words, after the working
+    # A dozen words out, but "after the working" is the whole point and 512 did
+    # not pay for it. A reasoning model spends its budget before the object, so
+    # against the configured default this stage truncated every time, fell back
+    # to the deterministic query on every call, and query expansion -- the one
+    # thing here a keyword table genuinely cannot do -- was dead in a
+    # configuration that reported itself as working. The ceiling that fixed
+    # `intent` for exactly this reason is the ceiling this needs.
+    "expand": 4096,
     "intent": 4096,     # one small object, after the working
     "extract": 12000,   # up to 25 documents, each with a verbatim quote
     "narrate": 8000,    # a handful of sentences, each with citations
@@ -463,10 +500,12 @@ __all__ = [
     "UNSET",
     "ChatModel",
     "Completion",
+    "ModelError",
     "Task",
     "catalogue",
     "default_model",
     "describe",
     "model_for",
+    "require_content",
     "routing",
 ]

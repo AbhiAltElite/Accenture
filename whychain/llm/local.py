@@ -33,7 +33,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
-from whychain.llm import Completion
+from whychain.llm import Completion, require_content
 
 DEFAULT_BASE_URL = "http://localhost:11434"
 
@@ -139,7 +139,11 @@ class OllamaModel:
             payload = json.loads(response.read())
 
         return Completion(
-            text=payload.get("message", {}).get("content", ""),
+            text=require_content(
+                payload.get("message", {}).get("content", ""),
+                backend=self.backend,
+                model=str(self.name),
+            ),
             model=str(self.name),
             # Ollama reports token counts under its own names. Absent on some
             # versions, so default to zero rather than guessing: the receipt

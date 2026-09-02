@@ -15,7 +15,15 @@ import pytest
 
 from whychain.corroborate.model_extract import ModelExtractor
 from whychain.corroborate.quarantine import quarantine
-from whychain.llm import ChatModel, Completion, default_model, describe
+from whychain.llm import (
+    ChatModel,
+    Completion,
+    ModelError,
+    default_model,
+    describe,
+    require_content,
+)
+from whychain.llm.cache import CachedModel
 from whychain.narrate import build_brief, narrate
 from whychain.narrate.writer import ModelWriter, default_writer
 
@@ -269,3 +277,60 @@ class TestOneBackendsSettingsAreNotAnothers:
         monkeypatch.setenv("WHYCHAIN_LLM_BASE_URL", "https://openrouter.ai/api/v1")
 
         assert OpenAICompatibleModel().base_url == ""
+
+
+class TestAnEmptyAnswerIsAFailure:
+    """HTTP 200 with no content is the failure that looks like an answer.
+
+    A free tier shedding load, a provider putting an error object in a 200 body,
+    a reasoning model truncated before it reaches the object: all three arrive
+    as a `Completion` with an empty string. Passed on, that is indistinguishable
+    from a model that read the brief and had nothing to say, and every stage
+    downstream treats it as the second. It is the first.
+    """
+
+    def test_empty_content_raises_rather_than_returning(self):
+        for text in ("", "   ", None):
+            with pytest.raises(ModelError):
+                require_content(text, backend="fake", model="fake-7b")
+
+    def test_real_content_passes_through_unchanged(self):
+        assert require_content('{"a":1}', backend="fake", model="fake-7b") == '{"a":1}'
+
+    def test_the_cache_never_stores_an_empty_completion(self, tmp_path):
+        """The durable half. A poisoned entry outlives the fault that wrote it.
+
+        Caching an empty answer turns one bad minute on a free tier into a
+        permanent wrong answer for that exact prompt: every later run reads back
+        the same nothing and never calls the model again to find out it has
+        recovered.
+        """
+        class Empty:
+            name, backend = "fake-7b", "fake"
+            available = True
+
+            def complete(self, *, system, user, schema, max_tokens=4096):
+                return Completion(text="", model=self.name, backend=self.backend)
+
+        cache = CachedModel(inner=Empty(), directory=tmp_path)
+        cache.complete(system="s", user="u", schema={}, max_tokens=10)
+        assert list(tmp_path.glob("*.json")) == []
+
+    def test_the_cache_treats_a_poisoned_entry_as_a_miss(self, tmp_path):
+        """Entries written before the rule above must not be served."""
+        import json as _json
+
+        from whychain.llm.cache import key_for
+
+        good = FakeModel({"ok": True})
+        key = key_for(model=good.name, backend=good.backend,
+                      system="s", user="u", schema={}, max_tokens=10)
+        (tmp_path / f"{key}.json").write_text(_json.dumps(
+            {"text": "", "model": good.name, "tokens_in": 0,
+             "tokens_out": 0, "backend": good.backend}
+        ))
+
+        cache = CachedModel(inner=good, directory=tmp_path)
+        out = cache.complete(system="s", user="u", schema={}, max_tokens=10)
+        assert out.text and not out.cached
+        assert cache.hits == 0 and good.calls == 1

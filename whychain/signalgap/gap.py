@@ -716,6 +716,39 @@ def find_gap(
     window = (event_start, event_end)
 
     if signal_type is None:
+        # Nothing was verified, so there is no cause for the feed to be read
+        # against. Reading it against the *window* instead is the failure this
+        # docstring calls the most damaging one available here, and it was
+        # reachable: the fallback below picked `severe_weather` and assessed
+        # every warning that happened to overlap the dates. On a monsoon window
+        # that returns a gap, names an accountable role, and proposes a
+        # monitoring rule -- a complete, well-evidenced accusation about a
+        # movement whose cause the engine has just said it does not know.
+        #
+        # Foreseeability is a question about a cause. With no cause it is not a
+        # question that has been answered wrongly; it is one that has not been
+        # asked, and `coverage_unknown` is the state that says so.
+        if not causes:
+            base = assess(
+                contract, (), window=window, region=region, signal_type=None
+            )
+            if base.verdict is GapVerdict.COVERAGE_UNKNOWN:
+                return base
+            return replace(
+                base,
+                verdict=GapVerdict.COVERAGE_UNKNOWN,
+                reason=(
+                    "No cause survived verification, so there is nothing for a "
+                    "warning to have been about. The external feed was not "
+                    "consulted: a warning that merely overlaps these dates is a "
+                    "coincidence, and reporting it as a gap would name an owner "
+                    "for a failure that has not been shown to exist."
+                ),
+                caveats=(
+                    "verify a cause first; foreseeability is a question about a "
+                    "cause, not about a window",
+                ),
+            )
         if causes_are_internal(causes):
             base = assess(
                 contract, (), window=window, region=region, signal_type=None
@@ -735,9 +768,11 @@ def find_gap(
                     "gap would be false."
                 ),
             )
+        # Causes exist and at least one is external, so there is something for
+        # the feed to be read against. `signal_types_for` returning nothing here
+        # means the cause is external but matches no feed the engine knows, and
+        # severe weather is the widest one the contract declares.
         relevant = signal_types_for(causes)
-        # Nothing verified yet: every external feed the contract declares is
-        # still a live hypothesis, so the widest one is checked.
         signal_type = relevant[0] if relevant else "severe_weather"
 
     signals = read_signals(

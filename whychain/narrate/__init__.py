@@ -93,12 +93,23 @@ def narrate(
     validation = validate(list(written.sentences), brief, known_entities=known_entities)
     fell_back = bool(failure_note)
 
-    # Everything the writer produced was rejected. Falling back is the honest
-    # move; emitting an empty narrative would read as "nothing to say".
-    if not validation.accepted and written.sentences:
+    # Nothing survived to print. Falling back is the honest move; emitting an
+    # empty narrative would read as "nothing to say".
+    #
+    # This used to require `written.sentences` as well, which meant it covered
+    # the writer whose sentences were all rejected and missed the writer that
+    # returned no sentences at all. A model answering with an empty object
+    # therefore produced an empty narrative reported as model-written, clean and
+    # not fallen back -- the receipt describing work that did not happen, which
+    # is the one failure this engine cannot afford. The condition is now about
+    # the output, not about how much of it there was.
+    if not validation.accepted and written.writer != TemplateWriter.name:
         fallback = TemplateWriter().write(brief)
         validation = validate(list(fallback.sentences), brief, known_entities=known_entities)
         failure_note = (
+            f"the {written.writer} writer returned no sentences; "
+            "the deterministic template was used instead"
+            if not written.sentences else
             f"every sentence from the {written.writer} writer failed validation; "
             "the deterministic template was used instead"
         )

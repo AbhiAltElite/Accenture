@@ -157,6 +157,37 @@ class TestScopedToTheCause:
     this stage could output.
     """
 
+    def test_no_verified_cause_consults_no_external_feed(self, registered):
+        """Foreseeability is a question about a cause, not about a window.
+
+        With nothing verified there is no cause for a warning to have been
+        about, and the feed used to be read against the dates instead. On a
+        monsoon window that returns a gap, names an accountable role and
+        proposes a monitoring rule: a complete, well-evidenced accusation about
+        a movement whose cause the engine has just reported as unknown. It is
+        the exact substitution `find_gap` exists to prevent, arriving through
+        the one door that was left open.
+        """
+        rows = frame([{
+            "signal_id": "wx-1", "signal_type": "severe_weather", "city": "Mumbai",
+            "region": "West", "severity": "red",
+            "issued_at": datetime(2026, 7, 4, tzinfo=UTC),
+            "valid_from": datetime(2026, 7, 8, tzinfo=UTC),
+            "valid_to": datetime(2026, 7, 12, tzinfo=UTC),
+            "lead_time_hours": 96.0, "is_public": True,
+            "publisher": "IMD", "source": "generated",
+        }])
+        gap = find_gap(
+            registered, rows,
+            event_start=WINDOW[0], event_end=WINDOW[1], region="West",
+            causes=[],
+        )
+        assert gap.verdict is GapVerdict.COVERAGE_UNKNOWN
+        assert "No cause survived verification" in gap.reason
+        # Nothing was read, so nothing can be blamed on having been missed.
+        assert not gap.signals
+        assert gap.best_lead_time_hours is None
+
     def test_an_internal_cause_consults_no_external_feed(self, registered):
         rows = frame([{
             "signal_id": "wx-1", "signal_type": "severe_weather", "city": "Mumbai",

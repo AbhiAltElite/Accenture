@@ -209,9 +209,11 @@ class ModelExtractor:
             schema=self.schema,
             max_tokens=MAX_TOKENS["extract"],
         )
-        self.calls += 1
+        # A reading served from disk is a cache hit, not a model call.
         if completion.cached:
             self.cache_hits += 1
+        else:
+            self.calls += 1
         self.tokens_in += completion.tokens_in
         self.tokens_out += completion.tokens_out
 

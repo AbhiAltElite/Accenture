@@ -256,7 +256,8 @@ def interpret(
 
     base = {
         "model": chosen.name,
-        "model_calls": 1,
+        # A reading served from disk is a cache hit, not a model call.
+        "model_calls": 0 if getattr(completion, "cached", False) else 1,
         "cache_hits": 1 if getattr(completion, "cached", False) else 0,
         "tokens_in": completion.tokens_in,
         "tokens_out": completion.tokens_out,

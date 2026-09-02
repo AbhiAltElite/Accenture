@@ -422,6 +422,10 @@ canvas#c.panning{cursor:grabbing}
   margin-top:var(--sp-3);flex-wrap:wrap}
 .striplegend i{display:inline-block;width:14px;height:2px;background:currentColor;
   margin-right:var(--sp-2);vertical-align:middle}
+/* The band is an area, so its key is one, and it carries the hairline the
+   chart's own gridlines use so the two read as the same material. */
+.striplegend i.bandkey{height:9px;background:var(--sunk);
+  border:1px solid var(--line)}
 .scrubber{height:6px;margin-top:var(--sp-3);background:var(--sunk);
   border-radius:var(--r-sm);position:relative;cursor:grab}
 .scrubber.on{cursor:grabbing}
@@ -877,6 +881,24 @@ const title = id => {
 };
 const pct = n => (n*100).toFixed(1) + '%';
 
+/* "1 model calls" on a receipt is a small thing that reads as a system nobody
+   proof-read, on the one panel whose whole job is to be believed. */
+const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + 's')}`;
+
+/* A chart axis has a gutter, not a column, so the scale is abbreviated where
+   the table would spell it out. Lakh and crore rather than K and M: the whole
+   console groups digits `en-IN` and prints rupees, and a scale that switches
+   grouping conventions halfway down the page reads as two products. */
+const axisLabel = (v, unit) => {
+  if(v == null || !isFinite(v)) return '';
+  if(unit !== 'INR') return fmtValue(v, unit);
+  const n = Math.abs(v), sign = v < 0 ? '-' : '';
+  if(n >= 1e7) return `${sign}₹${(n/1e7).toFixed(n/1e7 < 10 ? 2 : 1)}Cr`;
+  if(n >= 1e5) return `${sign}₹${(n/1e5).toFixed(n/1e5 < 10 ? 2 : 1)}L`;
+  if(n >= 1e3) return `${sign}₹${(n/1e3).toFixed(0)}k`;
+  return `${sign}₹${Math.round(n)}`;
+};
+
 /* Sentence case for anything that reaches a reader.
 
    Several labels are field names carried straight through from the engine,
@@ -1176,12 +1198,21 @@ async function showOverview(){
   $('#overview').hidden = false;
   scrollTo(0,0);
   $('#main').setAttribute('aria-busy','true');
-  const region=$('#region').value;
+  const region=$('#region').value, days=+$('#range').value;
+  // Both controls reach both halves of this page. The queue used to take
+  // neither: picking West filtered the metrics table above it while the
+  // findings below still listed South, and Period re-routed the page and
+  // changed nothing at all. A control that visibly does nothing teaches a
+  // reader that none of them mean anything.
   const q=new URLSearchParams(); if(region) q.set('region',region);
+  if(days) q.set('days',days);
+  const tq=new URLSearchParams(); if(region) tq.set('region',region);
+  if(days) tq.set('days',days);
+  tq.set('limit','8');
+  if(STATE.entitled) tq.set('entitled',STATE.entitled);
   const [data, queue] = await Promise.all([
     (await fetch('/api/overview?'+q)).json(),
-    fetch('/api/triage?limit=8' + (STATE.entitled ? '&entitled='+encodeURIComponent(STATE.entitled) : ''))
-      .then(r=>r.json()).catch(()=>null),
+    fetch('/api/triage?'+tq).then(r=>r.json()).catch(()=>null),
   ]);
   STATE.overview = data;
   STATE.queue = queue;
@@ -1289,7 +1320,13 @@ function triageMarkup(){
           <span class="owner">per day</span></td>
       <td><span class="name">${escapeHtml(title(f.kpi_id))}</span>
           <span class="owner">${escapeHtml(f.region)} · ${span}${
-            f.days > 1 ? ` · ${f.days} days` : ''}</span></td>
+            f.days > 1 ? ` · ${f.days} days` : ''}${
+            // A movement that showed up in its children too is one event, not
+            // several, and the fact that it cascaded is corroboration worth
+            // reading on the row rather than a reason to queue it again.
+            f.also_moved && f.also_moved.length
+              ? ` · also moved: ${f.also_moved.map(k=>escapeHtml(title(k).toLowerCase())).join(', ')}`
+              : ''}</span></td>
       <td class="n hide-sm"><span class="chg down">${
         f.pct != null ? pct(f.pct) : '–'}</span>
           <span class="owner">z ${f.robust_z}</span></td>
@@ -1309,7 +1346,9 @@ function triageMarkup(){
       <th class="n">Action</th>
     </tr></thead><tbody>${rows}</tbody></table>
     <p class="sub" style="margin-top:var(--sp-3);font-size:var(--t-xs);font-family:var(--sans)">
-      ${q.total} open findings in total. ${escapeHtml(q.basis)}
+      ${q.total} open findings in total${
+        q.folded ? `, after folding ${q.folded} child-metric movement(s) into the parent event they belong to` : ''}.
+      ${escapeHtml(q.basis)}
       Metrics with no price/volume/mix identity are detected and prioritised but
       not decomposed, and are marked accordingly.</p>`;
 }
@@ -1323,7 +1362,9 @@ function drawSparks(){
     // Measure the box rather than assuming it. The width was hardcoded to 120
     // while the CSS track was wider, so every sparkline was drawn small and
     // then stretched to fit, which is why they read slightly soft.
-    const dpr=devicePixelRatio||1, w=c.clientWidth||132, h=38;
+    // Same rule as the main chart: measure the box. 38 against a 34px CSS
+    // track squashed every sparkline by a tenth.
+    const dpr=devicePixelRatio||1, w=c.clientWidth||132, h=c.clientHeight||34;
     c.width=w*dpr; c.height=h*dpr;
     const x=c.getContext('2d'); x.scale(dpr,dpr); x.clearRect(0,0,w,h);
     const all=[...k.spark,...k.spark_expected];
@@ -1786,7 +1827,13 @@ function signalGapBlock(){
   if(!g) return '';
   const consumed = (g.consumed||[]).map(c=>
     `<span>${escapeHtml(c.replace(/_/g,' '))}</span>`).join('');
-  const missing = g.signal_type && !(g.consumed||[]).includes(g.signal_type)
+  // Only a found gap has a missing signal. Struck red type next to a caption
+  // saying the cycle has no step for it is an accusation, and it was rendered
+  // on every verdict -- including `not_foreseeable`, one line under prose
+  // reading "This was not a process failure". The chip states the finding, so
+  // it appears only where the finding was made.
+  const missing = g.verdict === 'gap_found'
+    && g.signal_type && !(g.consumed||[]).includes(g.signal_type)
     ? `<span class="missing">${escapeHtml(g.signal_type.replace(/_/g,' '))}</span>` : '';
 
   const facts = [];
@@ -1920,7 +1967,7 @@ function narrativeBlock(){
     <div class="gate">
       <div><b>${(n.sentences||[]).length}</b>sentences accepted</div>
       <div><b class="${rejected.length?'no':''}">${rejected.length}</b>rejected by the validator</div>
-      <div><b>${n.model_calls}</b>model calls</div>
+      <div><b>${n.model_calls}</b>${n.model_calls === 1 ? 'model call' : 'model calls'}</div>
       <div><b>${escapeHtml(n.writer)}</b>writer</div>
     </div>
     <p class="muted">${escapeHtml(n.note||'')}</p>
@@ -2343,7 +2390,7 @@ function receiptBlock(){
     <p class="q">${(tot.deterministic_share*100).toFixed(1)}% of the time was
     spent outside a model call. Narrative produced by:
     ${escapeHtml(t.narrative_by)}. Cost ${inr(tot.cost_inr)}.</p>`,
-    false, `${tot.ms.toFixed(0)} ms · ${tot.model_calls} model calls`);
+    false, `${tot.ms.toFixed(0)} ms · ${plural(tot.model_calls, 'model call')}`);
 }
 
 function chartMarkup(){
@@ -2360,6 +2407,7 @@ function chartMarkup(){
     <div class="striplegend">
       <span style="color:var(--ink)"><i></i>Observed</span>
       <span style="color:var(--ink-3)"><i></i>Expected</span>
+      <span style="color:var(--ink-3)"><i class="bandkey"></i>Normal range</span>
       <span style="color:var(--down)"><i></i>Flagged</span>
       <span style="margin-left:auto">Scroll to zoom · shift-scroll or drag to move · hover to read</span>
     </div></div>`;
@@ -2589,14 +2637,25 @@ function viewBounds(){
 
 function drawChart(){
   const c=$('#c'); if(!c || !STATE.series) return;
-  const dpr=devicePixelRatio||1, w=c.clientWidth, h=190;
-  if(!w) return;
+  // Measure the box rather than assuming it. The height was hardcoded to 190
+  // while the CSS track is 220, so the bitmap was drawn at one size and
+  // displayed at another: every stroke came out 16% taller than it was drawn,
+  // the flagged "dots" rendered as ellipses, and the y-scale a reader was
+  // judging a movement by was silently stretched. The width was already
+  // measured, which is why only one axis was wrong -- and why it read as
+  // slightly soft rather than as obviously broken.
+  const dpr=devicePixelRatio||1, w=c.clientWidth, h=c.clientHeight||220;
+  if(!w || !h) return;
   c.width=w*dpr; c.height=h*dpr;
   const x=c.getContext('2d'); x.scale(dpr,dpr); x.clearRect(0,0,w,h);
   const css=getComputedStyle(document.documentElement), col=n=>css.getPropertyValue(n).trim();
 
   const d=STATE.series, {lo,hi}=viewBounds(), span=Math.max(hi-lo,1);
-  const PL=8,PR=8,PT=10,PB=20, W=w-PL-PR, H=h-PT-PB;
+  // Room on the left for the scale. Without it the only way to read a
+  // magnitude off this chart was to hover a point, which makes the shape
+  // legible and the size guesswork -- on the one figure the whole page is
+  // about.
+  const PL=62,PR=8,PT=10,PB=20, W=w-PL-PR, H=h-PT-PB;
   const slice=a=>a.slice(lo,hi+1);
   const all=[...slice(d.observed),...slice(d.band_low),...slice(d.band_high)];
   let ylo=Math.min(...all), yhi=Math.max(...all); const pad=(yhi-ylo)*.08||1;
@@ -2604,10 +2663,25 @@ function drawChart(){
   const X=i=>PL+((i-lo)/span)*W, Y=v=>PT+H-((v-ylo)/(yhi-ylo))*H;
   CHART={X,Y,lo,hi,span,W,PL,PR,ylo,yhi,h,w};
 
-  x.fillStyle=col('--raised'); x.beginPath();
+  // The normal range. It was filled in `--raised` on `--paper` -- about 1.05:1
+  // against the page -- so the third of the three things this chart draws was
+  // invisible, and the legend did not claim it either. `--sunk` is the ground
+  // one step further from the paper, which is what a band behind a line is for.
+  x.fillStyle=col('--sunk'); x.beginPath();
   for(let i=lo;i<=hi;i++) i===lo?x.moveTo(X(i),Y(d.band_high[i])):x.lineTo(X(i),Y(d.band_high[i]));
   for(let i=hi;i>=lo;i--) x.lineTo(X(i),Y(d.band_low[i]));
   x.closePath(); x.fill();
+
+  // Three gridlines and their values, in the metric's own unit. Drawn under
+  // everything, in the line colour, so they read as ruling rather than as data.
+  const ticks=[ylo+(yhi-ylo)*0.5, yhi-(yhi-ylo)*0.06, ylo+(yhi-ylo)*0.06];
+  x.strokeStyle=col('--line'); x.lineWidth=1;
+  x.fillStyle=col('--ink-4'); x.font='10px '+col('--mono'); x.textAlign='right';
+  ticks.forEach(v=>{
+    const y=Math.round(Y(v))+.5;
+    x.beginPath(); x.moveTo(PL,y); x.lineTo(w-PR,y); x.stroke();
+    x.fillText(axisLabel(v, d.unit), PL-8, y+3);
+  });
 
   x.strokeStyle=col('--ink-3'); x.lineWidth=1; x.setLineDash([2,3]); x.beginPath();
   for(let i=lo;i<=hi;i++) i===lo?x.moveTo(X(i),Y(d.expected[i])):x.lineTo(X(i),Y(d.expected[i]));

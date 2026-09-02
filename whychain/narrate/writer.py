@@ -280,7 +280,12 @@ class ModelWriter:
         )
         return Written(
             sentences=sentences,
-            model_calls=1,
+            # A reading served from disk is a cache hit, not a model call.
+            # Counting it as both made a warm run report calls it never made,
+            # against a comment in `StageTrace` promising the opposite -- and it
+            # buried the good news, because "0 calls, 1 hit" is the honest claim
+            # and the stronger one.
+            model_calls=0 if completion.cached else 1,
             cache_hits=1 if completion.cached else 0,
             tokens_in=completion.tokens_in,
             tokens_out=completion.tokens_out,

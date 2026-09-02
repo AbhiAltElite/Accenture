@@ -100,6 +100,15 @@ class CachedModel:
 
         try:
             stored = json.loads(path.read_text(encoding="utf-8"))
+            # An entry with no content is not an answer this cache is allowed to
+            # serve. Nothing should write one any more, but entries written
+            # before that rule outlive the fix, and one of them turns a
+            # transient provider failure into a permanent one: every later run
+            # of the same case reads back the same nothing, and never calls the
+            # model again to find out it has recovered. Treated as a miss, which
+            # re-calls and overwrites it.
+            if not str(stored.get("text", "")).strip():
+                raise ValueError("cached completion has no content")
             self.hits += 1
             return Completion(
                 text=stored["text"], model=stored["model"],
@@ -118,6 +127,11 @@ class CachedModel:
             system=system, user=user, schema=schema, max_tokens=max_tokens
         )
         self.misses += 1
+        # Only a real answer is remembered. An empty completion is a fault, and
+        # writing one here makes a bad minute on a free tier permanent for that
+        # exact prompt.
+        if not str(completion.text or "").strip():
+            return completion
         try:
             self.directory.mkdir(parents=True, exist_ok=True)
             path.write_text(

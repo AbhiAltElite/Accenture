@@ -520,6 +520,16 @@ def overview(
                 recent = frame.tail(tail)
                 observed = d.observed[-tail:]
                 expected = d.expected[-tail:]
+                # Counted over the window the reader chose, not over the whole
+                # history. These figures sit directly beside a control labelled
+                # "Last 90 days"; counting three years under it made the number
+                # a reader is most likely to quote the one least likely to be
+                # true, and made the control look broken because nothing moved
+                # when they changed it.
+                since = frame["d"].iloc[-tail] if tail else None
+                if since is not None:
+                    floor = pd.Timestamp(since).date()
+                    anomalies = [a for a in anomalies if a.day >= floor]
                 drops = [a for a in anomalies if a.direction == "drop"]
                 worst = min(drops, key=lambda a: a.delta) if drops else None
 
@@ -559,6 +569,9 @@ def overview(
 @app.get("/api/triage")
 def triage(
     limit: int = Query(12, ge=1, le=50),
+    region: str | None = Query(None, description="a single region, or every one"),
+    days: int | None = Query(None, ge=30, le=3650,
+                             description="how far back to queue findings from"),
     entitled: str | None = Query(None, description="comma-separated regions"),
     industry: str | None = Query(None, description="which industry to read"),
 ) -> dict:
@@ -591,7 +604,11 @@ def triage(
     reg = registry(vertical)
     scope = _entitlement_scope(entitled)
     regions = list(scope) if scope else ["North", "South", "East", "West"]
-
+    # A region the reader picked narrows the queue; entitlement still bounds it,
+    # so asking for a region outside the grant returns nothing rather than
+    # widening the scope back out.
+    if region:
+        regions = [r for r in regions if r == region]
     findings: list[dict] = []
     try:
         with warehouse(vertical) as wh:
@@ -607,15 +624,18 @@ def triage(
                 if raw.empty:
                     continue
 
-                for region in regions:
-                    scoped = raw[raw["region"] == region] if "region" in raw.columns else raw
+                for region_id in regions:
+                    scoped = (
+                        raw[raw["region"] == region_id]
+                        if "region" in raw.columns else raw
+                    )
                     if scoped.empty:
                         continue
                     frame = _roll_up(scoped, contract)
                     try:
                         d = _cached(
                             vertical,
-                            ("decompose", contract.kpi_id, region),
+                            ("decompose", contract.kpi_id, region_id),
                             lambda f=frame, c=contract: decompose_for(f, c),
                         )
                     except ValueError:
@@ -629,24 +649,138 @@ def triage(
                         (a for a in flagged if a.direction == "drop"),
                         key=lambda a: a.day,
                     )
-                    findings.extend(
-                        _episodes(drops, contract, region)
-                    )
+                    findings.extend(_episodes(drops, contract, region_id))
     except IngestError as exc:
         raise HTTPException(503, str(exc)) from exc
 
+    # The window the rail is showing. Without it the queue answered over the
+    # whole three years while the figures beside it answered over ninety days,
+    # and the two disagreed on screen about how much was wrong with the
+    # business. "Now" is the last day the warehouse actually holds rather than
+    # the wall clock, because the wall clock is not where this data lives and a
+    # window measured against it would be empty.
+    if days and findings:
+        latest = max(f["end"] for f in findings)
+        since = (date.fromisoformat(latest) - timedelta(days=days)).isoformat()
+        findings = [f for f in findings if f["end"] >= since]
+
     findings.sort(key=lambda f: f["impact_inr_per_day"], reverse=True)
+    findings, folded = _fold_the_graph(findings, reg)
     return {
         "findings": findings[:limit],
         "total": len(findings),
+        "folded": folded,
+        "region": region,
+        "days": days,
         "scope": list(scope) if scope else None,
         "basis": (
             "Ranked by rupee impact per day, converted through each contract's "
             "declared value_per_unit_inr so metrics in different units are "
-            "comparable. Consecutive flagged days are grouped into one finding. "
+            "comparable. Consecutive flagged days are grouped into one finding, "
+            "and a child metric moving in the same region and window as its "
+            "parent is folded into the parent rather than queued again. "
             "This is detection and prioritisation; the cause is a diagnosis away."
         ),
     }
+
+
+def _overlaps(a: dict, b: dict) -> bool:
+    """Whether two findings cover any of the same days."""
+    return a["start"] <= b["end"] and b["start"] <= a["end"]
+
+
+def _ancestry(reg) -> dict[str, set[str]]:
+    """Every KPI mapped to all of its ancestors, transitively."""
+    out: dict[str, set[str]] = {}
+
+    def walk(kpi_id: str, seen: frozenset[str] = frozenset()) -> set[str]:
+        if kpi_id in out:
+            return out[kpi_id]
+        if kpi_id in seen:                       # the registry rejects cycles;
+            return set()                         # this is belt and braces
+        parents = set(getattr(reg.get(kpi_id), "parents", ()) or ())
+        found = set(parents)
+        for parent in parents:
+            found |= walk(parent, seen | {kpi_id})
+        out[kpi_id] = found
+        return found
+
+    for contract in reg:
+        walk(contract.kpi_id)
+    return out
+
+
+def _fold_the_graph(findings: list[dict], reg) -> tuple[list[dict], int]:
+    """One event, one row, however many metrics it showed up in.
+
+    Revenue is orders times average order value, so a fall in orders and the
+    fall in revenue it produces are the same rupees counted twice -- and
+    literally twice, because both are priced through their contract's own
+    `value_per_unit_inr` back into the same currency. Queued separately they
+    took the top two places between them, and the child ranked *above* the
+    parent while being the one with no price/volume/mix identity to decompose:
+    the first thing a reader saw was a duplicate they could not act on.
+
+    A queue is a claim about what to look at first. Two rows for one event is
+    that claim being wrong twice over -- it wastes the top of the list, and it
+    inflates the total, which is the number a reader uses to judge how much is
+    wrong with the business.
+
+    Which row survives is decided by the graph, never by size. Folding into
+    whichever happened to rank higher is how the child won in the first place:
+    it is priced through its own `value_per_unit_inr` and can out-total its
+    parent, so sorting first and folding second just re-elects the duplicate.
+    The parent is the metric the movement is *about*, so the parent keeps the
+    row and names the children that corroborate it.
+
+    Nothing is discarded. A child that moved when its parent did not, or in a
+    window its parent's movement does not cover, is unrelated to that parent and
+    queues on its own -- which is exactly the case where the child is the
+    finding.
+    """
+    ancestry = _ancestry(reg)
+    groups: list[list[dict]] = []
+
+    for finding in findings:
+        kin = ancestry.get(finding["kpi_id"], set())
+        for group in groups:
+            # One metric contributes at most one row to an event. Without this,
+            # a chain of overlaps absorbs a *second* episode of the same metric
+            # through a shared child and folds it into the first -- two separate
+            # events reported as one, which is the opposite failure to the one
+            # this function exists to fix.
+            if finding["kpi_id"] in {m["kpi_id"] for m in group}:
+                continue
+            if any(
+                member["region"] == finding["region"]
+                and _overlaps(member, finding)
+                and (
+                    member["kpi_id"] in kin
+                    or finding["kpi_id"] in ancestry.get(member["kpi_id"], set())
+                )
+                for member in group
+            ):
+                group.append(finding)
+                break
+        else:
+            groups.append([finding])
+
+    kept: list[dict] = []
+    folded = 0
+    for group in groups:
+        # Closest to a root wins, and rupees break a tie between siblings.
+        head = min(
+            group,
+            key=lambda f: (len(ancestry.get(f["kpi_id"], ())), -f["impact_inr_per_day"]),
+        )
+        others = [f["kpi_id"] for f in group if f is not head]
+        if others:
+            head["also_moved"] = sorted(set(others))
+            folded += len(others)
+        kept.append(head)
+
+    kept.sort(key=lambda f: f["impact_inr_per_day"], reverse=True)
+    return kept, folded
 
 
 # Two flagged days further apart than this are separate events rather than one
