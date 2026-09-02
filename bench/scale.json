@@ -1,0 +1,52 @@
+{
+ "data": [
+  {
+   "multiple": 1,
+   "rows": 2519966,
+   "bytes_on_disk": 35663872,
+   "series_seconds": 0.1141,
+   "scoped_seconds": 0.0904,
+   "scoped_rows": 32879,
+   "untransformed_seconds": 0.0251,
+   "detect_seconds": 0.0061
+  }
+ ],
+ "load": [
+  {
+   "concurrency": 1,
+   "requests": 48,
+   "ok": 48,
+   "failed": 0,
+   "p50_seconds": 0.5841,
+   "p95_seconds": 0.6119,
+   "throughput_per_second": 1.85
+  },
+  {
+   "concurrency": 4,
+   "requests": 48,
+   "ok": 48,
+   "failed": 0,
+   "p50_seconds": 2.1569,
+   "p95_seconds": 2.5982,
+   "throughput_per_second": 1.81
+  },
+  {
+   "concurrency": 8,
+   "requests": 48,
+   "ok": 48,
+   "failed": 0,
+   "p50_seconds": 4.812,
+   "p95_seconds": 5.4866,
+   "throughput_per_second": 1.68
+  },
+  {
+   "concurrency": 16,
+   "requests": 48,
+   "ok": 48,
+   "failed": 0,
+   "p50_seconds": 9.3102,
+   "p95_seconds": 12.6448,
+   "throughput_per_second": 1.61
+  }
+ ]
+}

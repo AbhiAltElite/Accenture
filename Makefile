@@ -1,4 +1,4 @@
-.PHONY: setup gen demo test bench status audit guardrails smoke verify-ai capture-ai warm-ai readme-pdf docker docker-ai lint clean
+.PHONY: setup gen demo test bench scale status audit guardrails smoke verify-ai capture-ai warm-ai readme-pdf docker docker-ai lint clean
 
 setup:            ## create venv and install dependencies
 	python3 -m venv .venv
@@ -19,6 +19,9 @@ test:             ## run the test suite (includes the invariant tests)
 
 bench:            ## run the benchmark harness and print the report
 	PYTHONPATH=. .venv/bin/python -m bench.run --report
+
+scale:            ## measure what happens with more data and more readers
+	PYTHONPATH=. .venv/bin/python -m bench.scale $(ARGS)
 
 status:           ## show what the engine currently knows
 	.venv/bin/python -m whychain.inspect

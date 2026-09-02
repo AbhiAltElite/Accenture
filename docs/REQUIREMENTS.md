@@ -32,7 +32,7 @@ verticals, which is what the scalability criterion rests on.
 | 5 | Communicate uncertainty and abstain when evidence is insufficient | `whychain/confidence/score.py` (banding, abstention), `whychain/confidence/calibrate.py` (isotonic, held-out) | Select **South**, period 90 days: the engine reports UNKNOWN with what it ruled out and the next check. Measured: abstention precision **85.7%** | Built |
 | 6 | Actions grounded in levers, constraints and decision rights | `whychain/actions/` | Console section **The decision**: driver → lever → action → expected impact → owner → confidence → monitoring. Every field derived; a cause with no lever returns `controllable: false` and a monitoring rule instead of an invented action | Built |
 | 7 | Learns from analyst and business-user feedback | `whychain/feedback/`, `whychain/feedback/apply.py`, overlay composition in `whychain/contracts/registry.py` | Console section **Analyst review and corrections**. Corrections never edit a run and never move a computed value; they propose changes to business-owned inputs and need two independent submitters. A proposal on `materiality_threshold` can then be **applied by a named person and is consumed on the next run** — two analysts rejecting a ₹26,963/day movement takes West's flagged days from 23 to 16. The applied change is an audited overlay, not an edit to the contract, and the new floor is derived from the movements cited rather than typed. The other four targets have no consumer and refuse by name | Built, one of five targets consumable |
-| 8 | Realistic security, cost, latency and scalability constraints | `whychain/telemetry/`, `AccessPolicy` in contracts, `whychain/personas/` | Console section **Run receipt** and the margin column: per-stage latency, model calls, tokens, rupee cost. p95 **0.18s** per diagnosis | Built |
+| 8 | Realistic security, cost, latency and scalability constraints | `whychain/telemetry/`, `AccessPolicy` in contracts, `whychain/personas/`, `bench/scale.py` | Console section **Run receipt** and the margin column: per-stage latency, model calls, tokens, rupee cost. p95 **0.18s** per diagnosis. `make scale` measures the other two: at 16x the fact rows a region read costs 36x, all of it the per-query `dedupe_order_id` window (the same aggregation without lineage transforms is flat at 1.8x), and under 16 concurrent readers nothing fails but throughput is flat at ~1.7 req/s because the work is single-process | Built; scalability now measured rather than argued |
 
 ---
 
@@ -111,12 +111,11 @@ Stated here so no row above has to be read carefully.
   `candidate_source`, `driver_mapping` and `retrieval_filter` have no consumer in
   the engine and are refused by name rather than queued. Nothing here retrains
   anything, and the word "learning loop" is still not used.
-- **Scalability is argued, not demonstrated at scale.** The brief names it in
-  the prototype criteria and again for the finale, and objective 8 above maps to
-  telemetry, entitlement and cost, which are the security/cost/latency half.
-  What supports the scalability half is real but narrower than the word implies:
-  three industries on one unchanged engine, `dialect_targets` declared on every
-  canonical SQL, per-stage latency at p95 0.178s, and a model layer behind a
-  protocol. What is absent is a run against a warehouse that does not fit on one
-  machine, and a concurrency figure. Stated here rather than left for a judge to
-  find.
+- **Two scaling limits are now measured, and neither is fixed.** `make scale`
+  found them: a region read costs 36x at 16x the fact rows, entirely because
+  `dedupe_order_id` is a per-query window no predicate can be pushed below — the
+  fix is to materialise the deduped source at ingest, and it is not done. And
+  the engine serves about 1.7 diagnoses per second however many readers arrive,
+  because it is one process with one warehouse connection; multiple workers and
+  an externalised cache are the route out, and are not built. Nothing has been
+  run against a warehouse that does not fit on one machine.

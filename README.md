@@ -563,34 +563,64 @@ industries had cost the first one a single digit, it would be visible.
 `tests/test_verticals.py` keeps it true: 60 tests parameterised over all three,
 checking every pair of places that has to agree.
 
-### Scaling with data and load — designed for, not proven
+### Scaling with data and load — measured, and one wall found
 
-Worth being straight about which parts are built and which are argued.
+`make scale` replicates the fact tables into synthetic regions and times the same
+read underneath them, then drives the running console concurrently. Both halves
+were argued from the shape of the code until this existed; the argument turned
+out to be half right, and the half that was wrong is the more useful finding.
 
-**Built.** Every contract declares `dialect_targets: [duckdb, databricks,
-snowflake]`, and the KPI is expressed as canonical SQL rather than as pandas, so
-the aggregation runs in the warehouse and only the series comes back. Reading a
-region-day series is a `GROUP BY` over the source, not a scan into memory.
-`bridge_facts` bounds itself to the window plus its baseline instead of three
-years. The series and decomposition cache is keyed on a snapshot of the warehouse
-mtime, the contract contents and the industry, so it drops rather than serves a
-stale or cross-industry answer. Model calls are content-addressed and cached on
-disk, and used on the margin: query expansion runs only where the deterministic
-query is measurably failing. Measured: **p95 0.185s** per diagnosis on the
-deterministic path, and the whole console composes in about a second cold.
+**With more data.** Retail's 2.5M fact rows, replicated to 40M:
 
-**Argued, not built.** Concurrency is single-process; the cache is in-process and
-would need externalising behind more than one worker. The retriever indexes the
-ticket corpus in memory, which is fine at seven thousand documents and is the
-first thing that would need a real vector store — the `PgVectorRetriever` seam
-exists for exactly that and is unexercised. Nothing here has been run against a
-warehouse large enough to test the pushdown claim, so it rests on the SQL being
-SQL rather than on a measurement.
+| rows | on disk | one region | same query, no lineage transforms | rows returned |
+|---:|---:|---:|---:|---:|
+| 2,519,966 | 36 MB | 0.088s | 0.022s | 32,879 |
+| 10,079,864 | 135 MB | 0.443s | 0.037s | 32,879 |
+| 40,319,456 | 523 MB | 3.151s | 0.038s | 32,879 |
+
+The answer is the same size at every scale, so nothing is being pulled back
+proportional to the table — that part of the claim holds. But 16x the rows costs
+**36x the time**, and the third column says why. Strip the contract's declared
+lineage transforms and the identical aggregation goes from 0.022s to 0.038s:
+**1.8x for 16x the rows, effectively flat.** The `GROUP BY` does push down. The
+entire cost is `dedupe_order_id`, which is a window partitioned by order id, so
+no region predicate can be pushed below it and every read re-derives it across
+the whole table.
+
+That is a specific, fixable thing rather than a vague ceiling: **materialise the
+deduped source at ingest instead of per query.** Lineage stays executable — the
+transform still genuinely runs, once, where it is cheap — and the per-read cost
+goes to the flat column. It is not done here, and it is the first thing to do.
+
+Also worth stating: pushing the entitlement predicate below the aggregate was
+tried and reverted, because measurement said it bought nothing. DuckDB cannot
+push a region filter past the same window function, so the change was 2.543s
+against 2.559s at 40M rows — complexity for noise. An optimisation with no
+measured win is the same species of claim this section exists to replace.
+
+**With more readers.** 48 diagnoses on the deterministic path, one uvicorn
+process:
+
+| concurrent | ok | failed | p50 | p95 | req/s |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 48 | 0 | 0.584s | 0.612s | 1.85 |
+| 4 | 48 | 0 | 2.157s | 2.598s | 1.81 |
+| 8 | 48 | 0 | 4.812s | 5.487s | 1.68 |
+| 16 | 48 | 0 | 9.310s | 12.645s | 1.61 |
+
+Nothing fails and nothing corrupts, which is worth knowing. Throughput is also
+flat at roughly 1.7 requests per second however many readers arrive, and latency
+grows linearly with concurrency: the work is serialised behind one process and
+one warehouse connection. **So the honest capacity figure for this build is
+about two diagnoses per second, and adding readers adds queue, not throughput.**
+The route out is ordinary — multiple workers, a connection per worker, and the
+in-process series cache moved behind them — and none of it is built.
 
 **The honest summary.** Scaling to another business is demonstrated and costs
-configuration. Scaling to another two orders of magnitude of data is designed for
-and not yet proven, and the specific unproven claim is that the aggregation stays
-in the warehouse.
+configuration. Scaling with data is measured, and the wall is a per-query window
+function with a named fix. Scaling with readers is measured, and the number is
+low and single-process. What is no longer true is that any of this rests on the
+SQL being SQL.
 
 ## How this answers the challenge
 
