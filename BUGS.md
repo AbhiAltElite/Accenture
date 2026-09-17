@@ -33,6 +33,38 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-025 · The refusal was enforced on the diagnosis and not on the chart beside it
+**Found:** 2026-09-17 (click-through before a mentor demo) · **Severity:** P0 · **Status:** fixed
+
+**Symptom:** with Entitlement set to "South only" and West selected, the console
+printed *"Nothing was computed ... no figure for West was produced, so none can
+leak"* directly beneath the headline *"Net revenue fell 17.2% in West"*, West's
+movement chart with its expected band, and West's price/volume/mix bridge
+(₹2,71,320 → ₹2,34,939 a day). `make audit` reported 33/33 throughout.
+
+**Root cause:** B-022 moved the refusal ahead of computation on `diagnose` and
+`candidates`, and the audit check written for it asked those two endpoints. The
+page draws from four more. `series` (the headline and chart), `decomposition`
+(the bridge), `overview` (the metric table) and `document` (the full ticket
+behind a citation) took no entitlement parameter at all, and the console never
+sent one to `series` or `overview`. The same class as B-022: a restriction on one
+endpoint and not its neighbour is not enforced. A second leak waited behind the
+fix: `overview` caches its seasonal decomposition by `(kpi, region)`, so a scoped
+all-regions total would have been served from, or written into, the unscoped
+entry.
+
+**Fix:** one guard, `_refuse_outside_scope`, called by all six endpoints before
+anything is read; an all-regions request from a scoped reader is filtered to that
+reader's regions rather than totalled across everyone; the scope is part of the
+overview's cache key; the console sends the entitlement on every request and
+renders a 403 as a refusal rather than leaving the previous page on screen.
+
+**Regression test:** `tests/test_entitlement_neighbours.py`, parameterised over
+all three industries, and the audit check now drives all six endpoints.
+
+**Lesson:** the audit was green because it tested the endpoints the last fix
+touched rather than the ones a reader's page reads. Test from the page inward.
+
 ### B-023 · A governance artefact that governed nothing
 **Found:** 2026-08-30 (red-team audit) · **Severity:** P1 · **Status:** fixed
 

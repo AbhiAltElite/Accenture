@@ -46,9 +46,22 @@ def _():
     body = r.text.replace(",", "")
     for probe in ("rel-4.05", "26239"):
         assert probe.replace(",", "") not in body, f"refusal leaked {probe!r}"
-    r2 = c.get(f"/api/candidates?kpi=net_revenue&{window}&entitled=South")
-    assert r2.status_code == 403, f"candidates endpoint unguarded: {r2.status_code}"
-    return "403 before computation, on both endpoints, nothing leaked"
+    # Every neighbour that returns the same region's figures, not only the two
+    # the diagnosis reads. B-025: `series`, `decomposition`, `overview` and
+    # `document` took no entitlement, and the console drew West's chart and
+    # bridge under a banner saying nothing about West had been computed.
+    neighbours = [
+        f"/api/candidates?kpi=net_revenue&{window}",
+        f"/api/decomposition?kpi=net_revenue&{window}",
+        "/api/series?kpi=net_revenue&region=West&from=2026-08-01&to=2026-08-31",
+        "/api/overview?region=West",
+        "/api/document/TK006710",
+    ]
+    open_ = [(u, c.get(u + ("&" if "?" in u else "?") + "entitled=South").status_code)
+             for u in neighbours]
+    open_ = [(u, code) for u, code in open_ if code != 403]
+    assert not open_, f"unguarded: {open_}"
+    return "403 before computation on all six region endpoints, nothing leaked"
 
 @check("security", "No surface names a cause outside entitlement")
 def _():

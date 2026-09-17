@@ -29,7 +29,7 @@ import ssl
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from whychain.llm import Completion, ModelError, require_content
 
@@ -49,6 +49,30 @@ MAX_RETRY_PAUSE_SECONDS = 20.0
 # Transient by definition: rate limiting, and the provider reporting a demand
 # spike. Everything else is a real error and retrying it only doubles the wait.
 RETRYABLE = frozenset({429, 503})
+
+# The same transience reported inside a 200. OpenRouter relays an upstream
+# provider's capacity failure as `{"error": {"message": "Upstream error from
+# Nvidia: Service temporarily overloaded", "code": 502}}` with a success status,
+# and measured against the configured free model the identical request then
+# succeeded on the next attempt. Retrying only real status codes sent every one
+# of those straight to the deterministic fallback.
+_TRANSIENT_WORDS = ("overloaded", "temporarily", "rate limit", "rate-limited", "capacity")
+
+
+def _transient_body_error(payload: dict) -> bool:
+    error = payload.get("error")
+    if not error:
+        return False
+    if isinstance(error, dict):
+        try:
+            if int(error.get("code")) in RETRYABLE | {502, 504}:
+                return True
+        except (TypeError, ValueError):
+            pass
+        message = str(error.get("message", ""))
+    else:
+        message = str(error)
+    return any(word in message.lower() for word in _TRANSIENT_WORDS)
 
 
 def _retry_after(exc: urllib.error.HTTPError) -> float | None:
@@ -118,7 +142,10 @@ class OpenAICompatibleModel:
 
     name: str | None = None
     base_url: str | None = None
-    api_key: str | None = None
+    # Kept out of the repr. A dataclass prints every field by default, so the
+    # key reached any log line, traceback or debugger that showed the backend --
+    # including the run receipt's own error path -- despite the promise above.
+    api_key: str | None = field(default=None, repr=False)
     backend: str = "openai-compatible"
     # Why this backend is refusing to be used, if it is. Empty when usable.
     refusal: str = ""
@@ -201,6 +228,10 @@ class OpenAICompatibleModel:
                     request, timeout=TIMEOUT_SECONDS, context=_ssl_context()
                 ) as response:
                     payload = json.loads(response.read())
+                if _transient_body_error(payload) and attempt < RETRY_ATTEMPTS - 1:
+                    time.sleep(min(RETRY_PAUSE_SECONDS * (2**attempt),
+                                   MAX_RETRY_PAUSE_SECONDS))
+                    continue
                 # An empty 200 is a free tier shedding load wearing a success
                 # code, and it is transient in exactly the way 429 is: the same
                 # request succeeds a moment later. Measured against the

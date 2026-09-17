@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from whychain.evidence import ClaimState, Freshness
+from whychain.text import plural
 
 # What each input is worth. They sum to one so the score reads as a proportion.
 WEIGHTS = {
@@ -183,7 +184,8 @@ def _corroboration(supporting: int) -> Component:
         return Component("corroboration", 0.0, "nothing in the record describes this")
     return Component(
         "corroboration", value,
-        f"{supporting} independent document(s) describe it",
+        f"{plural(supporting, 'independent document')} "
+        + ("describes it" if supporting == 1 else "describe it"),
     )
 
 

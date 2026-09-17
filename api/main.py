@@ -58,6 +58,7 @@ from whychain.reconcile import reconcile
 from whychain.signalgap import PRECEDENT_LOOKBACK_DAYS, find_gap
 from whychain.signalgap.gap import read_signals
 from whychain.telemetry import Telemetry
+from whychain.text import label, plural, role, sentence_case
 from whychain.verify import filter_relevant, from_operations, from_promotions, verify
 from whychain.verify.tests import PLACEBO_WINDOWS
 from whychain.verticals import RETAIL_PLAN_COLUMNS, PlanColumns, Vertical
@@ -256,6 +257,54 @@ def _entitlement_scope(entitled: str | None) -> tuple[str, ...] | None:
     if entitled is None:
         return None
     return tuple(r.strip() for r in entitled.split(",") if r.strip())
+
+
+def _refuse_outside_scope(
+    region: str | None, scope: tuple[str, ...] | None, escalate_to: str
+) -> None:
+    """Refuse a question about a region the reader may not see, before computing.
+
+    One guard for every endpoint that returns a region's figures. It used to be
+    written out in `diagnose` and `candidates` only, and the console drew the
+    same region's chart from `series` and its bridge from `decomposition`, which
+    took no entitlement at all -- so the page announced that nothing had been
+    computed for a region while showing its fall, its expected band and its
+    price/volume/mix legs underneath the announcement. A restriction enforced on
+    one endpoint and not on its neighbour is not enforced.
+    """
+    if scope is None:
+        return
+    if region is None and scope:
+        return
+    if region is not None and region in scope:
+        return
+    asked = region or "all regions"
+    raise HTTPException(
+        403,
+        {
+            "error": "outside your entitlement",
+            "requested_region": region,
+            "entitled_regions": list(scope),
+            "escalate_to": escalate_to,
+            "detail": (
+                f"You are entitled to "
+                f"{', '.join(scope) if scope else 'no regions'} and asked "
+                f"about {asked}. Nothing was computed. Escalate to "
+                f"{role(escalate_to)} for access."
+            ),
+        },
+    )
+
+
+def _within_scope(frame: pd.DataFrame, scope: tuple[str, ...] | None) -> pd.DataFrame:
+    """Only the rows a reader may see, when no single region was asked for.
+
+    An all-regions total is a disclosure of every region in it, so a scoped
+    reader's total is the sum of their own regions and nothing else.
+    """
+    if scope is None or "region" not in frame.columns:
+        return frame
+    return frame[frame["region"].isin(scope)]
 
 
 def _vertical(industry: str | None) -> Vertical:
@@ -492,6 +541,7 @@ def overview(
     region: str | None = None,
     days: int = Query(90, ge=30, le=730),
     industry: str | None = Query(None, description="which industry to read"),
+    entitled: str | None = Query(None, description="comma-separated regions"),
 ) -> dict:
     """Every KPI at once, with its current state and how the graph connects them.
 
@@ -501,6 +551,10 @@ def overview(
     """
     vertical = _vertical(industry)
     reg = registry(vertical)
+    scope = _entitlement_scope(entitled)
+    _refuse_outside_scope(
+        region, scope, _contract(vertical.headline_kpi, vertical).owner_role
+    )
     try:
         with warehouse(vertical) as wh:
             rows = []
@@ -513,6 +567,7 @@ def overview(
                     )
                 except IngestError:
                     continue
+                raw = _within_scope(raw, scope)
                 if region and "region" in raw.columns:
                     raw = raw[raw["region"] == region]
                 if raw.empty:
@@ -527,7 +582,11 @@ def overview(
                     # as a row count this caller would have to know how to read.
                     d = _cached(
                         vertical,
-                        ("decompose", contract.kpi_id, region),
+                        # The scope is part of what was decomposed: an all-regions
+                        # total for a reader entitled to South is South's series,
+                        # and sharing a key with the unrestricted total would serve
+                        # one reader the other's figures.
+                        ("decompose", contract.kpi_id, region, scope),
                         lambda f=frame, c=contract: decompose_for(f, c),
                     )
                 except ValueError:
@@ -854,13 +913,18 @@ def _episodes(drops, contract, region: str) -> list[dict]:
 
 
 @app.get("/api/document/{doc_id}")
-def document(doc_id: str, industry: str | None = Query(None)) -> dict:
+def document(
+    doc_id: str,
+    industry: str | None = Query(None),
+    entitled: str | None = Query(None, description="comma-separated regions"),
+) -> dict:
     """The full source record behind a citation.
 
     A quotation with a character range is only checkable if the reader can open
     the document and see the range in place.
     """
     vertical = _vertical(industry)
+    scope = _entitlement_scope(entitled)
     try:
         with warehouse(vertical) as wh:
             docs = wh.table("voice_ops")
@@ -871,6 +935,13 @@ def document(doc_id: str, industry: str | None = Query(None)) -> dict:
     if match.empty:
         raise HTTPException(404, f"no document {doc_id}")
     row = match.iloc[0]
+    # A record filed against a region is that region's record. Documents filed
+    # against every region ("All") are readable by anyone entitled to any.
+    doc_region = str(row["region"])
+    if doc_region not in ("All", "None", ""):
+        _refuse_outside_scope(
+            doc_region, scope, _contract(vertical.headline_kpi, vertical).owner_role
+        )
     text = str(row["text"])
     return {
         "doc_id": doc_id,
@@ -894,9 +965,12 @@ def series(
     frm: date | None = Query(None, alias="from"),
     to: date | None = None,
     industry: str | None = Query(None, description="which industry to read"),
+    entitled: str | None = Query(None, description="comma-separated regions"),
 ) -> dict:
     vertical = _vertical(industry)
     contract = _contract(kpi, vertical)
+    scope = _entitlement_scope(entitled)
+    _refuse_outside_scope(region, scope, contract.owner_role)
 
     try:
         with warehouse(vertical) as wh:
@@ -910,6 +984,7 @@ def series(
     except IngestError as exc:
         raise HTTPException(503, str(exc)) from exc
 
+    raw = _within_scope(raw, scope)
     for column, value in (("region", region), ("channel", channel), ("device", device)):
         if value and column in raw.columns:
             raw = raw[raw[column] == value]
@@ -1122,6 +1197,7 @@ def decomposition(
     event_end: date = Query(..., alias="end"),
     baseline_days: int = Query(14, ge=7, le=90),
     industry: str | None = Query(None, description="which industry to read"),
+    entitled: str | None = Query(None, description="comma-separated regions"),
 ) -> dict:
     """Split a movement into price, volume and mix, and locate it by dimension.
 
@@ -1130,6 +1206,8 @@ def decomposition(
     """
     vertical = _vertical(industry)
     contract = _contract(kpi, vertical)  # 404s on an unknown metric before touching the warehouse
+    scope = _entitlement_scope(entitled)
+    _refuse_outside_scope(region, scope, contract.owner_role)
 
     # A bridge on a rate would be a price effect on a percentage. Decline rather
     # than decomposing something else and labelling it with this metric.
@@ -1151,6 +1229,7 @@ def decomposition(
     except IngestError as exc:
         raise HTTPException(503, str(exc)) from exc
 
+    panel = _within_scope(panel, scope)
     if region:
         panel = panel[panel["region"] == region]
     day = pd.to_datetime(panel["d"]).dt.date
@@ -1293,22 +1372,7 @@ def candidates(
         # CANNOT_VERIFY. Using a region as a statistical control is not the same
         # act as disclosing its figures to a reader, and only the second is what
         # entitlement governs.
-        if scope is not None and region not in scope:
-            raise HTTPException(
-                403,
-                {
-                    "error": "outside your entitlement",
-                    "requested_region": region,
-                    "entitled_regions": list(scope),
-                    "escalate_to": contract.owner_role,
-                    "detail": (
-                        f"You are entitled to "
-                        f"{', '.join(scope) if scope else 'no regions'} and asked "
-                        f"about {region}. Nothing was computed. Escalate to "
-                        f"{contract.owner_role} for access."
-                    ),
-                },
-            )
+        _refuse_outside_scope(region, scope, contract.owner_role)
         found = [
             c for c in found
             if not c.exposed_regions or region in c.exposed_regions
@@ -1489,22 +1553,8 @@ def diagnose(
     # answer carries the same figure in a contribution table, a scenario
     # estimate, a narrative sentence and a per-cause map, and each has to be
     # found and removed separately. Refusing the question removes the class.
-    if region and scope is not None and region not in scope:
-        raise HTTPException(
-            403,
-            {
-                "error": "outside your entitlement",
-                "requested_region": region,
-                "entitled_regions": list(scope),
-                "escalate_to": contract.owner_role,
-                "detail": (
-                    f"You are entitled to "
-                    f"{', '.join(scope) if scope else 'no regions'} and asked "
-                    f"about {region}. Nothing was computed. Escalate to "
-                    f"{contract.owner_role} for access."
-                ),
-            },
-        )
+    if region:
+        _refuse_outside_scope(region, scope, contract.owner_role)
 
     scoped = panel[panel["region"] == region] if region else panel
     if scoped.empty:
@@ -1546,7 +1596,7 @@ def diagnose(
         )
         t.note = (
             f"{agreement.state.value}"
-            + (f" against {agreement.source}, worst {agreement.worst_residual:.1%}"
+            + (f" against the {label(agreement.source)}, worst {agreement.worst_residual:.1%}"
                if agreement.days else "")
         )
 
@@ -1593,8 +1643,8 @@ def diagnose(
             top_n=8,
         )
         t.note = (
-            f"track A: {len(ranking.exact)} exact contribution(s); "
-            f"track B: {len(ranking.associational)} associational, none stateable"
+            f"Track A: {plural(len(ranking.exact), 'exact contribution')}; "
+            f"Track B: {len(ranking.associational)} associational, none stateable"
         )
 
     with tel.stage("verify", MethodClass.CAUSAL) as t:
@@ -1697,7 +1747,7 @@ def diagnose(
             price_delta=price_delta, horizon_days=horizon_days,
             recovery=vertical.recovery,
         )
-        t.note = f"{len(cards)} decision card(s), every field derived"
+        t.note = f"{plural(len(cards), 'decision card')}, every field derived"
 
     with tel.stage("signalgap", MethodClass.DETERMINISTIC) as t:
         verified_descriptions = [
@@ -1732,8 +1782,8 @@ def diagnose(
             region=region, causes=verified_descriptions, history=history,
         )
         t.note = (
-            f"verdict {gap.verdict.value}, {gap.recurrence} prior episode(s), "
-            f"{gap.recurrence_that_hurt} of which moved the metric"
+            f"Verdict {label(gap.verdict.value)}, {plural(gap.recurrence, 'prior episode')}, "
+            f"{gap.recurrence_that_hurt or 'none'} of which moved the metric"
         )
 
     stale = tuple(f"{f.source_id} is stale by {f.lag}" for f in sources.values()
@@ -1827,12 +1877,12 @@ def diagnose(
             "ruled_out": [],
             "blocking": [agreement.reason],
             "next_check": (
-                f"reconcile {kpi} against {agreement.source} for this window "
+                f"Reconcile {label(kpi)} against the {label(agreement.source)} for this window "
                 f"before asking what moved it; the two systems disagree by "
                 f"{agreement.worst_residual:.0%} and one of them is wrong"
             ),
             "question": (
-                f"Is the {kpi} extract complete for "
+                f"Is the {label(kpi)} extract complete for "
                 f"{event_start.isoformat()} to {event_end.isoformat()}?"
             ),
         }
@@ -1902,7 +1952,7 @@ def diagnose(
         t.cache_hits = story.cache_hits
         t.tokens_in, t.tokens_out = story.tokens_in, story.tokens_out
         t.note = (
-            f"{story.writer}; {len(story.sentences)} sentence(s) accepted, "
+            f"{sentence_case(story.writer)}; {plural(len(story.sentences), 'sentence')} accepted, "
             f"{len(story.validation.rejected)} rejected by the validator"
         )
     result["narrative"] = story.as_dict()
@@ -2074,9 +2124,16 @@ def read_feedback(run_id: str | None = None) -> dict:
     }
 
 
+# The console is one file with no build step and no hashed filename, so nothing
+# tells a browser a new version exists. Heuristic caching then served a page from
+# before a fix -- a refusal rendered by the old script on top of the new API --
+# which is the worst moment to learn the fix is not what the reader sees.
+_NO_CACHE = {"Cache-Control": "no-cache"}
+
+
 @app.get("/")
 def index() -> FileResponse:
-    return FileResponse(UI / "index.html")
+    return FileResponse(UI / "index.html", headers=_NO_CACHE)
 
 
 @app.get("/kpi/{kpi_id}")
@@ -2087,7 +2144,7 @@ def kpi_page(kpi_id: str) -> FileResponse:
     to describe how to reach, so the view has a real URL and the server hands
     back the app rather than a 404 for it.
     """
-    return FileResponse(UI / "index.html")
+    return FileResponse(UI / "index.html", headers=_NO_CACHE)
 
 
 if UI.exists():

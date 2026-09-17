@@ -260,3 +260,18 @@ class TestTheWholeStage:
         unknown = {**RESULT, "verdict": "unknown", "verified": [], "decisions": []}
         story = narrate(unknown, writer=TemplateWriter(), known_entities=KNOWN)
         assert "unknown rather than its best guess" in story.text
+
+
+def test_the_model_is_not_shown_the_run_id():
+    """A fresh random id in the prompt made every narrative a cache miss."""
+    import copy
+    import json as _json
+
+    from whychain.narrate import build_brief
+
+    first = copy.deepcopy(RESULT)
+    second = copy.deepcopy(RESULT)
+    second["run_id"] = "run-somethingelse"
+    a, b = build_brief(first), build_brief(second)
+    assert "run_id" not in a.for_model()
+    assert _json.dumps(a.for_model(), sort_keys=True) == _json.dumps(b.for_model(), sort_keys=True)

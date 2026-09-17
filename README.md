@@ -3,7 +3,7 @@
 
 [![CI](https://github.com/AbhiAltElite/Accenture/actions/workflows/ci.yml/badge.svg)](https://github.com/AbhiAltElite/Accenture/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-486-informational)](tests/)
+[![Tests](https://img.shields.io/badge/tests-501-informational)](tests/)
 [![Audit checks](https://img.shields.io/badge/audit-33%2F33-informational)](docs/SECURITY-LOGIC-CHECKLIST.md)
 
 An evidence-backed diagnosis engine for business metric movements.
@@ -33,13 +33,17 @@ make setup && make gen     # environment, then the synthetic warehouse (~40s)
 make demo                  # console at http://localhost:8000
 ```
 
-1. **Open `net_revenue`, West, Aug 2026.** Three verified causes, and a planted
-   decoy that correlates perfectly and caused nothing. Click any sentence and it
-   resolves to the query, the rows, or the character span behind it.
-2. **Open `net_revenue`, South.** The engine returns UNKNOWN, says what it ruled
-   out, and asks a clarifying question. Refusal is the feature.
-3. **Set Entitlement to "South only" while viewing West.** The redaction fires
-   and names what was withheld, what it was worth, and who to escalate to.
+1. **Open `net_revenue`, West, 13–15 Aug 2026** (the second row of the triage
+   queue). Three verified causes, and a planted decoy that correlates perfectly
+   and caused nothing. Click any highlighted claim and it resolves to the tests,
+   the rows, or the character span in the ticket behind it.
+2. **Open `net_revenue`, West, 27–28 Jul 2026** (the fourth row). Nothing in the
+   operational record survives testing, so the engine returns UNKNOWN at 0.15
+   confidence, names the next check and asks a clarifying question. Refusal is
+   the feature.
+3. **Set Entitlement to "South only"**, first with All regions (three causes are
+   withheld and the notice names who to escalate to), then with West selected
+   (nothing about West is computed or drawn).
 4. **Run `make bench`** for accuracy, trap rejection, calibration and latency,
    and **`make audit`** for 33 executable security, logic and design checks.
 
@@ -545,7 +549,7 @@ calibration error from 0.117 to 0.069 raw, and 0.099 to 0.042 on the held-out
 half, with every other rate above unchanged. A confidence score that is right
 about how uncertain it is was the point of having one.
 
-486 tests, `make audit` runs 33 executable security, logic and design checks.
+501 tests, `make audit` runs 33 executable security, logic and design checks.
 The suite forces the deterministic backend: a test whose result depends on what
 a 7B happened to generate is a sample of one, not a test.
 
@@ -621,7 +625,7 @@ The backend is also selectable at runtime from the console, and per request via
 | Command | What it does |
 |---|---|
 | `make demo` | the console |
-| `make test` | 486 tests; `-m invariant` for the 227 correctness ones |
+| `make test` | 501 tests; `-m invariant` for the 238 correctness ones |
 | `make bench` | accuracy, trap rejection, calibration, latency |
 | `make audit` | 33 executable security, logic and design checks |
 | `make status` | the KPI graph through the real contract loader |
@@ -633,22 +637,25 @@ The backend is also selectable at runtime from the console, and per request via
 
 ## What to look at first
 
-Six scenarios are planted in the generated data, each demonstrating a different
-required behaviour.
+Seven scenarios are planted in the generated data, each demonstrating a different
+required behaviour. Five are visible in the console; two are exercised by the
+test suite, and the table says which.
 
 | Scenario | Where | Shows |
 |---|---|---|
 | Multi-factor movement | `net_revenue`, West, Aug 2026 | three verified causes plus a planted decoy that correlates perfectly and caused nothing |
-| Low confidence | `net_revenue`, South | a nationwide shallow movement leaves DiD no control group; the engine returns UNKNOWN with what it ruled out and a clarifying question |
-| Sparse history | `aov`, Aug 2026 | a late-launched SKU; the verdict is `CANNOT_VERIFY`, deliberately distinct from `REJECTED` |
-| Seasonal decoy | `net_revenue`, Oct 2025 | Diwali peaks then falls 18% overnight; correctly not an anomaly |
-| Signal gap | `on_time_delivery`, West, Jul 2026 | 72h of public warning, a process that consumes no external risk signal, prior recurrence |
-| Not foreseeable | `on_time_delivery`, South, May 2026 | a 40-minute carrier warning; the engine declines to call it a gap |
+| Low confidence | `net_revenue`, West, 27–28 Jul 2026 (fourth row of the queue) | nothing in the operational record survives testing; the engine returns UNKNOWN with the next check and a clarifying question. The planted nationwide shallow movement (3–9 Jun, no control group for DiD) is not flagged by detection, so it is exercised by the benchmark rather than the console |
+| Sparse history | `aov`, Aug 2026 — **in `tests/test_sparse_history.py`, not the console** | a late-launched SKU; the verdict is `CANNOT_VERIFY`, deliberately distinct from `REJECTED`. The console cannot slice to one SKU, so this case is demonstrated by the test suite |
+| Seasonal decoy | `net_revenue`, Oct 2025 | Diwali peaks then falls 18% overnight; the fall is correctly not an anomaly |
+| Signal gap | `net_revenue`, West, 13–15 Aug 2026, section 03 | nine public warnings with up to 72h of lead time, a process that consumes no external risk signal, prior recurrence. The `on_time_delivery` planting of the same finding is exercised in `tests/test_signalgap.py`, because a full diagnosis is available for `net_revenue` only |
+| Not foreseeable | `on_time_delivery`, South, May 2026 — **in `tests/test_signalgap.py`** | a 40-minute carrier warning; the engine declines to call it a gap |
+| Broken feed | `net_revenue`, North, 10–12 Jun 2026 | the POS extract drops a channel while the ledger keeps posting; the verdict is CONTRADICTED |
 
 Also worth doing: switch **Reading as** between Analyst, CFO and Ops and watch
 the projection change while the evidence does not. Set **Entitlement** to "South
-only" while viewing West and watch the redaction fire, naming what was withheld,
-what it was worth, and who to escalate to.
+only" with All regions selected and watch the redaction fire, naming what was
+withheld and who to escalate to; select West under the same entitlement and the
+page refuses before drawing anything.
 
 ## Troubleshooting and FAQ
 
@@ -784,6 +791,16 @@ it, including the rows only partly met.
 
 Stated plainly, because a limitation found by a reader costs more than one
 declared by the author.
+
+- **Concurrent causes in one region confound each other.** A candidate is scoped
+  by region, channel, device and category, not by SKU, so a SKU-level price
+  change is tested against its whole region, and in West, 13–15 Aug, that region
+  is also carrying a release regression and a storm. The planted competitor
+  price cut, a true cause at −9% on one category, fails its placebo and is
+  rejected; the SKU launch dip is verified with part of its neighbours' effect
+  attributed to it. The engine does not hide this, since the three verified causes
+  sum to 177% of the movement and confidence is discounted for the overlap, but
+  it means "verified" is not "exactly apportioned".
 
 - **Difference-in-differences needs a control group**, and the control is
   geography. A repricing, a platform release or a policy change that lands

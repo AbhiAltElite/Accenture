@@ -181,3 +181,24 @@ def test_cfo_outlook_separates_recoverable_from_merely_observable():
     # The weather loss is real and is not recoverable; it must not be quietly
     # folded into the number a CFO reads as "what we get back".
     assert outlook["not_actionable_inr_per_day"] == pytest.approx(15943.19)
+
+
+def test_cfo_outlook_never_totals_more_than_the_movement_when_causes_overlap():
+    """Overlapping causes each carry their own measured loss, so summing the cards
+    counted the shared part twice: ₹35,834 recoverable and ₹14,169 unrecoverable
+    against a ₹36,381 fall."""
+    result = _result()
+    result["movement"] = {**result["movement"], "overlap": 1.77}
+    outlook = project(result, Persona.CFO)["recovery_outlook"]
+    assert outlook["overlap_adjusted"] is True
+    assert outlook["recoverable_inr_per_day"] == pytest.approx(23568.27 / 1.77, abs=0.01)
+    assert outlook["not_actionable_inr_per_day"] == pytest.approx(15943.19 / 1.77, abs=0.01)
+    assert "overlap" in outlook["note"]
+
+
+def test_cfo_outlook_is_unchanged_when_causes_do_not_overlap():
+    result = _result()
+    result["movement"] = {**result["movement"], "overlap": 1.0}
+    outlook = project(result, Persona.CFO)["recovery_outlook"]
+    assert outlook["overlap_adjusted"] is False
+    assert outlook["recoverable_inr_per_day"] == pytest.approx(23568.27)

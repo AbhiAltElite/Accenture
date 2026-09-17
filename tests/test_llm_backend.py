@@ -334,3 +334,78 @@ class TestAnEmptyAnswerIsAFailure:
         out = cache.complete(system="s", user="u", schema={}, max_tokens=10)
         assert out.text and not out.cached
         assert cache.hits == 0 and good.calls == 1
+
+
+class TestTheHostedClient:
+    """Two things found against the live OpenRouter endpoint on 17 Sep."""
+
+    def test_the_key_never_appears_in_the_repr(self):
+        from whychain.llm.hosted import OpenAICompatibleModel
+
+        model = OpenAICompatibleModel(
+            name="m", base_url="https://example.invalid/v1", api_key="sk-secret-123"
+        )
+        assert "sk-secret-123" not in repr(model)
+
+    def test_an_upstream_overload_in_a_200_body_is_retried(self, monkeypatch):
+        import io
+        import json as _json
+
+        from whychain.llm import hosted
+
+        replies = [
+            {"error": {"message": "Upstream error from Nvidia: Service temporarily overloaded",
+                       "code": 502}},
+            {"choices": [{"message": {"content": '{"ok": true}'}, "finish_reason": "stop"}],
+             "usage": {"prompt_tokens": 3, "completion_tokens": 2}},
+        ]
+
+        class Reply(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        calls = []
+
+        def fake_urlopen(request, timeout=None, context=None):
+            calls.append(request)
+            return Reply(_json.dumps(replies[len(calls) - 1]).encode())
+
+        monkeypatch.setattr(hosted.urllib.request, "urlopen", fake_urlopen)
+        monkeypatch.setattr(hosted.time, "sleep", lambda s: None)
+        model = hosted.OpenAICompatibleModel(
+            name="m", base_url="https://example.invalid/v1", api_key="k"
+        )
+        completion = model.complete(system="s", user="u", schema={"type": "object"})
+        assert len(calls) == 2
+        assert completion.text == '{"ok": true}'
+
+    def test_a_real_error_in_a_200_body_is_not_retried(self, monkeypatch):
+        import io
+        import json as _json
+
+        from whychain.llm import ModelError, hosted
+
+        class Reply(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        calls = []
+
+        def fake_urlopen(request, timeout=None, context=None):
+            calls.append(request)
+            return Reply(_json.dumps({"error": {"message": "invalid model id"}}).encode())
+
+        monkeypatch.setattr(hosted.urllib.request, "urlopen", fake_urlopen)
+        monkeypatch.setattr(hosted.time, "sleep", lambda s: None)
+        model = hosted.OpenAICompatibleModel(
+            name="m", base_url="https://example.invalid/v1", api_key="k"
+        )
+        with pytest.raises(ModelError):
+            model.complete(system="s", user="u", schema={"type": "object"})
+        assert len(calls) == 1

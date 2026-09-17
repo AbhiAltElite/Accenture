@@ -24,6 +24,8 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+from whychain.text import plural, role
+
 
 class Persona(StrEnum):
     CFO = "cfo"
@@ -154,7 +156,7 @@ def _redact_narrative(narrative: object, withheld: list[dict]) -> object:
         out["validation"] = redacted_validation
     note = str(out.get("note") or "")
     out["note"] = (
-        f"{note} · {removed} sentence(s) removed: they described a cause outside "
+        f"{note} · {plural(removed, 'sentence')} removed: they described a cause outside "
         f"this reader's entitlement"
     ).strip(" ·")
     return out
@@ -309,13 +311,15 @@ def project(
         )
         material = abs(largest.get("contribution") or 0.0) > 0
         out["entitlement"]["notice"] = (
-            f"{len(withheld_causes)} verified cause(s) lie outside your "
-            f"entitlement scope and are not shown"
+            f"{plural(len(withheld_causes), 'verified cause')} "
+            + ("lies" if len(withheld_causes) == 1 else "lie")
+            + " outside your entitlement scope and "
+            + ("is" if len(withheld_causes) == 1 else "are") + " not shown"
             + (
                 ", and at least one of them is material to this movement. "
                 if material else ". "
             )
-            + f"Escalate to {escalation_role} to see them, including their size."
+            + f"Escalate to {role(escalation_role)} to see them, including their size."
         )
         out["entitlement"]["escalate_to"] = escalation_role
         out["entitlement"]["withheld_count"] = len(withheld_causes)
@@ -340,7 +344,9 @@ def project(
             "controllable": top["controllable"],
             "awaiting_approval_from": (top.get("approval") or {}).get("assigned_to"),
         }
-        out["recovery_outlook"] = _outlook(decisions)
+        out["recovery_outlook"] = _outlook(
+            decisions, (result.get("movement") or {}).get("overlap")
+        )
         # The full card for the one decision being backed, so the console can
         # show the lever, the owner and the monitoring rule rather than a
         # summary of them.
@@ -423,8 +429,18 @@ def project(
     return out
 
 
-def _outlook(decisions: list[dict]) -> dict:
-    """What is recoverable and what is not, in one line of arithmetic."""
+def _outlook(decisions: list[dict], overlap: float | None = None) -> dict:
+    """What is recoverable and what is not, in one line of arithmetic.
+
+    Each card's loss is what its own causal test measured, and when verified
+    causes overlap those losses sum to more than the movement: three causes
+    measured at 177% of a fall. Adding the cards' recoveries as they stand then
+    told a CFO that ₹35,834 of a ₹36,381 fall was recoverable while ₹14,169 of it
+    had no lever -- more recoverable and unrecoverable loss than there was loss.
+    So the totals are scaled back by the overlap, which keeps each cause's share
+    and makes the two lines add to no more than the fall. The individual cards
+    are untouched: each is still the right figure for the one decision it backs.
+    """
     recoverable = sum(
         d["expected_recovery_inr_per_day"] or 0.0
         for d in decisions if d["controllable"]
@@ -432,13 +448,21 @@ def _outlook(decisions: list[dict]) -> dict:
     unrecoverable = sum(
         d["measured_loss_inr_per_day"] for d in decisions if not d["controllable"]
     )
+    scale = 1.0 / overlap if overlap and overlap > 1.0 else 1.0
+    note = (
+        "recoverable is the sum of expected recoveries on causes with a "
+        "lever; the remainder has no lever and can only be monitored"
+    )
+    if scale < 1.0:
+        note += (
+            f". The verified causes overlap ({overlap:.0%} of the movement), so both "
+            "totals are scaled back to the movement rather than counted twice"
+        )
     return {
-        "recoverable_inr_per_day": round(recoverable, 2),
-        "not_actionable_inr_per_day": round(unrecoverable, 2),
-        "note": (
-            "recoverable is the sum of expected recoveries on causes with a "
-            "lever; the remainder has no lever and can only be monitored"
-        ),
+        "recoverable_inr_per_day": round(recoverable * scale, 2),
+        "not_actionable_inr_per_day": round(unrecoverable * scale, 2),
+        "overlap_adjusted": scale < 1.0,
+        "note": note,
     }
 
 

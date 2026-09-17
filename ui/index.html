@@ -217,6 +217,7 @@ details.railnote > summary::after{content:"\2009+";font-family:var(--mono)}
 details.railnote[open] > summary::after{content:"\2009\2212"}
 details.railnote > summary:hover{color:var(--ink-2)}
 details.railnote > p{margin-top:var(--sp-2)}
+details.queuenote{margin-top:var(--sp-3)}
 
 /* ═══ document head ══════════════════════════════════════════════════════ */
 .eyebrow{font-family:var(--mono);font-size:var(--t-xs);color:var(--ink-3);
@@ -532,6 +533,11 @@ td.num,th.num{text-align:right}
 .agreed{font-size:var(--t-sm);color:var(--ink-3);margin-bottom:var(--sp-5);
   line-height:var(--lh-snug);max-width:var(--measure)}
 .agreed .state{margin-right:var(--sp-2)}
+.madeby{display:flex;flex-wrap:wrap;gap:var(--sp-2) var(--sp-5);font-size:var(--t-xs);
+  color:var(--ink-3);line-height:var(--lh-snug);padding:var(--sp-3) 0;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  margin:calc(-1 * var(--sp-2)) 0 var(--sp-5);max-width:var(--measure)}
+.madeby .state{margin-right:var(--sp-2)}
 .contradiction{border-top:2px solid var(--down);background:var(--down-soft);
   padding:var(--sp-4) var(--sp-5) var(--sp-5);margin-bottom:var(--sp-6);
   border-radius:0 0 var(--r-md) var(--r-md)}
@@ -706,72 +712,6 @@ table.components tr:last-child td{border-bottom:none}
 .gate b{display:block;font-family:var(--serif);font-size:var(--t-lg);
   color:var(--ink);line-height:1.2;margin-bottom:2px}
 .gate b.no{color:var(--down)}
-
-/* Which model did which job. Each task is routed to the cheapest tier that can
-   do it rather than every stage defaulting to a single configured model, so a reader can
-   see the routing was a decision. */
-function routingMarkup(){
-  const rows = ((STATE.diagnosis||{}).llm||{}).routing || [];
-  if(!rows.length) return '';
-  return `<h4 class="label" style="margin-top:var(--sp-5)">Which model did which job</h4>
-    <div class="scroll"><table><thead><tr><th>Stage</th><th>What it needs</th>
-      <th>Tier</th><th>Model</th></tr></thead><tbody>
-    ${rows.map(r=>`<tr>
-      <td>${escapeHtml(r.task)}</td>
-      <td class="muted">${escapeHtml(r.needs)}</td>
-      <td>${escapeHtml(r.tier)}</td>
-      <td><code>${escapeHtml(r.model)}</code>${
-        r.backend==='none'?'':` <span class="muted">${escapeHtml(r.backend)}</span>`}</td>
-    </tr>`).join('')}</tbody></table></div>`;
-}
-
-/* The same case with the model and without. This is the claim made checkable:
-   the figures are identical, and only the reading and the prose differ. */
-function contrastMarkup(){
-  const c = STATE.contrast;
-  if(!c) return '';
-  if(!c.captured){
-    return `<p class="muted" style="margin-top:var(--sp-5)">${escapeHtml(c.note)}</p>`;
-  }
-  const a = c.with_model, b = c.without_model;
-  // Name the case. This panel is a capture, not a rerun of whatever is on
-  // screen, and it was rendered with no indication of that -- so a reader
-  // comparing its figures against the page above found two sets that did not
-  // reconcile and no reason given.
-  const which = c.case
-    ? `${title(c.case.kpi)}, ${escapeHtml(c.case.region)}, ${escapeHtml(c.case.start)} to ${escapeHtml(c.case.end)}`
-    : '';
-  // Reading is where the model does its work here, so it is counted rather than
-  // left to be inferred from the prose. Sentence counts alone were the whole
-  // caption, which measured the least interesting difference.
-  const read = v => `${v.documents_found} document(s) read, ${v.citations} span(s) cited`;
-  return `
-    <h4 class="label" style="margin-top:var(--sp-5)">With the model, and without</h4>
-    <p class="muted">${escapeHtml(c.note)}</p>
-    <p class="muted">A captured run of <b>${which}</b>, not the diagnosis above:
-      ${escapeHtml((c.captured_at||'').slice(0,10))} against ${escapeHtml(c.backend)}.
-      Its figures belong to that case.</p>
-    <div class="tracks" style="margin-top:var(--sp-4)">
-      <div>
-        <h4 class="exactly">Model on</h4>
-        <p class="caption">${a.model_calls} call(s) · ${a.tokens} tokens ·
-          ${read(a)} · ${a.sentences} sentence(s), ${a.rejected} rejected</p>
-        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(a.narrative)}</p>
-      </div>
-      <div>
-        <h4 class="merely">Model off</h4>
-        <p class="caption">${b.model_calls} call(s) · ${read(b)} ·
-          ${b.sentences} sentence(s), ${b.rejected} rejected</p>
-        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(b.narrative)}</p>
-      </div>
-    </div>
-    <div class="gate" style="margin-top:var(--sp-4)">
-      ${Object.entries(a.figures).map(([k,v])=>`<div><b>${
-        escapeHtml(String(Array.isArray(v)?v.length:v))}</b>${escapeHtml(k.replace(/_/g,' '))}</div>`).join('')}
-    </div>
-    <p class="muted">Every figure above is identical in both columns. That is the
-      architecture's central claim, shown rather than asserted.</p>`;
-}
 
 /* ═══ feedback ═══════════════════════════════════════════════════════════ */
 .fb{display:flex;gap:var(--sp-3);flex-wrap:wrap;align-items:center;
@@ -996,6 +936,18 @@ const role = t => {
   const w = words(t).trim();
   return w ? w[0].toUpperCase() + w.slice(1) : w;
 };
+/* Engine prose made readable at the point it is shown.
+
+   The narrative carries identifiers deliberately: the validator rejects a
+   snake_case name the evidence does not contain, which is how an invented owner
+   is caught. Humanising them in the engine would switch that check off. So the
+   identifiers travel and are validated, and the reader sees words. */
+const prose = t => String(t == null ? '' : t)
+  .replace(/\b[a-z]+(?:_[a-z]+)+\b/g, m => m.replace(/_/g, ' '))
+  .replace(/\((-)(?=[\d\u20B9])/g, '(\u2212')
+  .replace(/\.\.(\s|$)/g, '.$1')
+  .replace(/\(s\)/g, 's');
+
 const sentence = t => {
   const clean = String(t == null ? '' : t).replace(/_/g,' ').trim();
   return clean ? clean[0].toUpperCase() + clean.slice(1) : clean;
@@ -1287,14 +1239,24 @@ async function showOverview(){
   // reader that none of them mean anything.
   const q=new URLSearchParams(); if(region) q.set('region',region);
   if(days) q.set('days',days);
+  if(STATE.entitled) q.set('entitled',STATE.entitled);
   const tq=new URLSearchParams(); if(region) tq.set('region',region);
   if(days) tq.set('days',days);
   tq.set('limit','8');
   if(STATE.entitled) tq.set('entitled',STATE.entitled);
-  const [data, queue] = await Promise.all([
-    (await fetch('/api/overview?'+q)).json(),
-    fetch('/api/triage?'+tq).then(r=>r.json()).catch(()=>null),
+  const [ores, queue] = await Promise.all([
+    fetch('/api/overview?'+q),
+    fetch('/api/triage?'+tq).then(r=>r.ok ? r.json() : null).catch(()=>null),
   ]);
+  if(!ores.ok){
+    const why = (await ores.json().catch(()=>({}))).detail || {};
+    $('#overview').innerHTML = `<div class="overview">
+      <h1>Outside your entitlement</h1>
+      <p class="sub">${escapeHtml(why.detail || 'This region is outside what you may see.')}</p></div>`;
+    $('#main').setAttribute('aria-busy','false');
+    return;
+  }
+  const data = await ores.json();
   STATE.overview = data;
   STATE.queue = queue;
   renderNav();
@@ -1414,7 +1376,7 @@ function triageMarkup(){
       <td class="hide-sm"><span class="owner">${
         escapeHtml(role(f.owner_role))}</span></td>
       <td class="n">${f.diagnosable
-        ? '<span class="linkback">diagnose</span>'
+        ? '<span class="linkback">Diagnose \u2192</span>'
         : '<span class="state off">detection only</span>'}</td>
     </tr>`;
   }).join('');
@@ -1426,12 +1388,13 @@ function triageMarkup(){
       <th class="n hide-sm">Movement</th><th class="hide-sm">Owner</th>
       <th class="n">Action</th>
     </tr></thead><tbody>${rows}</tbody></table>
-    <p class="sub" style="margin-top:var(--sp-3);font-size:var(--t-xs);font-family:var(--sans)">
+    <details class="railnote queuenote"><summary>${q.total} open findings · how this queue is ranked</summary>
+    <p class="sub" style="margin-top:var(--sp-2);font-size:var(--t-xs);font-family:var(--sans)">
       ${q.total} open findings in total${
-        q.folded ? `, after folding ${q.folded} child-metric movement(s) into the parent event they belong to` : ''}.
+        q.folded ? `, after folding ${plural(q.folded,'child-metric movement')} into the parent event they belong to` : ''}.
       ${escapeHtml(q.basis)}
       Metrics with no price/volume/mix identity are detected and prioritised but
-      not decomposed, and are marked accordingly.</p>`;
+      not decomposed, and are marked accordingly.</p></details>`;
 }
 
 function drawSparks(){
@@ -1504,18 +1467,37 @@ async function load(){
   $('#overview').hidden = true;
   if(!STATE.overview){
     const oq=new URLSearchParams(); if($('#region').value) oq.set('region',$('#region').value);
-    STATE.overview = await (await fetch('/api/overview?'+oq)).json();
+    if(STATE.entitled) oq.set('entitled',STATE.entitled);
+    const ores = await fetch('/api/overview?'+oq);
+    STATE.overview = ores.ok ? await ores.json() : {kpis: []};
   }
   renderNav();
   const kpi=STATE.kpi, region=$('#region').value, days=+$('#range').value;
   const q=new URLSearchParams({kpi}); if(region) q.set('region',region);
+  if(STATE.entitled) q.set('entitled',STATE.entitled);
   if(days){ const to=new Date('2026-08-31'); const from=new Date(to);
     from.setDate(to.getDate()-days);
     q.set('from',from.toISOString().slice(0,10)); q.set('to',to.toISOString().slice(0,10)); }
 
   stage('Separating trend and seasonality');
   const seriesRes = await fetch('/api/series?'+q);
-  if(!seriesRes.ok){ $('#eyebrow').textContent=''; $('#headline').textContent='No data for that slice'; return; }
+  if(!seriesRes.ok){
+    $('#eyebrow').textContent='';
+    // A refusal is its own answer. Rendering it as "no data" would tell a reader
+    // the region is empty rather than that they may not see it, and leaving the
+    // previous page in place is how a refused region's figures stayed on screen.
+    const why = seriesRes.status === 403
+      ? ((await seriesRes.json().catch(()=>({}))).detail || {}) : null;
+    $('#headline').textContent = why ? 'Outside your entitlement' : 'No data for that slice';
+    $('#story').innerHTML = why
+      ? `<p>${escapeHtml(why.detail || 'This region is outside what you may see.')}</p>
+         <p class="q">The refusal happens before anything is computed, so no figure
+         for this region was produced to leak through a chart, a table or a sentence.</p>`
+      : '';
+    $('#rest').innerHTML = '';
+    $('#main').setAttribute('aria-busy','false');
+    return;
+  }
   const series = await seriesRes.json();
   const drops = series.anomalies.filter(a=>a.direction==='drop');
 
@@ -1749,7 +1731,10 @@ function openingView(series){
 function render(){
   const {series,drops,win,diagnosis,kpi,region} = STATE;
   const name = kpi.replace(/_/g,' ');
-  const where = region || 'all regions';
+  // An all-regions total for a scoped reader is the total of their regions, so
+  // the label says which ones rather than claiming every region.
+  const scoped = !region && STATE.entitled ? STATE.entitled.split(',').join(' and ') : '';
+  const where = region || (scoped ? `${scoped} (your regions)` : 'all regions');
 
   resetSections();
   $('#eyebrow').textContent =
@@ -1779,8 +1764,8 @@ function render(){
   // most of them, takes away the opposite of the finding.
   const contradicted = diagnosis && diagnosis.verdict === 'contradicted';
   $('#headline').textContent = contradicted
-    ? `${title(kpi)} appears to fall ${pct(Math.abs(w.pct))} in ${where} on ${w.day} — unconfirmed`
-    : `${title(kpi)} fell ${pct(Math.abs(w.pct))} in ${where} on ${w.day}`;
+    ? `${title(kpi)} appears to fall ${pct(Math.abs(w.pct))} below expected in ${where} on ${w.day} — unconfirmed`
+    : `${title(kpi)} fell ${pct(Math.abs(w.pct))} below expected in ${where} on ${w.day}`;
 
   if(diagnosis && diagnosis.verdict === 'contradicted'){
     // Its own answer, not an abstention with a footnote. "We could not tell
@@ -1808,6 +1793,7 @@ function render(){
   $('#rest').innerHTML =
     entitlementBlock()
     + reconciliationBlock()
+    + madeByBlock()
     + group('The answer',
         'What moved, what caused it, whether anything warned first, and what to do about it.',
         section('The movement', chartMarkup(), true)
@@ -1841,7 +1827,8 @@ function explainedStory(d){
   const docs = causes.reduce((n,c)=>n+c.supporting_documents,0);
 
   return `
-    <p>Revenue fell <strong>${inr(m.total_change)}</strong> per day against the
+    <p>That was the worst day. Across the window, revenue ran <strong>${inr(m.total_change)}</strong>
+    a day${m.pct != null ? ` (${pct(Math.abs(m.pct))})` : ''} below the
     fortnight before. ${causes.length === 1 ? 'One cause accounts' : `${causes.length} causes account`}
     for ${inr(m.explained)} of that: ${list}.</p>
     <p class="q">Each survived event-time isolation, a comparison against regions
@@ -1871,6 +1858,33 @@ function contradictedStory(d){
     ${a.question ? `<p><strong>Question.</strong> ${escapeHtml(a.question)}</p>` : ''}`;
 }
 
+/* Who produced this answer, in one line: the arithmetic, and the language.
+
+   The receipt at the bottom of the page carries the same facts per stage, and a
+   reader who never scrolls that far should still be able to see the division the
+   whole design rests on -- that the figures above were computed without a model,
+   and exactly what, if anything, a model did. */
+function madeByBlock(){
+  const d = STATE.diagnosis, t = d && d.telemetry;
+  if(!t || !t.totals) return '';
+  const tot = t.totals;
+  const computed = (t.stages || [])
+    .filter(s => s.method_class !== 'llm' && !s.model_calls && !s.cache_hits)
+    .map(s => s.stage);
+  const model = (d.llm && d.llm.active) ? d.llm.active.split('\u00b7').pop().trim() : '';
+  const used = (tot.model_calls || 0) + (tot.cache_hits || 0);
+  const language = used
+    ? `<span class="state na">language</span> ${escapeHtml(model || 'model')} read the tickets
+       and wrote the prose: ${plural(tot.model_calls || 0, 'call')}${
+       tot.cache_hits ? `, ${plural(tot.cache_hits, 'cached reading')}` : ''}`
+    : `<span class="state off">language</span> written from a template; no model call was made`;
+  return `<p class="madeby">
+    <span><span class="state ok">figures</span> computed deterministically in
+      ${Math.round(tot.deterministic_ms || tot.ms || 0)} ms across ${computed.length} stages,
+      no model involved</span>
+    <span>${language}</span></p>`;
+}
+
 /* Whether a second system agrees. Rendered above the chart rather than beside
    the freshness table, because it is not a data-quality footnote: on a
    contradiction it is the answer, and a reader who scrolls past it has been
@@ -1882,7 +1896,7 @@ function reconciliationBlock(){
     // Quiet when it agrees. A panel that shouts on every ordinary day is a
     // panel that gets ignored on the day it matters.
     return `<p class="agreed"><span class="state ok">reconciled</span>
-      ${escapeHtml(r.reason)}</p>`;
+      ${escapeHtml(prose(r.reason))}</p>`;
   }
   const rows = (r.breaches || []).slice(0, 6).map(b => `<tr>
       <td>${escapeHtml(b.day)}</td>
@@ -1895,7 +1909,7 @@ function reconciliationBlock(){
     <span class="label">${r.state === 'contradicted'
       ? 'Two systems disagree about this movement'
       : 'The two systems are further apart than usual'}</span>
-    <p>${escapeHtml(r.reason)}</p>
+    <p>${escapeHtml(prose(r.reason))}</p>
     ${rows ? `<table class="watch"><thead><tr>
         <th>Business date</th><th class="n">${escapeHtml(title(STATE.kpi))}</th>
         <th class="n">${escapeHtml(r.source || 'second system')}</th>
@@ -1923,7 +1937,7 @@ function unknownStory(d){
         <p class="q">The refusal happens before the diagnosis runs, not after it:
         no figure for ${escapeHtml(why.requested_region || 'that region')} was
         produced, so none can leak through a contribution table, a scenario or a
-        sentence. Escalate to <strong>${escapeHtml(why.escalate_to || 'the metric owner')}</strong>
+        sentence. Escalate to <strong>${escapeHtml(why.escalate_to ? 'the ' + role(why.escalate_to).toLowerCase() : 'the metric owner')}</strong>
         for access.</p>`;
     }
     const reason = typeof why === 'string' ? why : (why && why.detail) || '';
@@ -2006,7 +2020,7 @@ function signalGapBlock(){
   const body = `
     <div class="verdicts">${GAP_VERDICTS.map(([v,lab])=>
       `<div data-on="${v===g.verdict?1:0}">${lab}</div>`).join('')}</div>
-    <p class="lede">${escapeHtml(g.reason)}</p>
+    <p class="lede">${escapeHtml(prose(g.reason))}</p>
     ${facts.length?`<dl class="gapfacts">${facts.map(([k,v,u])=>
       `<div><dt>${k}</dt><dd>${v}${u?`<small>${u}</small>`:''}</dd></div>`).join('')}</dl>`:''}
     ${g.process_document?`
@@ -2018,9 +2032,9 @@ function signalGapBlock(){
         the cycle has no step for.</p>`:''}`:''}
     ${m?`<div class="monitor"><h4 class="label">Proposed monitoring rule</h4>
       <table class="chain">
-        <tr><th scope="row">Watch</th><td>${escapeHtml(words(m.watch))}</td></tr>
-        <tr><th scope="row">Threshold</th><td>${escapeHtml(m.threshold)}</td></tr>
-        <tr><th scope="row">Cadence</th><td>${escapeHtml(m.window)}</td></tr>
+        <tr><th scope="row">Watch</th><td>${escapeHtml(sentence(words(m.watch)))}</td></tr>
+        <tr><th scope="row">Threshold</th><td>${escapeHtml(sentence(m.threshold))}</td></tr>
+        <tr><th scope="row">Cadence</th><td>${escapeHtml(sentence(m.window))}</td></tr>
         <tr><th scope="row">Route to</th><td>${escapeHtml(role(m.route_to))}</td></tr>
         <!-- This row validates the proposed rule, it does not grade anybody.
              It was labelled "would have fired", which reads as an accusation
@@ -2108,7 +2122,7 @@ function narrativeBlock(){
   const rejected = v.rejected || [];
   const sentences = (n.sentences||[]).map(x=>
     `<span class="s" title="cites ${escapeHtml((x.cites||[]).join(', '))}">${
-      escapeHtml(x.text)}<span class="cites">\u25AA${(x.cites||[]).length}</span></span> `).join('');
+      escapeHtml(prose(x.text))}<span class="cites">\u25AA${(x.cites||[]).length}</span></span> `).join('');
 
   return section('Summary, and the checks it passed', `
     <p>Written from a flat table of already-computed facts and nothing else.
@@ -2172,25 +2186,25 @@ function contrastMarkup(){
   // Reading is where the model does its work here, so it is counted rather than
   // left to be inferred from the prose. Sentence counts alone were the whole
   // caption, which measured the least interesting difference.
-  const read = v => `${v.documents_found} document(s) read, ${v.citations} span(s) cited`;
+  const read = v => `${plural(v.documents_found,'document')} read, ${plural(v.citations,'span')} cited`;
   return `
     <h4 class="label" style="margin-top:var(--sp-5)">With the model, and without</h4>
-    <p class="muted">${escapeHtml(c.note)}</p>
+    <p class="muted">${escapeHtml(prose(c.note))}</p>
     <p class="muted">A captured run of <b>${which}</b>, not the diagnosis above:
       ${escapeHtml((c.captured_at||'').slice(0,10))} against ${escapeHtml(c.backend)}.
       Its figures belong to that case.</p>
     <div class="tracks" style="margin-top:var(--sp-4)">
       <div>
         <h4 class="exactly">Model on</h4>
-        <p class="caption">${a.model_calls} call(s) · ${a.tokens} tokens ·
-          ${read(a)} · ${a.sentences} sentence(s), ${a.rejected} rejected</p>
-        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(a.narrative)}</p>
+        <p class="caption">${plural(a.model_calls,'call')} · ${a.tokens} tokens ·
+          ${read(a)} · ${plural(a.sentences,'sentence')}, ${a.rejected} rejected</p>
+        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(prose(a.narrative))}</p>
       </div>
       <div>
         <h4 class="merely">Model off</h4>
-        <p class="caption">${b.model_calls} call(s) · ${read(b)} ·
-          ${b.sentences} sentence(s), ${b.rejected} rejected</p>
-        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(b.narrative)}</p>
+        <p class="caption">${plural(b.model_calls,'call')} · ${read(b)} ·
+          ${plural(b.sentences,'sentence')}, ${b.rejected} rejected</p>
+        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(prose(b.narrative))}</p>
       </div>
     </div>
     <div class="gate" style="margin-top:var(--sp-4)">
@@ -2258,8 +2272,7 @@ async function renderProposals(){
     return `<tr>
       <td><code>${escapeHtml(p.target)}</code><br>
           <span class="q">${escapeHtml(p.change)}</span></td>
-      <td>${why}<br><span class="q">${escapeHtml(p.submitters.join(', '))} over ${
-        p.runs.length} run(s)</span></td>
+      <td>${why}<br><span class="q">${escapeHtml(p.submitters.join(', '))} over ${plural(p.runs.length,'run')}</span></td>
       <td class="n">${p.applicable && p.consumable
         ? `<button class="linkback" data-apply="${escapeHtml(p.target)}"
              data-subject="${escapeHtml(p.subject)}">apply</button>`
@@ -2359,7 +2372,7 @@ function wireFeedback(){
       });
       const out = await res.json();
       const p = (out.summary&&out.summary.proposals||[]).filter(x=>x.applicable).length;
-      note.textContent = out.note + (p?` ${p} proposal(s) now have quorum.`:'');
+      note.textContent = out.note + (p?` ${plural(p,'proposal')} now ${p===1?'has':'have'} quorum.`:'');
     }catch(e){ note.textContent = 'Could not record that.'; }
     renderProposals();
   }));
@@ -2452,7 +2465,7 @@ function marginBlock(d){
             ? ` · ${gap.recurrence_that_hurt} with material impact`:''}</dd>`:''}
       </dl></section>`:''}
     ${stale?`<hr class="rule"><section><span class="label">Freshness</span>
-      <p>${stale} source(s) past SLA.</p></section>`:''}`;
+      <p>${plural(stale,'source')} past SLA.</p></section>`:''}`;
 }
 
 /* ---------- persona projections ---------- */
@@ -2481,7 +2494,8 @@ function cfoStory(d){
     <p class="q">Of the fall, <strong>${inr(o.recoverable_inr_per_day)}</strong> per
     day sits behind a lever somebody owns.
     <strong>${inr(o.not_actionable_inr_per_day)}</strong> does not and can only be
-    watched. Confidence is ${escapeHtml(h.confidence)}.</p>`;
+    watched${o.overlap_adjusted ? ', after scaling for causes that overlap so no rupee is counted twice' : ''}.
+    Confidence is ${escapeHtml(h.confidence)}.</p>`;
 }
 
 /* A regional or channel manager needs the lever they personally hold, and needs
@@ -2558,7 +2572,7 @@ function simulatorBlock(){
         ${also ? `<p class="alongsiderow">against ${also}</p>` : ''}
         <table class="chain">${s.assumptions.map(a=>`
           <tr><th scope="row">${escapeHtml(a.name)}</th>
-              <td>${escapeHtml(a.value)}<br><span class="q">${escapeHtml(a.basis)}</span></td>
+              <td>${escapeHtml(a.value)}<br><span class="q">${escapeHtml(prose(a.basis))}</span></td>
           </tr>`).join('')}</table>
         ${s.bounded_by ? `<p class="q bounded">Bounded by ${escapeHtml(s.bounded_by)}.</p>` : ''}
       </article>`;
@@ -2590,9 +2604,9 @@ function decisionsBlock(){
         <p class="verdictline">
           Verified, but nothing to act on</p>
         <table class="chain">
-          <tr><th scope="row">Watch</th><td>${escapeHtml(w.monitoring.watch)}</td></tr>
-          <tr><th scope="row">Threshold</th><td>${escapeHtml(w.monitoring.threshold)}</td></tr>
-          <tr><th scope="row">Window</th><td>${escapeHtml(w.monitoring.window)}</td></tr>
+          <tr><th scope="row">Watch</th><td>${escapeHtml(sentence(w.monitoring.watch))}</td></tr>
+          <tr><th scope="row">Threshold</th><td>${escapeHtml(sentence(w.monitoring.threshold))}</td></tr>
+          <tr><th scope="row">Window</th><td>${escapeHtml(sentence(w.monitoring.window))}</td></tr>
           <tr><th scope="row">Route to</th><td>${
             sentence(escapeHtml(w.monitoring.route_to))}</td></tr>
         </table>
@@ -2640,9 +2654,9 @@ function decisionsBlock(){
         <div class="monitor">
           <h4>Monitoring rule</h4>
           <table class="chain">
-            <tr><th scope="row">Watch</th><td>${escapeHtml(words(m.watch))}</td></tr>
-            <tr><th scope="row">Threshold</th><td>${escapeHtml(m.threshold)}</td></tr>
-            <tr><th scope="row">Window</th><td>${escapeHtml(m.window)}</td></tr>
+            <tr><th scope="row">Watch</th><td>${escapeHtml(sentence(words(m.watch)))}</td></tr>
+            <tr><th scope="row">Threshold</th><td>${escapeHtml(sentence(m.threshold))}</td></tr>
+            <tr><th scope="row">Window</th><td>${escapeHtml(sentence(m.window))}</td></tr>
             <tr><th scope="row">Route to</th><td>${sentence(escapeHtml(m.route_to))}</td></tr>
           </table>
         </div>
@@ -2664,7 +2678,7 @@ function receiptBlock(){
         <td>${sentence(escapeHtml(s.method_class))}</td>
         <td class="num">${s.ms.toFixed(1)}</td>
         <td class="num">${s.model_calls}</td>
-        <td class="q">${s.note ? escapeHtml(s.note) : ''}</td></tr>`).join('');
+        <td class="q">${s.note ? escapeHtml(prose(s.note)) : ''}</td></tr>`).join('');
   const tot = t.totals;
   return section('Run receipt', `
     <table>
@@ -2744,7 +2758,7 @@ function decompositionBlock(){
     <td class="n ${l.value<0?'down':'up'}">${l.value<0?'−':'+'}${inr(l.value)}</td>
     <td class="n">${pct(l.share)}</td></tr>`).join('');
   const dims = d.contributions.map(c=>{
-    const rows = c.slices.map(s=>`<tr><td>${s.value}</td>
+    const rows = c.slices.map(s=>`<tr><td>${escapeHtml(sentence(s.value))}</td>
       <td class="n ${s.delta<0?'down':'up'}">${s.delta<0?'−':'+'}${inr(s.delta)}</td>
       <td class="n ${s.pct_change<0?'down':'up'}">${s.pct_change==null?'':pct(s.pct_change)}</td>
       <td class="n">${pct(s.share)}</td></tr>`).join('');
@@ -2885,7 +2899,9 @@ function wireDocLinks(){
    checkable if the reader can open the document and see the range in place. */
 async function showDocument(docId){
   const back = $('#dbody').innerHTML;
-  const r = await fetch('/api/document/'+encodeURIComponent(docId));
+  const dq = new URLSearchParams();
+  if(STATE.entitled) dq.set('entitled', STATE.entitled);
+  const r = await fetch('/api/document/'+encodeURIComponent(docId)+'?'+dq);
   if(!r.ok){ return; }
   const d = await r.json();
   $('#dbody').innerHTML = `

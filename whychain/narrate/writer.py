@@ -28,6 +28,8 @@ from typing import Protocol
 from whychain.llm import MAX_TOKENS, UNSET, ChatModel, default_model
 from whychain.narrate.brief import Brief
 from whychain.narrate.validate import Sentence
+from whychain.text import label as readable
+from whychain.text import plural, sentence_case
 
 MAX_SENTENCES = 8
 
@@ -120,7 +122,7 @@ class TemplateWriter:
             sentences.append(
                 Sentence(
                     text=(
-                        f"{brief.kpi.replace('_', ' ').capitalize()}{where} moved "
+                        f"{sentence_case(readable(brief.kpi))}{where} moved "
                         f"{movement.display}{tail} per day between "
                         f"{brief.window[0]} and {brief.window[1]}."
                     ),
@@ -186,7 +188,8 @@ class TemplateWriter:
             sentences.append(
                 Sentence(
                     text=(
-                        f"{len(ruled_out)} other candidate(s) were tested and "
+                        f"{plural(len(ruled_out), 'other candidate')} "
+                        + ("was" if len(ruled_out) == 1 else "were") + " tested and "
                         "ruled out before this conclusion was reached."
                     ),
                     cites=tuple(f.id for f in ruled_out[:4]),
@@ -197,8 +200,9 @@ class TemplateWriter:
         if decision is not None:
             sentences.append(
                 Sentence(
-                    text=decision.claim.removeprefix("decision: ").capitalize()
-                    + ".",
+                    text=sentence_case(
+                        decision.claim.removeprefix("decision: ").rstrip(".")
+                    ) + ".",
                     cites=("f-decision-1",),
                 )
             )
@@ -267,7 +271,7 @@ class ModelWriter:
             system=SYSTEM,
             user=(
                 "Facts available to you:\n"
-                + json.dumps(brief.as_dict(), indent=1)
+                + json.dumps(brief.for_model(), indent=1)
                 + "\n\nWrite the summary."
             ),
             schema=SENTENCE_SCHEMA,

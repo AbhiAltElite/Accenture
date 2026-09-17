@@ -52,6 +52,7 @@ from whychain.evidence import (
     Provenance,
     Unit,
 )
+from whychain.text import plural
 
 # A warning has to arrive with enough time to do something. Below this it is
 # information, not an opportunity, and the verdict is `not_foreseeable`.
@@ -522,7 +523,7 @@ def _why_not_actionable(signals: Sequence[WarningSignal]) -> str:
         s for s in signals
         if s.lead_time_hours >= MIN_ACTIONABLE_LEAD_HOURS and s.is_public
     ]
-    head = f"{len(signals)} warning(s) covered this window. "
+    head = f"{plural(len(signals), 'warning')} covered this window. "
 
     if severe and timely:
         # Both properties present, never in the same warning. The most
@@ -669,18 +670,24 @@ def assess(
 
     hurt = sum(1 for p in precedents if p.hurt)
     judged = any(p.hurt is not None for p in precedents)
-    recurrence_clause = (
-        f" The same warning class has covered this slice on {len(precedents)} "
-        f"prior occasion(s), {hurt} of which coincided with a material movement."
-        if precedents and judged else
-        f" The same warning class has covered this slice on {len(precedents)} "
-        "prior occasion(s); whether those coincided with a material movement "
-        "was not assessed." if precedents else ""
-    )
+    occasions = "prior occasion" if len(precedents) == 1 else "prior occasions"
+    if precedents and judged:
+        recurrence_clause = (
+            f" The same warning class has covered this slice on {len(precedents)} "
+            f"{occasions}, {hurt} of which coincided with a material movement."
+        )
+    elif precedents:
+        recurrence_clause = (
+            f" The same warning class has covered this slice on {len(precedents)} "
+            f"{occasions}; whether those coincided with a material movement "
+            "was not assessed."
+        )
+    else:
+        recurrence_clause = ""
     return SignalGap(
         verdict=GapVerdict.GAP_FOUND,
         reason=(
-            f"{len(actionable)} public {kind.replace('_', ' ')} warning(s) at "
+            f"{plural(len(actionable), 'public ' + kind.replace('_', ' ') + ' warning')} at "
             f"amber or above covered this window with up to {best_lead:.0f} hours "
             f"of lead time. The registered planning process consumes "
             f"{', '.join(c.replace('_', ' ') for c in consumed)} and no external "

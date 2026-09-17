@@ -35,10 +35,22 @@ load_env()
 
 # The windows the console opens on, per industry. Kept short deliberately: the
 # point is to warm what a demo touches, not to precompute the whole warehouse.
+#
+# They must be the windows the console *actually* requests, to the day, because
+# the window is inside every prompt and so inside every cache key. The first
+# version warmed West 13-16 Aug while the triage row opens 13-15 Aug; the warm
+# run succeeded, the cache filled, and the demo still waited on the model for
+# every page. These are read off the console's own requests.
 CASES = [
-    ("retail", "net_revenue", "West", date(2026, 8, 13), date(2026, 8, 16)),
-    ("petroleum", "net_realisation", "West", date(2026, 8, 14), date(2026, 8, 18)),
-    ("power", "dispatch_realisation", "South", date(2026, 5, 11), date(2026, 5, 16)),
+    # The headline: three verified causes, a rejected decoy, Answer 2.
+    ("retail", "net_revenue", "West", date(2026, 8, 13), date(2026, 8, 15)),
+    # The abstention, where the model writes the next check. Fourth row of the
+    # default triage queue, so it is reachable from the console in one click.
+    ("retail", "net_revenue", "West", date(2026, 7, 27), date(2026, 7, 28)),
+    # The broken feed the ledger contradicts.
+    ("retail", "net_revenue", "North", date(2026, 6, 10), date(2026, 6, 12)),
+    ("petroleum", "net_realisation", "West", date(2026, 8, 13), date(2026, 8, 15)),
+    ("power", "dispatch_realisation", "North", date(2026, 7, 1), date(2026, 7, 5)),
 ]
 
 

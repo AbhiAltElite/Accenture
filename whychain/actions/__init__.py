@@ -34,6 +34,7 @@ from whychain.actions.recovery import RETAIL_RECOVERY, RecoveryModel
 from whychain.actions.simulate import Scenario, simulate
 from whychain.contracts import Driver, KPIContract
 from whychain.evidence import ClaimState
+from whychain.text import label, plain, role, sentence_case
 
 # Shared with the impact simulator so a card and a scenario cannot disagree
 # about what the same action recovers. See whychain/actions/recovery.py.
@@ -192,7 +193,7 @@ def _monitoring_for(
 
     if driver and driver.id == "release_quality":
         return MonitoringRule(
-            watch=f"{contract.kpi_id} and checkout conversion, by device, after every release",
+            watch=f"{label(contract.kpi_id)} and checkout conversion, by device, after every release",
             threshold="conversion down more than 2 percentage points against the pre-release day",
             window="the 24 hours following a deploy",
             route_to=route,
@@ -212,7 +213,7 @@ def _monitoring_for(
             route_to=route,
         )
     return MonitoringRule(
-        watch=f"{contract.kpi_id} for {scope}",
+        watch=f"{label(contract.kpi_id)} across {label(scope)}",
         threshold=(
             f"robust z beyond {contract.materiality.min_abs_robust_z:g} and a "
             f"movement over {contract.materiality.min_abs_delta_inr:,.0f} rupees"
@@ -234,11 +235,11 @@ def _draft(
         action_id=f"act-{candidate.candidate_id}",
         title=card_action,
         body=(
-            f"Verified cause: {candidate.description or candidate.candidate_id}. "
-            f"Lever: {driver.controllable_lever}. "
+            f"Verified cause: {plain(candidate.description) or candidate.candidate_id}. "
+            f"Lever: {label(driver.controllable_lever)}. "
             f"Expected recovery {recovery:,.0f} rupees per day, computed from the "
             f"movement measured by difference-in-differences, not estimated. "
-            f"Requires approval from {driver.owner_role} before anything is changed."
+            f"Requires approval from {role(driver.owner_role)} before anything is changed."
         ),
         assigned_to=driver.owner_role or contract.owner_role,
         drafted_at=now,
@@ -282,7 +283,7 @@ def decision_cards(
             )
         elif lever is None:
             caveats.append(
-                f"{driver.id} is observable but not controllable: the business "
+                f"{sentence_case(label(driver.id))} is observable but not controllable: the business "
                 "can watch it, not change it"
             )
 

@@ -106,6 +106,19 @@ class Brief:
             "facts": [f.as_dict() for f in self.facts],
         }
 
+    def for_model(self) -> dict:
+        """What the writer is shown: the brief without the run's identifier.
+
+        The run id is a fresh random value on every diagnosis and changes nothing
+        the model could write. Sending it made every narrative prompt unique, so
+        the content-addressed cache could never answer one: `make warm-ai`
+        succeeded, and the next identical diagnosis still waited forty seconds on
+        a hosted model for prose it had already written.
+        """
+        out = self.as_dict()
+        del out["run_id"]
+        return out
+
 
 def _plain(description: str | None) -> str:
     """A cause as a reader says it, not as the record addresses it.

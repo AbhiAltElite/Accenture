@@ -43,6 +43,7 @@ import pandas as pd
 
 from whychain.contracts import KPIContract
 from whychain.evidence import Evidence, EvidenceKind, MethodClass, Provenance, Unit
+from whychain.text import label, plural, sentence_case
 
 
 class Agreement(StrEnum):
@@ -186,23 +187,23 @@ def reconcile(
     if worst > hard:
         bad = [d for d in days if abs(d.residual) > hard]
         state, reason = Agreement.CONTRADICTED, (
-            f"{contract.kpi_id} and {spec.source} disagree about this window by "
+            f"{sentence_case(label(contract.kpi_id))} and the {label(spec.source)} disagree about this window by "
             f"up to {worst:.1%}, against a {spec.tolerance_pct:.0%} tolerance. "
-            f"{len(bad)} of {len(days)} day(s) are past the point where posting "
+            f"{len(bad)} of {plural(len(days), 'day')} are past the point where posting "
             f"policy explains the gap, so the movement itself is in question and "
             f"no cause is proposed for it. The first thing to check is whether "
             f"the extract is complete, not what the business did."
         )
     elif breaches:
         state, reason = Agreement.DRIFT, (
-            f"{contract.kpi_id} and {spec.source} are further apart than usual on "
-            f"{len(breaches)} of {len(days)} day(s), by up to {worst:.1%} against "
+            f"{sentence_case(label(contract.kpi_id))} and the {label(spec.source)} are further apart than usual on "
+            f"{len(breaches)} of {plural(len(days), 'day')}, by up to {worst:.1%} against "
             f"a {spec.tolerance_pct:.0%} tolerance. Not enough to doubt the "
             f"movement, enough to lower confidence in the size of it."
         )
     else:
         state, reason = Agreement.AGREED, (
-            f"{spec.source} independently posts the same movement to within "
+            f"The {label(spec.source)} independently posts the same movement to within "
             f"{worst:.1%}, inside the {spec.tolerance_pct:.0%} the two systems' "
             f"posting policies account for."
         )
