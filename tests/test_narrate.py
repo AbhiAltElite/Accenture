@@ -178,6 +178,14 @@ class TestNoFalsePositives:
         )
         assert out.clean
 
+    def test_an_inline_citation_is_not_a_numeral(self, brief):
+        """The model writes its citations into the text; "(f-cause-1)" is not "-1"."""
+        out = validate(
+            [Sentence("A candidate was ruled out (f-ruled-out-1).", ("f-ruled-out-1",))],
+            brief,
+        )
+        assert out.clean
+
 
 class TestTheWholeStage:
     def test_the_template_writer_passes_its_own_validator(self):

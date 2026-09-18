@@ -59,6 +59,11 @@ _ALLOWED_BARE = frozenset({"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "2
 # validator with a false positive is a validator someone will switch off.
 _ISO_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 
+# Citation ids are removed for the same reason. "(f-cause-1)" is a pointer to a
+# fact, not a claim, and left in it scanned as the numeral "-1" and rejected
+# every sentence that cited a numbered cause or a ruled-out candidate.
+_CITATION = re.compile(r"\bf-[a-z]+(?:-[a-z0-9]+)*\b")
+
 # Words that turn a mention into an assertion of cause.
 _CAUSAL_VERBS = (
     "caused", "drove", "was the cause", "is the cause", "explains",
@@ -127,7 +132,7 @@ def _normalise(numeral: str) -> str:
 
 
 def _numerals(text: str) -> list[str]:
-    return [m.group(0) for m in _NUMERAL.finditer(_ISO_DATE.sub(" ", text))]
+    return [m.group(0) for m in _NUMERAL.finditer(_CITATION.sub(" ", _ISO_DATE.sub(" ", text)))]
 
 
 def _cited_text(sentence: Sentence, brief: Brief) -> str:
