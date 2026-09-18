@@ -9,7 +9,7 @@ Run these first, in order. Everything below is reachable from them.
 
 ```bash
 make setup && make gen-all    # venv, dependencies, all three industries' datasets
-make test                     # 501 tests, 238 of them marked invariant
+make test                     # 502 tests, 238 of them marked invariant
 make audit                    # 33 executable security, logic and design checks
 make bench                    # accuracy, trap rejection, calibration, latency
 make demo                     # console at http://localhost:8000

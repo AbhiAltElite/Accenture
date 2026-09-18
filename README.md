@@ -3,7 +3,7 @@
 
 [![CI](https://github.com/AbhiAltElite/Accenture/actions/workflows/ci.yml/badge.svg)](https://github.com/AbhiAltElite/Accenture/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-501-informational)](tests/)
+[![Tests](https://img.shields.io/badge/tests-502-informational)](tests/)
 [![Audit checks](https://img.shields.io/badge/audit-33%2F33-informational)](docs/SECURITY-LOGIC-CHECKLIST.md)
 
 An evidence-backed diagnosis engine for business metric movements.
@@ -66,6 +66,7 @@ If you have twenty minutes and not twenty-five, skip step 4 and read
 - [Three industries, one engine](#three-industries-one-engine)
 - [Key features](#key-features)
 - [Where AI is used, and where it is not](#where-ai-is-used-and-where-it-is-not)
+- [Guardrails](#guardrails)
 - [Measured results](#measured-results)
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -511,21 +512,87 @@ written. That is also the honest demonstration of the claim this design rests
 on — the reader watches the numbers settle first and stay put while the prose
 changes around them.
 
+## Guardrails
+
+A guardrail described in a document is a claim; one you can watch refuse
+something is a mechanism. `make guardrails` feeds the engine input it must
+refuse, including a scripted model that answers badly on purpose, and exits
+non-zero if any check lets it through. It needs no network and no key.
+
+Every guardrail here is deterministic code. There is no second model judging
+the first and no classifier scoring text for risk: a probabilistic filter can
+say a figure *looks* plausible, and a string match can say whether "₹35,323"
+is in the fact the sentence cites. The model does not mark its own work
+anywhere in this engine.
+
+**What the model reads.** Untrusted text is prepared at one boundary,
+`whychain/corroborate/quarantine.py`, before it becomes prompt tokens.
+
+| Guardrail | What it stops |
+|---|---|
+| Injection scan | Override attempts, role reassignment, delimiter spoofing, exfiltration requests, SQL in prose, "do not report" suppression. Flagged on the evidence, not silently dropped |
+| Data fencing | Each ticket sits inside `<<<DOCUMENT>>>` markers, and any copy of a marker inside the ticket is neutralised, so a document cannot close its own block and write outside it |
+| Redaction | Emails, card numbers, Indian mobile numbers, Aadhaar-shaped ids and street addresses are masked wherever a contract declares `domain_restriction: [pii]`. Quotes are checked against the *redacted* text, so the model cannot cite what it was never shown |
+| Size bound | Documents are truncated, because an unbounded one is a cost problem and a way to push instructions out of attention |
+
+**What the model returns.** Every output is checked before anything uses it.
+
+| Stage | Guardrail | What it stops |
+|---|---|---|
+| Narrative | Citation binding | A sentence that cites no fact |
+| Narrative | Numeral check | A figure that is not in a fact the sentence cites |
+| Narrative | Entity check | An identifier the evidence table does not contain |
+| Narrative | Rejected-cause check | A candidate that was tested and ruled out, stated as a cause |
+| Next check | Action-only validator | A next step that asserts a cause, names something the run did not see, invents a figure, or runs past 30 words |
+| Extraction | Span verification | A quote that is not in the source at the stated characters. A paraphrase fails the same way an invention does |
+| Extraction | Closed codes | An issue code outside the industry's vocabulary, enforced by the output schema |
+| Intent | Closed vocabulary | A metric or region outside the registry, or one the reader may not see. Checked again after the schema, because a schema binds a cooperative model |
+| Intent | Ask, do not guess | With no metric grounded, the reader is asked which one they meant |
+| Expansion | Language filter | Search terms are reduced to plain words before retrieval, so a bad expansion retrieves less rather than wrong |
+
+A rejected sentence removes itself, not the narrative, and the receipt counts
+what was rejected and why. When a stage cannot run, or its output fails, the
+deterministic path stands: template prose, the rule table, or "choose a metric".
+
+**The numbers and the data.** Enforced when a fact is constructed or a contract
+is loaded, so bad input never reaches a reader: units that fit the method,
+provenance on every fact, a price/volume/mix bridge that must reconcile, an
+append-only evidence store, contracts that refuse a lever with no owner, a
+read-only warehouse connection, and an empty entitlement that grants nothing.
+The narrative is redacted of any cause from a region the reader may not see.
+
+**The decision.** The engine abstains or says CONTRADICTED rather than guess, a
+cause with no comparison group is never reported as verified, a decision card is
+a draft awaiting a named owner, and a correction needs two independent
+submitters before it becomes a proposal.
+
+**Cost.** `WHYCHAIN_LLM_FREE_ONLY` refuses any model not marked free, every
+task has an output ceiling, every call a 45-second bound, and every answer is
+cached by content.
+
+**Known gaps**, printed by `make guardrails` so they cannot be forgotten:
+
+- The entity check matches snake_case identifiers. A capitalised proper noun
+  ("the Mumbai warehouse") is not caught by it.
+- The next-check validator catches "caused by" and "was caused", not the
+  active "caused the".
+- Confidence calibration is measured by `make bench`, not enforced per run.
+
 ## Measured results
 
 160 labelled cases with planted causes, planted correlation traps, planted noise
 and planted unanswerable cases (`make bench`).
 
-| | |
-|---|---|
-| **Top-1 among movements worth explaining** | **64.4%** (56 of 87) |
-| Top-1 over the whole population | 38.9% |
-| **False alarms on noise-only cases** | **0.0%** |
-| Planted correlation traps rejected | 87.5% |
-| **Cases needing an abstention that got one** | **88.2%** (2 missed of 17) |
-| Abstentions that were right | 85.7% |
-| Expected calibration error | 0.069 raw, **0.042 calibrated** on held out |
-| Latency p50 / p95 | 0.07s / 0.18s (Apple M4, 16 GB; `make bench` prints yours) |
+| | | What it means for the business |
+|---|---|---|
+| **Top-1 among movements worth explaining** | **64.4%** (56 of 87) | On about two incidents in three, the analyst starts from the right cause rather than spending two days finding it |
+| Top-1 over the whole population | 38.9% | Includes the cases correctly declined, so refusals are not hidden to flatter the rate |
+| **False alarms on noise-only cases** | **0.0%** | No morning lost chasing a cause that isn't there; alerts stay worth reading |
+| Planted correlation traps rejected | 87.5% | The costliest error, fixing an innocent thing such as rolling back a good release, is caught 7 times in 8 |
+| **Cases needing an abstention that got one** | **88.2%** (2 missed of 17) | When the honest answer is "not yet known", that is what the reader gets |
+| Abstentions that were right | 85.7% | It does not refuse its way to safety |
+| Expected calibration error | 0.069 raw, **0.042 calibrated** on held out | "80% confident" is right about 8 times in 10, so a manager can decide how much to rely on it |
+| Latency p50 / p95 | 0.07s / 0.18s (Apple M4, 16 GB; `make bench` prints yours) | Fast enough to use in the meeting where the question is asked |
 
 The first two rows belong together. The engine explains movements that clear
 both a statistical and a rupee materiality test and declines the rest, so top-1
@@ -549,7 +616,7 @@ calibration error from 0.117 to 0.069 raw, and 0.099 to 0.042 on the held-out
 half, with every other rate above unchanged. A confidence score that is right
 about how uncertain it is was the point of having one.
 
-501 tests, `make audit` runs 33 executable security, logic and design checks.
+502 tests, `make audit` runs 33 executable security, logic and design checks.
 The suite forces the deterministic backend: a test whose result depends on what
 a 7B happened to generate is a sample of one, not a test.
 
@@ -625,11 +692,11 @@ The backend is also selectable at runtime from the console, and per request via
 | Command | What it does |
 |---|---|
 | `make demo` | the console |
-| `make test` | 501 tests; `-m invariant` for the 238 correctness ones |
+| `make test` | 502 tests; `-m invariant` for the 238 correctness ones |
 | `make bench` | accuracy, trap rejection, calibration, latency |
 | `make audit` | 33 executable security, logic and design checks |
 | `make status` | the KPI graph through the real contract loader |
-| `make guardrails` | watch the guardrails refuse bad input |
+| `make guardrails` | watch every guardrail refuse bad input, model ones included |
 | `make verify-ai` | prove both model stages work before a demo depends on them |
 | `make capture-ai` | run one case with the model and without, and keep both |
 
