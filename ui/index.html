@@ -849,6 +849,48 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
    the bar parks underneath it and its offset is the masthead's measured height
    rather than a guessed constant -- the bar wraps to two rows at narrow widths
    and a constant is wrong at exactly the size a phone uses. */
+/* ---------- the picture: KPI cards ----------
+   Bordered and flat, not floating. A shadow under every card is the tell of a
+   page that wants to look designed; a hairline is what an instrument uses, and
+   it keeps five cards reading as one row rather than as five objects. */
+.kcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));
+  gap:var(--sp-3);margin:0 0 var(--sp-5)}
+.kcard{display:flex;flex-direction:column;gap:2px;text-align:left;
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-md);padding:var(--sp-4);cursor:pointer;
+  font:inherit;color:inherit;transition:border-color .1s,background .1s}
+.kcard:hover{border-color:var(--line-heavy);background:var(--raised)}
+.kcard.flagged{border-left:2px solid var(--down)}
+.kname{font:500 var(--t-2xs)/1.3 var(--sans);color:var(--ink-3);
+  letter-spacing:.07em;text-transform:uppercase}
+.kval{font:500 var(--t-xl)/1.15 var(--mono);color:var(--ink);
+  font-variant-numeric:tabular-nums;margin-top:var(--sp-2)}
+.kchg{font:500 var(--t-xs)/1.3 var(--mono);color:var(--ink-3)}
+.kchg.down{color:var(--down)} .kchg.up{color:var(--up)}
+.kchg small{font-family:var(--sans);color:var(--ink-4);margin-left:5px;
+  font-weight:400}
+.kcard .spark{width:100%;height:30px;margin:var(--sp-3) 0 var(--sp-2)}
+.kflag{display:flex;align-items:center;gap:5px;
+  font:500 var(--t-2xs)/1.3 var(--sans);color:var(--down)}
+.kflag .ico{width:13px;height:13px;flex:none}
+.kflag .na{color:var(--ink-4);font-weight:400}
+
+/* The sentence the whole product is. It sits between the two halves of the
+   page because that is where the claim is: everything above it is what a BI
+   tool already gives you, everything below is what it does not. */
+.handoff{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:baseline;
+  border-top:1px solid var(--line-heavy);padding-top:var(--sp-4);
+  margin:var(--sp-6) 0 var(--sp-5);max-width:72ch;
+  font-size:var(--t-sm);color:var(--ink-3);line-height:var(--lh-snug)}
+.handoff span{font-weight:600;color:var(--ink);font-size:var(--t-base)}
+
+.alldetail{margin-top:var(--sp-7);border-top:1px solid var(--line);
+  padding-top:var(--sp-4)}
+.alldetail > summary{list-style:none;cursor:pointer}
+.alldetail > summary::-webkit-details-marker{display:none}
+.alldetail > summary .label{margin-bottom:0;display:inline-block}
+.alldetail > summary:hover .label{color:var(--ink)}
+
 /* The restraint strip. One row of cells divided by hairlines rather than five
    floating cards: cards would give each number its own edge and shadow and
    make five equal facts look like five separate features, when the point is
@@ -1477,14 +1519,15 @@ async function showOverview(){
         <dd style="font-size:var(--t-md)">${region||'All regions'}</dd></div>
     </dl>
 
+    ${kpiCards(rows, fmt)}
+
     ${triageMarkup()}
 
-    <span class="label" style="margin-top:var(--sp-7)">All metrics</span>
+    <details class="alldetail"><summary><span class="label">All five metrics, and how they connect</span></summary>
     <table class="watch"><thead><tr>
       <th>Metric</th>
       <th class="n">Latest</th>
       <th class="n hide-sm">7-day</th>
-      <th class="hide-sm">Trend</th>
       <th class="n">Flagged</th>
     </tr></thead><tbody>
     ${rows.map(({k,depth})=>`
@@ -1494,13 +1537,14 @@ async function showOverview(){
         <td class="n"><span class="val">${fmt(k,k.latest)}</span></td>
         <td class="n hide-sm"><span class="chg ${k.period_change<0?'down':'up'}">${
           k.period_change==null?'–':(k.period_change>0?'+':'')+pct(k.period_change)}</span></td>
-        <td class="hide-sm"><canvas class="spark" data-kpi="${k.kpi_id}"></canvas></td>
         <td class="n"><span class="flagcount">${k.material_drops
             ? `<b>${k.material_drops}</b>` : '<span class="na">none</span>'}</span></td>
       </tr>`).join('')}
     </tbody></table>
-    <p class="sub" style="margin-top:var(--sp-5);font-size:var(--t-sm);font-family:var(--sans)">Select a metric to see what moved it,
-      what was ruled out, and whether anything warned about it first.</p></div>`;
+    <p class="sub" style="margin-top:var(--sp-4);font-size:var(--t-sm);font-family:var(--sans)">Revenue is orders times average
+      order value, and orders come from sessions times conversion, so a break in
+      one shows up in the others. Select a metric to see what moved it.</p>
+    </details></div>`;
 
   $('#margin').innerHTML = marginBlock(null);
   document.querySelectorAll('tr.triage').forEach(row=>{
@@ -1519,6 +1563,8 @@ async function showOverview(){
     b.addEventListener('keydown', e=>{ if(e.key==='Enter') go('/kpi/'+b.dataset.kpi); });
   });
   document.querySelectorAll('.kpi').forEach(b=>
+    b.addEventListener('click',()=>go('/kpi/'+b.dataset.kpi)));
+  document.querySelectorAll('.kcard').forEach(b=>
     b.addEventListener('click',()=>go('/kpi/'+b.dataset.kpi)));
   drawSparks();
   $('#main').setAttribute('aria-busy','false');
@@ -1545,6 +1591,42 @@ function zWords(z){
   if(a >= 6) return 'well outside normal';
   if(a >= 3) return 'outside normal';
   return 'near normal';
+}
+
+/* The picture, then the work.
+
+   The page is an analytical list page in the Fiori sense rather than a
+   dashboard: the cards exist to be drilled through, not to be watched. That
+   distinction is the product's whole argument and it is worth making
+   structurally rather than in a caption. A dashboard shows five numbers and
+   stops; every card here carries the count of movements that still need
+   explaining, and every row underneath it carries an owner and an action.
+
+   Which is also why the cards are not the page. They are the half a BI tool
+   already gives you, placed directly above the half it does not. */
+function kpiCards(rows, fmt){
+  if(!rows || !rows.length) return '';
+  const cards = rows.map(({k}) => {
+    const ch = k.period_change;
+    const dir = ch == null ? '' : (ch < 0 ? 'down' : 'up');
+    const flags = k.material_drops || 0;
+    return `<button class="kcard ${flags ? 'flagged' : ''}" data-kpi="${k.kpi_id}">
+      <span class="kname">${escapeHtml(title(k.kpi_id))}</span>
+      <span class="kval">${fmt(k, k.latest)}</span>
+      <span class="kchg ${dir}">${ch == null ? '\u2013'
+        : (ch > 0 ? '+' : '') + pct(ch)}<small>vs prior period</small></span>
+      <canvas class="spark" data-kpi="${k.kpi_id}"></canvas>
+      <span class="kflag">${flags
+        ? `<svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg>
+           ${plural(flags, 'movement')} to explain`
+        : '<span class="na">nothing to explain</span>'}</span>
+    </button>`;
+  }).join('');
+  return `<span class="label">The picture, as any dashboard would show it</span>
+    <div class="kcards">${cards}</div>
+    <p class="handoff"><span>Your dashboard stops here.</span> Below is what
+      those flags actually were, ranked by what they cost per day, each with the
+      role accountable for it.</p>`;
 }
 
 function triageMarkup(){
