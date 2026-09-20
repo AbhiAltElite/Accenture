@@ -1779,6 +1779,14 @@ async function load(){
   const seriesRes = await fetch('/api/series?'+q);
   if(!seriesRes.ok){
     $('#eyebrow').textContent='';
+    // Everything the previous slice put on the page goes with it. A refusal
+    // that only rewrites the headline leaves the refused region's own figures
+    // underneath it: the breadcrumb naming the region, the observed and
+    // expected rupees, the impact, the confidence, the run's telemetry and a
+    // twelve-item index into sections that are no longer there. That is the
+    // leak this branch exists to prevent, and it reappears the moment a band is
+    // added to the page and not added here, which is exactly what happened.
+    clearFindingChrome();
     // A refusal is its own answer. Rendering it as "no data" would tell a reader
     // the region is empty rather than that they may not see it, and leaving the
     // previous page in place is how a refused region's figures stayed on screen.
@@ -2743,6 +2751,19 @@ function group(name, why, body){
    This says it in the sentence they would have said it in. */
 
 const WEEKDAY = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+/* Every band the diagnosis renders above its narrative, cleared together.
+
+   Kept as one function rather than as a list repeated at each exit, because
+   the failure mode is not writing the clear-down wrong, it is adding a band
+   later and updating only the exit you happened to be looking at. */
+function clearFindingChrome(){
+  $('#crumb').innerHTML = '';
+  $('#basis').innerHTML = '';
+  $('#objhead').innerHTML = ''; $('#objhead').hidden = true;
+  $('#defbar').innerHTML = ''; $('#defbar').hidden = true;
+  $('#anchorbar').innerHTML = ''; $('#anchorbar').hidden = true;
+}
 
 function basisLine(w, where, disputed){
   if(!w || w.expected == null || w.observed == null) return '';
