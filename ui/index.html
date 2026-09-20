@@ -752,6 +752,62 @@ table.components tr:last-child td{border-bottom:none}
 pre{background:var(--sunk);border-radius:var(--r-sm);
   padding:var(--sp-3) var(--sp-4);overflow-x:auto;font-family:var(--mono);
   font-size:var(--t-2xs);line-height:var(--lh-snug);color:var(--ink-2)}
+
+/* ---------- object header, KPI strip, anchor bar ----------
+   The three conventions a finance reader already knows from Fiori's object
+   page, and the reason that floorplan survives documents this long: the key
+   facts sit in a header rather than inside section four, and the section list
+   stays on screen so nobody scrolls looking for one. Neither adds information;
+   both change where it is. */
+.crumb{font:500 var(--t-2xs)/1.4 var(--sans); color:var(--ink-4);
+  letter-spacing:.04em; text-transform:uppercase; margin:0 0 var(--sp-2);}
+.crumb span{color:var(--ink-3);}
+.crumb i{font-style:normal; color:var(--line-heavy); padding:0 var(--sp-1);}
+.crumb a{color:var(--ink-3); text-decoration:none; border-bottom:1px solid var(--line-strong);}
+.crumb a:hover{color:var(--ink); border-bottom-color:var(--ink-3);}
+
+.basis{font:400 var(--t-sm)/var(--lh-snug) var(--sans); color:var(--ink-2);
+  margin:var(--sp-2) 0 var(--sp-4); max-width:62ch;}
+.basis b{font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums;}
+
+.objhead{display:flex; flex-wrap:wrap; gap:var(--sp-5) var(--sp-6);
+  padding:var(--sp-4) 0 var(--sp-5); margin:0 0 var(--sp-5);
+  border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
+.objhead .kpi{display:flex; flex-direction:column; gap:2px; min-width:0;}
+.objhead .kpi .k{font:500 var(--t-2xs)/1.3 var(--sans); color:var(--ink-4);
+  letter-spacing:.06em; text-transform:uppercase; white-space:nowrap;}
+.objhead .kpi .v{font:500 var(--t-lg)/1.15 var(--serif); color:var(--ink);
+  font-variant-numeric:tabular-nums;}
+.objhead .kpi .v.down{color:var(--down);}
+.objhead .kpi .v small{font:400 var(--t-xs)/1 var(--sans); color:var(--ink-3);
+  display:block; margin-top:3px; letter-spacing:0; text-transform:none;}
+.objhead .kpi .v.words{font-size:var(--t-md);}
+
+.status{display:inline-flex; align-items:center; gap:6px; align-self:flex-start;
+  font:600 var(--t-2xs)/1 var(--sans); letter-spacing:.06em;
+  text-transform:uppercase; padding:5px 9px; border-radius:var(--r-sm);}
+.status.neg{background:var(--down-soft); color:var(--down);}
+.status.warn{background:var(--flag-soft); color:var(--flag);}
+.status.ok{background:var(--accent-soft); color:var(--accent-ink);}
+.status.neutral{background:var(--sunk); color:var(--ink-3);}
+
+/* Below the masthead, not over it: the masthead is sticky at z-index 15, so
+   the bar parks underneath it and its offset is the masthead's measured height
+   rather than a guessed constant -- the bar wraps to two rows at narrow widths
+   and a constant is wrong at exactly the size a phone uses. */
+.anchorbar{position:sticky; top:var(--masthead-h,54px); z-index:14; display:flex; gap:0;
+  overflow-x:auto; scrollbar-width:none;
+  background:var(--paper); border-bottom:1px solid var(--line);
+  margin:0 0 var(--sp-5);}
+.anchorbar::-webkit-scrollbar{display:none;}
+.anchorbar a{flex:none; padding:10px var(--sp-3); text-decoration:none;
+  font:500 var(--t-xs)/1.2 var(--sans); color:var(--ink-3);
+  border-bottom:2px solid transparent; white-space:nowrap;}
+.anchorbar a:hover{color:var(--ink);}
+.anchorbar a.on{color:var(--ink); border-bottom-color:var(--accent);}
+.anchorbar a em{font-style:normal; font-family:var(--mono); color:var(--ink-4);
+  margin-right:5px; font-size:var(--t-2xs);}
+@media (max-width:820px){ .objhead{gap:var(--sp-4);} }
 </style>
 </head>
 <body>
@@ -851,9 +907,13 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
       </form>
       <div id="overview"></div>
       <div id="diagnosis" hidden>
+        <p class="crumb" id="crumb"></p>
         <p class="eyebrow" id="eyebrow"></p>
         <h1 id="headline"></h1>
+        <p class="basis" id="basis"></p>
+        <div class="objhead" id="objhead" hidden></div>
         <div class="prose" id="story"></div>
+        <nav class="anchorbar" id="anchorbar" aria-label="Sections" hidden></nav>
         <div id="rest"></div>
       </div>
     </div>
@@ -1739,6 +1799,11 @@ function render(){
   resetSections();
   $('#eyebrow').textContent =
     `${title(kpi)} · ${where} · ${series.days[0]} to ${series.days.at(-1)}`;
+  // Where the reader is, and the way back. An object page without a trail is
+  // the one thing every enterprise reader notices is missing.
+  $('#crumb').innerHTML =
+    `<a href="#" id="crumbhome">Open findings</a><i>/</i><span>${escapeHtml(title(kpi))}</span>`
+    + `<i>/</i><span>${escapeHtml(where)}</span>`;
   // The masthead carries the current context so a reader always knows what
   // they are looking at without scrolling back to the top of the document.
   $('#context').innerHTML =
@@ -1753,8 +1818,10 @@ function render(){
       ${grain}, no movement in ${name} passed both the statistical and the
       financial test. Ordinary variation, weekly rhythm and the retail calendar
       account for what happened.</p>`;
+    $('#basis').innerHTML = '';
+    $('#objhead').hidden = true; $('#objhead').innerHTML = '';
     $('#rest').innerHTML = section('The movement', chartMarkup(), true) + freshnessBlock();
-    drawChart(); bindChart(); return;
+    buildAnchorBar(); drawChart(); bindChart(); return;
   }
 
   const w = win.worst;
@@ -1766,6 +1833,15 @@ function render(){
   $('#headline').textContent = contradicted
     ? `${title(kpi)} appears to fall ${pct(Math.abs(w.pct))} below expected in ${where} on ${w.day} — unconfirmed`
     : `${title(kpi)} fell ${pct(Math.abs(w.pct))} below expected in ${where} on ${w.day}`;
+
+  // The basis for the word "fell", said in the sentence a reader would have
+  // used. Contradicted runs are the exception: the two systems do not agree the
+  // movement happened, so stating what a normal Wednesday does would dress a
+  // disputed figure as a settled one.
+  $('#basis').innerHTML = contradicted ? '' : basisLine(w, where);
+  const oh = objectHeader(diagnosis, w);
+  $('#objhead').innerHTML = oh;
+  $('#objhead').hidden = !oh;
 
   if(diagnosis && diagnosis.verdict === 'contradicted'){
     // Its own answer, not an abstention with a footnote. "We could not tell
@@ -1812,6 +1888,7 @@ function render(){
         + (persona === 'analyst' ? receiptBlock() : '')
         + feedbackBlock())
     + withheldBlock();
+  buildAnchorBar();
   drawChart();
   bindChart();
   wireClaims();
@@ -2407,9 +2484,122 @@ function group(name, why, body){
       <p>${escapeHtml(why)}</p>
     </div>${body}</section>`;
 }
+/* ---------- object header, basis line, anchor bar ----------
+
+   None of this is new information: every figure below is already somewhere on
+   the page. What changes is where it sits. The three key facts a reader needs
+   to decide anything were inside section four; the basis for the word "fell"
+   was only ever implicit in a chart axis; and twelve sections had no index.
+
+   The basis line exists because the engine's answer to "on what basis did it
+   drop" is rigorous and invisible. Detection runs on the residual after MSTL
+   removes trend, weekly rhythm and the festival calendar, and scores it on the
+   median and MAD rather than the mean. A reader saw "-32.5%" and a z-score.
+   This says it in the sentence they would have said it in. */
+
+const WEEKDAY = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+function basisLine(w, where){
+  if(!w || w.expected == null || w.observed == null) return '';
+  const day = new Date(w.day + 'T00:00:00');
+  const wd = isNaN(day) ? 'day' : WEEKDAY[day.getDay()];
+  const short = where && where !== 'All regions' ? ` in ${escapeHtml(where)}` : '';
+  return `<b>${inr(Math.abs(w.delta))}</b> below the <b>${inr(w.expected)}</b>
+    a ${wd}${short} normally does, once the weekly rhythm, the trend and the
+    festival calendar are allowed for.`;
+}
+
+/* Confidence as a word. A CFO was being shown "0.273", which is a number that
+   cannot be acted on and does not mean what a reader assumes it means. The
+   score stays -- on hover, and in full in the analyst's own section. */
+const BAND_WORDS = {
+  high:'Strong', moderate:'Moderate', medium:'Moderate',
+  low:'Weak', unknown:'Not enough evidence', none:'Not enough evidence',
+};
+function bandWord(band){
+  const k = String(band || '').toLowerCase();
+  return BAND_WORDS[k] || sentence(k || 'Unknown');
+}
+
+function objectHeader(d, w){
+  const cells = [];
+  const verdict = (d && d.verdict) || (w ? 'explained' : '');
+  const S = {contradicted:['warn','Unconfirmed'], unknown:['neutral','No cause proposed'],
+             explained:['neg','Verified']}[verdict] || ['neutral', sentence(verdict||'Open')];
+  cells.push(`<span class="status ${S[0]}">${escapeHtml(S[1])}</span>`);
+
+  // Always the worst day's shortfall, never `headline.change_inr_per_day`.
+  // That field is the window average and it is only present on some persona
+  // projections, so reading it where it exists and falling back where it does
+  // not put a different Impact figure in front of a CFO and an analyst looking
+  // at the same finding -- ₹36,381 against ₹52,952. The evidence is identical
+  // across personas by construction and the header has to show that, so it
+  // takes the one figure every projection carries and says which day it is.
+  const impact = (w && w.delta != null) ? Math.abs(w.delta) : null;
+  if(impact != null)
+    cells.push(`<div class="kpi"><span class="k">Impact</span>
+      <span class="v down">${inr(impact)}<small>on the worst day</small></span></div>`);
+
+  if(d && d.confidence && d.confidence.band){
+    const score = d.confidence.probability != null
+      ? `calibrated to ${d.confidence.probability}`
+      : `score ${d.confidence.score}`;
+    cells.push(`<div class="kpi"><span class="k">Confidence</span>
+      <span class="v words" title="${escapeHtml(score)}">${escapeHtml(bandWord(d.confidence.band))}</span></div>`);
+  }
+
+  const owner = (d && d.decision && d.decision.owner)
+    || (d && d.signal_gap && d.signal_gap.owner_role);
+  if(owner)
+    cells.push(`<div class="kpi"><span class="k">Accountable</span>
+      <span class="v words">${escapeHtml(role(owner))}</span></div>`);
+
+  if(w && w.day)
+    cells.push(`<div class="kpi"><span class="k">Worst day</span>
+      <span class="v words">${escapeHtml(w.day)}</span></div>`);
+
+  return cells.length > 1 ? cells.join('') : '';
+}
+
+/* The section index, built from what was actually rendered rather than from a
+   list kept in step by hand -- a list like that goes stale the first time a
+   persona hides a section, and a persona hiding sections is the whole point. */
+function syncMastheadHeight(){
+  const m = document.querySelector('.masthead');
+  if(!m) return;
+  document.documentElement.style.setProperty('--masthead-h', m.offsetHeight + 'px');
+}
+addEventListener('resize', syncMastheadHeight);
+
+function buildAnchorBar(){
+  syncMastheadHeight();
+  const bar = $('#anchorbar');
+  const secs = [...document.querySelectorAll('#rest .sec')];
+  if(!bar) return;
+  if(secs.length < 3){ bar.hidden = true; bar.innerHTML = ''; return; }
+  bar.innerHTML = secs.map(sec => {
+    const num = sec.querySelector('.num')?.textContent || '';
+    const name = sec.querySelector('.name')?.textContent || '';
+    return `<a href="#${sec.id}" data-sec="${sec.id}"><em>${escapeHtml(num)}</em>${escapeHtml(name)}</a>`;
+  }).join('');
+  bar.hidden = false;
+  bar.querySelectorAll('a').forEach(a => a.addEventListener('click', ev => {
+    ev.preventDefault();
+    const sec = document.getElementById(a.dataset.sec);
+    if(!sec) return;
+    sec.open = true;                       // jumping to a closed section is a dead link
+    sec.scrollIntoView({behavior:'smooth', block:'start'});
+    bar.querySelectorAll('a').forEach(x => x.classList.toggle('on', x === a));
+  }));
+}
+
 function section(title, body, open=false, count=''){
   const n = String(++SECTION_N).padStart(2,'0');
-  return `<details class="sec" ${open?'open':''}><summary>
+  // A stable id per section. The anchor bar is built from these, so a reader
+  // can jump rather than scroll-hunt through twelve of them -- the Fiori object
+  // page convention, and the reason that floorplan survives long documents.
+  const id = 'sec-' + n;
+  return `<details class="sec" id="${id}" ${open?'open':''}><summary>
       <span class="num">${n}</span><span class="name">${title}</span>
       ${count?`<span class="count">${count}</span>`:''}</summary>
     <div class="body">${body}</div></details>`;
