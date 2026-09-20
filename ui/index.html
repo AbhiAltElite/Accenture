@@ -133,6 +133,17 @@ body{background:var(--paper);color:var(--ink);
   .masthead .mark{border-right:none;padding-right:0}
   .masthead .tools{margin-left:0;flex-wrap:wrap;gap:var(--sp-3)}
 }
+/* Under about 760px the three control groups cannot be made to fit on one row
+   and cannot be broken up either -- a segmented control that wraps mid-way
+   stops reading as one choice. So the row scrolls inside its own track, the
+   way the section index does, rather than pushing the document 43px wider than
+   the viewport and giving the whole page a horizontal scrollbar. */
+@media (max-width:760px){
+  .masthead .tools{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
+    width:100%;padding-bottom:2px}
+  .masthead .tools::-webkit-scrollbar{display:none}
+  .masthead .seg{flex:none}
+}
 
 /* ═══ shell ══════════════════════════════════════════════════════════════
    Rail · document · margin. The margin column is the distinctive move: run
@@ -157,14 +168,25 @@ body{background:var(--paper);color:var(--ink);
 }
 @media (max-width:900px){
   .shell{grid-template-columns:1fr}
-  .rail{position:static;height:auto;border-right:none;
-    border-bottom:1px solid var(--line-strong)}
   .content{padding:var(--sp-5) var(--sp-4) var(--sp-8)}
 }
 
 /* ═══ rail ═══════════════════════════════════════════════════════════════ */
-.rail{position:sticky;top:54px;height:calc(100vh - 54px);overflow-y:auto;
+/* Offset by the masthead's measured height rather than by 54. 54 is its
+   min-height, and it wraps to two rows under about 900px, so the hardcoded
+   value put the rail's top 66px above where the masthead actually ends.
+   --masthead-h is published by the script on load and on resize. */
+.rail{position:sticky;top:var(--masthead-h,54px);
+  height:calc(100vh - var(--masthead-h,54px));overflow-y:auto;
   border-right:1px solid var(--line);padding:var(--sp-6) var(--sp-5)}
+/* Below the single-column breakpoint the rail is a band above the document,
+   not a column beside it. This has to sit *after* the base rule: it used to
+   live up in the shell block, where equal specificity let the base rule win
+   and the rail stayed sticky and full-height directly on top of the content. */
+@media (max-width:900px){
+  .rail{position:static;height:auto;border-right:none;
+    border-bottom:1px solid var(--line-strong)}
+}
 .railgroup{margin-bottom:var(--sp-6)}
 .railgroup:last-child{margin-bottom:0}
 /* One letterspaced label style, used only for structural headings, rail
@@ -797,7 +819,10 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
 
 .basis{font:400 var(--t-sm)/var(--lh-snug) var(--sans); color:var(--ink-2);
   margin:var(--sp-2) 0 var(--sp-4); max-width:62ch;}
-.basis b{font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums;}
+.basis b{font-weight:600; color:var(--ink); font-family:var(--mono);
+  font-variant-numeric:tabular-nums;}
+.basis .basisnote{display:block; margin-top:var(--sp-2); color:var(--ink-3);
+  font-size:var(--t-xs); line-height:var(--lh-snug);}
 
 .objhead{display:flex; flex-wrap:wrap; gap:var(--sp-5) var(--sp-6);
   padding:var(--sp-4) 0 var(--sp-5); margin:0 0 var(--sp-5);
@@ -1196,6 +1221,9 @@ function initTheme(){
 async function boot(){
   initTheme();
   initPersona();
+  // The rail's sticky offset reads this, so it has to exist before first paint
+  // and not only once a diagnosis has rendered.
+  syncMastheadHeight();
   initIndustry();
   try{
     const inds = await (await fetch('/api/industries')).json();
@@ -1955,7 +1983,7 @@ function render(){
   // used. Contradicted runs are the exception: the two systems do not agree the
   // movement happened, so stating what a normal Wednesday does would dress a
   // disputed figure as a settled one.
-  $('#basis').innerHTML = contradicted ? '' : basisLine(w, where);
+  $('#basis').innerHTML = basisLine(w, where, contradicted);
   const oh = objectHeader(diagnosis, w);
   $('#objhead').innerHTML = oh;
   $('#objhead').hidden = !oh;
@@ -2285,7 +2313,7 @@ function rankingBlock(){
        </tr>`).join('')}</tbody></table>`
     : '<p class="muted">Not run for this window.</p>';
 
-  return section('Ranking, in two tracks', `
+  return section('How we chose between explanations', `
     <p>These are never merged. A strong correlation topping a weak identity is
     the exact substitution this engine exists to prevent, so the two rankings
     are computed separately and rendered side by side.</p>
@@ -2321,7 +2349,7 @@ function narrativeBlock(){
     `<span class="s" title="cites ${escapeHtml((x.cites||[]).join(', '))}">${
       escapeHtml(prose(x.text))}<span class="cites">\u25AA${(x.cites||[]).length}</span></span> `).join('');
 
-  return section('Summary, and the checks it passed', `
+  return section('What we found, and what we checked', `
     <p>Written from a flat table of already-computed facts and nothing else.
     Every sentence carries the evidence ids it rests on, and a deterministic
     validator checks each one before a reader sees it.</p>
@@ -2619,14 +2647,30 @@ function group(name, why, body){
 
 const WEEKDAY = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-function basisLine(w, where){
+function basisLine(w, where, disputed){
   if(!w || w.expected == null || w.observed == null) return '';
   const day = new Date(w.day + 'T00:00:00');
-  const wd = isNaN(day) ? 'day' : WEEKDAY[day.getDay()];
+  const wd = isNaN(day) ? 'that day' : WEEKDAY[day.getDay()];
   const short = where && where !== 'All regions' ? ` in ${escapeHtml(where)}` : '';
-  return `<b>${inr(Math.abs(w.delta))}</b> below the <b>${inr(w.expected)}</b>
-    a ${wd}${short} normally does, once the weekly rhythm, the trend and the
-    festival calendar are allowed for.`;
+  // Both sides of the comparison, then what the right-hand side actually is.
+  // "17.2% below expected" is the headline and "expected" is the word carrying
+  // the whole claim: a finance reader reads it as budget or as the same week
+  // last year, and it is neither. Saying what it is not is the part that stops
+  // the misreading, so it is in the sentence rather than in a tooltip.
+  // On a contradicted run the shortfall is the thing in dispute, so stating it
+  // as a measured fact would contradict the finding two lines below. What the
+  // reader still needs is the definition: the headline says "below expected"
+  // either way, and leaving "expected" undefined is worst exactly here, where
+  // they are already being asked to doubt the number.
+  const sum = disputed ? '' : `Observed <b>${inr(w.observed)}</b> against an expected
+    <b>${inr(w.expected)}</b> \u2014 short by <b>${inr(Math.abs(w.delta))}</b>${
+      w.pct != null ? ` (${pct(Math.abs(w.pct))})` : ''}.`;
+  return `${sum}
+    <span class="basisnote">\u201cExpected\u201d is what a ${wd}${short} normally
+      does at this point in the year: the level implied by the recent trend, the
+      day-of-week pattern and the festival calendar, fitted on this metric\u2019s
+      own history. It is not a plan or budget figure, and not the same week last
+      year.</span>`;
 }
 
 /* Confidence as a word. A CFO was being shown "0.273", which is a number that
@@ -2761,20 +2805,20 @@ function buildAnchorBar(){
    at each of the fifteen call sites, so adding a section cannot silently ship
    without one and the titles stay the single source of what a section is. */
 const SEC_ICON = [
-  [/movement(s)? that cleared/i, 'list'],
-  [/^the movement/i,            'movement'],
-  [/checks it passed|^summary/i,'check'],
-  [/not anticipated/i,          'foresight'],
-  [/^the decision/i,            'decision'],
-  [/^monitoring/i,              'monitor'],
-  [/lever is applied/i,         'lever'],
-  [/ranking/i,                  'rank'],
-  [/breaks down/i,              'split'],
-  [/ruled out/i,                'ruled'],
-  [/data came from/i,           'source'],
-  [/receipt/i,                  'receipt'],
-  [/review and corrections/i,   'review'],
-  [/not shown/i,                'hidden'],
+  [/^the movement/i,          'movement'],
+  [/what we found/i,          'check'],
+  [/not anticipated/i,        'foresight'],
+  [/^the decision/i,          'decision'],
+  [/^monitoring/i,            'monitor'],
+  [/changes if you act/i,     'lever'],
+  [/else moved/i,             'list'],
+  [/chose between/i,          'rank'],
+  [/money went/i,             'split'],
+  [/what failed/i,            'ruled'],
+  [/data came from/i,         'source'],
+  [/receipt/i,                'receipt'],
+  [/review and corrections/i, 'review'],
+  [/not shown/i,              'hidden'],
 ];
 function secIcon(title){
   const hit = SEC_ICON.find(([re]) => re.test(title));
@@ -2956,7 +3000,7 @@ function simulatorBlock(){
         ${s.bounded_by ? `<p class="q bounded">Bounded by ${escapeHtml(s.bounded_by)}.</p>` : ''}
       </article>`;
   }).join('');
-  return section('Impact if the lever is applied', `
+  return section('What changes if you act', `
     <p>Projections, not measurements. Each rests on a quantity already measured
     or a coefficient the contract declares, and every assumption is stated so it
     can be argued with.</p>${rows}`, false,
@@ -3111,7 +3155,7 @@ function movementsBlock(){
             ? '<span class="state ok">diagnosed</span>'
             : '<span class="linkback">diagnose</span>')
         : '<span class="na">—</span>'}</td></tr>`).join('');
-  return section('Movements that cleared both materiality tests',
+  return section('What else moved that week',
     `<p>The series is split by MSTL into trend, weekly rhythm and the retail
      calendar, and anomalies are measured on what is left over using the median
      and MAD rather than the mean, so an earlier shock does not raise the bar for
@@ -3148,7 +3192,7 @@ function decompositionBlock(){
       <tbody>${rows}</tbody></table></div>`;
   }).join('');
 
-  return section('How the movement breaks down',
+  return section('Where the money went',
     `<p>Revenue is units times price, so only three things can move it. These are
      arithmetic rather than estimates, and they add back to the total exactly.</p>
      <div class="scroll"><table><thead><tr><th>Effect</th><th></th>
@@ -3178,7 +3222,7 @@ function candidatesBlock(){
       <p style="margin-bottom:10px"><strong>${x.reason}</strong></p>
       <div class="scroll"><table><tbody>${tests}</tbody></table></div></div>`;
   })).join('');
-  return section('Candidates considered and ruled out',
+  return section('What we tested, and what failed',
     `<p>Candidates come from the operational record with nothing marking which are
      real. One becomes a claim only by surviving every test that could be run, and
      a test that could not run is not a test that passed.</p>${items}`,
