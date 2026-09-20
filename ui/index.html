@@ -347,7 +347,15 @@ svg.ico,svg.chev{fill:none;stroke:currentColor;stroke-width:1.5;
   border-right:1px solid var(--line);margin-right:var(--sp-5);flex:0 1 auto}
 .figures > div:last-child{border-right:none;margin-right:0;padding-right:0}
 .figures dt{font-size:var(--t-2xs);color:var(--ink-3);letter-spacing:.09em;
-  text-transform:uppercase;margin-bottom:var(--sp-2);white-space:nowrap}
+  text-transform:uppercase;margin-bottom:var(--sp-2);white-space:nowrap;
+  display:flex;align-items:center;gap:6px}
+.figures dt .ico{width:14px;height:14px;flex:none;color:var(--ink-4)}
+.figures dd{font-family:var(--mono);font-variant-numeric:tabular-nums}
+/* What this page is, in one sentence, above the numbers. It sits at reading
+   size rather than at caption size because the first thing a reader meets
+   should not be the smallest thing on the page. */
+.purpose{max-width:64ch;font-size:var(--t-base);line-height:var(--lh-snug);
+  color:var(--ink-2);margin:var(--sp-3) 0 var(--sp-4)}
 .figures dd{font-family:var(--display);font-size:var(--t-xl);line-height:1.1;
   letter-spacing:-.02em;white-space:nowrap}
 .figures dd small{font-family:var(--sans);font-size:var(--t-xs);color:var(--ink-3);
@@ -816,6 +824,30 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
    the bar parks underneath it and its offset is the masthead's measured height
    rather than a guessed constant -- the bar wraps to two rows at narrow widths
    and a constant is wrong at exactly the size a phone uses. */
+/* The restraint strip. One row of cells divided by hairlines rather than five
+   floating cards: cards would give each number its own edge and shadow and
+   make five equal facts look like five separate features, when the point is
+   that they are one receipt. */
+.defbar{display:flex; flex-wrap:wrap; align-items:stretch;
+  border:1px solid var(--line); border-radius:var(--r-md);
+  background:var(--surface); margin:0 0 var(--sp-5); overflow:hidden;}
+.defbar .dcell{display:flex; gap:var(--sp-2); align-items:flex-start; flex:1 1 132px;
+  padding:var(--sp-3); border-right:1px solid var(--line); min-width:0;}
+.defbar .dcell:last-child{border-right:0;}
+/* A cell that wrapped to a second row keeps its own hairline above it, so the
+   strip still reads as a grid rather than as a row with an orphan under it. */
+.defbar{row-gap:0}
+.defbar .dcell{border-top:1px solid transparent}
+.defbar .ico{width:16px; height:16px; flex:none; color:var(--ink-4); margin-top:3px;}
+.defbar .dk{display:block; font:500 var(--t-2xs)/1.3 var(--sans); color:var(--ink-4);
+  letter-spacing:.06em; text-transform:uppercase; white-space:nowrap;}
+.defbar .dv{display:block; font:500 var(--t-md)/1.25 var(--mono); color:var(--ink);
+  font-variant-numeric:tabular-nums;}
+.defbar .dv i{font-style:normal; color:var(--ink-4); padding:0 1px;}
+.defbar .dv small{display:block; font:400 var(--t-2xs)/1.3 var(--sans);
+  color:var(--ink-3); letter-spacing:0; text-transform:none; margin-top:2px;}
+@media (max-width:820px){ .defbar .dcell{flex-basis:50%;} }
+
 .anchorbar{position:sticky; top:var(--masthead-h,54px); z-index:14; display:flex; gap:0;
   overflow-x:auto; scrollbar-width:none;
   background:var(--paper); border-bottom:1px solid var(--line);
@@ -856,6 +888,10 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
 <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 2.8h12v18.4l-2.4-1.6-2.4 1.6-2.4-1.6-2.4 1.6L6 19.6Z"/><line x1="9.2" y1="8" x2="14.8" y2="8"/><line x1="9.2" y1="12" x2="14.8" y2="12"/></symbol>
 <symbol id="i-review" viewBox="0 0 24 24"><path d="M11 4.5H5.5A1.5 1.5 0 0 0 4 6v12.5A1.5 1.5 0 0 0 5.5 20H18a1.5 1.5 0 0 0 1.5-1.5V13"/><path d="M17.2 3.6a1.9 1.9 0 0 1 2.7 2.7L13 13.2l-3.4.7.7-3.4Z"/></symbol>
 <symbol id="i-hidden" viewBox="0 0 24 24"><path d="M9.6 6a8.4 8.4 0 0 1 2.4-.3c6 0 9.5 6.3 9.5 6.3a15 15 0 0 1-3 3.6"/><path d="M6.3 7.9A15.3 15.3 0 0 0 2.5 12S6 18.3 12 18.3a8.7 8.7 0 0 0 3.6-.8"/><line x1="3.5" y1="3.5" x2="20.5" y2="20.5"/></symbol>
+<symbol id="i-calc" viewBox="0 0 24 24"><rect x="5" y="2.8" width="14" height="18.4" rx="2"/><line x1="8.5" y1="7" x2="15.5" y2="7"/><line x1="8.7" y1="11.5" x2="8.8" y2="11.5"/><line x1="12" y1="11.5" x2="12.1" y2="11.5"/><line x1="15.3" y1="11.5" x2="15.4" y2="11.5"/><line x1="8.7" y1="15.5" x2="8.8" y2="15.5"/><line x1="12" y1="15.5" x2="12.1" y2="15.5"/><line x1="15.3" y1="15.5" x2="15.4" y2="15.5"/></symbol>
+<symbol id="i-model" viewBox="0 0 24 24"><rect x="7.5" y="7.5" width="9" height="9" rx="1.5"/><line x1="10" y1="7.5" x2="10" y2="4"/><line x1="14" y1="7.5" x2="14" y2="4"/><line x1="10" y1="20" x2="10" y2="16.5"/><line x1="14" y1="20" x2="14" y2="16.5"/><line x1="7.5" y1="10" x2="4" y2="10"/><line x1="7.5" y1="14" x2="4" y2="14"/><line x1="20" y1="10" x2="16.5" y2="10"/><line x1="20" y1="14" x2="16.5" y2="14"/></symbol>
+<symbol id="i-sentence" viewBox="0 0 24 24"><path d="M20.5 14.5a2 2 0 0 1-2 2H8l-4.5 4V5.5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2Z"/><line x1="7.5" y1="8.5" x2="16.5" y2="8.5"/><line x1="7.5" y1="12" x2="13" y2="12"/></symbol>
+<symbol id="i-cost" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.2 8h5.6M9.2 11h5.6M13.6 8c1.6 0 2 1.2 2 2s-.7 2.4-2.6 2.4H9.4l4.2 3.6"/></symbol>
 <symbol id="i-chevron" viewBox="0 0 24 24"><polyline points="7 10 12 15 17 10"/></symbol>
 </defs></svg>
 <header class="masthead">
@@ -959,6 +995,7 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
         <h1 id="headline"></h1>
         <p class="basis" id="basis"></p>
         <div class="objhead" id="objhead" hidden></div>
+        <div class="defbar" id="defbar" hidden></div>
         <div class="prose" id="story"></div>
         <nav class="anchorbar" id="anchorbar" aria-label="Sections" hidden></nav>
         <div id="rest"></div>
@@ -1123,7 +1160,10 @@ function initPersona(){
     STATE.persona = b.dataset.persona;
     try{ localStorage.setItem('whychain-persona',STATE.persona); }catch{ /* ignore */ }
     markPersona();
-    if(STATE.kpi) load();
+    // The queue is a persona projection too. Switching reader on the overview
+    // used to re-render nothing at all, so a CFO stood looking at a column of
+    // robust z-scores -- the one number the switch exists to take away.
+    if(STATE.kpi) load(); else showOverview();
   });
 }
 function markPersona(){
@@ -1385,17 +1425,28 @@ async function showOverview(){
   // hierarchy is carried by indentation inside the first column, and the
   // header row tells a reader what each column is, all three of which a grid
   // of cards gives up in exchange for looking designed.
+  // The page opened on a search box above an empty canvas, with the queue
+  // below the fold. A reader arriving for the first time -- or a jury watching
+  // the first ten seconds of a demo -- was told nothing about what this is or
+  // what it is for. One sentence, then the counts, then the work.
   $('#overview').innerHTML = `<div class="overview">
     <h1>${region||'All regions'}</h1>
+    <p class="purpose">Every material movement in these metrics, ranked by what
+      it costs per day, each one traced to a cause that survived testing —
+      or refused when the evidence would not carry it.</p>
     <p class="sub">${STATE.graphSummary || ''}</p>
     ${STATE.drivenBy ? `<p class="drivenby"><span>What moves it</span>
       ${escapeHtml(STATE.drivenBy)}</p>` : ''}
 
     <dl class="figures">
-      <div><dt>Metrics tracked</dt><dd>${rows.length}</dd></div>
-      <div><dt>Carrying flags</dt><dd>${withFlags}<small>of ${rows.length}</small></dd></div>
-      <div><dt>Material movements</dt><dd class="${flagged?'down':''}">${flagged.toLocaleString()}</dd></div>
-      <div><dt>Scope</dt><dd style="font-size:var(--t-md)">${region||'All regions'}</dd></div>
+      <div><dt><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg>Metrics tracked</dt>
+        <dd>${rows.length}</dd></div>
+      <div><dt><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg>Carrying flags</dt>
+        <dd>${withFlags}<small>of ${rows.length}</small></dd></div>
+      <div><dt><svg class="ico" aria-hidden="true"><use href="#i-movement"/></svg>Material movements</dt>
+        <dd class="${flagged?'down':''}">${flagged.toLocaleString()}</dd></div>
+      <div><dt><svg class="ico" aria-hidden="true"><use href="#i-foresight"/></svg>Scope</dt>
+        <dd style="font-size:var(--t-md)">${region||'All regions'}</dd></div>
     </dl>
 
     ${triageMarkup()}
@@ -1457,6 +1508,17 @@ async function showOverview(){
    four-point fall in checkout conversion and a two-lakh fall in revenue are not
    otherwise comparable, and each contract already declares the conversion for
    its own materiality test, so no new assumption is introduced to do it. */
+/* A robust z in words. The thresholds are the detector's own: a contract
+   flags past 3, so 3 is the floor of "outside normal" rather than a rounding
+   of it, and the bands above it are multiples of that same floor. */
+function zWords(z){
+  const a = Math.abs(Number(z) || 0);
+  if(a >= 9) return 'far outside normal';
+  if(a >= 6) return 'well outside normal';
+  if(a >= 3) return 'outside normal';
+  return 'near normal';
+}
+
 function triageMarkup(){
   const q = STATE.queue;
   if(!q || !q.findings || !q.findings.length) return '';
@@ -1479,7 +1541,14 @@ function triageMarkup(){
               : ''}</span></td>
       <td class="n hide-sm"><span class="chg down">${
         f.pct != null ? pct(f.pct) : '–'}</span>
-          <span class="owner">z ${f.robust_z}</span></td>
+          ${/* The robust z is the detector's own unit and it means nothing to
+               anyone outside this team -- a CFO reading "z -10.64" learns that
+               the page is not for them. The analyst keeps it, because for an
+               analyst it is the number that says how far outside normal this
+               sat; everyone else gets the severity in words. */
+            STATE.persona === 'analyst'
+              ? `<span class="owner">z ${f.robust_z}</span>`
+              : `<span class="owner">${zWords(f.robust_z)}</span>`}</td>
       <td class="hide-sm"><span class="owner">${
         escapeHtml(role(f.owner_role))}</span></td>
       <td class="n">${f.diagnosable
@@ -1867,6 +1936,7 @@ function render(){
       account for what happened.</p>`;
     $('#basis').innerHTML = '';
     $('#objhead').hidden = true; $('#objhead').innerHTML = '';
+    $('#defbar').hidden = true; $('#defbar').innerHTML = '';
     $('#rest').innerHTML = section('The movement', chartMarkup(), true) + freshnessBlock();
     buildAnchorBar(); drawChart(); bindChart(); return;
   }
@@ -1889,6 +1959,9 @@ function render(){
   const oh = objectHeader(diagnosis, w);
   $('#objhead').innerHTML = oh;
   $('#objhead').hidden = !oh;
+  const db = defensibilityBar(diagnosis);
+  $('#defbar').innerHTML = db;
+  $('#defbar').hidden = !db;
 
   if(diagnosis && diagnosis.verdict === 'contradicted'){
     // Its own answer, not an abstention with a footnote. "We could not tell
@@ -2566,6 +2639,47 @@ const BAND_WORDS = {
 function bandWord(band){
   const k = String(band || '').toLowerCase();
   return BAND_WORDS[k] || sentence(k || 'Unknown');
+}
+
+/* The restraint strip.
+
+   Everything here was already on the page and all of it was below the fold:
+   the deterministic share sat in the run receipt at section eleven, the
+   validator's rejection count inside section two, the set-aside candidates in
+   section nine. Those five numbers are the argument this product makes, so
+   they belong where the argument is made rather than at the end of it.
+
+   Nothing here is computed for display. A zero is shown as a zero -- a run
+   that rejected no sentences says so, because a counter that only ever appears
+   when it is flattering is not evidence of anything. */
+function defensibilityBar(d){
+  if(!d || !d.telemetry || !d.telemetry.totals) return '';
+  const t = d.telemetry.totals;
+  const v = (d.narrative && d.narrative.validation) || {};
+  const acc = (v.accepted || []).length, rej = (v.rejected || []).length;
+  const verified = (d.verified || []).length, aside = (d.set_aside || []).length;
+  const calls = t.model_calls || 0, cached = t.cache_hits || 0;
+
+  const cell = (icon, k, val, note) => `<div class="dcell">
+      <svg class="ico" aria-hidden="true"><use href="#i-${icon}"/></svg>
+      <div><span class="dk">${k}</span>
+        <span class="dv">${val}${note ? `<small>${note}</small>` : ''}</span></div>
+    </div>`;
+
+  const out = [];
+  if(t.deterministic_share != null)
+    out.push(cell('calc', 'Computed', (t.deterministic_share*100).toFixed(1) + '%',
+                  'without a model'));
+  out.push(cell('model', 'Model calls', calls,
+                cached ? `${cached} cached` : 'none cached'));
+  if(v.accepted || v.rejected)
+    out.push(cell('sentence', 'Sentences', `${acc}<i>/</i>${acc + rej}`,
+                  rej ? `${rej} rejected` : 'none rejected'));
+  out.push(cell('ruled', 'Causes', `${verified}<i>/</i>${verified + aside}`,
+                aside ? `${aside} set aside` : 'none set aside'));
+  if(t.cost_inr != null)
+    out.push(cell('cost', 'Cost', '\u20b9' + Number(t.cost_inr).toFixed(2), 'this run'));
+  return out.join('');
 }
 
 function objectHeader(d, w){
