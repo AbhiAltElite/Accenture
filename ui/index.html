@@ -11,24 +11,24 @@
 :root{
   /* Paper and ink. The page has a ground rather than being white with grey
      text on it, which is what stops long tabular reading from glaring. */
-  --paper:#f5f1e9; --surface:#fffdf8; --raised:#efeade; --sunk:#e7e1d3;
+  --paper:#f1f3f5; --surface:#ffffff; --raised:#f7f8fa; --sunk:#e8ebef;
   /* Every step clears WCAG AA against the paper above it, which the previous
      scale did not: --ink-3 is the most-used colour on the page after --ink and
      it sat at 3.51:1, under the 4.5 small text needs, with --ink-4 at 2.32:1.
      That is what made the secondary text read as washed out. The warmth is kept
      but reduced, so these register as considered grey rather than muddy brown,
      and hierarchy is carried by weight and size rather than by fading out. */
-  --ink:#141210; --ink-2:#3a3631; --ink-3:#5b554d; --ink-4:#7c7568;
-  --line:#ded7c8; --line-strong:#c3baa7; --line-heavy:#8f8672;
+  --ink:#13171b; --ink-2:#39424b; --ink-3:#59626d; --ink-4:#7e8792;
+  --line:#dde2e8; --line-strong:#c3cad3; --line-heavy:#949ca7;
 
   /* Two accents, each with exactly one job, because a page where colour means
      several things means none. Evergreen: this held up under test. Ochre: there
      is evidence behind this and clicking opens it. Nothing else is coloured. */
-  --accent:#1c5941; --accent-ink:#0f3b2b; --accent-soft:#dce9e2;
-  --evidence:#875010; --evidence-ink:#663d0b; --evidence-soft:#f6e8d4;
-  --down:#992722; --down-soft:#f3dfdc;
-  --up:#1c6446;
-  --flag:#87580f; --flag-soft:#f5e7cf;
+  --accent:#0f5a6b; --accent-ink:#0a404d; --accent-soft:#d8e8ed;
+  --evidence:#8a5712; --evidence-ink:#68410c; --evidence-soft:#f6e9d6;
+  --down:#a82920; --down-soft:#f7e2e0;
+  --up:#186246;
+  --flag:#8a5c0c; --flag-soft:#f8ecd2;
 
   /* One 1.16 ratio from a 17px base. Deliberately shallow: a working
      instrument wants a narrow range of sizes and a wide range of weights and
@@ -46,6 +46,12 @@
      Serif carries prose and display figures; sans carries chrome and tables;
      mono carries identifiers, section numbers and anything a reader might copy. */
   --serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+  /* Display face, as one switch. Headlines, figures and the narrative were set
+     in the serif, which reads as an essay -- and a warm cream ground under a
+     serif display with a sage accent is, as of 2026, its own stock look. The
+     instrument this is meant to be sets everything in the sans and leaves the
+     serif defined but unused, so reverting is one line rather than twenty. */
+  --display:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
 
@@ -53,24 +59,24 @@
   --r-sm:3px; --r-md:5px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --paper:#131210; --surface:#1a1815; --raised:#22201b; --sunk:#292620;
-  --ink:#f4f1ea; --ink-2:#bdb6a8; --ink-3:#968e80; --ink-4:#726a5d;
-  --line:#2a2721; --line-strong:#413c33; --line-heavy:#6b6455;
-  --accent:#79c09e; --accent-ink:#a4d9bc; --accent-soft:#1a3128;
-  --evidence:#d69d57; --evidence-ink:#e8bd83; --evidence-soft:#31240e;
-  --down:#df8880; --down-soft:#31201e;
-  --up:#79c09e;
-  --flag:#d5a960; --flag-soft:#312816;
+  --paper:#0e1116; --surface:#161a20; --raised:#1d222a; --sunk:#242a33;
+  --ink:#eef1f5; --ink-2:#b2bac5; --ink-3:#88919d; --ink-4:#68717c;
+  --line:#252b34; --line-strong:#353d48; --line-heavy:#58616d;
+  --accent:#5cc0d4; --accent-ink:#90dbea; --accent-soft:#0c2931;
+  --evidence:#d8a25c; --evidence-ink:#ecc48c; --evidence-soft:#32250f;
+  --down:#e98a81; --down-soft:#331f1d;
+  --up:#6bc39a;
+  --flag:#d3a75e; --flag-soft:#31280f;
 }}
 :root[data-theme="dark"]{
-  --paper:#131210; --surface:#1a1815; --raised:#22201b; --sunk:#292620;
-  --ink:#f4f1ea; --ink-2:#bdb6a8; --ink-3:#968e80; --ink-4:#726a5d;
-  --line:#2a2721; --line-strong:#413c33; --line-heavy:#6b6455;
-  --accent:#79c09e; --accent-ink:#a4d9bc; --accent-soft:#1a3128;
-  --evidence:#d69d57; --evidence-ink:#e8bd83; --evidence-soft:#31240e;
-  --down:#df8880; --down-soft:#31201e;
-  --up:#79c09e;
-  --flag:#d5a960; --flag-soft:#312816;
+  --paper:#0e1116; --surface:#161a20; --raised:#1d222a; --sunk:#242a33;
+  --ink:#eef1f5; --ink-2:#b2bac5; --ink-3:#88919d; --ink-4:#68717c;
+  --line:#252b34; --line-strong:#353d48; --line-heavy:#58616d;
+  --accent:#5cc0d4; --accent-ink:#90dbea; --accent-soft:#0c2931;
+  --evidence:#d8a25c; --evidence-ink:#ecc48c; --evidence-soft:#32250f;
+  --down:#e98a81; --down-soft:#331f1d;
+  --up:#6bc39a;
+  --flag:#d3a75e; --flag-soft:#31280f;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
@@ -92,7 +98,7 @@ body{background:var(--paper);color:var(--ink);
   flex:0 0 auto;white-space:nowrap;
   text-decoration:none;color:var(--ink);padding-right:var(--sp-5);
   border-right:1px solid var(--line)}
-.masthead .mark b{font-family:var(--serif);font-size:var(--t-md);font-weight:600;
+.masthead .mark b{font-family:var(--display);font-size:var(--t-md);font-weight:600;
   letter-spacing:-.015em}
 .masthead .mark span{font-size:var(--t-2xs);color:var(--ink-3);
   letter-spacing:.09em;text-transform:uppercase;padding-top:2px}
@@ -227,10 +233,10 @@ details.queuenote{margin-top:var(--sp-3)}
   animation:ellipsis 1.4s steps(4,end) infinite}
 @keyframes ellipsis{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
 @media (prefers-reduced-motion:reduce){.working::after{animation:none;content:"..."}}
-h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
+h1{font-family:var(--display);font-size:var(--t-2xl);line-height:var(--lh-tight);
   font-weight:500;letter-spacing:-.02em;text-wrap:balance;margin-bottom:var(--sp-5);
   max-width:24ch}
-.prose{font-family:var(--serif);font-size:var(--t-md);line-height:var(--lh-normal);
+.prose{font-family:var(--display);font-size:var(--t-md);line-height:var(--lh-normal);
   max-width:var(--measure)}
 .prose p{margin-bottom:var(--sp-4)}
 .prose p:last-child{margin-bottom:0}
@@ -257,7 +263,7 @@ h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
 .grouphead{border-top:1px solid var(--line-heavy);padding-top:var(--sp-3);
   margin-bottom:var(--sp-4);display:flex;align-items:baseline;gap:var(--sp-4);
   flex-wrap:wrap}
-.grouphead h2{font-family:var(--serif);font-size:var(--t-md);font-weight:600;
+.grouphead h2{font-family:var(--display);font-size:var(--t-md);font-weight:600;
   letter-spacing:-.01em;margin:0;flex:none}
 .grouphead p{font-size:var(--t-xs);color:var(--ink-3);margin:0;flex:1;
   min-width:16ch;line-height:var(--lh-snug)}
@@ -289,14 +295,32 @@ h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
   background:var(--surface);border:1px solid var(--line);
   border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);
   transition:border-color .1s,background .1s}
-.sec > summary:hover{border-color:var(--ink-3);background:var(--raised)}
-/* Open, the header hands off to its body, so the card loses the edge it would
-   otherwise share with content that is not inside it. */
-.sec[open] > summary{margin-bottom:var(--sp-5);
+.sec > summary:hover{border-color:var(--line-heavy);background:var(--raised)}
+/* Open, the section is one card: the header keeps its top corners, loses its
+   bottom ones, and the body carries the remaining three sides. Previously the
+   header was a card and the body was loose text beneath it, so an open section
+   had no boundary and twelve of them ran together into one column of prose --
+   which is most of why this read as a document rather than as an application. */
+.sec[open] > summary{margin-bottom:0;
   border-bottom-left-radius:0;border-bottom-right-radius:0;
-  border-bottom-color:var(--line-heavy);background:var(--raised)}
+  border-bottom-color:var(--line);background:var(--raised)}
+.sec[open] > .body{border:1px solid var(--line);border-top:0;
+  border-bottom-left-radius:var(--r-md);border-bottom-right-radius:var(--r-md);
+  background:var(--surface);padding:var(--sp-5) var(--sp-5) var(--sp-4)}
 .sec > .sechead{cursor:default;margin-bottom:var(--sp-5)}
 .sec > summary::-webkit-details-marker{display:none}
+/* Icons inherit the colour of the text they sit with, which is the whole
+   reason they are outlines on currentColor and not a coloured set. */
+/* One rule paints every icon. The symbols carry geometry only: no fill, no
+   stroke, no width -- so a <use> inherits whatever the element it sits in is
+   doing, and an icon in a red row comes out red without a second sprite. */
+svg.ico,svg.chev{fill:none;stroke:currentColor;stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.sec .ico{width:17px;height:17px;flex:none;color:var(--ink-4)}
+.sec > summary:hover .ico{color:var(--accent)}
+.sec .chev{width:16px;height:16px;flex:none;color:var(--ink-3);
+  transition:transform .12s ease}
+.sec[open] > summary .chev{transform:rotate(180deg)}
 .sec .num{font-family:var(--mono);font-size:var(--t-xs);color:var(--ink-4);
   font-weight:500;flex:none;letter-spacing:.02em}
 /* The name takes the slack, so the count and the expander land on the same
@@ -306,14 +330,11 @@ h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
 .sec .count{font-size:var(--t-xs);color:var(--ink-3);
   font-family:var(--mono);flex:none}
 .sec > summary:hover .name{color:var(--accent-ink)}
-.sec > summary::after{content:"+";font-family:var(--mono);color:var(--ink-3);
-  font-size:var(--t-md);flex:none;width:16px;text-align:center;line-height:1}
-.sec[open] > summary::after{content:"\2212"}
 .sec .body{padding:0 var(--sp-1)}
 .sec .body > p{max-width:var(--measure);color:var(--ink-2);
   margin-bottom:var(--sp-4);font-size:var(--t-base)}
 .sec .body > p:last-child{margin-bottom:0}
-.lede{font-family:var(--serif);font-size:var(--t-md);color:var(--ink) !important;
+.lede{font-family:var(--display);font-size:var(--t-md);color:var(--ink) !important;
   line-height:var(--lh-normal)}
 
 /* ═══ figure row ═════════════════════════════════════════════════════════
@@ -327,7 +348,7 @@ h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
 .figures > div:last-child{border-right:none;margin-right:0;padding-right:0}
 .figures dt{font-size:var(--t-2xs);color:var(--ink-3);letter-spacing:.09em;
   text-transform:uppercase;margin-bottom:var(--sp-2);white-space:nowrap}
-.figures dd{font-family:var(--serif);font-size:var(--t-xl);line-height:1.1;
+.figures dd{font-family:var(--display);font-size:var(--t-xl);line-height:1.1;
   letter-spacing:-.02em;white-space:nowrap}
 .figures dd small{font-family:var(--sans);font-size:var(--t-xs);color:var(--ink-3);
   letter-spacing:0;margin-left:var(--sp-2)}
@@ -340,7 +361,7 @@ h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
 /* ═══ watchlist (overview) ═══════════════════════════════════════════════ */
 .overview h1{font-size:var(--t-2xl);max-width:20ch}
 .overview .sub{color:var(--ink-2);font-size:var(--t-base);max-width:62ch;
-  margin-bottom:var(--sp-7);font-family:var(--serif)}
+  margin-bottom:var(--sp-7);font-family:var(--display)}
 table.watch{width:100%;border-collapse:collapse}
 table.watch thead th{font-size:var(--t-2xs);font-weight:600;color:var(--ink-3);
   letter-spacing:.09em;text-transform:uppercase;text-align:left;
@@ -364,11 +385,11 @@ tr.picked{background:var(--raised)}
 table.watch td{padding:var(--sp-4) var(--sp-4) var(--sp-4) 0;vertical-align:middle}
 table.watch td:last-child,table.watch th:last-child{padding-right:0}
 table.watch td.n{text-align:right;white-space:nowrap}
-.watch .name{font-family:var(--serif);font-size:var(--t-md);font-weight:500;
+.watch .name{font-family:var(--display);font-size:var(--t-md);font-weight:500;
   line-height:var(--lh-snug);color:var(--ink);display:block}
 .watch .owner{font-size:var(--t-xs);color:var(--ink-3);display:block;
   margin-top:2px}
-.watch .val{font-size:var(--t-md);font-family:var(--serif);letter-spacing:-.01em}
+.watch .val{font-size:var(--t-md);font-family:var(--display);letter-spacing:-.01em}
 .watch .chg{font-size:var(--t-sm)}
 .watch canvas{width:100%;height:34px;display:block;min-width:110px}
 .watch .d1 .name{padding-left:var(--sp-5)}
@@ -556,7 +577,7 @@ td.num,th.num{text-align:right}
   padding:var(--sp-5) var(--sp-5) var(--sp-5) 0;margin-bottom:var(--sp-6)}
 .verdict .vlabel{font-size:var(--t-2xs);letter-spacing:.11em;text-transform:uppercase;
   color:var(--ink-3);font-weight:600;margin-bottom:var(--sp-3);display:block}
-.verdict h3{font-family:var(--serif);font-size:var(--t-lg);font-weight:500;
+.verdict h3{font-family:var(--display);font-size:var(--t-lg);font-weight:500;
   line-height:var(--lh-snug);margin-bottom:var(--sp-3);max-width:48ch}
 .verdict p{font-size:var(--t-sm);color:var(--ink-2);max-width:var(--measure);
   margin-bottom:var(--sp-2)}
@@ -566,7 +587,7 @@ td.num,th.num{text-align:right}
 .decision{border-top:1px solid var(--line-strong);padding:var(--sp-5) 0;
   margin-bottom:0}
 .decision:first-of-type{border-top:none;padding-top:0}
-.decision h3{font-family:var(--serif);font-size:var(--t-md);font-weight:600;
+.decision h3{font-family:var(--display);font-size:var(--t-md);font-weight:600;
   line-height:var(--lh-snug);margin-bottom:var(--sp-2)}
 .decision h4{font-size:var(--t-2xs);font-weight:600;color:var(--ink-3);
   letter-spacing:.09em;text-transform:uppercase;margin-bottom:var(--sp-3)}
@@ -603,7 +624,7 @@ table.components td{padding:var(--sp-3) 0;border-bottom:1px solid var(--line);
 table.components tr:last-child td{border-bottom:none}
 .components .cname{width:11rem;color:var(--ink);padding-right:var(--sp-4)}
 .components .cval{width:5rem;text-align:right;padding-right:var(--sp-5);
-  color:var(--ink);font-family:var(--serif);font-size:var(--t-base)}
+  color:var(--ink);font-family:var(--display);font-size:var(--t-base)}
 .components .cdetail{color:var(--ink-2);line-height:var(--lh-snug);
   font-size:var(--t-sm)}
 @media (max-width:560px){
@@ -626,9 +647,9 @@ table.components tr:last-child td{border-bottom:none}
 /* ═══ scenarios ══════════════════════════════════════════════════════════ */
 .scenario{border-top:1px solid var(--line);padding:var(--sp-5) 0}
 .scenario:first-of-type{border-top:none;padding-top:0}
-.scenario h4{font-family:var(--serif);font-size:var(--t-base);font-weight:500;
+.scenario h4{font-family:var(--display);font-size:var(--t-base);font-weight:500;
   color:var(--ink);margin-bottom:var(--sp-3)}
-.scenario .figure{font-family:var(--serif);font-size:var(--t-lg);
+.scenario .figure{font-family:var(--display);font-size:var(--t-lg);
   margin-bottom:var(--sp-4);letter-spacing:-.01em}
 .scenario.off h4{color:var(--ink-3)}
 .scenario .bounded{margin-top:var(--sp-3);font-size:var(--t-sm)}
@@ -663,7 +684,7 @@ table.components tr:last-child td{border-bottom:none}
   border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .gapfacts dt{font-size:var(--t-2xs);color:var(--ink-3);letter-spacing:.09em;
   text-transform:uppercase;margin-bottom:var(--sp-2)}
-.gapfacts dd{font-family:var(--serif);font-size:var(--t-lg);line-height:1.1;
+.gapfacts dd{font-family:var(--display);font-size:var(--t-lg);line-height:1.1;
   letter-spacing:-.015em}
 .gapfacts dd small{font-family:var(--sans);font-size:var(--t-xs);
   color:var(--ink-3);letter-spacing:0;margin-left:6px}
@@ -695,7 +716,7 @@ table.components tr:last-child td{border-bottom:none}
 }
 
 /* ═══ narrative + validator ══════════════════════════════════════════════ */
-.written{font-family:var(--serif);font-size:var(--t-md);line-height:var(--lh-normal);
+.written{font-family:var(--display);font-size:var(--t-md);line-height:var(--lh-normal);
   max-width:var(--measure);margin-bottom:var(--sp-5)}
 .written .s{display:inline}
 .written .s:hover{background:var(--evidence-soft)}
@@ -709,7 +730,7 @@ table.components tr:last-child td{border-bottom:none}
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);
   margin-bottom:var(--sp-4)}
 .gate div{font-size:var(--t-xs);color:var(--ink-3)}
-.gate b{display:block;font-family:var(--serif);font-size:var(--t-lg);
+.gate b{display:block;font-family:var(--display);font-size:var(--t-lg);
   color:var(--ink);line-height:1.2;margin-bottom:2px}
 .gate b.no{color:var(--down)}
 
@@ -734,7 +755,7 @@ table.components tr:last-child td{border-bottom:none}
   overflow-y:auto;padding:var(--sp-6) var(--sp-6) var(--sp-9)}
 .drawer.on{transform:none}
 @media (prefers-reduced-motion:reduce){.drawer,.scrim{transition:none}}
-.drawer h3{font-family:var(--serif);font-size:var(--t-lg);font-weight:500;
+.drawer h3{font-family:var(--display);font-size:var(--t-lg);font-weight:500;
   line-height:var(--lh-snug);margin-bottom:var(--sp-1);max-width:34ch}
 .drawer .close{position:absolute;top:var(--sp-4);right:var(--sp-5);border:none;
   background:none;font-size:var(--t-lg);color:var(--ink-3);
@@ -744,7 +765,7 @@ table.components tr:last-child td{border-bottom:none}
 .field dt{font-size:var(--t-2xs);color:var(--ink-3);letter-spacing:.09em;
   text-transform:uppercase;margin-bottom:var(--sp-2)}
 .field dd{font-size:var(--t-sm)}
-.quote{font-family:var(--serif);font-size:var(--t-base);line-height:var(--lh-snug);
+.quote{font-family:var(--display);font-size:var(--t-base);line-height:var(--lh-snug);
   color:var(--ink);border-left:2px solid var(--evidence);
   padding:var(--sp-1) 0 var(--sp-1) var(--sp-4);margin:var(--sp-3) 0}
 .quote cite{display:block;font-family:var(--mono);font-size:var(--t-2xs);
@@ -776,7 +797,7 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
 .objhead .kpi{display:flex; flex-direction:column; gap:2px; min-width:0;}
 .objhead .kpi .k{font:500 var(--t-2xs)/1.3 var(--sans); color:var(--ink-4);
   letter-spacing:.06em; text-transform:uppercase; white-space:nowrap;}
-.objhead .kpi .v{font:500 var(--t-lg)/1.15 var(--serif); color:var(--ink);
+.objhead .kpi .v{font:500 var(--t-lg)/1.15 var(--display); color:var(--ink);
   font-variant-numeric:tabular-nums;}
 .objhead .kpi .v.down{color:var(--down);}
 .objhead .kpi .v small{font:400 var(--t-xs)/1 var(--sans); color:var(--ink-3);
@@ -811,6 +832,32 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
 </style>
 </head>
 <body>
+<!-- Icon set, drawn here rather than pulled from a library.
+
+     Fourteen marks on a 24 grid at a single 1.5 stroke, no fills, currentColor
+     throughout, so an icon inherits whatever the text beside it is doing --
+     including the muted greys and the semantic reds, which a coloured icon
+     font cannot do. They are outlines of the thing each section contains, not
+     decoration, and there are no emoji anywhere: an emoji is a different
+     typeface at a different optical weight and it is the single clearest tell
+     that nobody chose the icon. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="i-movement" viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="21 12 21 7 16 7"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><polyline points="8.5 12.2 11 14.7 15.5 9.5"/></symbol>
+<symbol id="i-foresight" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></symbol>
+<symbol id="i-decision" viewBox="0 0 24 24"><path d="M8 4.5H6.5A1.5 1.5 0 0 0 5 6v13a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19V6a1.5 1.5 0 0 0-1.5-1.5H16"/><rect x="8" y="2.8" width="8" height="3.4" rx="1"/><polyline points="9.2 13 11.2 15 15 10.6"/></symbol>
+<symbol id="i-monitor" viewBox="0 0 24 24"><path d="M18 8.8a6 6 0 1 0-12 0c0 5-2.2 6.4-2.2 6.4h16.4S18 13.8 18 8.8Z"/><path d="M13.7 19a2 2 0 0 1-3.4 0"/></symbol>
+<symbol id="i-lever" viewBox="0 0 24 24"><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="9.5" cy="8" r="2.2"/><circle cx="15" cy="16" r="2.2"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><line x1="9" y1="7" x2="20" y2="7"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="17" x2="20" y2="17"/><circle cx="5" cy="7" r="1.1"/><circle cx="5" cy="12" r="1.1"/><circle cx="5" cy="17" r="1.1"/></symbol>
+<symbol id="i-rank" viewBox="0 0 24 24"><rect x="4" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="16" y="14" width="4" height="6" rx="1"/></symbol>
+<symbol id="i-split" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v8.5h8.5"/></symbol>
+<symbol id="i-ruled" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><line x1="9.2" y1="9.2" x2="14.8" y2="14.8"/><line x1="14.8" y1="9.2" x2="9.2" y2="14.8"/></symbol>
+<symbol id="i-source" viewBox="0 0 24 24"><ellipse cx="12" cy="6.2" rx="7.5" ry="3"/><path d="M4.5 6.2v11.6c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3V6.2"/><path d="M4.5 12c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3"/></symbol>
+<symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 2.8h12v18.4l-2.4-1.6-2.4 1.6-2.4-1.6-2.4 1.6L6 19.6Z"/><line x1="9.2" y1="8" x2="14.8" y2="8"/><line x1="9.2" y1="12" x2="14.8" y2="12"/></symbol>
+<symbol id="i-review" viewBox="0 0 24 24"><path d="M11 4.5H5.5A1.5 1.5 0 0 0 4 6v12.5A1.5 1.5 0 0 0 5.5 20H18a1.5 1.5 0 0 0 1.5-1.5V13"/><path d="M17.2 3.6a1.9 1.9 0 0 1 2.7 2.7L13 13.2l-3.4.7.7-3.4Z"/></symbol>
+<symbol id="i-hidden" viewBox="0 0 24 24"><path d="M9.6 6a8.4 8.4 0 0 1 2.4-.3c6 0 9.5 6.3 9.5 6.3a15 15 0 0 1-3 3.6"/><path d="M6.3 7.9A15.3 15.3 0 0 0 2.5 12S6 18.3 12 18.3a8.7 8.7 0 0 0 3.6-.8"/><line x1="3.5" y1="3.5" x2="20.5" y2="20.5"/></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24"><polyline points="7 10 12 15 17 10"/></symbol>
+</defs></svg>
 <header class="masthead">
   <a class="mark" href="/"><b>WhyChain</b><span>Diagnostic engine</span></a>
   <div class="context" id="context"></div>
@@ -2524,8 +2571,11 @@ function bandWord(band){
 function objectHeader(d, w){
   const cells = [];
   const verdict = (d && d.verdict) || (w ? 'explained' : '');
+  // The pill states what happened to the *finding*, never which way the money
+  // went. "Verified" in red reads as a failure; the loss is red one cell to the
+  // right, where it belongs, and the two stop competing for the same meaning.
   const S = {contradicted:['warn','Unconfirmed'], unknown:['neutral','No cause proposed'],
-             explained:['neg','Verified']}[verdict] || ['neutral', sentence(verdict||'Open')];
+             explained:['ok','Verified']}[verdict] || ['neutral', sentence(verdict||'Open')];
   cells.push(`<span class="status ${S[0]}">${escapeHtml(S[1])}</span>`);
 
   // Always the worst day's shortfall, never `headline.change_inr_per_day`.
@@ -2593,6 +2643,30 @@ function buildAnchorBar(){
   }));
 }
 
+/* Which mark belongs to which section. Keyed on the title rather than passed
+   at each of the fifteen call sites, so adding a section cannot silently ship
+   without one and the titles stay the single source of what a section is. */
+const SEC_ICON = [
+  [/movement(s)? that cleared/i, 'list'],
+  [/^the movement/i,            'movement'],
+  [/checks it passed|^summary/i,'check'],
+  [/not anticipated/i,          'foresight'],
+  [/^the decision/i,            'decision'],
+  [/^monitoring/i,              'monitor'],
+  [/lever is applied/i,         'lever'],
+  [/ranking/i,                  'rank'],
+  [/breaks down/i,              'split'],
+  [/ruled out/i,                'ruled'],
+  [/data came from/i,           'source'],
+  [/receipt/i,                  'receipt'],
+  [/review and corrections/i,   'review'],
+  [/not shown/i,                'hidden'],
+];
+function secIcon(title){
+  const hit = SEC_ICON.find(([re]) => re.test(title));
+  return `<svg class="ico" aria-hidden="true"><use href="#i-${hit ? hit[1] : 'list'}"/></svg>`;
+}
+
 function section(title, body, open=false, count=''){
   const n = String(++SECTION_N).padStart(2,'0');
   // A stable id per section. The anchor bar is built from these, so a reader
@@ -2600,8 +2674,9 @@ function section(title, body, open=false, count=''){
   // page convention, and the reason that floorplan survives long documents.
   const id = 'sec-' + n;
   return `<details class="sec" id="${id}" ${open?'open':''}><summary>
-      <span class="num">${n}</span><span class="name">${title}</span>
-      ${count?`<span class="count">${count}</span>`:''}</summary>
+      <span class="num">${n}</span>${secIcon(title)}<span class="name">${title}</span>
+      ${count?`<span class="count">${count}</span>`:''}
+      <svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></summary>
     <div class="body">${body}</div></details>`;
 }
 
