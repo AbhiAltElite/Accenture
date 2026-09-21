@@ -30,6 +30,7 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 | T-21 | A capability that exists at the API and is unreachable from the only client | api, UI | Not a shipped capability. Entitlement withholding is built, tested and returned by `/api/diagnose`, and no console path asks the question that produces it (B-028). Any README step describing a behaviour is re-run after a client change, or the step is removed |
 | T-22 | An assertion that counts things and never checks the count is reachable | tests, scripts | `len(body["causes"])` on a response whose key is `verified` is zero forever, and every comparison against it passes (B-029). A counting assertion fails when its own baseline is zero. T-17 is the same rule for shell |
 | T-26 | A contract field that is declared, documented and never read | contracts, everywhere | `calendar` sat in every contract and in the README while `_calendar()` returned `holidays.India` unconditionally (B-033). A declared field the engine ignores is worse than an absent one: it reads as configuration and behaves as decoration. Any field a contract declares is either consumed by a code path or removed, and a test asserts which |
+| T-28 | An identity with an unstated precondition | decompose, contracts | The price/volume/mix bridge derives price as revenue over units, which is undefined when a key's net units are zero or negative. Our generator cannot produce such a key, so the precondition was never written down and never tested (B-037). An identity that is only an identity on some data is a conditional, and the condition belongs in the contract |
 | T-27 | Assuming a business metric cannot go negative | detect, UI | Two days in a real 604-day retailer series have net revenue below zero because returns exceeded sales (B-034). A generator that never emits one hides the whole class: percentage change against a near-zero or negative baseline is meaningless, and multiplicative seasonal models are not defined there |
 | T-25 | A design or docs check that greps for an exact sentence of prose | scripts/audit.py | It breaks the next time the prose improves, and it reports a copy edit as a governance failure (B-032). Assert the *claim* is present by a robust marker, or accept that the sentence is now a fixed asset and say so beside it |
 | T-24 | A control offered on one endpoint's parameters and not on its neighbours' | api, UI | `/api/series` took channel and device and silently ignored category; `/api/overview` and `/api/triage` took none of them while the console sent all three. The reader changes a control and the figures do not move (B-031). A filter is applied by one helper that **raises** when a declared dimension is missing from the frame, rather than by a per-endpoint loop that skips what it cannot find |
@@ -39,6 +40,38 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 ---
 
 ## Defects
+
+### B-037 · The price/volume/mix identity has a precondition nobody wrote down
+**Found:** 2026-09-21, running the deterministic layer on real rows · **Severity:** P2 · **Status:** open
+
+**Symptom:** on a real UK retailer, 14 to 20 Dec 2010, the bridge refused:
+change −781,137.97, legs summing to −780,872.57, residual −265.40 against a
+tolerance of 0.10.
+
+**Root cause:** 49 SKUs in the baseline and one in the event window have
+**negative net units**, because returns exceeded sales for that product over the
+period. The identity derives realised price as revenue over units, which is not
+defined at zero and inverts sign below it, so the three legs stop summing
+exactly. The docstring says the decomposition "is arithmetic, not estimation",
+and on this data that is conditionally true rather than true.
+
+**The important half: the guard worked.** `assert_reconciles` refused to publish
+a bridge that was 265 short rather than reporting one, which is the behaviour
+the design promises. Nothing false was emitted. What failed is the claim that
+the identity always holds, not the engine's handling of it failing.
+
+**Why our own data could never show this.** `datagen` composes revenue from
+priced units with a returns rate far below one, so a SKU with negative net units
+is outside the space it can generate. Same blind spot as B-034, one level down.
+
+**Open decision, and it is a real one.** Either the contract declares the
+precondition and the engine checks it before attempting a bridge, or the
+decomposition handles negative-unit keys explicitly. A third option, widening
+the tolerance, would be the wrong fix: 265 on 781,138 is 0.034%, and a tolerance
+that scales with the movement would hide a genuine arithmetic failure rather
+than reporting it.
+
+**Trap:** T-28.
 
 ### B-036 · Reads re-derived the contract's lineage on every query
 **Found:** 2026-09-21 by `make scale` · **Severity:** P1 · **Status:** fixed on `perf/materialise-lineage`
