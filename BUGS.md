@@ -57,12 +57,13 @@ red**, so the key matched nothing in the picture it was explaining.
 drawn as a dot rather than a line, because a dot is what the chart draws for
 them while observed and expected are lines.
 
-**The third place this has now surfaced.** `aov` still says "Nothing moved
-enough to explain" above a chart that plots two flagged rises, because the
-findings view filters to `direction === "drop"` (B-027). The engine detects
-rises, the chart draws them, the legend now names them, and the findings list
-still discards them. The legend fix makes that inconsistency visible rather than
-hiding it, which is the right order to fix them in.
+**The third place this surfaced, and it is now closed.** `aov` said "Nothing
+moved enough to explain" above a chart plotting two flagged rises, because the
+findings view filtered to `direction === "drop"` (B-027). The engine detected
+rises, the chart drew them, the legend named them, and the findings list
+discarded them. The legend fix made that inconsistency visible rather than
+hiding it, which was the right order to fix them in; B-027 was fixed straight
+after, in the same session.
 
 ### B-037 · The price/volume/mix identity has a precondition nobody wrote down
 **Found:** 2026-09-21, running the deterministic layer on real rows · **Severity:** P2 · **Status:** open
@@ -364,7 +365,7 @@ only client is not a shipped capability, and a README step nobody re-ran after
 a client change is how that stays invisible.
 
 ### B-027 · A metric that beat expectation produces no finding at all
-**Found:** 2026-09-21 (same session) · **Severity:** P2 · **Status:** open
+**Found:** 2026-09-21 (same session) · **Severity:** P2 · **Status:** fixed
 
 **Symptom:** `aov` carries two detected anomalies in the current warehouse,
 2026-08-01 at +9.3% and 2026-08-03 at +8.9%, both well past the robust-z floor.
@@ -380,6 +381,14 @@ audit function and gets budget once. Explaining a beat tells the owner which
 lever to repeat. The wording is the work, not the filter: "fell", "short by" and
 "Impact" all assume a shortfall, and changing the filter without changing them
 produces a page that says a metric fell by a negative amount.
+
+**Fix:** the filter was dropped, and then eleven strings were made
+direction-aware, which was the actual work. `fell` / `rose`, `short by` /
+`ahead by`, `below expected` / `above expected`, `Impact` / `Upside`, `Worst
+day` / `Best day`. `aov` now reads "AOV rose 8.9% above expected, ahead by ₹38"
+where it read "Nothing moved enough to explain". All twelve demo scenarios land
+unchanged, 512 tests, 33/33 audit, 35/35 smoke.
+
 
 ### B-026 · A rate metric rendered its own figures in rupees
 **Found:** 2026-09-21 (reported from a click-through) · **Severity:** P1 · **Status:** fixed
