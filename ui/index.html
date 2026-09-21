@@ -2085,7 +2085,12 @@ async function load(){
     return;
   }
   const series = await seriesRes.json();
-  const drops = series.anomalies.filter(a=>a.direction==='drop');
+  // Every material movement, not only the falls. The detector labels both
+  // directions and `rank_exact` already sorts by the direction the total moved,
+  // but this line discarded half of what it found, so a metric that beat
+  // expectation produced no finding anywhere in the product. Objective 1 of the
+  // brief says movements, and a rise is one. See B-027.
+  const drops = series.anomalies.slice();
 
   let diagnosis=null, decomposition=null, candidates=null, win=null, declined=null;
   if(drops.length){
@@ -2365,9 +2370,15 @@ function render(){
   // not have happened -- and a reader who reads only the headline, which is
   // most of them, takes away the opposite of the finding.
   const contradicted = diagnosis && diagnosis.verdict === 'contradicted';
+  // The verb and the preposition both follow the movement. "Fell below" was
+  // hardcoded, so on the day a metric beat expectation the page would have said
+  // it fell by a positive amount.
+  const rose = w.delta > 0;
+  const verb = rose ? 'rose' : 'fell';
+  const against = rose ? 'above expected' : 'below expected';
   $('#headline').textContent = contradicted
-    ? `${title(kpi)} appears to fall ${pct(Math.abs(w.pct))} below expected in ${where} on ${w.day}, unconfirmed`
-    : `${title(kpi)} fell ${pct(Math.abs(w.pct))} below expected in ${where} on ${w.day}`;
+    ? `${title(kpi)} appears to ${rose ? 'rise' : 'fall'} ${pct(Math.abs(w.pct))} ${against} in ${where} on ${w.day}, unconfirmed`
+    : `${title(kpi)} ${verb} ${pct(Math.abs(w.pct))} ${against} in ${where} on ${w.day}`;
 
   // The basis for the word "fell", said in the sentence a reader would have
   // used. Contradicted runs are the exception: the two systems do not agree the
@@ -3069,8 +3080,9 @@ function basisLine(w, where, disputed, unit){
   // sentence as "Observed 0 against an expected 0, short by 0 (36.8%)" --
   // three figures that say nothing, under a headline that says 36.8%. The
   // formatters already existed for the chart; this line never used them.
+  const gap = w.delta > 0 ? 'ahead by' : 'short by';
   const sum = disputed ? '' : `Observed <b>${fmtValue(w.observed, unit)}</b> against an expected
-    <b>${fmtValue(w.expected, unit)}</b>, short by <b>${fmtDelta(Math.abs(w.delta), unit)}</b>${
+    <b>${fmtValue(w.expected, unit)}</b>, ${gap} <b>${fmtDelta(Math.abs(w.delta), unit)}</b>${
       w.pct != null ? ` (${pct(Math.abs(w.pct))})` : ''}.`;
   return `${sum}
     <span class="basisnote">\u201cExpected\u201d is what a ${wd}${short} normally
@@ -3139,11 +3151,13 @@ function objectHeader(d, w, unit){
   // detection the causal tests had never seen. Saying so is the whole point of
   // the pill; a detection is a real state and has its own word.
   const verdict = (d && d.verdict) || (w ? 'detected' : '');
+  const rising = w && w.delta > 0;
   // The pill states what happened to the *finding*, never which way the money
   // went. "Verified" in red reads as a failure; the loss is red one cell to the
   // right, where it belongs, and the two stop competing for the same meaning.
   const S = {contradicted:['warn','Unconfirmed'], unknown:['neutral','No cause proposed'],
-             detected:['neutral','Detected, not diagnosed'],
+             detected:[rising ? 'ok' : 'neutral',
+                       rising ? 'Detected, above expected' : 'Detected, not diagnosed'],
              explained:['ok','Verified']}[verdict] || ['neutral', sentence(verdict||'Open')];
   cells.push(`<span class="status ${S[0]}">${escapeHtml(S[1])}</span>`);
 
@@ -3155,12 +3169,17 @@ function objectHeader(d, w, unit){
   // across personas by construction and the header has to show that, so it
   // takes the one figure every projection carries and says which day it is.
   const impact = (w && w.delta != null) ? Math.abs(w.delta) : null;
-  if(impact != null)
-    // The gap between two rates is percentage points, never rupees. `fmtDelta`
-    // carries that distinction; `inr` printed a 1.66-point conversion collapse
-    // as an impact of zero rupees.
-    cells.push(`<div class="kpi"><span class="k">Impact</span>
-      <span class="v down">${fmtDelta(impact, unit)}<small>on the worst day</small></span></div>`);
+  // The gap between two rates is percentage points, never rupees. `fmtDelta`
+  // carries that distinction; `inr` printed a 1.66-point conversion collapse as
+  // an impact of zero rupees. Colour and label follow the direction too: a
+  // metric that beat expectation showed its gain in the fall colour under the
+  // word Impact, which reads as a loss of that size.
+  if(impact != null){
+    const up = w.delta > 0;
+    cells.push(`<div class="kpi"><span class="k">${up ? 'Upside' : 'Impact'}</span>
+      <span class="v ${up ? 'up' : 'down'}">${fmtDelta(impact, unit)}<small>on the ${
+        up ? 'best' : 'worst'} day</small></span></div>`);
+  }
 
   if(d && d.confidence && d.confidence.band){
     const score = d.confidence.probability != null
@@ -3177,7 +3196,7 @@ function objectHeader(d, w, unit){
       <span class="v words">${escapeHtml(role(owner))}</span></div>`);
 
   if(w && w.day)
-    cells.push(`<div class="kpi"><span class="k">Worst day</span>
+    cells.push(`<div class="kpi"><span class="k">${rising ? 'Best day' : 'Worst day'}</span>
       <span class="v words">${escapeHtml(w.day)}</span></div>`);
 
   return cells.length > 1 ? cells.join('') : '';
@@ -3570,18 +3589,16 @@ function movementsBlock(){
   const rows = STATE.series.anomalies.slice().sort((a,b)=>a.day<b.day?1:-1).map(a=>`
     <tr class="pickable ${a.day===((STATE.win||{}).worst||{}).day?'picked':''}"
         data-pick="${a.day}" tabindex="0"
-        title="${a.direction==='drop'?'Diagnose this movement':'Rises are not diagnosed'}">
+        title="Diagnose this movement">
       <td><code>${a.day}</code></td>
       <td><span class="pill ${a.direction==='drop'?'no':'ok'}">${a.direction}</span></td>
       <td class="n ${a.delta<0?'down':'up'}">${a.delta<0?'\u2212':'+'}${
         fmtDelta(a.delta, STATE.series.unit)}</td>
       <td class="n ${a.delta<0?'down':'up'}">${pct(a.pct)}</td>
       <td class="n">${a.robust_z>0?'+':''}${a.robust_z.toFixed(2)}</td>
-      <td class="n">${a.direction==='drop'
-        ? (a.day===((STATE.win||{}).worst||{}).day
-            ? '<span class="state ok">diagnosed</span>'
-            : '<span class="linkback">diagnose</span>')
-        : '<span class="na">–</span>'}</td></tr>`).join('');
+      <td class="n">${a.day===((STATE.win||{}).worst||{}).day
+        ? '<span class="state ok">diagnosed</span>'
+        : '<span class="linkback">diagnose</span>'}</td></tr>`).join('');
   return section('What else moved that week',
     `<p>MSTL splits the series into trend, weekly rhythm and the retail calendar.
      Anomalies are measured on the remainder using the median and MAD rather than
