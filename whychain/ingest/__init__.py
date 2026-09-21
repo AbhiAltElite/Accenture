@@ -1,3 +1,9 @@
-from whychain.ingest.warehouse import DEFAULT_WAREHOUSE, IngestError, Warehouse
+from whychain.ingest.warehouse import (
+    DEFAULT_WAREHOUSE,
+    IngestError,
+    Warehouse,
+    materialise,
+    prepared_name,
+)
 
-__all__ = ["DEFAULT_WAREHOUSE", "IngestError", "Warehouse"]
+__all__ = ["DEFAULT_WAREHOUSE", "IngestError", "Warehouse", "materialise", "prepared_name"]
