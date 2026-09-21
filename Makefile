@@ -1,4 +1,4 @@
-.PHONY: help setup gen gen-all demo test bench scale status audit guardrails smoke verify-ai capture-ai warm-ai readme-pdf docker docker-ai lint check-attribution ci clean
+.PHONY: help run real-data prepare setup gen gen-all demo test bench scale status audit guardrails smoke verify-ai capture-ai warm-ai readme-pdf docker docker-ai lint check-attribution ci clean
 
 # `make` with no target lists the targets, so the entry point to this
 # repository is the same command whether or not you have read the README.
@@ -9,6 +9,9 @@ help:             ## list the targets in this file
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
 
+run:              ## one command: environment, data, server, browser, model check
+	./run.sh
+
 setup:            ## create venv and install dependencies
 	python3 -m venv .venv
 	.venv/bin/pip install --upgrade pip
@@ -16,9 +19,14 @@ setup:            ## create venv and install dependencies
 
 gen-all:          ## generate every industry's dataset + ground truth
 	PYTHONPATH=. .venv/bin/python -m datagen.build all
+	$(MAKE) prepare
 
 gen:              ## generate the synthetic dataset + ground truth
 	.venv/bin/python -m datagen.build
+	$(MAKE) prepare ARGS=retail
+
+prepare:          ## compute each contract's lineage once, at ingest, not per read
+	PYTHONPATH=. .venv/bin/python scripts/prepare.py $(ARGS)
 
 demo:             ## run the console at http://localhost:8000
 	.venv/bin/uvicorn api.main:app --reload --port 8000
@@ -58,6 +66,9 @@ warm-ai:          ## fill the model cache before a demo, so nothing waits on cam
 
 verify-ai:        ## prove both model stages work before a demo depends on them
 	PYTHONPATH=. .venv/bin/python scripts/verify_ai.py
+
+real-data:        ## run the engine on a public dataset nobody here generated
+	PYTHONPATH=. .venv/bin/python scripts/real_data.py
 
 audit:            ## run the security and logic checklists
 	PYTHONPATH=. .venv/bin/python scripts/audit.py

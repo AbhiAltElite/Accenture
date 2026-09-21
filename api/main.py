@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import warnings
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -59,7 +60,13 @@ from whychain.signalgap import PRECEDENT_LOOKBACK_DAYS, find_gap
 from whychain.signalgap.gap import read_signals
 from whychain.telemetry import Telemetry
 from whychain.text import label, plural, role, sentence_case
-from whychain.verify import filter_relevant, from_operations, from_promotions, verify
+from whychain.verify import (
+    filter_relevant,
+    from_operations,
+    from_promotions,
+    touches_scope,
+    verify,
+)
 from whychain.verify.tests import PLACEBO_WINDOWS
 from whychain.verticals import RETAIL_PLAN_COLUMNS, PlanColumns, Vertical
 
@@ -539,6 +546,9 @@ def kpis(industry: str | None = Query(None)) -> list[dict]:
 @app.get("/api/overview")
 def overview(
     region: str | None = None,
+    channel: str | None = None,
+    device: str | None = None,
+    category: str | None = None,
     days: int = Query(90, ge=30, le=730),
     industry: str | None = Query(None, description="which industry to read"),
     entitled: str | None = Query(None, description="comma-separated regions"),
@@ -555,6 +565,13 @@ def overview(
     _refuse_outside_scope(
         region, scope, _contract(vertical.headline_kpi, vertical).owner_role
     )
+    # Validated once against the headline contract, then applied per metric.
+    # Metrics whose grain lacks a dimension are skipped rather than refused:
+    # `on_time_delivery` has no channel, and a channel filter should narrow the
+    # metrics it can narrow rather than empty the whole page.
+    asked = {d: v for d, v in (("channel", channel), ("device", device),
+                               ("category", category)) if v}
+    sliced_key = tuple(sorted(asked.items()))
     try:
         with warehouse(vertical) as wh:
             rows = []
@@ -570,6 +587,8 @@ def overview(
                 raw = _within_scope(raw, scope)
                 if region and "region" in raw.columns:
                     raw = raw[raw["region"] == region]
+                raw = _narrow(raw, {d: v for d, v in asked.items()
+                                    if d in contract.grain.dims})
                 if raw.empty:
                     continue
 
@@ -586,7 +605,11 @@ def overview(
                         # total for a reader entitled to South is South's series,
                         # and sharing a key with the unrestricted total would serve
                         # one reader the other's figures.
-                        ("decompose", contract.kpi_id, region, scope),
+                        # The slice belongs in the key for the same reason the
+                        # scope does: a channel series and a national one are
+                        # different answers, and sharing a key serves one under
+                        # the other's heading. T-06.
+                        ("decompose", contract.kpi_id, region, scope, sliced_key),
                         lambda f=frame, c=contract: decompose_for(f, c),
                     )
                 except ValueError:
@@ -619,6 +642,12 @@ def overview(
                     "kpi_id": contract.kpi_id,
                     "owner_role": contract.owner_role,
                     "grain": f"{contract.grain.time} by {'/'.join(contract.grain.dims)}",
+                    # Which of the reader's filters this metric could not take.
+                    # `checkout_conversion` is measured by region and device and
+                    # has no channel, so a channel filter leaves its count
+                    # unchanged. Without saying so the row looks like a control
+                    # that does nothing, which is the complaint one level down.
+                    "not_narrowed": [d for d in asked if d not in contract.grain.dims],
                     "parents": list(contract.parents),
                     "children": list(contract.children),
                     "unit": contract.unit.value,
@@ -642,12 +671,22 @@ def overview(
         raise HTTPException(503, str(exc)) from exc
 
     return {"region": region, "days": days, "kpis": rows,
-            "roots": reg.roots()}
+            "roots": reg.roots(),
+            # The values each scope control may offer, read from this
+            # deployment's own warehouse. The console previously wrote
+            # ["North","South","East","West"] into the region select, which is
+            # retail's answer given to every industry: T-20, and visibly wrong
+            # the moment a second vertical is selected.
+            "dimension_values": _dimension_values(
+                vertical, _contract(vertical.headline_kpi, vertical), scope)}
 
 
 @app.get("/api/triage")
 def triage(
     limit: int = Query(12, ge=1, le=50),
+    channel: str | None = None,
+    device: str | None = None,
+    category: str | None = None,
     region: str | None = Query(None, description="a single region, or every one"),
     days: int | None = Query(None, ge=30, le=3650,
                              description="how far back to queue findings from"),
@@ -682,7 +721,14 @@ def triage(
     vertical = _vertical(industry)
     reg = registry(vertical)
     scope = _entitlement_scope(entitled)
-    regions = list(scope) if scope else ["North", "South", "East", "West"]
+    # Read from the warehouse rather than written down: "North, South, East,
+    # West" is retail's answer, and this queue serves three verticals. T-20.
+    regions = list(scope) if scope else _dimension_values(
+        vertical, _contract(vertical.headline_kpi, vertical), scope
+    ).get("region", [])
+    asked = {d: v for d, v in (("channel", channel), ("device", device),
+                               ("category", category)) if v}
+    sliced_key = tuple(sorted(asked.items()))
     # A region the reader picked narrows the queue; entitlement still bounds it,
     # so asking for a region outside the grant returns nothing rather than
     # widening the scope back out.
@@ -703,10 +749,12 @@ def triage(
                 if raw.empty:
                     continue
 
+                narrowed = _narrow(raw, {d: v for d, v in asked.items()
+                                         if d in contract.grain.dims})
                 for region_id in regions:
                     scoped = (
-                        raw[raw["region"] == region_id]
-                        if "region" in raw.columns else raw
+                        narrowed[narrowed["region"] == region_id]
+                        if "region" in narrowed.columns else narrowed
                     )
                     if scoped.empty:
                         continue
@@ -714,7 +762,9 @@ def triage(
                     try:
                         d = _cached(
                             vertical,
-                            ("decompose", contract.kpi_id, region_id),
+                            # T-06 again: the slice is part of what was
+                            # decomposed, so it is part of the key.
+                            ("decompose", contract.kpi_id, region_id, sliced_key),
                             lambda f=frame, c=contract: decompose_for(f, c),
                         )
                     except ValueError:
@@ -962,6 +1012,7 @@ def series(
     region: str | None = None,
     channel: str | None = None,
     device: str | None = None,
+    category: str | None = None,
     frm: date | None = Query(None, alias="from"),
     to: date | None = None,
     industry: str | None = Query(None, description="which industry to read"),
@@ -985,9 +1036,10 @@ def series(
         raise HTTPException(503, str(exc)) from exc
 
     raw = _within_scope(raw, scope)
-    for column, value in (("region", region), ("channel", channel), ("device", device)):
-        if value and column in raw.columns:
-            raw = raw[raw[column] == value]
+    if region and "region" in raw.columns:
+        raw = raw[raw["region"] == region]
+    raw = _narrow(raw, _slice_of(contract, channel=channel, device=device,
+                                 category=category))
     if raw.empty:
         raise HTTPException(404, "no data for that slice")
 
@@ -1193,6 +1245,9 @@ def _lookback(event_start: date, baseline_days: int) -> date:
 def decomposition(
     kpi: str = Query("net_revenue"),
     region: str | None = None,
+    channel: str | None = None,
+    device: str | None = None,
+    category: str | None = None,
     event_start: date = Query(..., alias="start"),
     event_end: date = Query(..., alias="end"),
     baseline_days: int = Query(14, ge=7, le=90),
@@ -1232,6 +1287,15 @@ def decomposition(
     panel = _within_scope(panel, scope)
     if region:
         panel = panel[panel["region"] == region]
+    # The bridge on this page sits beside the diagnosis on the same page. If one
+    # is sliced to a channel and the other is not they disagree by construction,
+    # and the page shows two totals for one movement.
+    sliced = _slice_of(contract, channel=channel, device=device, category=category)
+    for dimension, value in sliced.items():
+        if dimension in panel.columns:
+            panel = panel[panel[dimension] == value]
+    if panel.empty:
+        raise HTTPException(404, "no data for that slice")
     day = pd.to_datetime(panel["d"]).dt.date
 
     base_start = event_start - timedelta(days=baseline_days)
@@ -1255,8 +1319,11 @@ def decomposition(
 
     dimensions = [d for d in ("channel", "device", "category", "region") if d in panel.columns]
     contributions = []
+    scoping = ({"region"} if region else set()) | set(sliced)
     for dim in dimensions:
-        if region and dim == "region":
+        # A dimension the reader has pinned is the whole slice, so its
+        # contribution is 100% and it displaces a real contributor.
+        if dim in scoping:
             continue
         c = contribution_by(base, current, dim)
         contributions.append(
@@ -1306,6 +1373,9 @@ def decomposition(
 def candidates(
     kpi: str = Query("net_revenue"),
     region: str | None = None,
+    channel: str | None = None,
+    device: str | None = None,
+    category: str | None = None,
     event_start: date = Query(..., alias="start"),
     event_end: date = Query(..., alias="end"),
     industry: str | None = Query(None, description="which industry to read"),
@@ -1377,6 +1447,12 @@ def candidates(
             c for c in found
             if not c.exposed_regions or region in c.exposed_regions
         ]
+
+    # The same narrowing one level finer, and for the same reason: an app-only
+    # release regression is not a candidate for a movement in the store channel.
+    # The panel is untouched, so difference-in-differences keeps its controls.
+    sliced = _slice_of(contract, channel=channel, device=device, category=category)
+    found = [c for c in found if touches_scope(c, sliced).relevant]
 
     verified, rejected, untestable = [], [], []
     for candidate in found:
@@ -1486,10 +1562,83 @@ def _driver_series(
     return frame.dropna(axis=1, how="all")
 
 
+# Dimensions a reader can narrow by, in the order a scope control should offer
+# them: where, then how it was sold, then on what, then what. `sku` is excluded
+# deliberately -- a select with hundreds of entries is a search box, not a
+# filter, and nothing on this page is ranked by it.
+FILTERABLE_DIMS = ("region", "channel", "category", "device")
+
+
+def _dimension_values(vertical, contract, scope) -> dict[str, list[str]]:
+    """What each scope control may offer, from the warehouse rather than a list.
+
+    Entitlement applies: a reader who may see South is not offered West in a
+    dropdown, because an unselectable option still discloses that the region
+    exists and what it is called.
+    """
+    try:
+        with warehouse(vertical) as wh:
+            panel = _cached(
+                vertical,
+                ("dimension_values", contract.kpi_id),
+                lambda: wh.kpi_series(contract),
+            )
+    except IngestError:
+        return {}
+    panel = _within_scope(panel, scope)
+    return {
+        dim: sorted(str(v) for v in panel[dim].dropna().unique())
+        for dim in FILTERABLE_DIMS
+        if dim in contract.grain.dims and dim in panel.columns
+    }
+
+
+def _narrow(frame, sliced: dict[str, str]):
+    """Apply a slice to a frame, and refuse to pretend when a column is absent.
+
+    Filtering only the columns that happen to exist is how a control ends up
+    doing nothing: the rail offered Category, the frame had no category column
+    on that path, the figures came back identical and the reader learned that
+    none of the controls mean anything. So a dimension the contract declares but
+    this frame does not carry is a fault, not a silent no-op.
+    """
+    for dimension, value in sliced.items():
+        if dimension not in frame.columns:
+            raise HTTPException(
+                500,
+                f"{dimension} is declared in the contract grain but is not in "
+                f"this frame, so the filter could not be applied",
+            )
+        frame = frame[frame[dimension] == value]
+    return frame
+
+
+def _slice_of(contract, **dims: str | None) -> dict[str, str]:
+    """The finer scope a reader asked for, checked against the contract's grain.
+
+    A named dimension this metric is not measured at is refused rather than
+    dropped. Silently ignoring `channel=app` on a metric with no channel column
+    answers a different question than the one asked and looks identical on the
+    page, which is the worst available behaviour.
+    """
+    asked = {d: v for d, v in dims.items() if v}
+    unknown = [d for d in asked if d not in contract.grain.dims]
+    if unknown:
+        raise HTTPException(
+            422,
+            f"{contract.kpi_id} is not measured by {', '.join(sorted(unknown))}. "
+            f"Its grain is {', '.join(contract.grain.dims)}.",
+        )
+    return asked
+
+
 @app.get("/api/diagnose")
 def diagnose(
     kpi: str = Query("net_revenue"),
     region: str | None = None,
+    channel: str | None = Query(None, description="narrow the movement to one channel"),
+    device: str | None = Query(None, description="narrow the movement to one device"),
+    category: str | None = Query(None, description="narrow the movement to one category"),
     event_start: date = Query(..., alias="start"),
     event_end: date = Query(..., alias="end"),
     baseline_days: int = Query(14, ge=7, le=90),
@@ -1556,7 +1705,16 @@ def diagnose(
     if region:
         _refuse_outside_scope(region, scope, contract.owner_role)
 
+    sliced = _slice_of(contract, channel=channel, device=device, category=category)
+
+    # Region first, because it is the one entitlement gates. The rest narrow the
+    # same frame: a movement in the app on mobile in the West is a different
+    # movement from the West's total, and the bridge below reconciles against
+    # whichever one was asked for or raises rather than reporting.
     scoped = panel[panel["region"] == region] if region else panel
+    for dimension, value in sliced.items():
+        if dimension in scoped.columns:
+            scoped = scoped[scoped[dimension] == value]
     if scoped.empty:
         raise HTTPException(404, "no data for that slice")
 
@@ -1586,14 +1744,43 @@ def diagnose(
             .groupby("_d", as_index=False)["revenue"].sum()
             .rename(columns={"_d": "d", "revenue": "value"})
         )
+        # Both sides of a reconciliation have to be the same slice of the same
+        # business. The ledger posts at invoice level by region and carries no
+        # channel or device, so a channel-sliced revenue series compared against
+        # the whole ledger disagrees by construction: measured, an app-only
+        # window read as a 68% contradiction and the run returned `contradicted`
+        # with no cause proposed. That is a false refusal, which costs more here
+        # than a false explanation would elsewhere, because refusal is the one
+        # output this engine asks to be trusted on.
+        #
+        # So the ledger is narrowed by every dimension it actually has, and when
+        # the reader has asked for one it does not, the comparison is declined
+        # rather than made badly.
+        comparable = ledger
+        beyond = []
+        if comparable is not None:
+            if region and "region" in comparable:
+                comparable = comparable[comparable["region"] == region]
+            for dimension, value in sliced.items():
+                if dimension in comparable:
+                    comparable = comparable[comparable[dimension] == value]
+                else:
+                    beyond.append(dimension)
+            if beyond:
+                comparable = None
         agreement = reconcile(
-            contract, day_series,
-            None if ledger is None else (
-                ledger[ledger["region"] == region] if region and "region" in ledger
-                else ledger
-            ),
-            window=(event_start, event_end),
+            contract, day_series, comparable, window=(event_start, event_end),
         )
+        if beyond:
+            agreement = replace(
+                agreement,
+                reason=(
+                    f"{contract.reconciliation.source} is not broken down by "
+                    f"{', '.join(sorted(beyond))}, so this slice has no second "
+                    f"posting to check against. The movement stands on one "
+                    f"source alone."
+                ),
+            )
         t.note = (
             f"{agreement.state.value}"
             + (f" against the {label(agreement.source)}, worst {agreement.worst_residual:.1%}"
@@ -1612,18 +1799,20 @@ def diagnose(
             documents, event_start, event_end, vocabulary=vertical.corpus.vocabulary
         )
         + from_promotions(plan, event_start, event_end, vertical.plan),
-        event_start, event_end, region,
+        event_start, event_end, region, sliced,
     )
 
     with tel.stage("rank", MethodClass.STATISTICAL) as t:
-        # The scoping dimension is excluded. With a region selected, the
-        # "region = West" slice *is* the total, so it tops the ranking at a
-        # 100% share and says nothing; a row that is true, useless, and
-        # displaces a real contributor out of the list.
+        # Every scoping dimension is excluded, not only region. With a region
+        # selected the "region = West" slice *is* the total, so it tops the
+        # ranking at a 100% share and says nothing; a row that is true, useless,
+        # and displaces a real contributor out of the list. The same becomes
+        # true of channel the moment a channel is selected.
+        scoping = ({"region"} if region else set()) | set(sliced)
         contributions = [
             contribution_by(base, current, dim)
             for dim in contract.grain.dims
-            if dim in base.columns and not (region and dim == "region")
+            if dim in base.columns and dim not in scoping
         ]
         # Track B needs a daily series per driver. They are built here rather
         # than inside the ranker because the shape of a driver series is a
@@ -1792,6 +1981,9 @@ def diagnose(
         "kpi_id": kpi,
         "run_id": run_id,
         "region": region,
+        # What the answer is about. Without it on the response a reader cannot
+        # tell a national answer from a single-channel one.
+        "slice": sliced,
         "decisions": [c.as_dict() for c in cards],
         "scenarios": [sc.as_dict() for sc in scenarios],
         "window": {"from": event_start.isoformat(), "to": event_end.isoformat()},

@@ -1,0 +1,82 @@
+# A contract written against somebody else's data.
+#
+# The source is the UCI Online Retail II dataset: real invoice lines from a UK
+# gift retailer, December 2009 to December 2011. Nothing here is tuned to it
+# beyond what the data actually supports, and the fields the source does not
+# carry are absent rather than invented.
+#
+# What is deliberately missing, and why it matters more than what is present:
+#   * no channel, device or category. The source has none, so the grain is day
+#     by region and the contribution ranking has one dimension to work with.
+#   * no second posting system, so reconciliation will return `not_reconciled`.
+#   * no operational text, so corroboration has nothing to read.
+#   * no process description, so the signal gap returns `coverage_unknown`.
+# Every one of those is a designed state in this engine. This contract is the
+# test of that claim on data we did not write.
+kpi_id: uk_net_revenue
+version: 1
+owner_role: finance_director
+# Declared INR because the engine's `Unit` enum has no GBP, which this
+# exercise discovered rather than assumed. The figures below are pounds and the
+# console will render them with a rupee sign. Recorded as a finding rather than
+# patched around, because a currency hardcoded into an evidence type is exactly
+# the class of assumption an unseen-data run exists to expose (T-20).
+unit: INR
+definition: >
+  Invoiced value net of cancellations, from a real UK gift retailer's order
+  book. Cancelled invoices are excluded; the source marks them by prefixing the
+  invoice number with C, and that prefix is the only status signal it carries.
+  Returns appear as negative quantities on ordinary invoices and are left in,
+  because netting them is what the retailer's own arithmetic does.
+
+calculation:
+  canonical_sql: |
+    SELECT date_trunc('day', order_ts) AS d,
+           region,
+           SUM(qty * unit_price - discount) AS value
+    FROM pos_txn
+    WHERE status <> 'cancelled'
+    GROUP BY 1, 2
+  dialect_targets: [duckdb]
+
+grain:
+  time: day
+  dims: [region]
+
+calendar: fiscal_in
+parents: []
+children: []
+dimensions: [region, sku]
+
+drivers: []
+
+materiality:
+  # Not transplanted from the retail contract. This business is two orders of
+  # magnitude smaller and trades in pounds, so a rupee floor calibrated on a
+  # different company would flag everything or nothing. Set from this series'
+  # own scale: the floor is roughly a fifth of a median trading day.
+  min_abs_robust_z: 3.0
+  min_abs_delta_inr: 5000.0
+  value_per_unit_inr: 1.0
+
+reconciliation:
+  # Declared absent rather than omitted. The source has one posting of the
+  # number and no second system, so the engine must say so rather than imply
+  # agreement.
+  source: ""
+  compare_column: ""
+  date_column: ""
+  tolerance_pct: 0.05
+  contradiction_multiple: 3.0
+
+freshness_sla:
+  pos_txn: 24h
+
+access_policy:
+  row_filter: "region IN :entitled_regions"
+  column_masks: []
+  domain_restriction: []
+
+lineage:
+  upstream: [pos_txn.orders]
+  transforms: []

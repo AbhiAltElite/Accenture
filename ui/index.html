@@ -247,6 +247,36 @@ details.railnote > summary:hover{color:var(--ink-2)}
 details.railnote > p{margin-top:var(--sp-2)}
 details.queuenote{margin-top:var(--sp-3)}
 
+/* Scenario buttons. Same flat-row language as `.navitem` rather than a second
+   button style: the rail already has one way of listing things you can pick,
+   and a launcher that looked like a toolbar would read as a different product
+   bolted to the side. The group heading is quieter than a rail label because it
+   sits inside one. */
+.demogroup{margin-bottom:var(--sp-3)}
+.demogroup:last-child{margin-bottom:0}
+.demohead{display:block;font-size:var(--t-2xs);letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-4);margin:0 0 var(--sp-1) var(--sp-3)}
+button.demo{display:block;width:100%;text-align:left;background:none;border:none;
+  font:inherit;font-size:var(--t-sm);color:var(--ink-2);
+  padding:var(--sp-2) var(--sp-3);border-radius:var(--r-sm);cursor:pointer;
+  line-height:var(--lh-snug);min-height:32px}
+button.demo:hover{background:var(--sunk);color:var(--ink)}
+button.demo[aria-pressed="true"]{color:var(--ink);font-weight:600;
+  background:var(--sunk)}
+/* Folded, and last. It is a way in for a reader meeting the console for the
+   first time, not a control anyone returns to, so it sits below the controls
+   they do and stays out of the way until it is asked for. */
+details.demos > summary{list-style:none;cursor:pointer;display:flex;
+  align-items:baseline;gap:var(--sp-3)}
+details.demos > summary::-webkit-details-marker{display:none}
+details.demos > summary > .label{margin-bottom:0}
+details.demos > summary::after{content:"+";font-family:var(--mono);
+  font-size:var(--t-xs);color:var(--ink-4);margin-left:auto}
+details.demos[open] > summary::after{content:"\2212"}
+details.demos > summary:hover .demohint{color:var(--ink-2)}
+.demohint{font-size:var(--t-2xs);color:var(--ink-4);letter-spacing:.04em}
+details.demos > #demos{margin-top:var(--sp-3)}
+
 /* ═══ document head ══════════════════════════════════════════════════════ */
 .eyebrow{font-family:var(--mono);font-size:var(--t-xs);color:var(--ink-3);
   letter-spacing:-.01em;margin-bottom:var(--sp-4);min-height:1.3em}
@@ -433,6 +463,7 @@ table.watch td.n{text-align:right;white-space:nowrap}
   font-size:var(--t-sm);font-weight:400}
 .watch .flagcount{font-size:var(--t-sm);color:var(--ink-3)}
 .watch .flagcount b{color:var(--down);font-weight:600}
+.watch .flagcount .na{display:block;font-size:var(--t-2xs);color:var(--ink-4)}
 @media (max-width:820px){
   table.watch .hide-sm{display:none}
 }
@@ -979,9 +1010,9 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
     <div class="seg" id="industry" role="group" aria-label="Industry"></div>
     <span class="toollabel">Reading as</span>
     <div class="seg" id="persona" role="group" aria-label="Persona">
-      <button data-persona="analyst" aria-pressed="true">Analyst</button>
-      <button data-persona="cfo" aria-pressed="false">CFO</button>
-      <button data-persona="ops" aria-pressed="false">Ops</button>
+      <button data-persona="analyst" aria-pressed="true" title="FP&amp;A: every step, including the working">Analyst</button>
+      <button data-persona="cfo" aria-pressed="false" title="Finance director: size, decision, and how much to believe it">CFO</button>
+      <button data-persona="ops" aria-pressed="false" title="Area sales manager: the lever they hold and who signs it off">Area sales</button>
     </div>
     <div class="seg" id="theme" role="group" aria-label="Appearance">
       <button data-theme="auto" aria-pressed="true">Auto</button>
@@ -1004,6 +1035,18 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
         <label for="region">Region</label>
         <select id="region"><option value="">All regions</option></select>
       </div>
+      <div class="field-row" id="row-channel" hidden>
+        <label for="channel">Channel</label>
+        <select id="channel"><option value="">All channels</option></select>
+      </div>
+      <div class="field-row" id="row-category" hidden>
+        <label for="category">Category</label>
+        <select id="category"><option value="">All categories</option></select>
+      </div>
+      <div class="field-row" id="row-device" hidden>
+        <label for="device">Device</label>
+        <select id="device"><option value="">All devices</option></select>
+      </div>
       <div class="field-row">
         <label for="range">Period</label>
         <select id="range">
@@ -1024,9 +1067,9 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
         <select id="backend"></select>
       </div>
       <details class="railnote"><summary>Why this is on the page</summary><p id="backendnote">Model choice is a governance decision
-        before it is a quality one, so it is shown rather than buried in an
-        environment variable. Switching it changes what is read and written,
-        never what is computed.</p></details>
+        before a quality one, so it is shown rather than buried in an environment
+        variable. It changes what is read and written, never what is
+        computed.</p></details>
     </div>
 
     <div class="railgroup">
@@ -1041,10 +1084,16 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
         </select>
       </div>
       <details class="railnote"><summary>Try this</summary><p>Try picking a region you are <em>not</em> looking at.
-        Any cause outside that reader's access is dropped before the answer is
-        written, rather than written and then hidden. If that changes the
-        answer, the page says how much was left out and who to ask for it.</p></details>
+        Causes outside that reader's access are dropped before the answer is
+        written, not written and then hidden. If that changes the answer, the page
+        says how much was left out and who to ask.</p></details>
     </div>
+
+    <details class="railgroup demos">
+      <summary><span class="label">Scenarios</span><span class="demohint">Every
+        method, one click</span></summary>
+      <div id="demos"></div>
+    </details>
   </nav>
 
   <main class="content" id="main" aria-busy="true">
@@ -1055,10 +1104,9 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
           <input id="askbox" type="text" placeholder="Ask in plain language: why did West revenue drop last week?">
           <button type="submit" id="askgo">Read the question</button>
         </label>
-        <p class="askhint" id="askhint">The model turns the sentence into a query
-          and shows you what it understood. It does not answer it: the engine
-          runs the query exactly as it would if you had chosen the metric and
-          window yourself.</p>
+        <p class="askhint" id="askhint">The model turns your sentence into a query
+          and shows what it understood. It does not answer it. The engine runs
+          that query exactly as if you had picked the metric yourself.</p>
         <!-- Shown on focus. Four lines of explanation for a control nobody has
              touched yet sat above the headline on every page and pushed the
              answer 200px down the document. The explanation is worth having
@@ -1219,6 +1267,220 @@ function renderIndustries(list){
   }));
 }
 
+/* ---------- scope ----------
+
+   Every request that reads a figure is scoped the same way, from one place.
+   Region was threaded through six query strings by hand, and adding channel by
+   the same method would mean six chances to miss one -- which does not fail, it
+   renders an app-only bridge beside an all-channel candidate list and calls the
+   difference a contradiction.
+
+   `sku` is not offered. A select with hundreds of entries is a search box, and
+   nothing on this page is ranked by it. */
+const SLICE_DIMS = ['channel', 'category', 'device'];
+
+/* Select a scope value that the option list may not carry yet.
+
+   The lists arrive with the first overview response, and several things set a
+   scope before that: a `?demo=` link, a `?region=` link, a click on a triage
+   row. Assigning `.value` for an option that does not exist yet is silently
+   ignored by the DOM, so the page went on to answer the national question and
+   looked exactly as though it had been asked one. The option is added first,
+   and the real list replaces it a moment later. */
+function setScope(dim, value){
+  const el = document.querySelector('#' + dim);
+  if(!el) return;
+  const has = Array.prototype.some.call(el.options, o => o.value === (value || ''));
+  if(value && !has){
+    el.innerHTML += `<option value="${escapeHtml(value)}">${escapeHtml(sentence(value))}</option>`;
+  }
+  el.value = value || '';
+}
+
+function currentSlice(){
+  const out = {};
+  SLICE_DIMS.forEach(d => {
+    const el = document.querySelector('#' + d);
+    if(el && el.value) out[d] = el.value;
+  });
+  return out;
+}
+
+/* Region, the finer slice, and entitlement, onto any query string. */
+function scoped(q){
+  const region = $('#region').value;
+  if(region) q.set('region', region);
+  Object.entries(currentSlice()).forEach(([d, v]) => q.set(d, v));
+  if(STATE.entitled) q.set('entitled', STATE.entitled);
+  return q;
+}
+
+/* The controls a vertical actually has, with that vertical's own words for
+   them. The region list was written into the markup as North/South/East/West,
+   which is retail's answer handed to every industry: petroleum sells through
+   aviation, direct and retail, not web, app and store. */
+/* The first response that carries them wins, and later ones only refresh the
+   lists. Re-rendering on every load would be harmless but for one thing: it
+   runs while a reader may have a select open. */
+function adoptDimensionValues(payload){
+  const values = payload && payload.dimension_values;
+  if(!values) return;
+  const before = JSON.stringify(STATE.dimensionValues || null);
+  if(before === JSON.stringify(values)) return;
+  STATE.dimensionValues = values;
+  renderScopeControls(values, STATE.dimensions);
+}
+
+function renderScopeControls(values, labels){
+  const fill = (dim, plural) => {
+    const el = document.querySelector('#' + dim);
+    const row = document.querySelector('#row-' + dim);
+    const list = (values && values[dim]) || [];
+    if(!el) return;
+    const label = (labels && labels[dim]) || sentence(dim);
+    const lab = document.querySelector('label[for="' + dim + '"]');
+    if(lab) lab.textContent = label;
+    const keep = el.value;
+    el.innerHTML = `<option value="">All ${escapeHtml(label.toLowerCase())}${plural}</option>`
+      + list.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(sentence(v))}</option>`).join('');
+    el.value = list.indexOf(keep) >= 0 ? keep : '';
+    if(row) row.hidden = list.length < 2;
+  };
+  fill('region', 's');
+  SLICE_DIMS.forEach(d => fill(d, d === 'category' ? '' : 's'));
+  const catRow = document.querySelector('#row-category');
+  if(catRow && !catRow.hidden){
+    const el = document.querySelector('#category');
+    const first = el && el.querySelector('option[value=""]');
+    if(first) first.textContent = 'All categories';
+  }
+}
+
+/* ---------- scenarios ----------
+
+   A demo that depends on finding the right row in a dropdown fails in front of
+   people, and it fails slowly, which is worse. Each entry below sets the metric,
+   the region, the period, the day, the reader and the access scope together and
+   then routes, so one click lands on one finding.
+
+   Every coordinate here was read back off this warehouse rather than typed from
+   memory: each `day` is a day the detector actually flags for that metric and
+   region, so a button cannot land on "nothing moved enough to explain". When the
+   generator is re-run with a different seed these need re-reading.
+
+   `?demo=<id>` applies the same thing from a link, which is what makes a finding
+   sendable to someone who was not in the room. */
+const DEMOS = [
+  // --- what the engine concludes, and how it got there ---------------------
+  {id:'trap', group:'Explained', label:'Three causes and a trap',
+   note:'A promotion correlating perfectly that caused nothing. It ran in the East too, and the East was fine, which is what difference-in-differences bites on.',
+   kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15'},
+
+  {id:'channel', group:'Explained', label:'One day, two true answers',
+   note:'The same West day asked about the app. The store-only weather cause is set aside as impossible, and the ledger has no channel to reconcile against, so that check is declined rather than failed.',
+   kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15', channel:'app'},
+
+  {id:'graph', group:'Explained', label:'The break, one level down',
+   note:'Orders on the same days. Revenue is orders times AOV, so a break shows in both, and the graph is why they are read together.',
+   kpi:'orders', region:'', range:'90', day:'2026-08-15'},
+
+  // --- the three ways it declines to answer, which are different things ----
+  {id:'refusal', group:'Refused', label:'Abstains: no cause survives',
+   note:'Nothing in the operational record passes testing, so the engine returns UNKNOWN at 0.15, names the next check and asks a clarifying question.',
+   kpi:'net_revenue', region:'West', range:'90', day:'2026-07-27'},
+
+  {id:'contradiction', group:'Refused', label:'Two systems disagree',
+   note:'A large, clean, regionally specific fall that every later stage would have explained confidently. Only the second posting catches it, and it is caught before anything is explained.',
+   kpi:'net_revenue', region:'North', range:'180', day:'2026-06-10'},
+
+  {id:'hourly', group:'Refused', label:'Detected, not diagnosed',
+   note:'Checkout conversion is a rate on an hourly grain. Detection stands; the price/volume/mix identity does not apply to a ratio, and the page says which.',
+   kpi:'checkout_conversion', region:'', range:'90', day:'2026-08-29'},
+
+  // --- who is asking, and what they may see --------------------------------
+  {id:'cfo', group:'Reader', label:'As the finance director',
+   note:'Size, decision, and how much to believe it. Method detail withheld, and the page says it was withheld.',
+   kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15', persona:'cfo'},
+
+  {id:'ops', group:'Reader', label:'As the area sales manager',
+   note:'The lever this reader holds and who signs it off. Nothing executes; a card is a draft awaiting approval.',
+   kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15', persona:'ops'},
+
+  {id:'entitled', group:'Reader', label:'Scoped to South',
+   note:'The series, the queue and the answer are restricted before assembly, and the heading says whose regions these are.',
+   kpi:'net_revenue', region:'', range:'90', day:'2026-07-31', entitled:'South'},
+
+  {id:'blanked', group:'Reader', label:'That reader, asking about the West',
+   note:'Refused before anything is computed, so no West figure exists to leak into a chart or a sentence.',
+   kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15', entitled:'South'},
+
+  // --- that none of this is wired to one dataset ---------------------------
+  {id:'gap', group:'Reach', label:'Why nobody saw it coming',
+   note:'On-time delivery in the West. A warning was published, no step in the planning cycle consumes that class of signal, and the finding names who owns the gap.',
+   kpi:'on_time_delivery', region:'West', range:'90', day:'2026-07-10'},
+
+  {id:'petroleum', group:'Reach', label:'Another industry, tests failing',
+   note:'Petroleum marketing: four candidates, two verified, two rejected on placebo and difference-in-differences. Same engine, different vocabulary.',
+   industry:'petroleum', kpi:'net_realisation', region:'', range:'90', day:'2026-08-14'},
+];
+
+function renderDemos(){
+  const box = document.querySelector('#demos');
+  if(!box) return;
+  const groups = [];
+  DEMOS.forEach(d => {
+    let g = groups.find(x => x.name === d.group);
+    if(!g){ g = {name:d.group, items:[]}; groups.push(g); }
+    g.items.push(d);
+  });
+  box.innerHTML = groups.map(g =>
+    `<div class="demogroup"><span class="demohead">${escapeHtml(g.name)}</span>` +
+    g.items.map(d =>
+      `<button class="demo" data-demo="${d.id}" title="${escapeHtml(d.note)}">${escapeHtml(d.label)}</button>`
+    ).join('') + `</div>`).join('');
+  box.addEventListener('click', e => {
+    const b = e.target.closest('button[data-demo]'); if(!b) return;
+    const d = DEMOS.find(x => x.id === b.dataset.demo);
+    if(d) applyDemo(d);
+  });
+}
+
+function markDemo(id){
+  document.querySelectorAll('#demos button[data-demo]').forEach(b =>
+    b.setAttribute('aria-pressed', String(b.dataset.demo === id)));
+}
+
+/* Switching industry reloads by design -- the metrics, regions and contracts all
+   change together -- so a cross-industry scenario cannot be applied in place.
+   It hands the rest of the scenario to the next page load through the query
+   string, which is the same path a shared link takes. */
+function applyDemo(d, booting){
+  const want = d.industry || 'retail';
+  if(want !== STATE.industry){
+    try{ localStorage.setItem('whychain-industry', want); }catch{ /* ignore */ }
+    location.href = '/kpi/' + d.kpi + '?demo=' + encodeURIComponent(d.id);
+    return;
+  }
+  setScope('region', d.region || '');
+  SLICE_DIMS.forEach(dim => setScope(dim, d[dim] || ''));
+  $('#range').value  = d.range  || '90';
+  $('#entitled').value = d.entitled || '';
+  STATE.entitled = d.entitled || null;
+  STATE.persona = PERSONAS.includes(d.persona) ? d.persona : 'analyst';
+  markPersona();
+  markDemo(d.id);
+  // Read by `go` on the next line, which is the one place a chosen day is
+  // allowed to survive a route change.
+  STATE.pending = {day:d.day, region:d.region || ''};
+  const q = new URLSearchParams();
+  q.set('demo', d.id);
+  history[booting ? 'replaceState' : 'pushState']({}, '', '/kpi/' + d.kpi + '?' + q);
+  STATE.kpi = d.kpi;
+  STATE.pick = d.day;
+  STATE.pending = null;
+  load();
+}
+
 /* ---------- persona ----------
    The switch re-requests the same run under a different projection. It does not
    recompute anything: the server runs the pipeline, then projects, and the
@@ -1296,15 +1558,10 @@ async function boot(){
     renderIndustries(STATE.industries);
   }catch(e){ /* single-industry deployment; the switcher stays empty */ }
   STATE.kpis = await (await fetch('/api/kpis')).json();
-  const regionLabel = STATE.dimensions && STATE.dimensions.region;
-  if(regionLabel){
-    const lab = document.querySelector('label[for="region"]');
-    if(lab) lab.textContent = regionLabel;
-    const opt = document.querySelector('#region option[value=""]');
-    if(opt) opt.textContent = 'All ' + regionLabel.toLowerCase() + 's';
-  }
-  $('#region').innerHTML += ['North','South','East','West']
-    .map(r=>`<option>${r}</option>`).join('');
+  // Values arrive with the first overview response, which reads them from this
+  // deployment's own warehouse. Until then the controls hold only their "all"
+  // option, which is the state the page opens in anyway.
+  renderScopeControls(STATE.dimensionValues, STATE.dimensions);
   // Every industry opens on the whole estate rather than on one region: the
   // watchlist below is national, and a scope control disagreeing with the
   // table under it is the first thing a reader notices. Narrowing is then a
@@ -1319,8 +1576,9 @@ async function boot(){
     });
   }
   const params = new URLSearchParams(location.search);
-  if(params.get('region')) $('#region').value = params.get('region');
+  if(params.get('region')) setScope('region', params.get('region'));
   if(params.get('range')) $('#range').value = params.get('range');
+  SLICE_DIMS.forEach(d=>{ if(params.get(d)) setScope(d, params.get(d)); });
   // The backend list is fetched rather than hard-coded, so what the console
   // offers is what the server can actually reach.
   try{
@@ -1367,19 +1625,31 @@ async function boot(){
   });
   // Changing the metric, region or period invalidates the chosen day: it may
   // not be flagged in the new series, or may not exist in it at all.
-  ['region','range'].forEach(id=>$('#'+id).addEventListener('change',()=>{
-    STATE.pick = null;
-    const q = new URLSearchParams();
-    if($('#region').value) q.set('region',$('#region').value);
-    if($('#range').value !== '90') q.set('range',$('#range').value);
-    history.replaceState({}, '', location.pathname + (q.toString()?'?'+q:''));
-    route();
-  }));
+  ['region','range', ...SLICE_DIMS].forEach(id=>{
+    const el = $('#'+id); if(!el) return;
+    el.addEventListener('change',()=>{
+      STATE.pick = null;
+      const q = new URLSearchParams();
+      if($('#region').value) q.set('region',$('#region').value);
+      Object.entries(currentSlice()).forEach(([d,v])=>q.set(d,v));
+      if($('#range').value !== '90') q.set('range',$('#range').value);
+      history.replaceState({}, '', location.pathname + (q.toString()?'?'+q:''));
+      route();
+    });
+  });
   addEventListener('popstate',route);
   document.querySelector('.masthead .mark').addEventListener('click',e=>{
     e.preventDefault(); go('/');
   });
-  route();
+  renderDemos();
+  // A `?demo=` link is the same thing the rail buttons do, so it is applied
+  // through the same function rather than through a second code path that
+  // would drift from it. Unknown ids fall through to ordinary routing instead
+  // of erroring: a stale link should still land somewhere useful.
+  const wanted = params.get('demo');
+  const demo = wanted && DEMOS.find(d => d.id === wanted);
+  if(demo){ markDemo(demo.id); applyDemo(demo, true); }
+  else route();
 }
 
 /* What the chosen backend means, in the two terms that decide it: what the
@@ -1417,7 +1687,7 @@ function go(path, replace=false){
     // Set by the triage queue a moment ago: the reader asked about a specific
     // finding, and clearing it here would silently answer a different question.
     STATE.pick = STATE.pending.day;
-    if(STATE.pending.region){ $('#region').value = STATE.pending.region; }
+    if(STATE.pending.region){ setScope('region', STATE.pending.region); }
     STATE.pending = null;
   }
   history[replace?'replaceState':'pushState']({}, '', path + location.search);
@@ -1464,10 +1734,9 @@ async function showOverview(){
   // findings below still listed South, and Period re-routed the page and
   // changed nothing at all. A control that visibly does nothing teaches a
   // reader that none of them mean anything.
-  const q=new URLSearchParams(); if(region) q.set('region',region);
+  const q=scoped(new URLSearchParams());
   if(days) q.set('days',days);
-  if(STATE.entitled) q.set('entitled',STATE.entitled);
-  const tq=new URLSearchParams(); if(region) tq.set('region',region);
+  const tq=scoped(new URLSearchParams());
   if(days) tq.set('days',days);
   tq.set('limit','8');
   if(STATE.entitled) tq.set('entitled',STATE.entitled);
@@ -1486,6 +1755,7 @@ async function showOverview(){
   const data = await ores.json();
   STATE.overview = data;
   STATE.queue = queue;
+  adoptDimensionValues(data);
   renderNav();
 
   const byId = Object.fromEntries(data.kpis.map(k=>[k.kpi_id,k]));
@@ -1511,9 +1781,9 @@ async function showOverview(){
   // what it is for. One sentence, then the counts, then the work.
   $('#overview').innerHTML = `<div class="overview">
     <h1>${region||'All regions'}</h1>
-    <p class="purpose">Every material movement in these metrics, ranked by what
-      it costs per day, each one traced to a cause that survived testing, or
-      refused when the evidence would not carry it.</p>
+    <p class="purpose">Every material movement, ranked by daily cost, traced to a
+      cause that survived testing or refused where the evidence would not carry
+      one.</p>
     <p class="sub">${STATE.graphSummary || ''}</p>
     ${STATE.drivenBy ? `<p class="drivenby"><span>What moves it</span>
       ${escapeHtml(STATE.drivenBy)}</p>` : ''}
@@ -1548,12 +1818,17 @@ async function showOverview(){
         <td class="n hide-sm"><span class="chg ${k.period_change<0?'down':'up'}">${
           k.period_change==null?'–':(k.period_change>0?'+':'')+pct(k.period_change)}</span></td>
         <td class="n"><span class="flagcount">${k.material_drops
-            ? `<b>${k.material_drops}</b>` : '<span class="na">none</span>'}</span></td>
+            ? `<b>${k.material_drops}</b>` : '<span class="na">none</span>'}${
+          /* Say when a filter could not reach this metric. Checkout conversion
+             is measured by region and device, so a channel filter leaves its
+             count where it was, and an unexplained still number reads as a
+             broken control. */
+          (k.not_narrowed && k.not_narrowed.length)
+            ? `<span class="na" title="This metric's grain is ${escapeHtml(k.grain)}">
+                 no ${escapeHtml(k.not_narrowed.join('/'))}</span>` : ''}</span></td>
       </tr>`).join('')}
     </tbody></table>
-    <p class="sub" style="margin-top:var(--sp-4);font-size:var(--t-sm);font-family:var(--sans)">Revenue is orders times average
-      order value, and orders come from sessions times conversion, so a break in
-      one shows up in the others. Select a metric to see what moved it.</p>
+    <p class="sub" style="margin-top:var(--sp-4);font-size:var(--t-sm);font-family:var(--sans)">Select a metric to see what moved it.</p>
     </details></div>`;
 
   $('#margin').innerHTML = marginBlock(null);
@@ -1689,8 +1964,8 @@ function triageMarkup(){
       ${q.total} open findings in total${
         q.folded ? `, after folding ${plural(q.folded,'child-metric movement')} into the parent event they belong to` : ''}.
       ${escapeHtml(q.basis)}
-      Metrics with no price/volume/mix identity are detected and prioritised but
-      not decomposed, and are marked accordingly.</p></details>`;
+      Metrics with no price/volume/mix identity are ranked but not decomposed,
+      and marked so.</p></details>`;
 }
 
 function drawSparks(){
@@ -1762,15 +2037,18 @@ async function load(){
   $('#diagnosis').hidden = false;
   $('#overview').hidden = true;
   if(!STATE.overview){
+    // Deliberately region-only: the rail's own option lists must not narrow
+    // themselves to whatever the reader last picked, or choosing one channel
+    // removes every other channel from the control that chose it.
     const oq=new URLSearchParams(); if($('#region').value) oq.set('region',$('#region').value);
     if(STATE.entitled) oq.set('entitled',STATE.entitled);
     const ores = await fetch('/api/overview?'+oq);
     STATE.overview = ores.ok ? await ores.json() : {kpis: []};
+    adoptDimensionValues(STATE.overview);
   }
   renderNav();
   const kpi=STATE.kpi, region=$('#region').value, days=+$('#range').value;
-  const q=new URLSearchParams({kpi}); if(region) q.set('region',region);
-  if(STATE.entitled) q.set('entitled',STATE.entitled);
+  const q=scoped(new URLSearchParams({kpi}));
   if(days){ const to=new Date('2026-08-31'); const from=new Date(to);
     from.setDate(to.getDate()-days);
     q.set('from',from.toISOString().slice(0,10)); q.set('to',to.toISOString().slice(0,10)); }
@@ -1795,8 +2073,8 @@ async function load(){
     $('#headline').textContent = why ? 'Outside your entitlement' : 'No data for that slice';
     $('#story').innerHTML = why
       ? `<p>${escapeHtml(why.detail || 'This region is outside what you may see.')}</p>
-         <p class="q">The refusal happens before anything is computed, so no figure
-         for this region was produced to leak through a chart, a table or a sentence.</p>`
+         <p class="q">The refusal happens before anything is computed, so no
+         figure for this region exists to leak into a chart or a sentence.</p>`
       : '';
     $('#rest').innerHTML = '';
     $('#main').setAttribute('aria-busy','false');
@@ -1808,14 +2086,12 @@ async function load(){
   let diagnosis=null, decomposition=null, candidates=null, win=null, declined=null;
   if(drops.length){
     win = windowFor(drops);
-    const p=new URLSearchParams({kpi,start:win.start,end:win.end});
-    if(region) p.set('region',region);
+    const p=scoped(new URLSearchParams({kpi,start:win.start,end:win.end}));
     p.set('persona', STATE.persona || 'analyst');
-    // Entitlement travels with the request and is enforced server-side at the
-    // projection. The control exists so the refusal can be *seen*: without it
-    // the row filter is a claim in a README rather than something a reader can
-    // trigger and watch happen.
-    if(STATE.entitled) p.set('entitled', STATE.entitled);
+    // Entitlement travels with the request (set by `scoped`) and is enforced
+    // server-side at the projection. The control exists so the refusal can be
+    // *seen*: without it the row filter is a claim in a README rather than
+    // something a reader can trigger and watch happen.
     // The first pass is always deterministic, whatever backend is pinned.
     //
     // Every number on the page is computed without a model, so there is no
@@ -1857,10 +2133,8 @@ async function load(){
   const wantsModel = STATE.backend !== 'none'
     && (STATE.activeBackend && STATE.activeBackend !== 'none');
   if(wantsModel && diagnosis && win){
-    const q2 = new URLSearchParams({kpi, start: win.start, end: win.end});
-    if(region) q2.set('region', region);
+    const q2 = scoped(new URLSearchParams({kpi, start: win.start, end: win.end}));
     q2.set('persona', STATE.persona || 'analyst');
-    if(STATE.entitled) q2.set('entitled', STATE.entitled);
     if(STATE.backend) q2.set('backend', STATE.backend);
     refineWithModel(q2);
   }
@@ -2019,6 +2293,7 @@ async function askQuestion(question){
 const READABLE_POINTS = 400;
 
 function openingView(series){
+  if(!series || !series.days || !series.days.length) return null;
   const n = series.days.length;
   if(n <= READABLE_POINTS) return null;          // the whole span is legible
   // Prefer ending on the anomaly if there is one, so the opening view contains
@@ -2048,15 +2323,21 @@ function render(){
   $('#eyebrow').hidden = true;
   // Where the reader is, and the way back. An object page without a trail is
   // the one thing every enterprise reader notices is missing.
+  // The slice rides in the trail, because it changes the answer. The app in
+  // the West and the West are different movements with different causes, and a
+  // reader who has to check the rail to tell which one they are reading is one
+  // screenshot away from quoting the wrong figure.
+  const slice = Object.values(currentSlice()).map(sentence);
+  const crumbs = [escapeHtml(title(kpi)), escapeHtml(where), ...slice.map(escapeHtml)];
   $('#crumb').innerHTML =
-    `<a href="#" id="crumbhome">Open findings</a><i>/</i><span>${escapeHtml(title(kpi))}</span>`
-    + `<i>/</i><span>${escapeHtml(where)}</span>`
+    `<a href="#" id="crumbhome">Open findings</a>`
+    + crumbs.map(c => `<i>/</i><span>${c}</span>`).join('')
     + `<i>/</i><span class="crumbwin">${escapeHtml(series.days[0])} to ${
         escapeHtml(series.days.at(-1))}</span>`;
   // The masthead carries the current context so a reader always knows what
   // they are looking at without scrolling back to the top of the document.
   $('#context').innerHTML =
-    `${escapeHtml(title(kpi))} <em>/</em> ${escapeHtml(where)} <em>/</em> ${
+    crumbs.join(' <em>/</em> ') + ` <em>/</em> ${
       escapeHtml(series.days[0])}\u2009\u2013\u2009${escapeHtml(series.days.at(-1))}`;
   $('#margin').innerHTML = marginBlock(diagnosis);
 
@@ -2088,8 +2369,8 @@ function render(){
   // used. Contradicted runs are the exception: the two systems do not agree the
   // movement happened, so stating what a normal Wednesday does would dress a
   // disputed figure as a settled one.
-  $('#basis').innerHTML = basisLine(w, where, contradicted);
-  const oh = objectHeader(diagnosis, w);
+  $('#basis').innerHTML = basisLine(w, where, contradicted, series.unit);
+  const oh = objectHeader(diagnosis, w, series.unit);
   $('#objhead').innerHTML = oh;
   $('#objhead').hidden = !oh;
   const db = defensibilityBar(diagnosis);
@@ -2124,19 +2405,19 @@ function render(){
     + reconciliationBlock()
     + madeByBlock()
     + group('The answer',
-        'What moved, what caused it, whether anything warned first, and what to do about it.',
+        'What moved, what caused it, what warned, and what to do.',
         section('The movement', chartMarkup(), true)
         + narrativeBlock()
         + signalGapBlock()
         + decisionsBlock()
         + simulatorBlock())
     + group('The working',
-        'Every step between the movement and the answer above, in the order it ran.',
+        'Each step from movement to answer, in the order it ran.',
         movementsBlock()
         + (persona === 'analyst'
             ? rankingBlock() + decompositionBlock() + candidatesBlock() : ''))
     + group('Provenance and review',
-        'Where the numbers came from, what the run cost, and how to tell the engine it was wrong.',
+        'Where the numbers came from, what the run cost, how to correct it.',
         freshnessBlock()
         + (persona === 'analyst' ? receiptBlock() : '')
         + feedbackBlock())
@@ -2181,8 +2462,8 @@ function contradictedStory(d){
     over this window, against a ${r.tolerance_pct != null ? pct(r.tolerance_pct) : ''} tolerance
     their posting policies account for.</p>
     <p>No cause is proposed. A movement one source reports and another does not
-    is not a movement with lower confidence: it may not have happened, and every
-    test below would have passed on it.</p>
+    is not a lower-confidence movement: it may not have happened at all, and
+    every test below would still have passed.</p>
     <p class="q"><strong>The next check.</strong>
       ${escapeHtml(a.next_check || '')}</p>
     ${a.question ? `<p><strong>Question.</strong> ${escapeHtml(a.question)}</p>` : ''}`;
@@ -2274,8 +2555,8 @@ function unknownStory(d){
     return `<p>The movement is real and detection stands. A causal diagnosis is
       not available for this metric.</p>
       ${reason ? `<p class="q">${escapeHtml(reason)}</p>` : ''}
-      <p class="q">The chart, the material movements and source freshness below
-      are unaffected.</p>`;
+      <p class="q">The chart, the movements and source freshness below are
+      unaffected.</p>`;
   }
   const a = d.abstention, m = d.movement;
   return `
@@ -2419,23 +2700,21 @@ function rankingBlock(){
     : '<p class="muted">Not run for this window.</p>';
 
   return section('How we chose between explanations', `
-    <p>These are never merged. A strong correlation topping a weak identity is
-    the exact substitution this engine exists to prevent, so the two rankings
-    are computed separately and rendered side by side.</p>
+    <p>Never merged. A strong correlation topping a weak identity is the
+    substitution this engine exists to prevent, so the two are computed
+    separately.</p>
     <div class="tracks">
       <div>
         <h4 class="exactly">Track A · exact</h4>
-        <p class="caption">From the price/volume/mix identity. These sum to the
-          movement with no residual, so they are arithmetic about what happened
-          rather than a hypothesis about it.</p>
+        <p class="caption">From the price/volume/mix identity. They sum to the
+          movement with no residual: arithmetic, not a hypothesis.</p>
         ${rowsOf(r.exact)}
       </div>
       <div>
         <h4 class="merely">Track B · correlational</h4>
-        <p class="caption">A standardised ridge fit over the driver series. Useful
-          for generating candidates nobody thought to look at; worthless as an
-          answer. No row here may be stated as a cause until a causal test
-          promotes it.</p>
+        <p class="caption">A standardised ridge fit over the driver series. It
+          generates candidates nobody thought to look at; it answers nothing. No
+          row here is a cause until a causal test promotes it.</p>
         ${rowsOf(r.associational)}
       </div>
     </div>
@@ -2455,9 +2734,9 @@ function narrativeBlock(){
       escapeHtml(prose(x.text))}<span class="cites">\u25AA${(x.cites||[]).length}</span></span> `).join('');
 
   return section('What we found, and what we checked', `
-    <p>Written from a flat table of already-computed facts and nothing else.
-    Every sentence carries the evidence ids it rests on, and a deterministic
-    validator checks each one before a reader sees it.</p>
+    <p>Written from a flat table of computed facts and nothing else. Every
+    sentence carries its evidence ids, and a deterministic validator checks each
+    one before it is shown.</p>
     <div class="written">${sentences || '<span class="muted">No sentence survived validation.</span>'}</div>
     <div class="gate">
       <div><b>${(n.sentences||[]).length}</b>sentences accepted</div>
@@ -2541,8 +2820,8 @@ function contrastMarkup(){
       ${Object.entries(a.figures).map(([k,v])=>`<div><b>${
         escapeHtml(String(Array.isArray(v)?v.length:v))}</b>${escapeHtml(k.replace(/_/g,' '))}</div>`).join('')}
     </div>
-    <p class="muted">Every figure above is identical in both columns. That is the
-      architecture's central claim, shown rather than asserted.</p>`;
+    <p class="muted">Every figure is identical in both columns. That is the
+      central claim, shown rather than asserted.</p>`;
 }
 
 /* ═══ feedback ═══════════════════════════════════════════════════════════ */
@@ -2558,9 +2837,10 @@ function feedbackBlock(){
   const d = STATE.diagnosis;
   if(!d || !d.run_id) return '';
   return section('Analyst review and corrections', `
-    <p>A correction never edits this run and never moves a computed number.
-    What it can change are the inputs the business owns, which candidates are
-    worth surfacing, which driver a description maps to, where a threshold sits: and only once two independent readers agree.</p>
+    <p>A correction never edits this run and never moves a computed number. It
+    changes inputs the business owns: which candidates surface, which driver a
+    description maps to, where a threshold sits. Two independent readers must
+    agree first.</p>
     <div class="fb" id="fb">
       ${JUDGEMENTS.map(([k,lab])=>
         `<button data-j="${k}" aria-pressed="false">${lab}</button>`).join('')}
@@ -2765,7 +3045,7 @@ function clearFindingChrome(){
   $('#anchorbar').innerHTML = ''; $('#anchorbar').hidden = true;
 }
 
-function basisLine(w, where, disputed){
+function basisLine(w, where, disputed, unit){
   if(!w || w.expected == null || w.observed == null) return '';
   const day = new Date(w.day + 'T00:00:00');
   const wd = isNaN(day) ? 'that day' : WEEKDAY[day.getDay()];
@@ -2780,15 +3060,18 @@ function basisLine(w, where, disputed){
   // reader still needs is the definition: the headline says "below expected"
   // either way, and leaving "expected" undefined is worst exactly here, where
   // they are already being asked to doubt the number.
-  const sum = disputed ? '' : `Observed <b>${inr(w.observed)}</b> against an expected
-    <b>${inr(w.expected)}</b>, short by <b>${inr(Math.abs(w.delta))}</b>${
+  // In the metric's own unit, not in rupees. Checkout conversion sits around
+  // 0.05 and on-time delivery around 0.94, so `inr` rendered this whole
+  // sentence as "Observed 0 against an expected 0, short by 0 (36.8%)" --
+  // three figures that say nothing, under a headline that says 36.8%. The
+  // formatters already existed for the chart; this line never used them.
+  const sum = disputed ? '' : `Observed <b>${fmtValue(w.observed, unit)}</b> against an expected
+    <b>${fmtValue(w.expected, unit)}</b>, short by <b>${fmtDelta(Math.abs(w.delta), unit)}</b>${
       w.pct != null ? ` (${pct(Math.abs(w.pct))})` : ''}.`;
   return `${sum}
     <span class="basisnote">\u201cExpected\u201d is what a ${wd}${short} normally
-      does at this point in the year: the level implied by the recent trend, the
-      day-of-week pattern and the festival calendar, fitted on this metric\u2019s
-      own history. It is not a plan or budget figure, and not the same week last
-      year.</span>`;
+      does at this point in the year, from this metric\u2019s own trend, weekday
+      pattern and festival calendar. Not a plan figure, and not last year.</span>`;
 }
 
 /* Confidence as a word. A CFO was being shown "0.273", which is a number that
@@ -2844,13 +3127,19 @@ function defensibilityBar(d){
   return out.join('');
 }
 
-function objectHeader(d, w){
+function objectHeader(d, w, unit){
   const cells = [];
-  const verdict = (d && d.verdict) || (w ? 'explained' : '');
+  // No diagnosis means nothing was verified. A ratio metric cannot be run
+  // through the price/volume/mix identity at all, so the engine refuses a full
+  // diagnosis for it and this header was left rendering "Verified" over a
+  // detection the causal tests had never seen. Saying so is the whole point of
+  // the pill; a detection is a real state and has its own word.
+  const verdict = (d && d.verdict) || (w ? 'detected' : '');
   // The pill states what happened to the *finding*, never which way the money
   // went. "Verified" in red reads as a failure; the loss is red one cell to the
   // right, where it belongs, and the two stop competing for the same meaning.
   const S = {contradicted:['warn','Unconfirmed'], unknown:['neutral','No cause proposed'],
+             detected:['neutral','Detected, not diagnosed'],
              explained:['ok','Verified']}[verdict] || ['neutral', sentence(verdict||'Open')];
   cells.push(`<span class="status ${S[0]}">${escapeHtml(S[1])}</span>`);
 
@@ -2863,8 +3152,11 @@ function objectHeader(d, w){
   // takes the one figure every projection carries and says which day it is.
   const impact = (w && w.delta != null) ? Math.abs(w.delta) : null;
   if(impact != null)
+    // The gap between two rates is percentage points, never rupees. `fmtDelta`
+    // carries that distinction; `inr` printed a 1.66-point conversion collapse
+    // as an impact of zero rupees.
     cells.push(`<div class="kpi"><span class="k">Impact</span>
-      <span class="v down">${inr(impact)}<small>on the worst day</small></span></div>`);
+      <span class="v down">${fmtDelta(impact, unit)}<small>on the worst day</small></span></div>`);
 
   if(d && d.confidence && d.confidence.band){
     const score = d.confidence.probability != null
@@ -2962,9 +3254,9 @@ function section(title, body, open=false, count=''){
 function marginBlock(d){
   if(!d){
     return `<section><span class="label">About</span>
-      <p>Every figure on this page resolves to the query or document behind it.
-         The quantitative layer is deterministic; a model reads, ranks and
-         writes, and never calculates.</p></section>`;
+      <p>Every figure resolves to the query or document behind it. The
+         quantitative layer is deterministic; the model reads, ranks and writes,
+         and never calculates.</p></section>`;
   }
   const t = d.telemetry || {};
   const gap = d.signal_gap || {};
@@ -3039,8 +3331,8 @@ function cfoStory(d){
     Confidence is ${escapeHtml(h.confidence)}.</p>`;
 }
 
-/* A regional or channel manager needs the lever they personally hold, and needs
-   to know about the movement they do not hold so they are not surprised by it. */
+/* An area sales manager needs the lever they personally hold, and needs to know
+   about the movement they do not hold so they are not surprised by it. */
 function opsStory(d){
   const mine = d.my_actions, watch = d.watch_only;
   return `
@@ -3119,9 +3411,8 @@ function simulatorBlock(){
       </article>`;
   }).join('');
   return section('What changes if you act', `
-    <p>Projections, not measurements. Each rests on a quantity already measured
-    or a coefficient the contract declares, and every assumption is stated so it
-    can be argued with.</p>${rows}`, false,
+    <p>Projections, not measurements. Each rests on a measured quantity or a
+    coefficient the contract declares, with every assumption stated.</p>${rows}`, false,
     `${list.filter(s=>s.available).length} of ${list.length} available`);
 }
 
@@ -3221,7 +3512,15 @@ function receiptBlock(){
         <td class="num">${s.model_calls}</td>
         <td class="q">${s.note ? escapeHtml(prose(s.note)) : ''}</td></tr>`).join('');
   const tot = t.totals;
-  return section('Run receipt', `
+  // Named for the question it answers. A surveyed 10% of Indian finance leaders
+  // say they could not give a regulator or auditor a clear account of what an AI
+  // agent did; this table is that account, and it is produced on every run
+  // rather than assembled afterwards. The heading used to be "Run receipt",
+  // which is accurate and tells a reader nothing about what it is for.
+  return section('What ran, and what the model touched', `
+    <p class="q">Every stage of this diagnosis, in order, with the method class
+    each used and whether a model was called. This is the record an auditor
+    would ask for.</p>
     <table>
       <thead><tr><th>Stage</th><th>Method</th><th class="num">ms</th>
         <th class="num">Model calls</th><th>Note</th></tr></thead>
@@ -3274,16 +3573,14 @@ function movementsBlock(){
             : '<span class="linkback">diagnose</span>')
         : '<span class="na">–</span>'}</td></tr>`).join('');
   return section('What else moved that week',
-    `<p>The series is split by MSTL into trend, weekly rhythm and the retail
-     calendar, and anomalies are measured on what is left over using the median
-     and MAD rather than the mean, so an earlier shock does not raise the bar for
-     the next one. A day appears here only if it is statistically unusual
-     <em>and</em> the movement is large enough in rupees to be worth acting on.
-     Both tests must pass: significance alone surfaces movements too small to act
-     on, and size alone surfaces noise that happens to be large.</p>
-     <p>The largest movement is diagnosed by default. Select any other to ask
-     the same question of it; consecutive flagged days are diagnosed together as
-     one event.</p>
+    `<p>MSTL splits the series into trend, weekly rhythm and the retail calendar.
+     Anomalies are measured on the remainder using the median and MAD rather than
+     the mean, so an earlier shock does not raise the bar for the next one.</p>
+     <p>A day appears only if it is statistically unusual <em>and</em> large
+     enough in rupees to act on. Both tests must pass: significance alone
+     surfaces movements too small to matter, size alone surfaces large noise.</p>
+     <p>The largest movement is diagnosed by default. Select another to ask the
+     same question of it. Consecutive flagged days are diagnosed as one event.</p>
      <div class="scroll"><table><thead><tr><th>Day</th><th>Direction</th>
      <th class="n">Shortfall</th><th class="n">Change</th><th class="n">Robust z</th>
      <th class="n">Diagnosis</th></tr></thead>
@@ -3311,8 +3608,8 @@ function decompositionBlock(){
   }).join('');
 
   return section('Where the money went',
-    `<p>Revenue is units times price, so only three things can move it. These are
-     arithmetic rather than estimates, and they add back to the total exactly.</p>
+    `<p>Revenue is units times price, so only three things can move it. These
+     are arithmetic, not estimates, and they add back to the total exactly.</p>
      <div class="scroll"><table><thead><tr><th>Effect</th><th></th>
      <th class="n">Per day</th><th class="n">Share</th></tr></thead><tbody>${legs}
      <tr><td><strong>total</strong></td><td class="muted">observed movement</td>
@@ -3351,8 +3648,8 @@ function candidatesBlock(){
     the operational record is simply silent here.</p>`;
   return section('What we tested, and what failed',
     `<p>Candidates come from the operational record with nothing marking which are
-     real. One becomes a claim only by surviving every test that could be run, and
-     a test that could not run is not a test that passed.</p>${items || empty}`,
+     real. One becomes a claim only by surviving every test that could run, and a
+     test that could not run is not a test that passed.</p>${items || empty}`,
     false, c.counts.considered
       ? `${c.counts.verified} verified · ${c.counts.rejected} rejected`
       : 'none considered');
@@ -3365,7 +3662,7 @@ function freshnessBlock(){
     <td>${f.sla_met?'<span class="pill ok">within SLA</span>':'<span class="pill no">breached</span>'}</td></tr>`).join('');
   return section('Where the data came from',
     `<p>When each source last landed, against what it promised. A breach reduces
-     confidence and is stated in the finding rather than hidden here.</p>
+     confidence and is stated in the finding, not just here.</p>
      <div class="scroll"><table><thead><tr><th>Source</th><th>Last landed</th>
      <th class="n">Lag</th><th class="n">SLA</th><th>Status</th></tr></thead>
      <tbody>${rows}</tbody></table></div>`);
@@ -3405,8 +3702,8 @@ function openDrawer({cause,panel}){
       + externalSignals(c);
   } else if(panel==='confidence'){
     html = `<h3>How the score was reached</h3>
-      <p class="muted">Arithmetic over evidence already established. Not a judgement,
-      and not written by a model.</p>
+      <p class="muted">Arithmetic over established evidence. Not a judgement, and
+      not written by a model.</p>
       <table class="components"><tbody>${d.confidence.components.map(x=>`<tr>
         <td class="cname">${sentence(x.name)}</td>
         <td class="cval">${(x.value*100).toFixed(0)}%</td>
@@ -3417,12 +3714,12 @@ function openDrawer({cause,panel}){
           <div><b>${d.confidence.probability}</b>calibrated probability</div>
           <div><b>${d.confidence.calibrated_on}</b>cases fitted on</div>
         </div>
-        <p class="muted">The raw score orders diagnoses; it is a weighted sum and
-        each term is above. The probability is that score passed through an
-        isotonic curve fitted on a held-out half of the benchmark population and
-        never refitted after the test half was scored. Both are shown because a
-        calibrated number that cannot be traced to the arithmetic under it is the
-        opaque figure this engine objects to elsewhere.</p>`
+        <p class="muted">The raw score orders diagnoses: a weighted sum, each
+        term above. The probability is that score through an isotonic curve
+        fitted on a held-out half of the benchmark and never refitted after the
+        test half was scored. Both are shown because a calibrated number you
+        cannot trace to its arithmetic is the opaque figure this engine objects
+        to elsewhere.</p>`
       : `<p class="muted" style="margin-top:var(--sp-5)">This is a score, not a
         probability, and it is labelled as one. No calibration curve is fitted, so
         the engine will not claim that a 0.86 means right 86 times in a hundred.
@@ -3465,8 +3762,8 @@ async function showDocument(docId){
       Contains instruction-like text: ${d.injection_flags.join(', ')}. Read as data.</p>` : ''}
     <dl class="field"><dt>Full record, exactly as written</dt>
       <dd><pre style="white-space:pre-wrap">${escapeHtml(d.text)}</pre></dd></dl>
-    <p class="muted">This is the untrusted source. Nothing inside it is treated as
-      an instruction, and the engine quotes from it rather than paraphrasing.</p>`;
+    <p class="muted">An untrusted source. Nothing inside it is treated as an
+      instruction, and the engine quotes rather than paraphrases.</p>`;
   $('#docback').addEventListener('click',()=>{ $('#dbody').innerHTML = back; wireDocLinks(); });
 }
 

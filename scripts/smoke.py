@@ -221,27 +221,55 @@ def check_personas(r: Report) -> None:
 
 
 def check_entitlement(r: Report) -> None:
+    """Two different behaviours, and they were being tested as one.
+
+    Asking about a region you may not see is a refusal: since B-025 the request
+    is rejected at the boundary with 403, before anything is computed, so there
+    is no figure to leak. This check previously asked for West as a South-only
+    reader and treated the 403 as a transport failure, which made `make smoke`
+    exit non-zero for correct behaviour -- on the one command whose job is to
+    gate a demo.
+
+    Withholding is the other behaviour: a reader asking a question they *are*
+    allowed to ask, whose answer happens to rest partly on regions they are not.
+    That needs an unsliced window, so it is a separate request.
+    """
     print("\nEntitlement")
-    base = {"kpi": "net_revenue", "region": "West", "start": "2026-08-13",
-            "end": "2026-08-16", "persona": "ops"}
-    status, unrestricted, _ = get("/api/diagnose", **base)
-    status2, restricted, _ = get("/api/diagnose", entitled="South", **base)
+    # Analyst, not ops. The ops projection withholds cross-region comparison,
+    # and on an unsliced window every verified cause *is* a cross-region
+    # statement, so an ops reader sees zero causes whether entitled or not.
+    # Comparing zero against zero cannot detect a withholding failure.
+    window = {"kpi": "net_revenue", "start": "2026-08-13", "end": "2026-08-16",
+              "persona": "analyst"}
+
+    refused, _, _ = get("/api/diagnose", region="West", entitled="South", **window)
+    if refused == 403:
+        r.ok("a region outside the reader's scope is refused, not filtered")
+    else:
+        r.fail("entitlement refusal", f"expected 403 for West as a South reader, got {refused}")
+
+    status, unrestricted, _ = get("/api/diagnose", **window)
+    status2, restricted, _ = get("/api/diagnose", entitled="South", **window)
     if status != 200 or status2 != 200:
         r.fail("entitlement", f"{status}/{status2}")
         return
 
-    open_causes = len(unrestricted.get("causes") or [])
-    shut_causes = len(restricted.get("causes") or [])
+    open_causes = len(unrestricted.get("verified") or [])
+    shut_causes = len(restricted.get("verified") or [])
     notice = (restricted.get("entitlement") or {}).get("notice")
 
-    if shut_causes >= open_causes and open_causes > 0:
+    if open_causes == 0:
+        r.fail("entitlement", "the unrestricted run verified nothing, so nothing could be withheld")
+    elif shut_causes >= open_causes:
         r.fail("entitlement", f"out-of-scope causes were not withheld ({open_causes} -> {shut_causes})")
     elif not notice:
         r.fail("entitlement", "causes were withheld with no notice to the reader")
     elif "escalate" not in notice.lower():
         r.fail("entitlement", "the notice does not name an escalation route")
+    elif (restricted.get("entitlement") or {}).get("withheld_count") != open_causes - shut_causes:
+        r.fail("entitlement", "the notice's count disagrees with what was actually removed")
     else:
-        r.ok(f"withheld {open_causes - shut_causes} cause(s) and said so")
+        r.ok(f"withheld {open_causes - shut_causes} cause(s), said so, and named the escalation")
 
 
 def check_narrative(r: Report) -> None:

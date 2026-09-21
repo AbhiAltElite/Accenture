@@ -27,11 +27,331 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 | T-17 | A verification command that passes on empty output | scripts, CI | `cmd \| tail && echo OK` reports success when `cmd` never ran. Check the exit status of the command itself, and confirm the check can actually fail |
 | T-20 | An assumption that is true of one industry and taken for a property of the method | everywhere | A conversion rate below one, a numerator drawn from its denominator, a column name, a festival calendar, a weekday shape. Each was correct for retail and wrong elsewhere, and none was visible until a second industry consumed the same code. When two places have to name the same thing, a test asserts it; a comment asking someone to remember is not a mechanism (see B-019) |
 | T-19 | A threshold, conversion or seasonal period that ignores the metric's grain | contracts, detect | `value_per_unit_inr` must be what one unit is worth *at the grain anomalies are detected on*, and `min_abs_delta_inr` is compared per observation. A daily figure applied to hourly data is twenty-four times wrong, and a national figure applied to regional detection is wrong by the number of regions. Check that the floor is reachable given the metric's range: conversion runs at 6%, so a floor needing 11.9 points can never be met (see B-017). The same applies to anything else measured in observations: a seasonal period of 7 means "day of week" on a daily series and "seven hours" on an hourly one, and a minimum of 60 rows is sixty days of one and two and a half days of the other (see B-018) |
+| T-21 | A capability that exists at the API and is unreachable from the only client | api, UI | Not a shipped capability. Entitlement withholding is built, tested and returned by `/api/diagnose`, and no console path asks the question that produces it (B-028). Any README step describing a behaviour is re-run after a client change, or the step is removed |
+| T-22 | An assertion that counts things and never checks the count is reachable | tests, scripts | `len(body["causes"])` on a response whose key is `verified` is zero forever, and every comparison against it passes (B-029). A counting assertion fails when its own baseline is zero. T-17 is the same rule for shell |
+| T-26 | A contract field that is declared, documented and never read | contracts, everywhere | `calendar` sat in every contract and in the README while `_calendar()` returned `holidays.India` unconditionally (B-033). A declared field the engine ignores is worse than an absent one: it reads as configuration and behaves as decoration. Any field a contract declares is either consumed by a code path or removed, and a test asserts which |
+| T-27 | Assuming a business metric cannot go negative | detect, UI | Two days in a real 604-day retailer series have net revenue below zero because returns exceeded sales (B-034). A generator that never emits one hides the whole class: percentage change against a near-zero or negative baseline is meaningless, and multiplicative seasonal models are not defined there |
+| T-25 | A design or docs check that greps for an exact sentence of prose | scripts/audit.py | It breaks the next time the prose improves, and it reports a copy edit as a governance failure (B-032). Assert the *claim* is present by a robust marker, or accept that the sentence is now a fixed asset and say so beside it |
+| T-24 | A control offered on one endpoint's parameters and not on its neighbours' | api, UI | `/api/series` took channel and device and silently ignored category; `/api/overview` and `/api/triage` took none of them while the console sent all three. The reader changes a control and the figures do not move (B-031). A filter is applied by one helper that **raises** when a declared dimension is missing from the frame, rather than by a per-endpoint loop that skips what it cannot find |
+| T-23 | Comparing two sources at different grains and calling the difference a disagreement | reconcile, api | A channel-sliced revenue series against a ledger that posts by region is a 68% "contradiction" that means only that one side was sliced. Narrow the second source by every dimension it has, and decline the comparison when the reader asked for one it does not (B-030). A false refusal costs more than a false explanation here, because refusal is what this engine asks to be trusted on |
 | T-18 | A benchmark result that improved for a reason nobody checked | bench, datagen | Numbers that move the flattering way get accepted; numbers that move the other way get investigated. A harness defect usually shows up as the former. Any invariant the generator depends on is executed by a test, never only stated in a docstring (see B-014) |
 
 ---
 
 ## Defects
+
+### B-036 · Reads re-derived the contract's lineage on every query
+**Found:** 2026-09-21 by `make scale` · **Severity:** P1 · **Status:** fixed on `perf/materialise-lineage`
+
+**Symptom:** at 16x the fact rows, a one-region read cost **26.6x** the time,
+while the same aggregation with the contract's lineage transforms removed stayed
+flat at 1.3x. Concurrency topped out around 1.7 requests per second. Scalability
+is one of the four criteria the prototype is judged on and was the weakest.
+
+**Root cause:** `dedupe_order_id` is a window partitioned by order id. Nothing
+can be pushed below a window, so a region predicate could not narrow it and
+every read re-derived the dedupe over the whole table. `_prepared()` built the
+chain as a nested subquery on each call. The work was identical every time and
+the warehouse does not change between generations.
+
+**Fix:** `materialise()` computes each declared chain once and stores it in a
+table whose name hashes the base table, the chain **and the SQL of each
+transform in it**. `_prepared()` returns that table when it exists and otherwise
+falls back to the subquery it always built.
+
+**The fallback is the safety property, not a convenience.** A warehouse that has
+never been prepared behaves exactly as before, so the absence of the build step
+costs speed and nothing else. `make gen` and `make gen-all` now run it, `run.sh`
+runs it, and `make prepare` is idempotent.
+
+**Measured, same machine, same day:**
+
+| | before | after |
+|---|---|---|
+| one-region read at 16x rows | 26.6x | **1.5x** |
+| one-region read, 40.3M rows, absolute | 2.095s | **0.015s** |
+| full diagnosis end to end | 372ms | **229ms** |
+
+Every accuracy figure in `make bench` is unchanged to the decimal: same answers,
+computed faster.
+
+**The risk this introduced, and what holds it:** a stored table can drift from
+the transforms the contract declares, and nothing would fail. The engine would
+serve rows from an older definition while every contract, receipt and
+`docs/REQUIREMENTS.md` kept claiming the current one. That is a lineage claim
+false while still looking true, which is the shape of the old `row_filter`
+defect. `tests/test_materialised_lineage.py` asserts row-for-row equivalence
+with `EXCEPT ALL` in both directions, and it was verified to fail by deleting
+five rows from a 1.79M-row materialised table. The transform SQL is in the hash
+so a redefined transform misses rather than serving the old build, and a test
+pins that too.
+
+**Trap:** T-26 is why the equivalence test exists.
+
+*B-033 to B-035 were all found by the same exercise: running the engine on the
+UCI Online Retail II dataset, 1,067,371 real invoice lines from a UK gift
+retailer, via `make real-data`. None of them was reachable from our own
+warehouse, because our warehouse was built by people who already held these
+assumptions. That is the argument for the exercise.*
+
+### B-033 · Every contract declares a calendar and the engine ignores it
+**Found:** 2026-09-21, first run against unseen data · **Severity:** P1 · **Status:** open
+
+**Symptom:** a United Kingdom revenue series was detrended against Diwali,
+Holi, Onam, Pongal and Eid.
+
+**Root cause:** `_calendar()` in `whychain/detect/calendar.py` returns
+`holidays.India(years=...)` unconditionally. `contract.calendar` is parsed,
+stored on the model, printed in `docs/REQUIREMENTS.md` as part of the governed
+semantic layer, and **read by no code path at all.**
+
+**What this does and does not invalidate.** It does not touch any published
+number: our three warehouses are Indian businesses, so an Indian festival
+calendar is the right one and the benchmark stands. What it invalidates is the
+*claim* that the calendar is contract-governed. It is hardcoded, and the
+contract field is decoration.
+
+**Trap:** T-26. This is the same class as the `row_filter` defect fixed earlier:
+a policy declared in the contract while the engine applied its own. We caught
+that one because a test exercised it. Nothing exercised this one, because every
+contract we had declared the same value.
+
+### B-034 · The engine assumes a metric cannot go negative
+**Found:** 2026-09-21, same run · **Severity:** P2 · **Status:** open
+
+**Symptom:** the detector reported a movement of **-573.2%** on 2010-04-29.
+
+**Root cause:** that day's net revenue is **-£20,746**. Returns exceeded sales,
+which happens twice in 604 real trading days. Percentage change against a
+baseline the series has crossed is not meaningful, and the multiplicative
+seasonal handling is not defined there either.
+
+**Why our own data could never surface it:** `datagen` composes revenue from
+priced units with a returns rate well below one, so a negative day is not in
+the space it can generate. The assumption was invisible because the generator
+shared it.
+
+**Trap:** T-27.
+
+### B-035 · The unit vocabulary has one currency in it
+**Found:** 2026-09-21, same run · **Severity:** P2 · **Status:** open
+
+**Symptom:** a contract for a UK business cannot declare its own currency. The
+`Unit` enum offers `INR`, `pct`, `pct_point`, `count`, `hours`, `ratio`, `none`.
+
+**Consequence:** pounds render with a rupee sign, and `min_abs_delta_inr` is a
+currency name in a field name, so a materiality floor in another currency is
+expressible only by lying about the unit. The real-data contract declares `INR`
+with a comment saying the figures are pounds, which is the honest workaround
+and not a fix.
+
+**Note for the pitch:** this is a scope statement rather than a flaw. The
+product is built for an Indian deployment and says so. It becomes a defect the
+moment we claim the contract layer is currency-agnostic, and `docs/REQUIREMENTS.md`
+comes close to that. **Trap:** T-20, again.
+
+### B-032 · A copy edit took the audit from 33/33 to 32/33
+**Found:** 2026-09-21, running `make audit` to validate a number we had been quoting · **Severity:** P2 · **Status:** fixed
+
+**Symptom:** `32/33 checks pass`. The failure was
+`design / Method and thresholds are stated, not hidden: materiality rule not
+explained`, while the README and every draft of the pitch claimed 33/33.
+
+**Root cause:** `scripts/audit.py` asserts the literal string
+`"Both tests must pass"` appears in `ui/index.html`. A copy pass earlier in the
+same session rewrote that paragraph to be shorter. The rule was still explained,
+arguably better, but the sentence the check pins was gone.
+
+**Fix:** the phrase is restored inside the tightened sentence, so the copy stays
+short and the check stays literal. **Not** by relaxing the assertion: T-14.
+
+**The wider lesson, and it is the reason this is written up rather than quietly
+fixed.** We were quoting "33 of 33" in three documents without having run it
+since the change. That is the same failure the product exists to prevent, in our
+own materials. Every number in the deck is now re-measured rather than recalled,
+and the measured set is in `_internal/handoff/BUSINESS-CASE.md`.
+
+**Trap:** T-25.
+
+### B-031 · Two of the four scope filters did nothing, and on the landing page none of them did
+**Found:** 2026-09-21, reported from a click-through · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** "the channel and category does nothing". Correct, and worse than
+reported. Measured: `/api/series` for the West returned an identical series with
+and without `category=beverages`, and on the overview page neither channel,
+category nor device changed a single figure.
+
+**Root cause, three separate ones behind one symptom.**
+
+`/api/series` filtered with `for column, value in (("region", region),
+("channel", channel), ("device", device)): if value and column in raw.columns`.
+Category was never in the tuple, so the parameter did not exist and the request
+was accepted anyway. The `column in raw.columns` guard is the other half of the
+fault: a dimension the frame does not carry is skipped silently, which is the
+same silence by a different route.
+
+`/api/overview` and `/api/triage` never took the parameters at all. The console
+sent them, FastAPI ignored what it had no signature for, and the landing page
+answered the unsliced question under a rail that said otherwise.
+
+Both of those were mine, added in the same session as the filters. The console
+was wired to a slice that only one of three endpoints honoured.
+
+**Why it matters more than a missing feature.** The file already carried the
+argument, written for the Period control: *"a control that visibly does nothing
+teaches a reader that none of them mean anything."* Having made that argument,
+we shipped three of them.
+
+**Fix:** one `_narrow(frame, sliced)` helper, used by every endpoint that reads
+figures, which **raises** when a contract declares a dimension the frame does not
+carry rather than skipping it. `_slice_of` already refused a dimension outside
+the contract's grain; this closes the other end. Overview and triage take the
+three parameters, and the slice is now part of the decompose cache key on both,
+without which a channel series and a national one would share an entry (T-06).
+
+**Second fault found while fixing it:** `/api/triage` wrote
+`["North", "South", "East", "West"]` when no entitlement was set, which is
+retail's answer serving three verticals. T-20, again. It now reads the region
+list from the warehouse.
+
+**Honesty that came out of it.** A filter cannot reach every metric:
+`checkout_conversion` is measured by region and device and has no channel, so a
+channel filter leaves its count exactly where it was. The overview response now
+carries `not_narrowed` per metric and the table prints "no channel" under the
+count, because an unexplained still number is indistinguishable from a broken
+control.
+
+**Trap:** T-24.
+
+### B-030 · Slicing by channel turned every finding into a contradiction
+**Found:** 2026-09-21 (while adding the channel and device filters) · **Severity:** P0 if shipped · **Status:** fixed before release
+
+**Symptom:** with the new `channel=app` filter, the flagship West case returned
+`contradicted`, no cause proposed, and a reconciliation reason saying the two
+systems disagreed "by up to 68.0%, against a 5% tolerance".
+
+**Root cause:** `finance_ledger` posts at invoice level by region and carries no
+channel column. The revenue series was sliced to one channel and compared
+against the whole region's ledger, so the two disagreed by exactly the share of
+the region the other channels account for. Nothing was wrong with either source.
+
+**Why this was the worst possible failure mode for this engine.** Contradiction
+is not a soft verdict here: it suppresses the causes, prints "no cause is
+proposed", and tells the reader the movement itself is in question. We would
+have shipped a filter that made the product refuse to answer, using the one
+output whose whole value is that it is only used when it is true.
+
+**Fix:** narrow the second source by every dimension it actually has, and when
+the reader asks for one it does not, decline the comparison rather than make it
+badly. The state becomes `not_reconciled` with a reason naming the dimension:
+"finance_ledger is not broken down by channel, so this slice has no second
+posting to check against. The movement stands on one source alone."
+
+**Trap:** T-23.
+
+### B-029 · The demo gate had been failing, and the check under it was vacuous
+**Found:** 2026-09-21 · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** `make smoke` exited non-zero on `entitlement: 200/403`. It is the
+one command whose stated job is to gate a demo, so a red result there is either
+acted on or, worse, learned to be ignored.
+
+**Root cause, two of them.** The check asked for West as a South-only reader and
+required HTTP 200. Since B-025 that request is refused at the boundary with 403
+before anything is computed, which is the behaviour B-025 was filed to get. The
+check was never updated, so correct behaviour reported as a failure.
+
+Underneath it, the withholding assertion read `body["causes"]`. The diagnose
+response has no `causes` key; the list is `verified`. So both counts were always
+zero, the guard `shut >= open and open > 0` was always false, and the check
+passed on the notice alone without ever confirming anything had been withheld.
+It had been green for the wrong reason before it went red for the wrong reason.
+
+**Fix:** split into the two behaviours. An out-of-scope region asserts the 403
+refusal. Withholding uses an unsliced window the reader is allowed to ask about,
+reads `verified`, fails when the unrestricted run verified nothing (so the
+comparison cannot be vacuous again), and asserts the notice's own
+`withheld_count` matches what was removed. Also switched from the `ops` persona
+to `analyst`: ops withholds cross-region comparison, and on an unsliced window
+every verified cause is a cross-region statement, so ops sees zero either way.
+
+**Trap:** T-22. A check that reads a field the response does not carry passes
+silently forever. Any assertion counting things must fail when the count it is
+comparing against is zero, and T-17 is the same rule for shell.
+
+### B-028 · A reader entitled to one region never sees the withholding notice
+**Found:** 2026-09-21 (building the one-click scenario launcher) · **Severity:** P1 · **Status:** open
+
+**Symptom:** the README tells a reviewer to set Entitlement to "South only" with
+All regions selected and watch three causes be withheld with an escalation role
+named. That does not happen. The console shows a South-scoped finding on a
+different day, headed "in South (your regions)", with no notice.
+
+**Root cause:** the server does the right thing. `/api/diagnose` with
+`entitled=South` over the national window 13 to 15 Aug 2026 returns
+`entitlement.notice` naming three withheld causes and `escalate_to:
+finance_director`. The console never asks that question: it passes `entitled` to
+`/api/series` as well, so the series, the flagged days and therefore the chosen
+window are all restricted to South before a diagnosis is ever requested. A
+national answer with holes in it and a South answer are different things, and
+the console only ever produces the second.
+
+**Decision needed, not just a fix.** Restricting the series is defensible on its
+own terms. But the withholding notice is the more interesting behaviour, it is
+already built and tested server side, and it is what the README promises a
+reviewer. Either the console asks for the national window when the reader has
+partial entitlement, or the README stops describing a step that does not
+reproduce.
+
+**Trap:** T-21. A capability that exists at the API and is unreachable from the
+only client is not a shipped capability, and a README step nobody re-ran after
+a client change is how that stays invisible.
+
+### B-027 · A metric that beat expectation produces no finding at all
+**Found:** 2026-09-21 (same session) · **Severity:** P2 · **Status:** open
+
+**Symptom:** `aov` carries two detected anomalies in the current warehouse,
+2026-08-01 at +9.3% and 2026-08-03 at +8.9%, both well past the robust-z floor.
+Opening the metric prints "Nothing moved enough to explain".
+
+**Root cause:** `ui/index.html` builds the findings list as
+`series.anomalies.filter(a => a.direction === 'drop')`. The detector labels both
+directions and `rank_exact` already sorts by the direction the total moved, so
+the engine handles a rise correctly end to end. The view discards it.
+
+**Why it matters beyond correctness:** a tool that only explains bad news is an
+audit function and gets budget once. Explaining a beat tells the owner which
+lever to repeat. The wording is the work, not the filter: "fell", "short by" and
+"Impact" all assume a shortfall, and changing the filter without changing them
+produces a page that says a metric fell by a negative amount.
+
+### B-026 · A rate metric rendered its own figures in rupees
+**Found:** 2026-09-21 (reported from a click-through) · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** checkout conversion, all regions, 2 Jun to 31 Aug 2026 read
+"Observed ₹0 against an expected ₹0, short by ₹0 (36.8%)" with an Impact tile of
+₹0, under a headline correctly saying 36.8%.
+
+**Root cause:** `fmtValue` and `fmtDelta` were added for the chart when this
+exact failure was found there, and carry a comment saying so. `basisLine` and
+`objectHeader` were not updated and still called `inr`, which rounds a
+conversion rate of 0.0428 to zero rupees. The unit was available at both call
+sites as `series.unit`.
+
+**Second defect on the same screen:** the status pill read "Verified" because
+`objectHeader` fell back to `'explained'` whenever a window existed, including
+when no diagnosis had been run at all. A ratio metric cannot go through the
+price/volume/mix identity, so the engine refuses a full diagnosis for it, and
+the header was claiming verification over causal tests that had never executed.
+Now `detected`, rendered "Detected, not diagnosed", which agrees with the
+paragraph directly below it instead of contradicting it.
+
+**Fix:** both call sites take the unit. Observed and expected render through
+`fmtValue`, the shortfall and the Impact tile through `fmtDelta`, which states a
+gap between two rates in percentage points per T-02.
+
+**Trap:** T-02 already existed and this is the same claim it names. The trap was
+written for the narrative validator and the UI was not checked against it.
 
 ### B-025 · The refusal was enforced on the diagnosis and not on the chart beside it
 **Found:** 2026-09-17 (click-through before a mentor demo) · **Severity:** P0 · **Status:** fixed

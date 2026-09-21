@@ -9,14 +9,14 @@ underlying evidence is byte-identical across personas.
 The distinction matters because the easy version of this feature is a tone
 change: the same paragraph, warmer for the CFO. That fools nobody and it is not
 what different readers need. A CFO needs the size, the decision and how much to
-believe it. A regional manager needs the lever they personally control and who
+believe it. An area sales manager needs the lever they personally control and who
 signs it off. An analyst needs the method behind every number, including the
 candidates that were rejected and why.
 
 **Entitlement is enforced here, at the projection, not by asking a model
 nicely.** Rows outside a requester's scope are removed before assembly, and when
 the removal changes the answer the response says so and names the role to
-escalate to. A quiet omission would leave a regional manager reading a diagnosis
+escalate to. A quiet omission would leave an area sales manager reading a diagnosis
 that silently excluded the region actually responsible, with no way to tell.
 """
 
@@ -29,7 +29,11 @@ from whychain.text import plural, role
 
 class Persona(StrEnum):
     CFO = "cfo"
-    OPS = "ops"          # regional or channel manager: owns levers, not methods
+    # The area sales manager: territory P&L, under the regional sales manager
+    # and over the territory sales in-charge. Named for that seat rather than
+    # for "regional manager", because an RSM's scope *includes* the
+    # cross-region comparison this projection deliberately withholds.
+    OPS = "ops"          # owns levers, not methods
     ANALYST = "analyst"  # the console: everything, including the working
 
 
