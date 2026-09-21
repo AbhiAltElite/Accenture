@@ -545,6 +545,10 @@ canvas#c.panning{cursor:grabbing}
   margin-top:var(--sp-3);flex-wrap:wrap}
 .striplegend i{display:inline-block;width:14px;height:2px;background:currentColor;
   margin-right:var(--sp-2);vertical-align:middle}
+/* The two flag keys are dots because that is what the chart draws for them,
+   while observed and expected are lines. A key that is not the shape of the
+   thing it names is a key a reader has to decode. */
+.striplegend i.dotkey{width:6px;height:6px;border-radius:50%}
 /* The band is an area, so its key is one, and it carries the hairline the
    chart's own gridlines use so the two read as the same material. */
 .striplegend i.bandkey{height:9px;background:var(--sunk);
@@ -3551,7 +3555,13 @@ function chartMarkup(){
       <span style="color:var(--ink)"><i></i>Observed</span>
       <span style="color:var(--ink-3)"><i></i>Expected</span>
       <span style="color:var(--ink-3)"><i class="bandkey"></i>Normal range</span>
-      <span style="color:var(--down)"><i></i>Flagged</span>
+      <!-- Two entries, because the chart draws two things. The dot for a
+           flagged day takes its colour from the direction the day moved, so a
+           single red key told a reader that every flagged point is a fall. On a
+           metric whose only flagged days are rises, that key matched nothing on
+           the chart it was describing. -->
+      <span style="color:var(--down)"><i class="dotkey"></i>Flagged fall</span>
+      <span style="color:var(--up)"><i class="dotkey"></i>Flagged rise</span>
       <span style="margin-left:auto">Scroll to zoom · shift-scroll or drag to move · hover to read</span>
     </div></div>`;
 }

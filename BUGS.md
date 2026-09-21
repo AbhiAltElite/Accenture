@@ -41,6 +41,29 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-038 · The chart key said every flagged day was a fall
+**Found:** 2026-09-21, reported from a click-through · **Severity:** P2 · **Status:** fixed
+
+**Symptom:** "a positive spike out of ordinary is flagged in red colour". The
+chart's legend carried one key, `Flagged`, hardcoded to the fall colour.
+
+**Root cause:** the chart draws a flagged day's dot in the colour of the
+direction it moved, red for a fall and green for a rise. The legend described
+only one of them. On `aov`, whose only two flagged days in the window are rises
+of +9.3% and +8.9%, **every dot on the chart was green and the key beside it was
+red**, so the key matched nothing in the picture it was explaining.
+
+**Fix:** two keys, `Flagged fall` and `Flagged rise`, each in its own colour and
+drawn as a dot rather than a line, because a dot is what the chart draws for
+them while observed and expected are lines.
+
+**The third place this has now surfaced.** `aov` still says "Nothing moved
+enough to explain" above a chart that plots two flagged rises, because the
+findings view filters to `direction === "drop"` (B-027). The engine detects
+rises, the chart draws them, the legend now names them, and the findings list
+still discards them. The legend fix makes that inconsistency visible rather than
+hiding it, which is the right order to fix them in.
+
 ### B-037 · The price/volume/mix identity has a precondition nobody wrote down
 **Found:** 2026-09-21, running the deterministic layer on real rows · **Severity:** P2 · **Status:** open
 
