@@ -59,12 +59,24 @@ LONDON = (51.5074, -0.1278)
 # Externally documented, dated, and not plantable by us. Held here and used
 # only after the engine has spoken.
 KNOWN_SHOCKS = (
+    # --- regulatory -----------------------------------------------------
+    ("VAT back to 17.5% from the temporary 15%", date(2010, 1, 1),
+     ("United Kingdom",),
+     "regulatory. The 15% emergency rate ran 1 Dec 2008 to 31 Dec 2009 and "
+     "reverted on 1 Jan 2010, confirmed by the Chancellor on 9 Dec 2009"),
     ("VAT 17.5% to 20%", date(2011, 1, 4), ("United Kingdom",),
-     "announced 22 Jun 2010, 196 days of public notice"),
+     "regulatory. Announced 22 Jun 2010, so 196 days of public notice"),
+    # --- meteorological --------------------------------------------------
     ("Coldest UK December in 100 years", date(2010, 12, 20), ("United Kingdom",),
-     "record slump in British retail sales reported at the time"),
+     "weather. A record slump in British retail sales was reported at the time"),
+    # --- logistical ------------------------------------------------------
     ("Eyjafjallajokull airspace closure", date(2010, 4, 15), ("EUROPE",),
-     "much of European airspace closed for six days from 15 Apr"),
+     "logistics. Much of European airspace closed for six days from 15 Apr"),
+    # --- statutory calendar ----------------------------------------------
+    ("Royal Wedding bank holiday, the 11-day weekend", date(2011, 4, 29),
+     ("United Kingdom",),
+     "statutory calendar. An extra bank holiday between Easter and May Day "
+     "gave two consecutive four-day weekends"),
 )
 
 EUROPE = {
@@ -272,6 +284,38 @@ def main() -> int:
         print(f"    engine       {mark}: {detail}")
     print(f"\n  {hits} of {len(KNOWN_SHOCKS)} documented shocks have a material "
           f"movement within ten days.")
+
+    # ---------------------------------------------------------------------
+    # The statutory calendar, computed rather than looked up, and the reason
+    # B-033 is not cosmetic.
+    # ---------------------------------------------------------------------
+    print("\n" + "-" * 78)
+    print("THE CALENDAR THE ENGINE SHOULD HAVE USED")
+    print("-" * 78)
+    try:
+        import holidays as holidays_lib
+        years = sorted({a.day.year for a in flagged})
+        uk = holidays_lib.UnitedKingdom(years=years)
+        near = []
+        for a in flagged:
+            for offset in range(-3, 4):
+                hit = uk.get(a.day + timedelta(days=offset))
+                if hit:
+                    near.append((a.day, offset, hit))
+                    break
+        print(f"\n  {len(near)} of the {len(flagged)} flagged days fall within three days")
+        print("  of a United Kingdom bank holiday:\n")
+        for day, offset, name in sorted(near):
+            when = "on" if offset == 0 else f"{abs(offset)}d {'before' if offset > 0 else 'after'}"
+            print(f"      {day}   {when:<10} {name}")
+        print("\n  The engine could not know any of this. `_calendar()` returns")
+        print("  holidays.India unconditionally, so this United Kingdom series was")
+        print("  detrended against Diwali, Holi, Onam, Pongal and Eid while every")
+        print("  contract in the repository declares a `calendar` field that no")
+        print("  code path reads. That is B-033, and this is what it costs: the")
+        print("  seasonal term is fitted against the wrong country's holidays.")
+    except ImportError:
+        print("\n  holidays not installed, skipping")
 
     # ---------------------------------------------------------------------
     # A third source, fetched now rather than typed in.
