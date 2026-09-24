@@ -253,6 +253,97 @@ async function navigation(){
     problems.join('; ') || 'Back to the inbox, and the workbench link carries West and 15 Aug.');
 }
 
+/* ---------- value sweep ----------
+   Every figure the decision view shows, on every finding in every industry,
+   compared with the engine's own response. The formatter is written out again
+   here rather than borrowed from the page, so a page that formats the wrong
+   number cannot pass by formatting it consistently. */
+const MON_U = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const dtU = x => { const [y,m,d] = String(x).slice(0,10).split('-').map(Number); return `${d} ${MON_U[m-1]} ${y}`; };
+const inrU = (n, sign=false) => { const a = Math.abs(n), sg = sign ? (n < 0 ? '−' : '+') : '';
+  return a >= 1e7 ? `${sg}₹${(a/1e7).toFixed(2)} cr` : `${sg}₹${Math.round(a).toLocaleString('en-IN')}`; };
+const pctU = x => `${(Math.abs(x)*100).toFixed(1)}%`;
+const qsU = o => new URLSearchParams(Object.entries(o).filter(([,v]) => v !== null && v !== undefined && v !== '')).toString();
+function worstU(ser, f){
+  const inWin = (ser.anomalies || []).filter(a => a.day >= f.start && a.day <= f.end);
+  if(!inWin.length) return null;
+  const drops = inWin.filter(a => a.delta < 0), pool = drops.length ? drops : inWin;
+  return pool.reduce((w, a) => Math.abs(a.delta) > Math.abs(w.delta) ? a : w);
+}
+function shift(day, n){ const d = new Date(day); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+
+async function valueSweep(){
+  for(const ind of ['retail', 'petroleum', 'power']){
+    try{ frame.contentWindow.localStorage.setItem('whychain-industry', ind); frame.contentWindow.localStorage.setItem('whychain-persona', 'cfo'); }catch{}
+    const tri = (await J(`/api/triage?industry=${ind}&limit=12&days=365`)).d;
+    const inb = await open('/', d => d.querySelectorAll('.row').length && ![...d.querySelectorAll('.pill')].some(x => x.textContent === 'Checking'), 30000);
+    const itext = inb.doc.getElementById('view').innerText, ip = [];
+    tri.findings.forEach(f => {
+      if(!itext.includes(inrU(f.impact_inr_per_day))) ip.push(`${f.region} ${f.start}: amount ${inrU(f.impact_inr_per_day)} not shown`);
+      if(!itext.includes(`${pctU(f.pct)} ${f.delta < 0 ? 'below' : 'above'} expected`)) ip.push(`${f.region} ${f.start}: ${pctU(f.pct)} not shown`);
+    });
+    const falls = tri.findings.filter(f => f.direction !== 'rise');
+    const total = falls.reduce((a, f) => a + f.impact_inr_per_day * (f.days || 1), 0), days = falls.reduce((a, f) => a + (f.days || 1), 0);
+    if(!itext.includes(inrU(total))) ip.push(`shortfall total ${inrU(total)} not shown`);
+    if(!itext.includes(`over ${days} flagged days`)) ip.push(`${days} flagged days not shown`);
+    if(!itext.includes(`of ${tri.total} detected`)) ip.push(`${tri.total} detected not shown`);
+    record(`Values · ${ind}`, `Findings list: ${tri.findings.length} amounts, directions and the totals`, ip.length ? 'fail' : 'pass', ip.join('; ') || 'Every amount, percentage and total equals the engine.', inb.ms);
+
+    for(const f of tri.findings.filter(x => x.diagnosable)){
+      const q = {kpi: f.kpi_id, region: f.region, start: f.start, end: f.end, industry: ind};
+      const [dg, se] = await Promise.all([
+        J(`/api/diagnose?${qsU({...q, persona: 'cfo', backend: 'none'})}`),
+        J(`/api/series?${qsU({kpi: f.kpi_id, region: f.region, industry: ind, from: shift(f.start, -45), to: shift(f.end, 10)})}`)]);
+      const pg = await open(`/finding?${qsU(q)}`, d => d.querySelector('.pill.big') && !d.querySelector('.loading'), 30000);
+      const view = pg.doc.getElementById('view'), text = view ? view.innerText : '', facts = (pg.doc.querySelector('.facts') || {}).innerText || '';
+      const pr = [], d = dg.d || {};
+      if(dg.status !== 200) pr.push(`engine answered ${dg.status}`);
+      const w = se.d ? worstU(se.d, f) : null;
+      if(w){
+        const h1 = (pg.doc.querySelector('h1') || {}).textContent || '';
+        if(!h1.includes(inrU(Math.abs(w.delta))) || !h1.includes(dtU(w.day))) pr.push(`headline "${h1.slice(0, 80)}" is not ${inrU(Math.abs(w.delta))} on ${dtU(w.day)}`);
+        for(const [label, v] of [['shortfall', Math.abs(w.delta)], ['observed', w.observed], ['expected', w.expected]])
+          if(!facts.includes(inrU(v))) pr.push(`${label} ${inrU(v)} missing from the facts`);
+        if(!facts.includes(`${pctU(w.pct)} ${w.delta < 0 ? 'below' : 'above'} expected`)) pr.push(`${pctU(w.pct)} mark missing`);
+      }
+      const mv = d.movement || {};
+      if(isFinite(mv.total_change) && !facts.includes(inrU(mv.total_change, true))) pr.push(`across the window ${inrU(mv.total_change, true)} missing`);
+      const rc = d.reconciliation;
+      if(rc && rc.state && rc.state !== 'not_reconciled' && !facts.includes(pctU(rc.worst_residual))) pr.push(`ledger ${pctU(rc.worst_residual)} missing`);
+      const g = d.signal_gap;
+      if(g && g.verdict === 'gap_found' && !text.includes(`${g.actionable_count} actionable, up to ${Math.round(g.best_lead_time_hours || 0)} hours ahead`)) pr.push(`gap ${g.actionable_count} warnings, ${Math.round(g.best_lead_time_hours || 0)} h missing`);
+      (d.decisions || []).filter(c => c.approval && c.expected_recovery_inr_per_day).forEach(c => {
+        if(!text.includes(inrU(c.expected_recovery_inr_per_day))) pr.push(`recovery ${inrU(c.expected_recovery_inr_per_day)} missing`);
+      });
+      const ft = d.fair_target;
+      if(ft && ft.factors && ft.factors.length && !text.includes(inrU(ft.policy_inr_per_day, true))) pr.push(`fair target ${inrU(ft.policy_inr_per_day, true)} missing`);
+      if(d.verdict === 'explained'){
+        const sl = await open(`/slide?${qsU(q)}`, x => x.querySelector('.slide h1') || x.querySelector('.msg b'), 20000);
+        const st = sl.doc.querySelector('.slide') ? sl.doc.querySelector('.slide').innerText : '';
+        if(w && !st.includes(inrU(Math.abs(w.delta)))) pr.push(`slide does not show ${inrU(Math.abs(w.delta))}`);
+        (d.verified || d.causes || []).forEach(v => { if(!st.includes(inrU(v.contribution, true))) pr.push(`slide missing cause ${inrU(v.contribution, true)}`); });
+      }
+      pr.push(...lint(text));
+      if(pg.errors.length) pr.push(`script error: ${pg.errors[0]}`);
+      record(`Values · ${ind}`, `${f.kpi_id}, ${f.region}, ${dtU(f.start)} to ${dtU(f.end)} (${d.verdict || dg.status})`, pr.length ? 'fail' : 'pass',
+        pr.join('; ') || 'Headline, facts, ledger, gap, recoveries, fair target and slide equal the engine.', pg.ms);
+    }
+
+    const cat = (await J(`/api/catalog?industry=${ind}`)).d, mp = [];
+    for(const m of cat.metrics){
+      const pg = await open(`/?tab=metrics&kpi=${m.kpi_id}`, x => x.querySelector('.mlist'));
+      const t = pg.doc.getElementById('view').innerText;
+      if(!t.includes(m.definition.slice(0, 40))) mp.push(`${m.kpi_id}: definition not shown`);
+      if(!t.toLowerCase().includes(`version ${m.version}`)) mp.push(`${m.kpi_id}: version ${m.version} not shown`);
+      m.freshness.forEach(x => { if(!t.includes(`${x.sla_hours} h`) || !t.includes(`${x.lag_hours} h`)) mp.push(`${m.kpi_id}: ${x.source} freshness not shown`); });
+      if(!t.includes(inrU(m.materiality.min_abs_delta_inr))) mp.push(`${m.kpi_id}: materiality floor not shown`);
+      m.lineage.forEach(l => { if(!t.includes(l.name)) mp.push(`${m.kpi_id}: lineage step ${l.name} missing`); });
+    }
+    record(`Values · ${ind}`, `Metrics page: ${cat.metrics.length} definitions against their contracts`, mp.length ? 'fail' : 'pass', mp.join('; ') || 'Definition, version, freshness, materiality and lineage equal the contracts.');
+  }
+  try{ frame.contentWindow.localStorage.setItem('whychain-industry', 'retail'); frame.contentWindow.localStorage.removeItem('whychain-persona'); }catch{}
+}
+
 async function workbench(){
   const probe = await open('/workbench', (d, w) => Array.isArray(w.WHYCHAIN_DEMOS));
   const DEMOS = probe.win.WHYCHAIN_DEMOS;
@@ -287,7 +378,7 @@ async function slide(){
 document.getElementById('run').onclick = async e => {
   e.target.disabled = true; results.length = 0; document.getElementById('rows').innerHTML = '';
   const t0 = performance.now();
-  for(const step of [service, decisionView, fairTarget, queryRows, navigation, workbench, slide]){
+  for(const step of [service, decisionView, fairTarget, queryRows, navigation, valueSweep, workbench, slide]){
     try{ await step(); }catch(err){ record('Harness', step.name, 'fail', String(err && err.message || err)); }
   }
   frame.src = 'about:blank';

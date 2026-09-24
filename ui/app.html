@@ -1023,7 +1023,8 @@ function unknownBody(ctx){
         ${narrativeHtml(d)}</section>
       <div class="stack">${setAsideHtml(d)}${ctx.cand && ctx.cand.rejected && ctx.cand.rejected.length ? `<section class="panel"><h2>Ruled out</h2><ul class="ruled" style="padding-left:18px;margin:0">${ctx.cand.rejected.map(r => `<li><s>${esc(causeText(r.description))}</s><br><span class="small">${esc(reasonText(r.reason))}.</span></li>`).join('')}</ul></section>` : ''}
         ${reconHtml(d)}</div>
-    </div>`;
+    </div>
+    ${decisionsHtml(ctx)}`;
 }
 function contradictedBody(ctx){
   const d = ctx.diag.data, r = d.reconciliation || {};
@@ -1191,7 +1192,15 @@ function decisionsHtml(ctx){
         <button type="button" class="btn sm" data-teams="${esc(a.action_id)}" style="margin-left:auto">Send to Teams</button>
       </div></div>`;
   }).join('');
-  return `<section class="panel" id="decide" style="margin-top:20px"><h2>${S.persona === 'ops' ? 'Actions in your territory' : 'What to do'}</h2>${body}</section>`;
+  // On an unknown, a tested cause with a lever is still worth acting on, and
+  // hiding its card while the engine would accept a decision on it made the
+  // page and the service disagree. It is shown for what it is: part of the
+  // movement, not the explanation of it.
+  const partial = d.verdict !== 'explained'
+    ? (cards.length === 1
+      ? `<p class="note" style="margin-top:0">This cause passed its tests but does not explain the movement. Acting on it recovers what it accounts for; the rest is still unknown.</p>`
+      : `<p class="note" style="margin-top:0">These causes passed their tests but do not explain the movement. Acting on them recovers what they account for; the rest is still unknown.</p>`) : '';
+  return `<section class="panel" id="decide" style="margin-top:20px"><h2>${S.persona === 'ops' ? 'Actions in your territory' : d.verdict === 'explained' ? 'What to do' : 'What can be done now'}</h2>${partial}${body}</section>`;
 }
 function recordHtml(ctx){
   if(!ctx.audit.length) return '';

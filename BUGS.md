@@ -45,6 +45,24 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-052 · An unknown finding hid a decision the service would accept
+**Found:** 2026-09-24, by the value sweep added to `/uat` · **Severity:** P2 · **Status:** fixed
+
+**Root cause:** the engine builds decision cards for every verified cause with
+a lever, whatever the verdict. On petroleum South, 11 to 15 May, one cause
+passed its tests but covered 7% of the movement, so the verdict was unknown,
+and the response carried a card with a ₹6,26,277-a-day recovery and an
+approval route. The unknown page never rendered decisions, so the owner could
+not see an action that `/api/decision` and the Teams card would both accept.
+The page and the service disagreed about whether a decision existed.
+
+**Fix:** the unknown page shows the card under "What can be done now", with a
+note that the cause is part of the movement, not the explanation of it. This
+follows the page's own rule for partial causes: hiding evidence the engine
+found is its own error. The value sweep in `/uat` now compares every figure on
+every finding in all three industries with the engine, including recoveries,
+and failed on this before the fix.
+
 ### B-051 · The workbench lost the finding it was opened from, and its "Open findings" went nowhere
 **Found:** 2026-09-24, adding a Back button on request · **Severity:** P2, demo risk · **Status:** fixed
 
