@@ -60,7 +60,7 @@ a{color:var(--accent)}
 /* The masthead, shared with the workbench: the same three destinations, the
    same controls in the same order, on every page. */
 .shell{position:sticky;top:0;z-index:20;background:var(--ground);color:var(--ink);
-  display:flex;align-items:stretch;gap:14px;padding:0 20px;min-height:54px;flex-wrap:wrap;
+  display:flex;align-items:stretch;gap:12px;padding:0 20px;min-height:54px;flex-wrap:wrap;
   border-bottom:1px solid var(--line-2)}
 .shell .brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;
   padding-right:18px;border-right:1px solid var(--line)}
@@ -71,6 +71,10 @@ a{color:var(--accent)}
 .shell nav a[aria-current="page"]{color:var(--ink);font-weight:600;border-bottom-color:var(--accent)}
 .shell nav a:hover{color:var(--ink)}
 .shell .sp{flex:1}
+/* Four destinations and four controls: the subtitle and a label give way
+   before anything wraps onto a second line. */
+@media (max-width:1560px){.shell .brand span{display:none}.shell .brand{padding-right:12px}}
+@media (max-width:1320px){.shell .lab{display:none}}
 .shell .grp{display:flex;align-items:center;gap:8px}
 .shell .lab{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
 .shell select{background:var(--paper);border:1px solid var(--line-2);color:var(--ink);border-radius:var(--r-sm);padding:3px 8px;font-size:13px}
@@ -135,6 +139,36 @@ h2{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-
 .summary dd{margin:3px 0 0;font-size:22px;font-weight:600}
 .summary dd small{font-size:13px;color:var(--ink-3);font-weight:400}
 .bar-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:0}
+.trend{display:inline-flex;align-items:center;gap:3px;font-weight:600;white-space:nowrap}
+.trend svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.trend.good{color:var(--ok)}.trend.bad{color:var(--bad)}.trend.neutral{color:var(--unk)}
+.filters{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:12px 0 14px;font-size:14px;color:var(--ink-3)}
+.filters label{display:inline-flex;align-items:center;gap:6px}
+.filters select{border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--paper);color:var(--ink);padding:3px 6px;font:inherit}
+.filters .clear{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;padding:0}
+.mlist{display:grid;grid-template-columns:260px minmax(0,1fr);gap:20px;align-items:start;margin-top:14px}
+.mlist nav{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.mlist nav a{display:block;padding:12px 16px;border-bottom:1px solid var(--line);color:var(--ink-2);text-decoration:none}
+.mlist nav a[aria-current="true"]{background:var(--accent-soft);color:var(--ink);font-weight:600;box-shadow:inset 3px 0 0 var(--accent)}
+.mlist nav a small{display:block;color:var(--ink-3);font-weight:400;font-size:13px}
+.chain{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0 0}
+.chain code{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-sm);padding:3px 8px;font-size:13px}
+.chain i{font-style:normal;color:var(--ink-4)}
+.kv2{display:grid;grid-template-columns:200px minmax(0,1fr);gap:10px 20px;margin:0;font-size:14.5px}
+.kv2 dt{color:var(--ink-3)}.kv2 dd{margin:0}
+.rowsbox{margin-top:12px}
+.rowsbox .tabs{border-bottom:1px solid var(--line);margin:14px 0 12px}
+.rowsbox table{width:100%;border-collapse:collapse;font-size:14px}
+.rowsbox th{text-align:left;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line-2)}
+.rowsbox td{padding:6px 10px;border-bottom:1px solid var(--line)}
+.rowsbox td.num,.rowsbox th.num{text-align:right}
+.rowsbox tr.base td{color:var(--ink-3)}
+.rowsbox tr.here td{background:var(--evidence-soft)}
+.rowsbox .scroll{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:var(--r-sm)}
+.rowsbox .scroll thead th{position:sticky;top:0;background:var(--paper);z-index:1}
+.sqlbox{margin:0;padding:14px 16px;font:13px/1.55 var(--mono);color:var(--ink);background:var(--raised);white-space:pre;overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:var(--r-sm)}
+.rowsbox pre{margin:0;padding:14px 16px;font:13px/1.55 var(--mono);color:var(--ink);background:var(--raised);white-space:pre;overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:var(--r-sm)}
+.rowsbox .bar2{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
 .tabs{display:flex;gap:20px}
 .tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 0;color:var(--ink-3);cursor:pointer;font-size:14.5px}
 .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink);font-weight:600}
@@ -217,6 +251,7 @@ details.more p{margin:10px 0 0}
 table.t{border-collapse:collapse;width:100%;font-size:14.5px}
 table.t th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding:6px 8px;border-bottom:1px solid var(--line-2)}
 table.t td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t th.n{text-align:right}
 table.t td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .loading{color:var(--ink-3);padding:30px 0}
 .fair-sum{display:grid;grid-template-columns:repeat(3,minmax(0,max-content));column-gap:56px;row-gap:16px;margin:0 0 18px}
@@ -281,6 +316,7 @@ table.t td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabul
   <nav aria-label="Primary">
     <a href="/" data-nav id="nav-findings">Findings</a>
     <a href="/?tab=audit" data-nav id="nav-audit">Audit trail</a>
+    <a href="/?tab=metrics" data-nav id="nav-metrics">Metrics</a>
     <a href="/workbench" id="nav-workbench">Workbench</a>
   </nav>
   <span class="sp"></span>
@@ -323,6 +359,16 @@ function inr(n, {sign=false, exact=false}={}){
   return `${s}₹${Math.round(a).toLocaleString('en-IN')}`;
 }
 const pct = (x, d=1) => (x === null || x === undefined || !isFinite(x)) ? '–' : `${(Math.abs(x)*100).toFixed(d)}%`;
+/* Direction by the arrow's shape, good or bad by its colour: the IBCS
+   convention, and what a metric layer asks a definition to declare. A rise in
+   a metric where down is good is a red up-arrow. Within the expected range is
+   a flat line in neutral grey, not green: nothing happened. */
+const TREND_PATH = {up:'<path d="M12 19V5M6 11l6-6 6 6"/>', down:'<path d="M12 5v14M6 13l6 6 6-6"/>', flat:'<path d="M5 12h14"/>'};
+function trend(dir, favourable, text){
+  const tone = dir === 'flat' || favourable === 'neutral' ? 'neutral' : (dir === 'up') === (favourable !== 'down') ? 'good' : 'bad';
+  const said = {up:'Up', down:'Down', flat:'Within the expected range'}[dir] + (tone === 'neutral' ? '' : tone === 'good' ? ', favourable' : ', unfavourable');
+  return `<span class="trend ${tone}" title="${said}"><svg viewBox="0 0 24 24" role="img" aria-label="${said}">${TREND_PATH[dir]}</svg>${text}</span>`;
+}
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const when = iso => `${dt(iso)}, ${String(iso).slice(11,16)} UTC`;
 function dt(s){ const [y,m,d] = String(s).slice(0,10).split('-').map(Number); return `${d} ${MON[m-1]} ${y}`; }
@@ -482,8 +528,9 @@ function route(){
   closeLayer();
   const p = new URLSearchParams(location.search);
   const onFinding = location.pathname === '/finding';
-  $('#nav-findings').setAttribute('aria-current', !onFinding && p.get('tab') !== 'audit' ? 'page' : 'false');
+  $('#nav-findings').setAttribute('aria-current', !onFinding && !['audit', 'metrics'].includes(p.get('tab')) ? 'page' : 'false');
   $('#nav-audit').setAttribute('aria-current', p.get('tab') === 'audit' ? 'page' : 'false');
+  $('#nav-metrics').setAttribute('aria-current', p.get('tab') === 'metrics' ? 'page' : 'false');
   S.token++;
   if(onFinding) finding(p, S.token); else inbox(p, S.token);
 }
@@ -512,14 +559,29 @@ function signedFor(entries, f){
     && e.subject.kpi_id === f.kpi_id && (e.subject.region||null) === (f.region||null)
     && e.subject.window && e.subject.window.from === f.start && e.subject.window.to === f.end);
 }
+/* Filters live in the URL, so a filtered queue can be shared and Back
+   restores it. Metric, region and direction are applied by the server, over
+   every finding rather than the twelve on screen; status is known only once
+   each verdict is read, so it is applied here as they arrive. */
+const FILTERS = ['metric', 'region', 'dir', 'status'];
+function inboxLink(p, over){
+  const cur = Object.fromEntries(['tab', 'entitled', 'days', ...FILTERS].map(k => [k, p.get(k) || '']));
+  const next = {...cur, ...over};
+  if(next.tab === 'open') next.tab = '';
+  if(next.days === '365') next.days = '';
+  if(next.dir === 'drop') next.dir = '';
+  return '/?' + qs(next);
+}
 async function inbox(p, token){
   const tab = p.get('tab') || 'open';
   const entitled = p.get('entitled') || '';
   const days = p.get('days') || '365';
+  const metric = p.get('metric') || '', region = p.get('region') || '', dirf = p.get('dir') || 'drop', status = p.get('status') || '';
   const view = $('#view');
+  if(tab === 'metrics'){ metricsView(p, token); return; }
   view.innerHTML = `${trackStrip()}<div class="loading">Reading the queue…</div>`;
   const [tri, aud] = await Promise.all([
-    api('/api/triage?' + qs({industry:S.industry, limit:12, entitled, days: days === 'all' ? '' : days})),
+    api('/api/triage?' + qs({industry:S.industry, limit:12, entitled, days: days === 'all' ? '' : days, kpi: metric, region, direction: dirf})),
     api('/api/audit?' + qs({industry:S.industry})),
   ]);
   if(token !== S.token) return;
@@ -530,8 +592,9 @@ async function inbox(p, token){
   // A total over the flagged days, not a sum of daily rates: these findings
   // sit in different months, and adding their per-day figures reads as a
   // loss running every day right now.
-  const atStake = rows.reduce((a,f) => a + (f.impact_inr_per_day||0) * (f.days||1), 0);
-  const flaggedDays = rows.reduce((a,f) => a + (f.days||1), 0);
+  const falls = rows.filter(f => f.direction !== 'rise');
+  const atStake = falls.reduce((a,f) => a + (f.impact_inr_per_day||0) * (f.days||1), 0);
+  const flaggedDays = falls.reduce((a,f) => a + (f.days||1), 0);
   const signed = rows.filter(f => signedFor(entries, f));
   const shown = tab === 'signed' ? signed : tab === 'all' ? rows : rows.filter(f => !signedFor(entries, f));
   const scope = tri.data.scope ? ` · scoped to ${esc(tri.data.scope.join(', '))}` : '';
@@ -554,11 +617,84 @@ async function inbox(p, token){
         ${SCEN.map(s => `<a href="${scenarioLink(s)}" data-nav><b>${esc(s.t)}</b><small>${esc(s.g)} · ${esc(s.d)}</small></a>`).join('')}
       </div></details>
     </div>
+    ${filterBar(tri.data, {metric, region, dirf, status})}
     <div class="list" id="rows">${shown.length ? shown.map(f => rowHtml(f, signedFor(entries, f))).join('')
       : `<div class="empty">${tab === 'signed' ? 'Nothing has been signed yet.' : 'Nothing is waiting for a decision.'}</div>`}</div>`;
-  view.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => go('/?' + qs({tab: b.dataset.tab === 'open' ? '' : b.dataset.tab, entitled, days: days === '365' ? '' : days})));
-  $('#days').onchange = e => go('/?' + qs({tab: tab === 'open' ? '' : tab, entitled, days: e.target.value === '365' ? '' : e.target.value}));
-  fillVerdicts(shown, entries, entitled, token);
+  view.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => go(inboxLink(p, {tab: b.dataset.tab})));
+  $('#days').onchange = e => go(inboxLink(p, {days: e.target.value}));
+  view.querySelectorAll('[data-filter]').forEach(el => el.onchange = () => go(inboxLink(p, {[el.dataset.filter]: el.value})));
+  const clear = $('#fclear'); if(clear) clear.onclick = () => go(inboxLink(p, {metric:'', region:'', dir:'', status:''}));
+  fillVerdicts(shown, entries, entitled, token, status);
+}
+/* ---------- metrics ----------
+   The governed definitions, readable. "How exactly do you define revenue" is
+   the first question a finance reader asks of any number, and the answer
+   should not live only in a YAML file. Everything is read from the contracts
+   and the warehouse by /api/catalog. */
+const AGG = {sum:'Summed', mean:'Averaged', ratio_of_sums:'A ratio of sums'};
+async function metricsView(p, token){
+  const view = $('#view');
+  view.innerHTML = `<h1 style="margin-top:18px">Metrics</h1><div class="loading">Reading the definitions…</div>`;
+  const r = await api('/api/catalog?' + qs({industry:S.industry}));
+  if(token !== S.token) return;
+  if(!r.ok){ view.innerHTML = `<h1 style="margin-top:18px">Metrics</h1><p class="err">${esc(detail(r))}</p>`; return; }
+  const all = r.data.metrics, pick = all.find(m => m.kpi_id === p.get('kpi')) || all.find(m => m.diagnosable) || all[0];
+  const m = pick, good = {up:'Up is good', down:'Down is good', neutral:'Neither way is good or bad'}[m.favourable];
+  const agg = m.ratio_of ? `${AGG[m.aggregation]}: ${esc(human(m.ratio_of[0]).toLowerCase())} over ${esc(human(m.ratio_of[1]).toLowerCase())}, summed first and then divided` : AGG[m.aggregation] || human(m.aggregation);
+  const link = k => `<a href="/?tab=metrics&${qs({kpi:k})}" data-nav>${esc(kpiName(k))}</a>`;
+  const chain = [...new Set(m.sources.map(x => x.split('.')[0]))].map(x => `<code>${esc(x)}</code>`).join(' ')
+    + m.lineage.map(l => ` <i>→</i> <code title="${esc(l.sql)}">${esc(l.name)}</code>`).join('') + ` <i>→</i> <code>${esc(m.kpi_id)}</code>`;
+  const masks = m.column_masks.length ? m.column_masks.map(c => `<code>${esc(c)}</code>${m.masks_absent_from_source.includes(c) ? ' <span class="muted small">(not in this source)</span>' : ''}`).join(', ') : 'None declared';
+  const fresh = m.freshness.map(f => `<tr><td><code>${esc(f.source)}</code></td><td class="n">${f.sla_hours} h</td><td class="n">${f.lag_hours} h</td><td>${f.met ? `<span class="pill ok">${svg('explained')}Within</span>` : `<span class="pill bad">${svg('contradicted')}Late</span>`}</td></tr>`).join('');
+  view.innerHTML = `<h1 style="margin-top:18px">Metrics</h1>
+    <p class="muted" style="max-width:72ch;margin:0">The governed definition behind every figure: what it means, who owns it, where it comes from and who may see it. Read from the contracts, versioned, and the same for every reader.</p>
+    <div class="mlist">
+      <nav aria-label="Metrics">${all.map(x => `<a href="/?tab=metrics&${qs({kpi:x.kpi_id})}" data-nav aria-current="${x.kpi_id === m.kpi_id}">${esc(kpiName(x.kpi_id))}<small>${esc(roleName(x.owner_role))} · ${x.diagnosable ? 'Diagnosed' : 'Detected only'}</small></a>`).join('')}</nav>
+      <div>
+        <section class="panel"><h2>Definition · version ${esc(m.version)}</h2>
+          <p style="font-size:17px;margin:0 0 16px;max-width:70ch">${esc(m.definition)}</p>
+          <dl class="kv2">
+            <dt>Owner</dt><dd>${esc(roleName(m.owner_role))}. The only role that can sign a finding on it.</dd>
+            <dt>Measured in</dt><dd>${esc({INR:'Rupees', ratio:'A rate', count:'A count'}[m.unit] || human(m.unit))}, by the ${esc(m.grain)}</dd>
+            <dt>How it rolls up</dt><dd>${agg}</dd>
+            <dt>Which way is good</dt><dd>${esc(good)}</dd>
+            <dt>Break it down by</dt><dd>${m.dims.map(d => esc(human(d))).join(', ')}</dd>
+            <dt>Material when</dt><dd>Unusual beyond a robust z of ${m.materiality.min_abs_robust_z}, and worth at least ${inr(m.materiality.min_abs_delta_inr)} a day. Both must hold.</dd>
+            ${m.parents.length || m.children.length ? `<dt>Connected to</dt><dd>${m.parents.length ? `Part of ${m.parents.map(link).join(', ')}. ` : ''}${m.children.length ? `Made of ${m.children.map(link).join(', ')}.` : ''}</dd>` : ''}
+            <dt>Diagnosis</dt><dd>${m.diagnosable ? 'Full diagnosis: it declares a price, volume and mix identity.' : 'Detected and prioritised. It declares no decomposition, so the page says so rather than implying a cause.'}</dd>
+          </dl></section>
+        <section class="panel" style="margin-top:16px"><h2>Where it comes from</h2>
+          <div class="chain">${chain}</div>
+          <p class="small muted" style="margin:10px 0 0">Each step is declared in the contract and applied by the query, not described beside it. ${m.served_from === 'materialised at ingest' ? 'The lineage is computed once at ingest, and a test holds the stored table equal to the declared steps.' : 'The lineage is applied on every read.'} Hover a step for its SQL.</p></section>
+        <section class="panel" style="margin-top:16px"><h2>Who may see it</h2>
+          <dl class="kv2">
+            <dt>Row filter</dt><dd><code>${esc(m.row_filter)}</code>, bound to each reader's regions. A reader never receives another region's rows.</dd>
+            <dt>Masked columns</dt><dd>${masks}</dd>
+            <dt>Personal data</dt><dd>${m.personal_data.length ? `Text is scanned for ${esc(m.personal_data.map(x => ({pii:'personal data such as emails, phone numbers, card, PAN and UPI IDs'})[x] || human(x).toLowerCase()).join(', '))} and masked before any reader or model sees it.` : 'No personal data class declared.'}</dd>
+          </dl></section>
+        <section class="panel" style="margin-top:16px"><h2>Freshness</h2>
+          <table class="t"><thead><tr><th>Source</th><th class="n">Allowed lag</th><th class="n">Lag now</th><th>State</th></tr></thead><tbody>${fresh}</tbody></table></section>
+        <section class="panel" style="margin-top:16px"><h2>The query</h2>
+          <pre class="sqlbox">${esc(m.sql)}</pre>
+          <div class="bar2"><button type="button" class="btn sm" id="mcopy">Copy the query</button><span class="small muted">Declared for ${m.dialect_targets.map(esc).join(', ')}. A finding's own query, with its region and dates, is behind each figure on the finding.</span></div></section>
+      </div>
+    </div>`;
+  $('#mcopy').onclick = async () => {
+    try{ await navigator.clipboard.writeText(m.sql); toast('Query copied.'); }catch{ toast('Copy is blocked here; select the query to copy it.'); }
+  };
+}
+function filterBar(t, f){
+  const offer = t.offer || {metrics: [], regions: []};
+  const sel = (key, label, opts, cur) => `<label>${label}<select data-filter="${key}">${opts.map(([v, txt]) =>
+    `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(txt)}</option>`).join('')}</select></label>`;
+  const any = f.metric || f.region || f.status || f.dirf !== 'drop';
+  return `<div class="filters" role="group" aria-label="Filter the findings">
+    ${sel('metric', 'Metric', [['', 'All metrics'], ...offer.metrics.map(k => [k, kpiName(k)])], f.metric)}
+    ${sel('region', 'Region', [['', offer.regions.length > 1 ? 'All regions' : 'Your regions'], ...offer.regions.map(r => [r, r])], f.region)}
+    ${sel('dir', 'Movement', [['drop', 'Falls'], ['spike', 'Rises'], ['both', 'Falls and rises']], f.dirf)}
+    ${sel('status', 'Status', [['', 'Any status'], ['explained', 'Verified'], ['unknown', 'Unknown'], ['contradicted', 'Contradicted'], ['detected', 'Detected only']], f.status)}
+    ${any ? '<button type="button" class="clear" id="fclear">Clear filters</button>' : ''}
+  </div>`;
 }
 function trackStrip(){
   const t = S.track; if(!t) return '';
@@ -579,16 +715,17 @@ function rowHtml(f, sig){
   const valued = f.unit === 'INR' ? '' : ' · ₹ at the contract’s rate';
   const link = `/finding?${qs({kpi:f.kpi_id, region:f.region, start:f.start, end:f.end, industry:S.industry})}`;
   const dir = f.delta < 0 ? 'below' : 'above';
+  const mark = trend(f.delta < 0 ? 'down' : 'up', f.favourable || 'up', `${pct(f.pct)} ${dir} expected`);
   const status = sig ? `<b>Signed</b><br><span class="s">${esc(sig.actor.name.replace(' (demo)', ''))}</span>` : `<span data-status="${esc(keyOf(f))}">…</span>`;
-  return `<a class="row" href="${link}" data-nav>
+  return `<a class="row" href="${link}" data-nav data-key="${esc(keyOf(f))}">
     <span data-pill="${esc(keyOf(f))}">${sig ? `<span class="pill ok">${svg('signed')}Signed</span>` : f.diagnosable ? `<span class="pill idle">${svg('checking')}Checking</span>` : pill('detected', false, 'Detected')}</span>
     <span><span class="t">${esc(kpiName(f.kpi_id))}, ${esc(f.region || 'all regions')}</span><br>
-      <span class="s">${span(f.start, f.end)} · ${pct(f.pct)} ${dir} expected${f.also_moved && f.also_moved.length ? ` · ${esc(f.also_moved.map(kpiName).join(', '))} moved too` : ''}${valued}</span></span>
+      <span class="s">${span(f.start, f.end)} · ${mark}${f.also_moved && f.also_moved.length ? ` · ${esc(f.also_moved.map(kpiName).join(', '))} moved too` : ''}${valued}</span></span>
     <span class="r"><span class="num">${inr(f.impact_inr_per_day)}</span><br><span class="s">per day</span></span>
     <span class="r hide-s status">${status}</span></a>`;
 }
-async function fillVerdicts(rows, entries, entitled, token){
-  let awaiting = 0;
+async function fillVerdicts(rows, entries, entitled, token, status=''){
+  let awaiting = 0, kept = 0;
   for(const f of rows){
     if(token !== S.token) return;
     const k = keyOf(f);
@@ -608,7 +745,11 @@ async function fillVerdicts(rows, entries, entitled, token){
       unknown:'Next check named', contradicted:'<b>Data check first</b><br><span class="s">Data engineering</span>',
       refused:'Outside your access', detected:'Detection only'})[v] || '';
     if(v === 'explained' && !sig) awaiting++;
+    const row = document.querySelector(`.row[data-key="${CSS.escape(k)}"]`);
+    if(row && status){ row.hidden = v !== status; }
+    if(!status || v === status) kept++;
   }
+  if(token === S.token && status && !kept && $('#rows')) $('#rows').innerHTML = `<div class="empty">No finding here has that status. Try another, or clear the filters.</div>`;
   if(token === S.token && $('#awaiting')) $('#awaiting').innerHTML = `${awaiting}<small> verified, unsigned</small>`;
 }
 function auditView(d){
@@ -624,7 +765,7 @@ function auditView(d){
         <span class="muted">${esc(e.payload.statement || e.payload.action || '')}${e.payload.note ? ' · “' + esc(e.payload.note) + '”' : ''}</span></span>
       <span class="num small muted" title="${esc(e.hash)}">${esc(e.hash.slice(0,10))}…</span></div>`).join('');
   return `<h1 style="margin-top:18px">Audit trail</h1>
-    <p class="muted" style="max-width:70ch;margin:0 0 14px">Signatures, decisions and target adjustments, newest first. Recording a decision never executes it.</p>
+    <p class="muted" style="max-width:70ch;margin:0 0 14px">Signatures, decisions, target adjustments and exports, newest first. Recording a decision never executes it.</p>
     <div class="list" style="border-top:1px solid var(--line);border-radius:var(--r-md)"><div class="chain">${chain}</div>${rows || '<div class="empty">No signatures or decisions yet.</div>'}</div>`;
 }
 
@@ -661,7 +802,11 @@ async function finding(p, token){
                audit: (aud.data && aud.data.entries) || [], cal: cal.ok ? cal.data : null};
   S.ctx = ctx;
   if(diag.status === 403){ view.innerHTML = refusalView(ctx); return; }
-  if(diag.status === 422){ view.innerHTML = detectedView(ctx); return; }
+  if(diag.status === 422){
+    view.innerHTML = detectedView(ctx);
+    view.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => evidence(ctx, b.dataset.ev));
+    return;
+  }
   if(!diag.ok){ view.innerHTML = `<div class="panel refusal"><h1>Nothing to diagnose here</h1><p>${esc(detail(diag))}</p><p><a href="/" data-nav>Back to findings</a></p></div>`; return; }
   view.innerHTML = findingView(ctx);
   wireFinding(ctx);
@@ -717,7 +862,7 @@ function findingView(ctx){
   const band = conf && typeof conf === 'object' ? conf.band : (d.headline && d.headline.confidence) || conf;
   const recon = d.reconciliation;
   const facts = [
-    worst && `<div><span>${worst.delta < 0 ? 'Short of expected' : 'Above expected'}</span><b class="lead num"><button type="button" class="ev" data-ev="movement">${inr(Math.abs(worst.delta))}</button></b></div>`,
+    worst && `<div><span>${worst.delta < 0 ? 'Short of expected' : 'Above expected'}</span><b class="lead num"><button type="button" class="ev" data-ev="movement" title="The rows behind this figure, and the query that produces them">${inr(Math.abs(worst.delta))}</button></b><small class="cap">${trend(worst.delta < 0 ? 'down' : 'up', (ctx.ser && ctx.ser.favourable) || 'up', `${pct(worst.pct)} ${worst.delta < 0 ? 'below' : 'above'} expected`)}</small></div>`,
     worst && `<div><span>Observed</span><b class="num">${inr(worst.observed)}</b></div>`,
     worst && `<div><span>Expected</span><b class="num">${inr(worst.expected)}</b></div>`,
     // The calibrated probability belongs to a reported answer. On a refusal it
@@ -892,6 +1037,55 @@ function contradictedBody(ctx){
    ahead is a forecast, and no warning is shown ahead, because a warning
    recorded after the window is hindsight. */
 const CAL_KIND = {signal:['Warning','warn'], promotion:['Promotion','ok'], calendar:['Holiday','unk']};
+/* The rows behind a figure, inside its drawer. Aggregates only: at warehouse
+   scale the aggregation runs where the data lives and only the rows a figure is
+   made of come back. The statement is run too, and its result compared with
+   the engine's, so "reproduced" is a check made now, not a claim. */
+async function loadRows(ctx){
+  const box = $('#rowsbody'); if(!box) return;
+  const r = await api('/api/rows?' + qs(ctx.base));
+  if(!$('#rowsbody')) return;
+  if(!r.ok){ box.innerHTML = `<p class="err">${esc(detail(r))}</p>`; return; }
+  const d = r.data, ratio = d.aggregation === 'ratio_of_sums', hourly = d.grain === 'hour', s = ctx.ser || {days:[]};
+  const fav = s.favourable || 'up';
+  const unit = v => d.unit === 'INR' ? inr(v) : d.unit === 'ratio' ? `${(v*100).toFixed(2)}%` : Math.round(v).toLocaleString('en-IN');
+  const at = Object.fromEntries((s.days || []).map((day, i) => [day, i]));
+  const here = ctx.worst && ctx.worst.day;
+  const against = x => {
+    const i = at[x.d]; if(i === undefined) return '';
+    const lo = s.band_low[i], hi = s.band_high[i], e = s.expected[i], gap = e ? (x.value - e) / e : null;
+    if(x.value >= lo && x.value <= hi) return trend('flat', fav, 'Within range');
+    return trend(x.value < lo ? 'down' : 'up', fav, `${pct(gap)} ${x.value < lo ? 'below' : 'above'}`);
+  };
+  const when = t => hourly ? `${dt(t.slice(0, 10))}, ${t.slice(11, 16)}` : dt(t);
+  box.innerHTML = `
+    <p class="small" style="margin:0 0 10px">${d.reproduced.match
+      ? `<span class="pill ok">${svg('explained')}Reproduced</span> Run in the warehouse as you opened this, the query returns these ${d.rows.length} rows exactly.`
+      : `<span class="pill bad">${svg('contradicted')}Not reproduced</span> The query returned ${d.reproduced.rows} rows against the engine's ${d.rows.length}. Treat it as indicative, and tell the analysts.`}</p>
+    <div class="scroll"><table class="t"><thead><tr><th>${hourly ? 'Hour' : 'Day'}</th><th class="n">Observed</th>${hourly ? '' : '<th class="n">Expected</th><th>Against expected</th>'}${ratio ? '<th class="n">Base</th>' : ''}</tr></thead><tbody>
+      ${d.rows.map((x, i) => `<tr class="${x.in_window ? '' : 'base'}${!hourly && x.d === here ? ' here' : ''}"${i && x.in_window && !d.rows[i-1].in_window ? ' style="border-top:2px solid var(--line-2)"' : ''}><td>${esc(when(x.d))}</td><td class="n">${unit(x.value)}</td>${hourly ? '' : `<td class="n">${at[x.d] !== undefined ? unit(s.expected[at[x.d]]) : ''}</td><td>${against(x)}</td>`}${ratio ? `<td class="n">${Math.round(x.n).toLocaleString('en-IN')}</td>` : ''}</tr>`).join('')}
+    </tbody></table></div>
+    <p class="small muted" style="margin:8px 0 0">Rows above the line are the fortnight before, the baseline. ${here && !hourly ? 'The highlighted row is the figure on the page.' : ''} Expected is the metric's own seasonal pattern, not a plan.</p>
+    <details style="margin-top:12px"><summary class="small">The query for these rows</summary><pre id="rowsql">${esc(d.sql)}</pre>
+      <p class="small muted" style="margin:8px 0 0">Written for DuckDB, the engine this warehouse runs on. ${d.entitlement ? `Your entitlement is applied as the contract's row filter.` : ''}</p></details>
+    <div class="bar2"><button type="button" class="btn sm" id="rowcopy">Copy the query</button><button type="button" class="btn sm" id="rowcsv">Download these rows (CSV)</button>
+      <a class="small" href="/?tab=metrics&${qs({kpi: d.kpi_id})}" data-nav>How ${esc(kpiName(d.kpi_id).toLowerCase())} is defined</a></div>
+    <p class="small muted" style="margin:6px 0 0">A download is recorded on the audit trail.</p>`;
+  const sc = box.querySelector('.scroll'); if(sc) sc.scrollTop = sc.scrollHeight;
+  $('#rowcopy').onclick = async () => {
+    try{ await navigator.clipboard.writeText(d.sql); toast('Query copied. It runs as written in the warehouse.'); }
+    catch{ box.querySelector('details').open = true; toast('Copy is blocked here; the query is open to select.'); }
+  };
+  $('#rowcsv').onclick = async () => {
+    const res = await fetch('/api/rows/export', {method:'POST', headers:{'X-WhyChain-User': S.user, 'Content-Type':'application/json'}, body: JSON.stringify(ctx.base)});
+    if(!res.ok){ toast('Export refused: ' + ((await res.json().catch(() => ({}))).detail || res.status)); return; }
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement('a'); a.href = url;
+    a.download = (res.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'whychain-rows.csv';
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    toast('Downloaded, and recorded on the audit trail.');
+  };
+}
 function calendarHtml(ctx){
   const c = ctx.cal, f = ctx.f, d = ctx.diag.data;
   if(!c || (!c.behind.length && !c.ahead.length)) return '';
@@ -1017,7 +1211,7 @@ function detectedView(ctx){
       <h1>${esc(kpiName(f.kpi))} in ${esc(scopeText(f))} ${worst ? `moved ${pct(worst.pct)} ${worst.delta < 0 ? 'below' : 'above'} expected on ${dt(worst.day)}` : 'moved'}. The movement is real; a causal diagnosis is not available for this metric.</h1>
       <p class="muted" style="max-width:70ch">${esc(kpiName(f.kpi))} is ${({ratio:'a rate', count:'a count'})[(ctx.ser && ctx.ser.unit)] || 'not measured in rupees'}. The test that separates price, volume and mix applies to rupee metrics, so this movement is detected and prioritised, but its cause is not diagnosed here.</p>
       ${worst ? `<div class="facts"><div><span>Observed</span><b class="num">${fmtUnit(worst.observed, ctx.ser.unit)}</b></div><div><span>Expected</span><b class="num">${fmtUnit(worst.expected, ctx.ser.unit)}</b></div></div>` : ''}
-      <p style="margin-top:14px"><a class="btn" href="${esc(benchLink(f, worst))}">See detection and freshness in the workbench</a></p></section>`;
+      <p style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">${worst ? '<button type="button" class="btn" data-ev="movement">The rows behind this</button>' : ''}<a class="btn" href="${esc(benchLink(f, worst))}">See detection and freshness in the workbench</a></p></section>`;
 }
 const fmtUnit = (v, u) => u === 'INR' ? inr(v) : u === 'ratio' ? `${(v*100).toFixed(1)}%` : Math.round(v).toLocaleString('en-IN');
 
@@ -1073,12 +1267,10 @@ async function evidence(ctx, what){
   let html = '';
   if(what === 'movement'){
     const w = ctx.worst, s = ctx.ser;
-    html = `<h3>The movement</h3><p class="small">Read through the contract's own SQL over the order lines. Expected is what this day normally does at this point in the year, from the metric's own trend, weekday pattern and festival calendar. Not a plan figure.</p>
+    html = `<h3>The rows behind this figure</h3><p class="small">Read through the contract's own query. Expected is what this day normally does at this point in the year, from the metric's own trend, weekday pattern and festival calendar. Not a plan figure.</p>
       ${spark(s, ctx.f)}
-      <table class="t"><thead><tr><th>Day</th><th class="n">Observed</th><th class="n">Expected</th><th class="n">Gap</th></tr></thead><tbody>
-      ${s.days.map((day,i) => day >= ctx.f.start && day <= ctx.f.end ? `<tr><td>${dt(day)}</td><td class="n">${fmtUnit(s.observed[i], s.unit)}</td><td class="n">${fmtUnit(s.expected[i], s.unit)}</td><td class="n">${pct((s.observed[i]-s.expected[i])/s.expected[i])}</td></tr>` : '').join('')}
-      </tbody></table>
-      ${w ? `<p class="small muted">Flagged on ${dt(w.day)} at a robust z of ${w.robust_z}: unusual statistically and large enough in rupees to act on. Both tests must pass.</p>` : ''}`;
+      ${w ? `<p class="small muted">Flagged on ${dt(w.day)} at a robust z of ${w.robust_z}: unusual statistically and large enough in rupees to act on. Both tests must pass.</p>` : ''}
+      <div class="rowsbox" id="rowsbody"><p class="loading">Checking these rows against the warehouse…</p></div>`;
   }else if(what.startsWith('cause:')){
     const v = (d.verified||[]).find(x => x.candidate_id === what.slice(6));
     html = `<h3>${esc(causeText(v.description))}</h3><p class="small">Every test must pass, and an untestable one leaves the cause unverified rather than verified by default.</p>
@@ -1097,6 +1289,7 @@ async function evidence(ctx, what){
       ${g.process_document ? `<p class="small muted">The planning process was read from <code>${esc(g.process_document)}</code>. It consumes: ${esc((g.consumed||[]).map(human).join(', '))}.</p>` : ''}`;
   }
   layer(`<div class="scrim" data-close></div><aside class="drawer" role="dialog" aria-label="Evidence"><button type="button" class="btn sm x" data-close>Close</button>${html}</aside>`);
+  if(what === 'movement') loadRows(ctx);
   $('#layer').querySelectorAll('[data-doc]').forEach(b => b.onclick = async () => {
     const r = await api(`/api/document/${encodeURIComponent(b.dataset.doc)}?` + qs({industry:ctx.f.industry, entitled:ctx.f.entitled}));
     const box = $('#doc'); if(!box) return;

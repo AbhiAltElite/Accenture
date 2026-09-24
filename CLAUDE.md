@@ -21,11 +21,16 @@ Innovation Challenge 2026, team CtrlAltReinvent, IIT Hyderabad. **Grand Finale
 make app          # builds WhyChain.app: double-click, opens in its own window
 ```
 
-Two views. `/` is the **decision view**: findings inbox, one finding at a
-time, sign-off, decisions, board-pack slide (`/slide`). `/workbench` is the
-analyst's full method page with the twelve `?demo=` scenarios.
+Two views. `/` is the **decision view**: findings inbox (filter by metric,
+region, falls or rises, status), one finding at a time, sign-off, decisions,
+board-pack slide (`/slide`), audit trail, and **Metrics** (`/?tab=metrics`),
+the governed definitions read from the contracts. Clicking a finding's
+headline figure opens its aggregated rows, the query that reproduces them
+(checked against the warehouse on every open), and an audited CSV export.
+`/workbench` is the analyst's full method page with the twelve `?demo=`
+scenarios.
 
-`make test` (567), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
+`make test` (594), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
 server), `make bench`, `make audit`, `make lint`, `make real-data`. `/uat` in
 any browser runs the acceptance checks against every scenario and persona.
 
@@ -38,7 +43,7 @@ launcher for all platforms.
 and runs automatically from `gen`, `gen-all` and `run.sh`. A warehouse that has
 not been prepared still reads correctly, just slower.
 
-Before any demo: `make warm-ai` (must end "All 7 cases warm"), `make
+Before any demo: `make warm-ai` (must end "All N cases warm" with no failures), `make
 demo-reset`, then `/uat` (must be all pass).
 
 Accountability: sign-off, decisions and dispatch go to a hash-chained log

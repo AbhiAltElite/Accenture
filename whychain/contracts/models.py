@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -326,6 +327,10 @@ class KPIContract(BaseModel):
     # "on-time delivery: one rupee", which is the kind of error that survives
     # review because it looks like a formatting slip rather than a wrong model.
     unit: Unit = Unit.INR
+    # Which way is good. A rise in revenue and a rise in churn are the same
+    # arrow and opposite news, so colour follows this and never the sign
+    # (the IBCS convention, and what BI metric layers ask of a definition).
+    favourable: Literal["up", "down", "neutral"] = "up"
     calculation: Calculation
     grain: Grain
     calendar: str = "gregorian"

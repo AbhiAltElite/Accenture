@@ -179,6 +179,54 @@ async function fairTarget(){
   try{ frame.contentWindow.localStorage.removeItem('whychain-persona'); }catch{}
 }
 
+async function queryRows(){
+  // The rows behind the headline figure, in its drawer, and the statement that made them.
+  const pg = await open('/finding?kpi=net_revenue&region=West&start=2026-08-13&end=2026-08-15&industry=retail',
+    d => d.querySelector('[data-ev="movement"]') && !d.querySelector('.loading'));
+  const problems = [];
+  const fig = pg.doc.querySelector('[data-ev="movement"]');
+  if(!fig) problems.push('the headline figure opens nothing');
+  else {
+    const mark = pg.doc.querySelector('.facts .trend');
+    if(!mark || !/below expected/.test(mark.textContent) || !mark.classList.contains('bad')) problems.push('the headline has no unfavourable down mark');
+    fig.click();
+    const t0 = performance.now();
+    while(performance.now() - t0 < 15000 && !pg.doc.querySelector('#rowsbody table') && !pg.doc.querySelector('#rowsbody .err')) await sleep(100);
+    const box = pg.doc.getElementById('rowsbody'), text = box ? box.innerText : '';
+    if(!/Reproduced/.test(text)) problems.push(`not reproduced: "${text.slice(0, 120)}"`);
+    const here = box && box.querySelector('tr.here td.n');
+    const observed = (pg.doc.querySelectorAll('.facts > div')[1] || {}).textContent || '';
+    if(!here) problems.push('the figure on the page is not marked in the rows');
+    else if(num(here.textContent) !== num(observed)) problems.push(`the marked row ${here.textContent} is not the observed figure`);
+    if(box && !box.querySelector('.trend')) problems.push('no against-expected marks in the rows');
+    problems.push(...lint(text));
+  }
+  const refused = await J('/api/rows?kpi=net_revenue&region=West&start=2026-08-13&end=2026-08-15&industry=retail&entitled=South');
+  if(refused.status !== 403) problems.push(`a South reader asking for West got ${refused.status}`);
+  if(pg.errors.length) problems.push(`script error: ${pg.errors[0]}`);
+  record('Query and rows', 'The figure opens its rows; the query reproduces them; entitlement holds', problems.length ? 'fail' : 'pass',
+    problems.join('; ') || 'Reproduced, the observed figure is its own row, and West is refused to a South reader.', pg.ms);
+
+  const mp = await open('/?tab=metrics&kpi=net_revenue', d => d.querySelector('.mlist'));
+  const mt = mp.doc.getElementById('view').innerText, mprob = [];
+  for(const want of ['Definition', 'Where it comes from', 'Who may see it', 'Freshness', 'The query', 'Up is good'])
+    if(!mt.toLowerCase().includes(want.toLowerCase())) mprob.push(`missing "${want}"`);  // headings render in capitals
+  if(mp.doc.querySelectorAll('.mlist nav a').length < 5) mprob.push('fewer than five metrics listed');
+  if(mp.errors.length) mprob.push(`script error: ${mp.errors[0]}`);
+  record('Metrics', 'Net revenue: definition, lineage, access, freshness and query', mprob.length ? 'fail' : 'pass',
+    mprob.join('; ') || `${mp.doc.querySelectorAll('.mlist nav a').length} metrics, each from its contract.`, mp.ms);
+
+  const fl = await open('/?dir=spike', d => d.querySelectorAll('.row').length || d.querySelector('.empty'));
+  const rows = [...fl.doc.querySelectorAll('.row')], fprob = [];
+  if(!rows.length) fprob.push('no rises listed');
+  if(rows.some(r => !r.querySelector('.trend.good'))) fprob.push('a rise without a favourable up mark');
+  if(!fl.doc.querySelector('[data-filter="dir"]') || fl.doc.querySelector('[data-filter="dir"]').value !== 'spike') fprob.push('the filter does not show the choice');
+  const fall = await open('/', d => d.querySelectorAll('.row').length);
+  if([...fall.doc.querySelectorAll('.row')].some(r => !r.querySelector('.trend.bad'))) fprob.push('a fall without an unfavourable down mark');
+  record('Findings filters', 'Rises and falls are marked by direction and by good or bad', fprob.length ? 'fail' : 'pass',
+    fprob.join('; ') || `${rows.length} rises marked up and favourable; falls marked down and unfavourable.`, fl.ms);
+}
+
 async function navigation(){
   // Back returns to the page before; the workbench link keeps the finding.
   const inbox = await open('/', d => d.querySelectorAll('.row').length);
@@ -239,7 +287,7 @@ async function slide(){
 document.getElementById('run').onclick = async e => {
   e.target.disabled = true; results.length = 0; document.getElementById('rows').innerHTML = '';
   const t0 = performance.now();
-  for(const step of [service, decisionView, fairTarget, navigation, workbench, slide]){
+  for(const step of [service, decisionView, fairTarget, queryRows, navigation, workbench, slide]){
     try{ await step(); }catch(err){ record('Harness', step.name, 'fail', String(err && err.message || err)); }
   }
   frame.src = 'about:blank';

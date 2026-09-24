@@ -403,6 +403,18 @@ class Warehouse:
         except duckdb.Error as exc:
             raise IngestError(f"{contract.kpi_id}: bridge query failed: {exc}") from exc
 
+    def select(self, sql: str, params: list[object]) -> pd.DataFrame:
+        """Run a statement composed from a contract (`whychain.ingest.rows`).
+
+        Never a caller's text: the statement is built from names the contract
+        declares, and every request value arrives bound. The connection is
+        read-only, so even a wrong statement cannot write.
+        """
+        try:
+            return self._con.execute(sql, params).df()
+        except duckdb.Error as exc:
+            raise IngestError(f"query failed: {exc}") from exc
+
     def _columns(self, prepared: str) -> set[str]:
         """Column names of a prepared subquery, so dimensions can be optional."""
         sql = f"SELECT * FROM {prepared} LIMIT 0"

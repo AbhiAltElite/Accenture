@@ -6,6 +6,7 @@ runs detection, and returns the result. No analysis happens here.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -56,6 +57,7 @@ from whychain.feedback.apply import (
 from whychain.identity import DEMO_USERS, Identity, effective_entitlement
 from whychain.identity import mode as identity_mode
 from whychain.ingest import IngestError, Warehouse
+from whychain.ingest import rows as query_rows
 from whychain.intent import interpret
 from whychain.llm import (
     UNSET,
@@ -722,6 +724,9 @@ def triage(
                              description="how far back to queue findings from"),
     entitled: str | None = Query(None, description="comma-separated regions"),
     industry: str | None = Query(None, description="which industry to read"),
+    kpi: str | None = Query(None, description="one metric, or every one"),
+    direction: str = Query("drop", pattern="^(drop|spike|both)$",
+                           description="falls, rises or both"),
 ) -> dict:
     """What to look at first, across every KPI and every region at once.
 
@@ -762,12 +767,17 @@ def triage(
     # A region the reader picked narrows the queue; entitlement still bounds it,
     # so asking for a region outside the grant returns nothing rather than
     # widening the scope back out.
+    # The choices a filter may offer: bounded by entitlement, never by the
+    # filter itself, so picking one region does not remove the others.
+    offer = {"regions": list(regions), "metrics": [c.kpi_id for c in reg]}
     if region:
         regions = [r for r in regions if r == region]
     findings: list[dict] = []
     try:
         with warehouse(vertical) as wh:
             for contract in reg:
+                if kpi and contract.kpi_id != kpi:
+                    continue
                 try:
                     raw = _cached(
                         vertical,
@@ -804,11 +814,12 @@ def triage(
                         find_anomalies(d, contract.materiality.min_abs_robust_z),
                         contract,
                     )
-                    drops = sorted(
-                        (a for a in flagged if a.direction == "drop"),
-                        key=lambda a: a.day,
-                    )
-                    findings.extend(_episodes(drops, contract, region_id))
+                    # Falls by default: they are what a reader is asked to
+                    # explain. A rise is a movement too, and variance practice
+                    # asks why a favourable one happened and whether it lasts.
+                    for way in (("drop", "spike") if direction == "both" else (direction,)):
+                        moves = sorted((a for a in flagged if a.direction == way), key=lambda a: a.day)
+                        findings.extend(_episodes(moves, contract, region_id))
     except IngestError as exc:
         raise HTTPException(503, str(exc)) from exc
 
@@ -831,6 +842,9 @@ def triage(
         "folded": folded,
         "region": region,
         "days": days,
+        "kpi": kpi,
+        "direction": direction,
+        "offer": offer,
         "scope": list(scope) if scope else None,
         "basis": (
             "Ranked by rupee impact per day, converted through each contract's "
@@ -955,12 +969,17 @@ def _episodes(drops, contract, region: str) -> list[dict]:
     def close(run):
         if not run:
             return
-        worst = min(run, key=lambda a: a.delta)
+        # The largest move in the run's own direction: lowest for a fall,
+        # highest for a rise.
+        rising = run[0].direction == "spike"
+        worst = max(run, key=lambda a: a.delta) if rising else min(run, key=lambda a: a.delta)
         total = sum(abs(a.delta) for a in run)
         out.append({
             "kpi_id": contract.kpi_id,
             "unit": contract.unit.value,
             "owner_role": contract.owner_role,
+            "direction": "rise" if rising else "fall",
+            "favourable": contract.favourable,
             "region": region,
             "start": run[0].day.isoformat(),
             "end": run[-1].day.isoformat(),
@@ -1064,25 +1083,12 @@ def series(
 
     try:
         with warehouse(vertical) as wh:
-            raw = _cached(
-                vertical,
-                ("kpi_series", contract.kpi_id),
-                lambda: wh.kpi_series(contract),
-            )
             # Freshness is a clock reading, not a derived series: never cached.
             freshness = wh.freshness(contract)
     except IngestError as exc:
         raise HTTPException(503, str(exc)) from exc
-
-    raw = _within_scope(raw, scope)
-    if region and "region" in raw.columns:
-        raw = raw[raw["region"] == region]
-    raw = _narrow(raw, _slice_of(contract, channel=channel, device=device,
-                                 category=category))
-    if raw.empty:
-        raise HTTPException(404, "no data for that slice")
-
-    frame = _roll_up(raw, contract)
+    frame = _series_frame(vertical, contract, scope, region,
+                          _slice_of(contract, channel=channel, device=device, category=category))
 
     try:
         decomposition = decompose_for(frame, contract)
@@ -1127,6 +1133,7 @@ def series(
         "slice": {k: v for k, v in
                   (("region", region), ("channel", channel), ("device", device)) if v},
         "unit": contract.unit.value,
+        "favourable": contract.favourable,
         # What one point is. Checkout conversion is hourly, so a reader told it
         # is looking at "1,729 days" of it is being told something false about
         # three years of history that does not exist.
@@ -1223,6 +1230,28 @@ def _sparse_series(
         "window": {"from": frm.isoformat() if frm else None,
                    "to": to.isoformat() if to else None},
     }
+
+
+def _series_frame(vertical: Vertical, contract, scope, region: str | None,
+                  sliced: dict[str, str]) -> pd.DataFrame:
+    """The metric at its grain for one scope: the rows every figure is drawn from.
+
+    One path, shared by the chart and by the query-and-rows view, so the rows a
+    reader inspects are the rows the page's figures came from, not a second
+    reading that happens to agree.
+    """
+    try:
+        with warehouse(vertical) as wh:
+            raw = _cached(vertical, ("kpi_series", contract.kpi_id), lambda: wh.kpi_series(contract))
+    except IngestError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    raw = _within_scope(raw, scope)
+    if region and "region" in raw.columns:
+        raw = raw[raw["region"] == region]
+    raw = _narrow(raw, sliced)
+    if raw.empty:
+        raise HTTPException(404, "no data for that slice")
+    return _roll_up(raw, contract)
 
 
 def _roll_up(raw: pd.DataFrame, contract) -> pd.DataFrame:
@@ -1429,6 +1458,204 @@ def _calendar_events(market: str, lo: date, hi: date) -> list[dict]:
             "modelled": bool(uplift),
         })
     return events
+
+
+# The fortnight before a finding is its baseline, so the rows show it too: a
+# reader checking "short of expected" needs the days it is short of.
+ROWS_BASELINE_DAYS = 14
+ROWS_SAMPLE_LINES = 20
+
+
+@app.get("/api/rows")
+def rows(
+    kpi: str = Query("net_revenue"),
+    start: date = Query(...),
+    end: date = Query(...),
+    region: str | None = None,
+    channel: str | None = None,
+    device: str | None = None,
+    category: str | None = None,
+    industry: str | None = None,
+    entitled: str | None = Query(None, description="comma-separated regions"),
+) -> dict:
+    """The aggregated rows behind a finding's figures, and the query that makes them.
+
+    Aggregates only, on purpose. At warehouse scale nobody reads raw lines in a
+    browser: the aggregation runs where the data lives and only the rows a
+    figure is made of come back, which is what holds at a billion lines. There
+    is no free-text SQL either. A console that runs what a reader types is a
+    way round entitlement and masking; the enterprise path is to copy the
+    statement into the warehouse's own editor, where its permissions apply.
+
+    The rows come from the same path as the chart. The statement shown is run
+    as well, and the response says whether it returned exactly those rows.
+    """
+    vertical = _vertical(industry)
+    contract = _contract(kpi, vertical)
+    scope = _entitlement_scope(entitled)
+    _refuse_outside_scope(region, scope, contract.owner_role)
+    sliced = _slice_of(contract, channel=channel, device=device, category=category)
+    if end < start:
+        raise HTTPException(422, "end is before start")
+    lo = start - timedelta(days=ROWS_BASELINE_DAYS)
+
+    frame = _series_frame(vertical, contract, scope, region, sliced)
+    stamps = pd.to_datetime(frame["d"])
+    engine = frame[(stamps >= pd.Timestamp(lo)) & (stamps < pd.Timestamp(end + timedelta(days=1)))]
+    engine = engine.reset_index(drop=True)
+    ratio = contract.grain.aggregation.value == "ratio_of_sums"
+    hourly = contract.grain.time == "hour"
+
+    try:
+        with warehouse(vertical) as wh:
+            raw = _cached(vertical, ("kpi_series", contract.kpi_id), lambda: wh.kpi_series(contract))
+            rep = query_rows.reproduce(contract, raw.columns[0], lo=lo, hi=end, scope=scope,
+                                       region=region, slice_=sliced)
+            ran = wh.select(rep.sql, rep.params)
+            served_from = ("materialised at ingest" if wh._prepared(contract).startswith("_prepared_")
+                           else "computed at read")
+    except IngestError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+    match = len(ran) == len(engine) and all(
+        pd.Timestamp(a) == pd.Timestamp(b) for a, b in zip(ran["d"], engine["d"], strict=True))
+    diff = 0.0
+    if match and len(ran):
+        diff = float((ran["value"].astype(float) - engine["value"].astype(float)).abs().max())
+        tolerance = 1e-9 if ratio else 1e-6
+        match = diff <= tolerance * max(1.0, float(engine["value"].abs().max()))
+        if ratio:
+            match = match and bool((ran["n"].astype(float) == engine["n"].astype(float)).all())
+
+    def stamp(value) -> str:
+        t = pd.Timestamp(value)
+        return t.isoformat(timespec="minutes") if hourly else t.date().isoformat()
+
+    return {
+        "kpi_id": contract.kpi_id,
+        "version": contract.version,
+        "owner_role": contract.owner_role,
+        "unit": contract.unit.value,
+        "grain": contract.grain.time,
+        "aggregation": contract.grain.aggregation.value,
+        "definition": " ".join(contract.definition.split()),
+        "window": {"from": start.isoformat(), "to": end.isoformat(), "baseline_from": lo.isoformat()},
+        "entitlement": list(scope) if scope is not None else None,
+        "declared_sql": contract.calculation.canonical_sql.strip(),
+        "lineage": [{"name": n, "sql": q} for n, q in rep.lineage],
+        "served_from": served_from,
+        "row_filter": contract.access_policy.row_filter or "region IN :entitled_regions",
+        "dialect_targets": list(contract.calculation.dialect_targets),
+        "sql": rep.literal(),
+        "sql_sha256": hashlib.sha256(rep.sql.encode("utf-8")).hexdigest(),
+        "rows": [
+            {"d": stamp(r["d"]), "value": round(float(r["value"]), 6 if ratio else 2),
+             **({"n": float(r["n"])} if ratio else {}),
+             "in_window": pd.Timestamp(r["d"]) >= pd.Timestamp(start)}
+            for _, r in engine.iterrows()
+        ],
+        "reproduced": {"match": bool(match), "rows": len(ran), "max_abs_diff": diff},
+    }
+
+
+@app.post("/api/rows/export")
+def export_rows(payload: dict, request: Request) -> PlainTextResponse:
+    """The rows as CSV, with the export on the audit trail.
+
+    Anyone may export what they may see; the record is what makes it
+    governed. It names who, which rows and a hash of the statement that
+    produced them, so a figure in someone's spreadsheet can be traced back.
+    """
+    who = _who(request)
+    try:
+        start = date.fromisoformat(str(payload["start"]))
+        end = date.fromisoformat(str(payload["end"]))
+    except (KeyError, ValueError):
+        raise HTTPException(422, "start and end are required, as YYYY-MM-DD") from None
+    body = rows(
+        kpi=str(payload.get("kpi") or "net_revenue"), start=start, end=end,
+        region=payload.get("region") or None, channel=payload.get("channel") or None,
+        device=payload.get("device") or None, category=payload.get("category") or None,
+        industry=payload.get("industry") or None,
+        entitled=effective_entitlement(who, payload.get("entitled")),
+    )
+    ratio = body["aggregation"] == "ratio_of_sums"
+    head = "period,value,n,in_window" if ratio else "period,value,in_window"
+    lines = [head] + [
+        ",".join(str(x) for x in ((r["d"], r["value"], r["n"]) if ratio else (r["d"], r["value"]))
+                 ) + f",{'yes' if r['in_window'] else 'no'}"
+        for r in body["rows"]
+    ]
+    entry = _audit.append(
+        "rows_exported", who.as_dict(),
+        {"industry": payload.get("industry") or "retail", "kpi_id": body["kpi_id"],
+         "region": payload.get("region") or None,
+         "slice": {k: payload.get(k) for k in ("channel", "device", "category") if payload.get(k)},
+         "window": {"from": start.isoformat(), "to": end.isoformat()}},
+        {"rows": len(body["rows"]), "format": "csv", "sql_sha256": body["sql_sha256"],
+         "reproduced": body["reproduced"]["match"],
+         "statement": "Rows exported as CSV, with the statement that produced them."},
+    )
+    name = f"whychain-{body['kpi_id']}-{payload.get('region') or 'all'}-{start}-to-{end}.csv"
+    return PlainTextResponse("\n".join(lines) + "\n", media_type="text/csv", headers={
+        "Content-Disposition": f'attachment; filename="{name}"',
+        "X-WhyChain-Audit-Seq": str(entry["seq"]),
+    })
+
+
+@app.get("/api/catalog")
+def catalog(industry: str | None = None) -> dict:
+    """Every governed metric: what it means, who owns it, where it comes from.
+
+    The semantic layer, readable. A definition that lives only in YAML is one
+    an analyst has to take on trust, and "how exactly do you define revenue" is
+    the first question a finance reader asks of any number. Everything here is
+    read from the contracts and the warehouse; nothing is typed for the page.
+    """
+    vertical = _vertical(industry)
+    reg = registry(vertical)
+    out = []
+    try:
+        with warehouse(vertical) as wh:
+            for kpi_id in sorted(reg._contracts):
+                c = reg.get(kpi_id)
+                steps, _ = query_rows.lineage_ctes(c)
+                fresh = wh.freshness(c)
+                policy = wh.unenforceable_policy(c)
+                out.append({
+                    "kpi_id": c.kpi_id,
+                    "version": c.version,
+                    "owner_role": c.owner_role,
+                    "unit": c.unit.value,
+                    "definition": " ".join(c.definition.split()),
+                    "grain": c.grain.time,
+                    "dims": list(c.grain.dims),
+                    "aggregation": c.grain.aggregation.value,
+                    "ratio_of": [c.grain.numerator, c.grain.denominator]
+                    if c.grain.aggregation.value == "ratio_of_sums" else None,
+                    "parents": list(c.parents),
+                    "children": list(c.children),
+                    "diagnosable": c.decomposition.method == "pvm",
+                    "sources": list(c.lineage.upstream),
+                    "lineage": [{"name": n, "sql": q} for n, q in steps],
+                    "served_from": ("materialised at ingest"
+                                    if wh._prepared(c).startswith("_prepared_") else "computed at read"),
+                    "favourable": c.favourable,
+                    "sql": c.calculation.canonical_sql.strip(),
+                    "dialect_targets": list(c.calculation.dialect_targets),
+                    "row_filter": c.access_policy.row_filter or "region IN :entitled_regions",
+                    "column_masks": list(c.access_policy.column_masks),
+                    "masks_absent_from_source": policy["column_masks_absent_from_source"],
+                    "personal_data": list(c.access_policy.domain_restriction),
+                    "freshness": [{"source": f.source_id, "sla_hours": round(f.sla.total_seconds() / 3600, 1),
+                                   "lag_hours": round(f.lag.total_seconds() / 3600, 1), "met": f.sla_met}
+                                  for f in fresh.values()],
+                    "materiality": {"min_abs_robust_z": c.materiality.min_abs_robust_z,
+                                    "min_abs_delta_inr": c.materiality.min_abs_delta_inr},
+                })
+    except IngestError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return {"industry": vertical.id, "metrics": out}
 
 
 @app.get("/api/calendar")
