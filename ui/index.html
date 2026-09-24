@@ -858,6 +858,11 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
 .crumb i{font-style:normal; color:var(--line-heavy); padding:0 var(--sp-1);}
 .crumb a{color:var(--ink-3); text-decoration:none; border-bottom:1px solid var(--line-strong);}
 .crumb a:hover{color:var(--ink); border-bottom-color:var(--ink-3);}
+.crumb .back{display:inline-flex;align-items:center;gap:4px;margin-right:var(--sp-2);padding:4px 10px 4px 6px;
+  font:600 13px/1 var(--sans);letter-spacing:0;text-transform:none;color:var(--ink-2);background:var(--surface);
+  border:1px solid var(--line-strong);border-radius:var(--r-sm);cursor:pointer;vertical-align:middle}
+.crumb .back:hover{color:var(--ink);border-color:var(--ink-3)}
+.crumb .back svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 
 .basis{font:400 var(--t-sm)/var(--lh-snug) var(--sans); color:var(--ink-2);
   margin:0 0 var(--sp-4); max-width:66ch;}
@@ -1516,7 +1521,7 @@ function applyDemo(d, booting){
   STATE.pending = {day:d.day, region:d.region || ''};
   const q = new URLSearchParams();
   q.set('demo', d.id);
-  history[booting ? 'replaceState' : 'pushState']({}, '', '/kpi/' + d.kpi + '?' + q);
+  history[booting ? 'replaceState' : 'pushState'](booting ? history.state : {wb:true}, '', '/kpi/' + d.kpi + '?' + q);
   STATE.kpi = d.kpi;
   STATE.pick = d.day;
   STATE.pending = null;
@@ -1652,6 +1657,8 @@ async function boot(){
   if(params.get('region')) setScope('region', params.get('region'));
   if(params.get('range')) $('#range').value = params.get('range');
   SLICE_DIMS.forEach(d=>{ if(params.get(d)) setScope(d, params.get(d)); });
+  // A day in the link is the finding the decision view was showing: open on it.
+  if(/^\d{4}-\d{2}-\d{2}$/.test(params.get('day') || '')) STATE.pick = params.get('day');
   // The backend list is fetched rather than hard-coded, so what the console
   // offers is what the server can actually reach.
   try{
@@ -1706,7 +1713,7 @@ async function boot(){
       if($('#region').value) q.set('region',$('#region').value);
       Object.entries(currentSlice()).forEach(([d,v])=>q.set(d,v));
       if($('#range').value !== '90') q.set('range',$('#range').value);
-      history.replaceState({}, '', location.pathname + (q.toString()?'?'+q:''));
+      history.replaceState(history.state, '', location.pathname + (q.toString()?'?'+q:''));
       route();
     });
   });
@@ -1762,7 +1769,7 @@ function go(path, replace=false){
     if(STATE.pending.region){ setScope('region', STATE.pending.region); }
     STATE.pending = null;
   }
-  history[replace?'replaceState':'pushState']({}, '', path + location.search);
+  history[replace?'replaceState':'pushState'](replace ? history.state : {wb:true}, '', path + location.search);
   route();
 }
 
@@ -2420,7 +2427,8 @@ function render(){
   const slice = Object.values(currentSlice()).map(sentence);
   const crumbs = [escapeHtml(title(kpi)), escapeHtml(where), ...slice.map(escapeHtml)];
   $('#crumb').innerHTML =
-    `<a href="#" id="crumbhome">Open findings</a>`
+    `<button type="button" class="back" id="crumbback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</button>`
+    + `<a href="/workbench" id="crumbhome">Open findings</a>`
     + crumbs.map(c => `<i>/</i><span>${c}</span>`).join('')
     + `<i>/</i><span class="crumbwin">${escapeHtml(series.days[0])} to ${
         escapeHtml(series.days.at(-1))}</span>`;
@@ -4118,6 +4126,14 @@ function showTip(mouseY){
 
 addEventListener('resize',()=>{ if(STATE.series) drawChart(); if(STATE.overview) drawSparks(); });
 boot();
+// Back goes to whatever page came before: an entry this page pushed (marked
+// wb, since the first entry also carries a state), or the
+// decision view that opened it. Opened from a link, it goes to the findings.
+document.addEventListener('click', e => {
+  if(!e.target.closest('#crumbback')) return;
+  const fromApp = document.referrer.startsWith(location.origin + '/');
+  if((history.state && history.state.wb) || fromApp) history.back(); else location.href = '/';
+});
 </script>
 </body>
 </html>

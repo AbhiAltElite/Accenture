@@ -45,6 +45,23 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-051 · The workbench lost the finding it was opened from, and its "Open findings" went nowhere
+**Found:** 2026-09-24, adding a Back button on request · **Severity:** P2, demo risk · **Status:** fixed
+
+**Root cause:** "Open in workbench" linked to `/kpi/<metric>` with nothing else,
+so a presenter on West, 13 to 15 Aug landed on all regions over the default
+ninety days and had to find the finding again on camera. The workbench already
+knew how to open on a day (the triage queue hands one over through
+`STATE.pending`); the link never used it. Separately, the breadcrumb's "Open
+findings" was `href="#"` with no handler, a link that did nothing.
+
+**Fix:** the link carries region, slice, a year of range and the headline's day,
+and the workbench reads `day` on boot. "Open findings" goes to `/workbench`.
+Every page with a breadcrumb has a Back button: it returns to the page before
+when that page was in the app (the decision view marks its history entries,
+the workbench marks the ones it pushes, since its first entry also carries a
+state), and otherwise goes to the findings rather than off the app.
+
 ### B-050 · Two decoy figures that read alike, and one cause listed twice
 **Found:** 2026-09-24, checking the track record before the finale · **Severity:** P2, Q&A risk · **Status:** open, documented
 

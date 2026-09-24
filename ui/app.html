@@ -161,7 +161,11 @@ details.scen .menu small{display:block;color:var(--ink-3);font-size:12.5px}
 .chain{display:flex;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);font-size:13.5px}
 
 /* finding */
-.crumbs{font-size:14px;color:var(--ink-3)}
+.crumbs{font-size:14px;color:var(--ink-3);display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.back{display:inline-flex;align-items:center;gap:4px;margin-right:12px;padding:5px 11px 5px 7px;font:inherit;font-size:14px;font-weight:600;
+  color:var(--ink-2);background:var(--paper);border:1px solid var(--line-2);border-radius:var(--r-sm);cursor:pointer}
+.back:hover{color:var(--ink);border-color:var(--ink-3)}
+.back svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .crumbs a{color:var(--ink-3)}
 .head{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:32px;align-items:start}
 /* Three by two, aligned: facts in a wrapping row jagged into four and two,
@@ -455,7 +459,11 @@ const myRole = () => S.me && S.me.identity ? S.me.identity.role : null;
 const myName = () => S.me && S.me.identity ? S.me.identity.name : '';
 
 /* ---------- routing ---------- */
-function go(url){ history.pushState({}, '', url); route(); }
+// Marked so Back knows an app page is behind this one. A finding opened from a
+// shared link has none, and Back then goes to the inbox rather than off the app.
+function go(url){ history.pushState({inapp:true}, '', url); route(); }
+function back(fallback){ if(history.state && history.state.inapp) history.back(); else go(fallback); }
+const backBtn = fallback => `<button type="button" class="back" data-back="${esc(fallback)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</button>`;
 let routed = location.pathname + location.search;
 addEventListener('popstate', () => {
   // A fragment-only change is a scroll within the page, never a new page.
@@ -463,6 +471,8 @@ addEventListener('popstate', () => {
   route();
 });
 document.addEventListener('click', e => {
+  const b = e.target.closest('[data-back]');
+  if(b){ back(b.dataset.back); return; }
   const a = e.target.closest('a[data-nav]');
   if(!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
   e.preventDefault(); go(a.getAttribute('href'));
@@ -658,6 +668,10 @@ async function finding(p, token){
   if(location.hash){ const el = document.getElementById(location.hash.slice(1)); if(el) el.scrollIntoView({block:'start'}); }
   refine(ctx, token);
 }
+/* The workbench opened on this finding: same region, slice and day, and a year
+   of series so a finding from months ago is still on the chart. */
+const benchLink = (f, worst) => `/kpi/${encodeURIComponent(f.kpi)}?${qs({region:f.region, channel:f.channel,
+  category:f.category, device:f.device, range:'365', day:(worst && worst.day) || f.end})}`;
 function worstDay(ser, f){
   if(!ser || !ser.anomalies) return null;
   const inWin = ser.anomalies.filter(a => a.day >= f.start && a.day <= f.end);
@@ -721,7 +735,7 @@ function findingView(ctx){
                : `<button type="button" class="btn primary" data-sign>${signLabel}</button>`}
       <div class="who">${canSign ? 'You are the accountable owner.' : `Signed by the ${esc(roleName(owner).toLowerCase())} only.`}</div>
       <a class="btn" href="/slide?${qs(ctx.base)}" target="_blank" rel="noopener">Board-pack slide</a>
-      <a class="btn" href="/kpi/${esc(f.kpi)}" >Open in workbench</a>
+      <a class="btn" href="${esc(benchLink(f, worst))}">Open in workbench</a>
     </div>`;
   const signedBar = signed ? `<div class="signed-bar${sig.unchanged ? '' : ' changed'}">
       <b>${sig.unchanged ? 'Signed' : 'Signed, but the evidence has changed'}</b>
@@ -734,7 +748,7 @@ function findingView(ctx){
     ? `<div class="withheld" style="margin-top:14px">Withheld for the ${esc(PERSONA_NAME[persona].toLowerCase())}: ${esc(d.withheld.join(', '))}. The evidence underneath is the same for every reader.</div>` : '';
   const own = S.me && ROLE_VIEW[S.me.identity.role];
   const note = own && own !== persona ? `<p class="viewnote" title="What you may sign or decide follows who you are signed in as, not the view.">Viewing as the ${esc(PERSONA_NAME[persona].toLowerCase())} · signed in as ${esc(myName().replace(' (demo)', ''))}</p>` : '';
-  return `<div class="crumbs"><a href="/?${qs({entitled:f.entitled})}" data-nav>Findings</a> / ${esc(kpiName(f.kpi))} / ${esc(scopeText(f))} / ${span(f.start, f.end)}</div>
+  return `<div class="crumbs">${backBtn('/?' + qs({entitled:f.entitled}))}<a href="/?${qs({entitled:f.entitled})}" data-nav>Findings</a> / ${esc(kpiName(f.kpi))} / ${esc(scopeText(f))} / ${span(f.start, f.end)}</div>
     ${note}<section class="panel head" style="margin-top:10px">
       <div>${pill(d.verdict, true)} ${scoped}
         <h1>${esc(headline(ctx))}</h1>
@@ -991,19 +1005,19 @@ function recordHtml(ctx){
 function refusalView(ctx){
   const d = (ctx.diag.data && ctx.diag.data.detail) || {};
   const msg = typeof d === 'string' ? d : (d.detail || 'This region is outside what you may see.');
-  return `<div class="crumbs"><a href="/?${qs({entitled:ctx.f.entitled})}" data-nav>Findings</a> / ${esc(kpiName(ctx.f.kpi))} / ${esc(scopeText(ctx.f))}</div>
+  return `<div class="crumbs">${backBtn('/?' + qs({entitled:ctx.f.entitled}))}<a href="/?${qs({entitled:ctx.f.entitled})}" data-nav>Findings</a> / ${esc(kpiName(ctx.f.kpi))} / ${esc(scopeText(ctx.f))}</div>
     <section class="panel refusal" style="margin-top:10px">${pill('refused', true)}
       <h1>Outside your entitlement</h1><p>${esc(msg)}</p>
       <p class="muted">The refusal happens before anything is computed, so no figure for this region exists to leak into a chart, a sentence or a slide.</p></section>`;
 }
 function detectedView(ctx){
   const {f, worst} = ctx;
-  return `<div class="crumbs"><a href="/" data-nav>Findings</a> / ${esc(kpiName(f.kpi))} / ${esc(scopeText(f))} / ${span(f.start, f.end)}</div>
+  return `<div class="crumbs">${backBtn('/')}<a href="/" data-nav>Findings</a> / ${esc(kpiName(f.kpi))} / ${esc(scopeText(f))} / ${span(f.start, f.end)}</div>
     <section class="panel" style="margin-top:10px">${pill('detected', true)}
       <h1>${esc(kpiName(f.kpi))} in ${esc(scopeText(f))} ${worst ? `moved ${pct(worst.pct)} ${worst.delta < 0 ? 'below' : 'above'} expected on ${dt(worst.day)}` : 'moved'}. The movement is real; a causal diagnosis is not available for this metric.</h1>
       <p class="muted" style="max-width:70ch">${esc(kpiName(f.kpi))} is ${({ratio:'a rate', count:'a count'})[(ctx.ser && ctx.ser.unit)] || 'not measured in rupees'}. The test that separates price, volume and mix applies to rupee metrics, so this movement is detected and prioritised, but its cause is not diagnosed here.</p>
       ${worst ? `<div class="facts"><div><span>Observed</span><b class="num">${fmtUnit(worst.observed, ctx.ser.unit)}</b></div><div><span>Expected</span><b class="num">${fmtUnit(worst.expected, ctx.ser.unit)}</b></div></div>` : ''}
-      <p style="margin-top:14px"><a class="btn" href="/kpi/${esc(f.kpi)}">See detection and freshness in the workbench</a></p></section>`;
+      <p style="margin-top:14px"><a class="btn" href="${esc(benchLink(f, worst))}">See detection and freshness in the workbench</a></p></section>`;
 }
 const fmtUnit = (v, u) => u === 'INR' ? inr(v) : u === 'ratio' ? `${(v*100).toFixed(1)}%` : Math.round(v).toLocaleString('en-IN');
 

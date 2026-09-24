@@ -179,6 +179,32 @@ async function fairTarget(){
   try{ frame.contentWindow.localStorage.removeItem('whychain-persona'); }catch{}
 }
 
+async function navigation(){
+  // Back returns to the page before; the workbench link keeps the finding.
+  const inbox = await open('/', d => d.querySelectorAll('.row').length);
+  const row = [...inbox.doc.querySelectorAll('.row')].find(r => /13 to 15 Aug/.test(r.textContent));
+  const problems = [];
+  if(!row) problems.push('the West 13 to 15 Aug finding is not in the inbox');
+  else {
+    (row.closest('a') || row.querySelector('a') || row).click();
+    const t0 = performance.now();
+    while(performance.now() - t0 < 15000 && !inbox.doc.querySelector('.back')) await sleep(100);
+    const link = [...inbox.doc.querySelectorAll('a.btn')].find(a => /workbench/i.test(a.textContent));
+    const href = link ? link.getAttribute('href') : '';
+    if(!/region=West/.test(href) || !/day=2026-08-15/.test(href)) problems.push(`workbench link "${href}" drops the finding`);
+    const back = inbox.doc.querySelector('.back');
+    if(!back) problems.push('no Back button on the finding');
+    else {
+      back.click(); await sleep(1500);
+      const at = inbox.win.location.pathname;
+      if(at !== '/') problems.push(`Back went to ${at}, not the inbox`);
+    }
+  }
+  if(inbox.errors.length) problems.push(`script error: ${inbox.errors[0]}`);
+  record('Navigation', 'Back returns to the inbox; the workbench opens on the finding', problems.length ? 'fail' : 'pass',
+    problems.join('; ') || 'Back to the inbox, and the workbench link carries West and 15 Aug.');
+}
+
 async function workbench(){
   const probe = await open('/workbench', (d, w) => Array.isArray(w.WHYCHAIN_DEMOS));
   const DEMOS = probe.win.WHYCHAIN_DEMOS;
@@ -213,7 +239,7 @@ async function slide(){
 document.getElementById('run').onclick = async e => {
   e.target.disabled = true; results.length = 0; document.getElementById('rows').innerHTML = '';
   const t0 = performance.now();
-  for(const step of [service, decisionView, fairTarget, workbench, slide]){
+  for(const step of [service, decisionView, fairTarget, navigation, workbench, slide]){
     try{ await step(); }catch(err){ record('Harness', step.name, 'fail', String(err && err.message || err)); }
   }
   frame.src = 'about:blank';
