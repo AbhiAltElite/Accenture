@@ -101,7 +101,7 @@ def write_ground_truth(
     path = target if target.suffix == ".json" else target / "cases.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = [asdict(s) for s in scenarios]
-    path.write_text(json.dumps(payload, indent=2, default=_json_default))
+    path.write_text(json.dumps(payload, indent=2, default=_json_default), encoding="utf-8")
     return path
 
 

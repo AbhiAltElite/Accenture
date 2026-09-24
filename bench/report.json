@@ -61,9 +61,9 @@
     "improved": true
   },
   "latency": {
-    "p50_seconds": 0.065,
-    "p95_seconds": 0.178,
-    "total_seconds": 11.9
+    "p50_seconds": 0.08,
+    "p95_seconds": 0.266,
+    "total_seconds": 16.1
   },
   "cases": [
     {

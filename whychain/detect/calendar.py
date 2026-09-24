@@ -31,9 +31,45 @@ HANGOVER_DAYS = 7
 HANGOVER_DEPTH = 0.25
 
 
+# Which country's public-holiday set a contract's declared calendar means.
+# `fiscal_in` is the Indian fiscal year, and the holidays that matter to a
+# business trading on it are India's.
+CALENDARS: dict[str, str] = {
+    "fiscal_in": "India", "india": "India", "in": "India",
+    "fiscal_uk": "UnitedKingdom", "uk": "UnitedKingdom", "gb": "UnitedKingdom",
+}
+DEFAULT_MARKET = "India"
+
+
+def market_for(calendar: str | None) -> str:
+    """The holiday market a declared calendar names, defaulting to the deployment's.
+
+    Declared values that are not calendars of a country, `gregorian` among them,
+    fall back rather than raise: a contract that says nothing about a market is
+    not making a claim about one.
+    """
+    return CALENDARS.get((calendar or "").strip().lower(), DEFAULT_MARKET)
+
+
+@lru_cache(maxsize=16)
+def holidays_for(market: str, years: tuple[int, ...]) -> holidays.HolidayBase:
+    """A market's public holidays, by name."""
+    return holidays.country_holidays(market, years=list(years))
+
+
 @lru_cache(maxsize=8)
 def _calendar(years: tuple[int, ...]) -> holidays.HolidayBase:
-    return holidays.India(years=list(years))
+    """The market the *detector* detrends against.
+
+    Deliberately `DEFAULT_MARKET` and not the contract's declared calendar. That
+    is B-033, and it is left open here on purpose: `festival_factor` feeds every
+    expected value, every robust z and therefore every published accuracy
+    figure, so changing which calendar it reads is a change that has to be
+    re-benchmarked rather than slipped in. `market_for` exists for readers that
+    only display a calendar, and the fix is to call it from here once there is
+    time to measure what moves.
+    """
+    return holidays_for(DEFAULT_MARKET, years)
 
 
 def festival_factor(days: pd.Series) -> np.ndarray:

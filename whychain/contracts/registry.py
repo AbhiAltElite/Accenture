@@ -74,7 +74,7 @@ def load_contract(
     path: Path, overlay: dict[str, float] | None = None
 ) -> KPIContract:
     try:
-        raw = yaml.safe_load(path.read_text())
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError as exc:
         raise ContractError(f"{path.name}: not valid YAML: {exc}") from exc
     if not isinstance(raw, dict):

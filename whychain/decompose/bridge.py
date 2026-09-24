@@ -20,6 +20,11 @@ base and moves composition. Price moves last, over the mix that actually
 occurred. The order matters: attribution is path dependent, and this order
 answers the question a reader is asking, which is what changed relative to how
 things used to be.
+
+Precondition: SKU net units must be non-negative (units >= 0). Net returns
+exceeding sales in a window invert volume weighting and break the algebraic
+identity. The engine refuses with BridgeError rather than emitting an invalid
+decomposition.
 """
 
 from __future__ import annotations

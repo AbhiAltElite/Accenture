@@ -513,7 +513,7 @@ def main() -> int:
                      "verified": list(o.verified), "error": o.error}
                     for o in outcomes
                 ],
-            }, indent=2, default=_jsonable))
+            }, indent=2, default=_jsonable), encoding="utf-8")
         print(f"written to {REPORT}")
     return 0
 

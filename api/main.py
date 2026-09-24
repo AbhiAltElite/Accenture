@@ -7,6 +7,10 @@ runs detection, and returns the result. No analysis happens here.
 from __future__ import annotations
 
 import json
+import logging
+import os
+import urllib.parse
+import urllib.request
 import warnings
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
@@ -14,21 +18,31 @@ from pathlib import Path
 from uuid import uuid4
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
+from api.middleware import METRICS, EnterpriseMiddleware
 from whychain import verticals
 from whychain.actions import decision_cards, simulate
+from whychain.audit import AuditLog, evidence_fingerprint
 from whychain.confidence import abstain, explained_movement, score
 from whychain.confidence.calibrate import Calibration
 from whychain.contracts import ContractError, ContractRegistry
 from whychain.corroborate import corroborate, scan
 from whychain.corroborate.model_extract import ModelExtractor
+from whychain.corroborate.quarantine import redact
 from whychain.corroborate.query import ModelQueryWriter
 from whychain.decompose import compute_bridge, contribution_by
 from whychain.decompose.bridge import BridgeError
-from whychain.detect import decompose_for, find_anomalies, material
+from whychain.detect import (
+    decompose_for,
+    festival_factor,
+    find_anomalies,
+    holidays_for,
+    market_for,
+    material,
+)
 from whychain.env import load_env
 from whychain.evidence import MethodClass, Unit
 from whychain.feedback import FeedbackStore, Judgement, new_feedback, proposals
@@ -39,6 +53,8 @@ from whychain.feedback.apply import (
     ApplyRefused,
     apply_proposal,
 )
+from whychain.identity import DEMO_USERS, Identity, effective_entitlement
+from whychain.identity import mode as identity_mode
 from whychain.ingest import IngestError, Warehouse
 from whychain.intent import interpret
 from whychain.llm import (
@@ -80,6 +96,20 @@ load_env()
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
 app = FastAPI(title="WhyChain", docs_url="/api/docs")
+# Identity, entitlement from identity, request ids, metrics and security
+# headers, for every request. See api/middleware.py.
+app.add_middleware(EnterpriseMiddleware)
+
+# One JSON line per request, to stderr, where a container platform collects it.
+# `WHYCHAIN_ACCESS_LOG=off` silences it for local work.
+if os.environ.get("WHYCHAIN_ACCESS_LOG", "on").lower() != "off":
+    _access = logging.getLogger("whychain.access")
+    if not _access.handlers:
+        _handler = logging.StreamHandler()
+        _handler.setFormatter(logging.Formatter("%(message)s"))
+        _access.addHandler(_handler)
+        _access.setLevel(logging.INFO)
+        _access.propagate = False
 UI = Path("ui")
 
 _retriever: object | None = None
@@ -988,11 +1018,16 @@ def document(
     # A record filed against a region is that region's record. Documents filed
     # against every region ("All") are readable by anyone entitled to any.
     doc_region = str(row["region"])
+    headline = _contract(vertical.headline_kpi, vertical)
     if doc_region not in ("All", "None", ""):
-        _refuse_outside_scope(
-            doc_region, scope, _contract(vertical.headline_kpi, vertical).owner_role
-        )
-    text = str(row["text"])
+        _refuse_outside_scope(doc_region, scope, headline.owner_role)
+    raw = str(row["text"])
+    # Masked for the person reading exactly as it was for the model: the same
+    # declared classes, the same patterns. It used to be returned raw, so a
+    # phone number the prompt never saw appeared in the evidence drawer, and a
+    # citation span measured on the masked text was highlighted on the raw one.
+    domains = headline.access_policy.domain_restriction
+    text, masked = redact(raw, domains)
     return {
         "doc_id": doc_id,
         "doc_type": str(row["doc_type"]),
@@ -1001,8 +1036,12 @@ def document(
         "region": str(row["region"]),
         "text": text,
         "length": len(text),
+        # What was scanned for and what was found, so "nothing masked" reads as
+        # a result rather than as a check that never ran.
+        "personal_data": {"scanned_for": list(domains), "masked": list(masked)},
         # Stated rather than assumed: the reader is being shown untrusted text.
-        "injection_flags": list(scan(text)),
+        # Scanned on the original, so a payload next to personal data keeps its flag.
+        "injection_flags": list(scan(raw)),
     }
 
 
@@ -1239,6 +1278,254 @@ def _lookback(event_start: date, baseline_days: int) -> date:
     return event_start - timedelta(
         days=baseline_days * 2 + PLACEBO_WINDOWS * 14 + 30
     )
+
+
+def _last_recorded(frame: pd.DataFrame | None, column: str) -> date | None:
+    """The most recent day a table carries, or None when it carries none."""
+    if frame is None or getattr(frame, "empty", True) or column not in frame.columns:
+        return None
+    stamps = pd.to_datetime(frame[column], errors="coerce", utc=True).dropna()
+    return stamps.max().date() if len(stamps) else None
+
+
+SEVERITY_ORDER = ("green", "yellow", "amber", "orange", "red")
+
+
+def _severity_rank(severity: str | None) -> int:
+    """How serious a warning claims to be. An unrecognised label sorts lowest."""
+    try:
+        return SEVERITY_ORDER.index(str(severity).strip().lower())
+    except ValueError:
+        return -1
+
+
+def _signal_days(signals) -> list[dict]:
+    """One marker per day and type, not one per warning.
+
+    A quiet quarter carries 178 separate weather warnings over 90 days, and a
+    strip drawn from those is a smear rather than a reading. Folding them to the
+    day keeps what a reader is actually asking, which is whether a warning
+    existed on that day and how much notice it gave, and moves the individual
+    cities into the detail where they belong.
+
+    The **longest** lead time survives the fold, not the average. The question
+    behind this strip is whether the movement could have been anticipated, and
+    the earliest warning is the one that answers it.
+    """
+    folded: dict[tuple, dict] = {}
+    for signal in signals:
+        day = signal.valid_from.date()
+        key = (day, signal.signal_type)
+        event = folded.setdefault(key, {
+            "day": day.isoformat(),
+            "kind": "signal",
+            "label": signal.signal_type.replace("_", " "),
+            "detail": "",
+            "count": 0,
+            "severity": signal.severity,
+            "lead_time_hours": 0.0,
+            "publisher": signal.publisher,
+            "source_url": signal.source_url,
+            "_cities": set(),
+            "_regions": set(),
+        })
+        event["count"] += 1
+        event["_cities"].add(str(signal.city))
+        event["_regions"].add(str(signal.region))
+        if signal.lead_time_hours > event["lead_time_hours"]:
+            event["lead_time_hours"] = signal.lead_time_hours
+        if _severity_rank(signal.severity) > _severity_rank(event["severity"]):
+            event["severity"] = signal.severity
+
+    out = []
+    for event in folded.values():
+        cities = sorted(event.pop("_cities"))
+        regions = sorted(event.pop("_regions"))
+        event["regions"] = regions
+        event["lead_time_hours"] = round(event["lead_time_hours"], 1)
+        shown = ", ".join(cities[:4]) + (f" and {len(cities) - 4} more" if len(cities) > 4 else "")
+        event["detail"] = (
+            f"{shown}. {event['publisher']} issued the earliest of these "
+            f"{event['lead_time_hours']} hours before it took effect."
+        )
+        out.append(event)
+    return out
+
+
+def _promotions(plan, lo: date, hi: date, category: str | None) -> list[dict]:
+    """Weeks the plan has a promotion running, between two days."""
+    if plan is None or getattr(plan, "empty", True) or "promo_active" not in plan:
+        return []
+    weeks = plan.copy()
+    weeks["week"] = pd.to_datetime(weeks["week"]).dt.date
+    weeks = weeks[weeks["promo_active"].fillna(False).astype(bool)]
+    weeks = weeks[(weeks["week"] > lo) & (weeks["week"] <= hi)]
+    if category and "category" in weeks.columns:
+        weeks = weeks[weeks["category"] == category]
+    out: dict[tuple, dict] = {}
+    for row in weeks.itertuples():
+        # One promotion runs across a region's categories as several rows. The
+        # reader wants the promotion, so they are folded back into one event and
+        # the spend is summed rather than shown five times.
+        key = (row.week, getattr(row, "promo_id", None))
+        event = out.setdefault(key, {
+            "day": row.week.isoformat(),
+            "kind": "promotion",
+            # "promo-monsoon-sale" reads as "Monsoon sale promotion".
+            "label": (str(getattr(row, "promo_id", "") or "").removeprefix("promo-")
+                      .replace("-", " ").strip().capitalize() + " promotion").strip(),
+            "detail": "",
+            "spend": 0.0,
+            "regions": set(),
+            "categories": set(),
+        })
+        event["spend"] += float(getattr(row, "marketing_spend", 0.0) or 0.0)
+        if getattr(row, "region", None):
+            event["regions"].add(str(row.region))
+        if getattr(row, "category", None):
+            event["categories"].add(str(row.category))
+    events = []
+    for event in out.values():
+        regions = sorted(event.pop("regions"))
+        categories = sorted(event.pop("categories"))
+        event["detail"] = (
+            f"Planned, across {', '.join(c.replace('_', ' ') for c in categories) or 'all categories'}"
+            f"{' in ' + ', '.join(regions) if regions else ''}."
+        )
+        event["spend"] = round(event["spend"], 2)
+        events.append(event)
+    return events
+
+
+def _calendar_events(market: str, lo: date, hi: date) -> list[dict]:
+    """Public holidays between two days, with the uplift the detector applies.
+
+    The uplift is read from `festival_factor`, the same function that divides
+    the calendar out before anything is estimated, so the figure shown is the
+    figure used rather than a second opinion about it. A holiday the weights do
+    not name comes back at 1.0, and it is reported as unmodelled rather than
+    hidden: a reader judging whether a movement was foreseeable needs to know
+    which dates the expected line already accounts for and which it does not.
+    """
+    if hi < lo:
+        return []
+    cal = holidays_for(market, tuple(range(lo.year, hi.year + 1)))
+    days = sorted(d for d in cal if lo <= d <= hi)
+    if not days:
+        return []
+    factors = festival_factor(pd.Series(pd.to_datetime(days)))
+    events = []
+    for day, factor in zip(days, factors, strict=True):
+        uplift = round(float(factor) - 1.0, 4)
+        events.append({
+            "day": day.isoformat(),
+            "kind": "calendar",
+            "label": str(cal[day]),
+            "detail": (
+                f"The expected line already carries {uplift:+.0%} for this day."
+                if uplift else "On the calendar. No uplift is modelled for it."
+            ),
+            "uplift": uplift,
+            "modelled": bool(uplift),
+        })
+    return events
+
+
+@app.get("/api/calendar")
+def calendar_band(
+    kpi: str = Query("net_revenue"),
+    region: str | None = None,
+    category: str | None = None,
+    frm: date | None = Query(None, alias="from"),
+    to: date | None = None,
+    ahead: int = Query(120, ge=0, le=400, description="days to look forward"),
+    industry: str | None = Query(None, description="which industry to read"),
+    entitled: str | None = Query(None, description="comma-separated regions"),
+) -> dict:
+    """Dated events either side of the window: what was known, and what is coming.
+
+    Two halves, and they are not symmetrical, which is the whole design.
+
+    **Behind** the window are things that were *published before the movement
+    happened*: warnings with a named publisher, a source URL and a measurable
+    lead time, promotions the plan says were running, and the calendar the
+    expectation is fitted to. This is the foreseeability answer made visible.
+    The signal-gap stage already computes it; here a reader can see the warning
+    sitting two days before the day it is looking at.
+
+    **Ahead** of the window are only things that are *already committed or
+    already dated*: the public calendar, which is computable for any year, and
+    promotions the plan carries forward. **No warning signal is ever reported
+    ahead.** There is no forecast here and none is implied: a warning that
+    appears in the warehouse after the window end is hindsight, and showing it
+    as something upcoming would be the engine claiming knowledge it did not have
+    at the time. The response says so in `note` rather than leaving a reader to
+    assume otherwise.
+
+    Read-only, and nothing here feeds detection or ranking.
+    """
+    vertical = _vertical(industry)
+    contract = _contract(kpi, vertical)
+    scope = _entitlement_scope(entitled)
+    _refuse_outside_scope(region, scope, contract.owner_role)
+
+    try:
+        with warehouse(vertical) as wh:
+            ext = wh.table("ext_signals")
+            plan = wh.table("plan_ops")
+    except IngestError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+    ext = _within_scope(ext, scope)
+    plan = _within_scope(plan, scope)
+    if region and ext is not None and "region" in getattr(ext, "columns", ()):
+        ext = ext[ext["region"] == region]
+    if region and plan is not None and "region" in getattr(plan, "columns", ()):
+        plan = plan[plan["region"] == region]
+
+    # The reader's "now" is the end of the window under review, not the clock.
+    # Anchoring on today would put a demo warehouse's whole history behind an
+    # empty forward half.
+    end = (
+        to
+        or _last_recorded(plan, "week")
+        or _last_recorded(ext, "valid_from")
+        or datetime.now(tz=UTC).date()
+    )
+    start = frm or end - timedelta(days=90)
+    horizon = end + timedelta(days=ahead)
+
+    market = market_for(contract.calendar)
+
+    behind: list[dict] = _signal_days(
+        read_signals(ext, window=(start, end), region=region)
+    )
+    behind += _promotions(plan, start - timedelta(days=1), end, category)
+    behind += _calendar_events(market, start, end)
+    behind.sort(key=lambda e: e["day"])
+
+    forward: list[dict] = _promotions(plan, end, horizon, category)
+    forward += _calendar_events(market, end + timedelta(days=1), horizon)
+    forward.sort(key=lambda e: e["day"])
+
+    return {
+        "kpi_id": contract.kpi_id,
+        "window": {"from": start.isoformat(), "to": end.isoformat()},
+        "horizon": horizon.isoformat(),
+        # Both, because they can disagree. The contract declares a calendar and
+        # the detector does not read it (B-033); this endpoint does, so a reader
+        # can see which market the dates on screen belong to.
+        "calendar": contract.calendar,
+        "market": market,
+        "behind": behind,
+        "ahead": forward,
+        "note": (
+            "Ahead of the window this shows only what is already dated or "
+            "already committed: the public calendar, and promotions the plan "
+            "carries. No warning signal is reported ahead, because a warning "
+            "recorded after the window is hindsight rather than notice."
+        ),
+    }
 
 
 @app.get("/api/decomposition")
@@ -2019,7 +2306,10 @@ def diagnose(
         "signal_gap": gap.as_dict(),
         "reconciliation": agreement.as_dict(),
         "set_aside": [
-            {"candidate_id": c.candidate_id, "reason": why} for c, why in set_aside
+            # The description is for readers; the prompt builder reads only the
+            # id and the reason, so adding it leaves every cached answer valid.
+            {"candidate_id": c.candidate_id, "description": c.description, "reason": why}
+            for c, why in set_aside
         ],
         "verified": [
             {
@@ -2168,6 +2458,10 @@ def diagnose(
     with tel.stage("project", MethodClass.DETERMINISTIC) as t:
         projected = project(result, who, entitled_regions=scope)
         t.note = f"persona {who.value}"
+    # Of the full evidence, not the projection, so every reader of the same run
+    # sees the same value, and a signature can be checked against it without
+    # running the diagnosis a second time.
+    projected["evidence_fingerprint"] = evidence_fingerprint(result)
     return projected
 
 
@@ -2320,11 +2614,339 @@ def read_feedback(run_id: str | None = None) -> dict:
 # tells a browser a new version exists. Heuristic caching then served a page from
 # before a fix -- a refusal rendered by the old script on top of the new API --
 # which is the worst moment to learn the fix is not what the reader sees.
+# --- accountability: identity, sign-off, decisions, audit -------------------
+#
+# The engine drafts; a person decides. These endpoints record who decided what,
+# on which evidence, into the hash-chained log in `whychain.audit`. Nothing here
+# executes an action: accepting a decision card records the acceptance and
+# nothing else, exactly as the card says.
+
+_audit = AuditLog()
+
+
+def _who(request: Request) -> Identity:
+    who = request.scope.get("state", {}).get("identity")
+    if who is None:  # only reachable if the middleware is removed
+        raise HTTPException(401, "no identity on this request")
+    return who
+
+
+def _finding_run(body: dict, entitled: str | None) -> dict:
+    """The deterministic run a signature or decision refers to, recomputed here.
+
+    Recomputed rather than accepted from the browser, so what is recorded is
+    what the engine finds now, not what a client says it found. Every parameter
+    is passed, because FastAPI's defaults are objects when a handler is called
+    as a function (B-040).
+    """
+    try:
+        start = date.fromisoformat(str(body["start"]))
+        end = date.fromisoformat(str(body["end"]))
+    except (KeyError, ValueError):
+        raise HTTPException(422, "start and end are required, as YYYY-MM-DD") from None
+    return diagnose(
+        kpi=str(body.get("kpi") or "net_revenue"), region=body.get("region") or None,
+        channel=body.get("channel") or None, device=body.get("device") or None,
+        category=body.get("category") or None, event_start=start, event_end=end,
+        baseline_days=14, persona="analyst", entitled=entitled, price_delta=-0.05,
+        horizon_days=14, backend="none", llm_model=None,
+        industry=body.get("industry") or None,
+    )
+
+
+def _subject(run: dict, body: dict) -> dict:
+    return {
+        "industry": body.get("industry") or "retail",
+        "kpi_id": run.get("kpi_id"),
+        "region": run.get("region"),
+        "slice": {k: body.get(k) for k in ("channel", "device", "category") if body.get(k)},
+        "window": run.get("window"),
+    }
+
+
+@app.get("/api/me")
+def me(request: Request) -> dict:
+    """Who the console is acting as, how that was established, and who else it may be."""
+    who = _who(request)
+    return {
+        "identity": who.as_dict(),
+        "mode": identity_mode(),
+        "demo_users": (
+            [{"id": k, "name": n, "role": r} for k, (n, r) in DEMO_USERS.items()]
+            if identity_mode() == "demo" else []
+        ),
+    }
+
+
+@app.get("/api/trackrecord")
+def trackrecord() -> dict:
+    """How well the engine does what it does, from the last benchmark run.
+
+    Read from the report `make bench` writes, never typed. The first thing an
+    enterprise reader should be told is how often the tool is wrong.
+    """
+    path = Path("bench/report.json")
+    if not path.exists():
+        raise HTTPException(404, "no benchmark report; run make bench")
+    report = json.loads(path.read_text(encoding="utf-8"))
+    rates, counts = report.get("rates", {}), report.get("counts", {})
+    fit = report.get("calibration_fit") or {}
+    return {
+        "cases": counts.get("cases"),
+        "noise_explained": rates.get("false_alarm_rate"),
+        "decoys_rejected": rates.get("negative_control_rejection"),
+        "true_cause_verified": rates.get("topk_accuracy"),
+        "true_cause_first": rates.get("top1_accuracy"),
+        "abstention_precision": rates.get("abstention_precision"),
+        "abstention_recall": rates.get("abstention_recall"),
+        "calibration_error": fit.get("ece_after"),
+        "measured_at": datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).date().isoformat(),
+        "source": "bench/report.json, written by make bench",
+    }
+
+
+@app.post("/api/signoff")
+def signoff(payload: dict, request: Request) -> dict:
+    """Sign a finding. Only the metric's accountable owner may.
+
+    Signing records the evidence fingerprint of a fresh deterministic run, so a
+    later change to the data under the finding is detectable (see `GET`).
+    """
+    who = _who(request)
+    vertical = _vertical(payload.get("industry"))
+    contract = _contract(str(payload.get("kpi") or "net_revenue"), vertical)
+    if who.role != contract.owner_role:
+        raise HTTPException(403, {
+            "refused": f"only {role(contract.owner_role)} signs a {label(contract.kpi_id)} finding",
+            "accountable": contract.owner_role,
+            "you": who.role,
+        })
+    run = _finding_run(payload, effective_entitlement(who, payload.get("entitled")))
+    statement = {
+        "explained": "The movement and its verified causes are accepted for reporting.",
+        "unknown": "The movement is accepted as real and its cause as not yet established.",
+        "contradicted": "The two systems disagree; the movement is not accepted as real.",
+    }.get(str(run.get("verdict")), "Reviewed.")
+    entry = _audit.append(
+        "finding_signed", who.as_dict(), _subject(run, payload),
+        {
+            "verdict": run.get("verdict"),
+            "statement": statement,
+            "evidence": evidence_fingerprint(run),
+            "run_id": run.get("run_id"),
+            "note": str(payload.get("note") or "")[:500],
+        },
+    )
+    return {"signed": entry, "chain": _audit.verify()}
+
+
+@app.get("/api/signoff")
+def signoff_status(
+    request: Request,
+    kpi: str = Query("net_revenue"),
+    region: str | None = None,
+    start: date = Query(...),
+    end: date = Query(...),
+    channel: str | None = None,
+    device: str | None = None,
+    category: str | None = None,
+    industry: str | None = None,
+    entitled: str | None = None,
+    evidence: str | None = Query(None, description="a diagnosis's evidence_fingerprint"),
+    verify: bool = Query(False, description="re-run the diagnosis to check"),
+) -> dict:
+    """The latest signature on a finding, and whether its evidence still holds.
+
+    Cheap by default: it reads the log. Pass `evidence` (the fingerprint a
+    diagnosis response carries) and it says whether that matches what was
+    signed; pass `verify=true` and it re-runs the diagnosis itself.
+    """
+    who = _who(request)
+    vertical = _vertical(industry)
+    contract = _contract(kpi, vertical)
+    body = {"kpi": kpi, "region": region, "start": start.isoformat(), "end": end.isoformat(),
+            "channel": channel, "device": device, "category": category, "industry": industry}
+    # Entitlement still applies: a reader may not learn that a region they
+    # cannot see was signed.
+    _refuse_outside_scope(region, _entitlement_scope(effective_entitlement(who, entitled)),
+                          contract.owner_role)
+    subject = {
+        "industry": industry or "retail", "kpi_id": contract.kpi_id, "region": region,
+        "slice": {k: body[k] for k in ("channel", "device", "category") if body[k]},
+        "window": {"from": body["start"], "to": body["end"]},
+    }
+    signed = [e for e in _audit.for_subject(**subject) if e["event"] == "finding_signed"]
+    latest = signed[-1] if signed else None
+    now = evidence
+    if verify:
+        now = evidence_fingerprint(_finding_run(body, effective_entitlement(who, entitled)))
+    return {
+        "signed": latest,
+        "evidence_now": now,
+        "unchanged": (latest["payload"]["evidence"] == now) if latest and now else None,
+        "accountable": contract.owner_role,
+    }
+
+
+@app.post("/api/decision")
+def decide(payload: dict, request: Request) -> dict:
+    """Accept, modify or reject one decision card. Records; never executes.
+
+    Only the role the card is assigned to may decide it. That is the decision
+    right the contract already declares for the driver, enforced rather than
+    printed.
+    """
+    who = _who(request)
+    choice = str(payload.get("decision", "")).lower()
+    if choice not in ("accept", "modify", "reject"):
+        raise HTTPException(422, "decision must be accept, modify or reject")
+    if choice == "modify" and not str(payload.get("note", "")).strip():
+        raise HTTPException(422, "a modification needs a note saying what changes")
+    run = _finding_run(payload, effective_entitlement(who, payload.get("entitled")))
+    card = next((c for c in run.get("decisions", [])
+                 if (c.get("approval") or {}).get("action_id") == payload.get("action_id")), None)
+    if card is None:
+        raise HTTPException(404, f"no decision card {payload.get('action_id')!r} on this finding")
+    assigned = card["approval"]["assigned_to"]
+    if who.role != assigned:
+        raise HTTPException(403, {
+            "refused": f"this decision belongs to {role(assigned)}",
+            "assigned_to": assigned,
+            "you": who.role,
+        })
+    entry = _audit.append(
+        {"accept": "decision_accepted", "modify": "decision_modified",
+         "reject": "decision_rejected"}[choice],
+        who.as_dict(), _subject(run, payload),
+        {
+            "action_id": card["approval"]["action_id"],
+            "action": card["action"],
+            "expected_recovery_inr_per_day": card.get("expected_recovery_inr_per_day"),
+            "note": str(payload.get("note") or "")[:500],
+            "evidence": evidence_fingerprint(run),
+            "executed": False,
+        },
+    )
+    return {"recorded": entry}
+
+
+@app.get("/api/audit")
+def audit_log(
+    kpi: str | None = None,
+    region: str | None = None,
+    industry: str | None = None,
+) -> dict:
+    """The accountability record, newest first, with the chain's integrity."""
+    entries = _audit.entries()
+    if kpi:
+        entries = [e for e in entries if e["subject"].get("kpi_id") == kpi]
+    if region:
+        entries = [e for e in entries if e["subject"].get("region") == region]
+    if industry:
+        entries = [e for e in entries if e["subject"].get("industry") == industry]
+    return {"entries": list(reversed(entries)), "chain": _audit.verify()}
+
+
+def _adaptive_card(card: dict, run: dict, link: str) -> dict:
+    """A Microsoft Teams Adaptive Card for one decision, awaiting its owner."""
+    rec = card.get("expected_recovery_inr_per_day")
+    return {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.5",
+        "body": [
+            {"type": "TextBlock", "text": "Decision awaiting approval", "weight": "Bolder",
+             "size": "Medium"},
+            {"type": "TextBlock", "wrap": True, "text": card["action"]},
+            {"type": "FactSet", "facts": [
+                {"title": "Verified cause", "value": sentence_case(card["cause"].split(": ", 1)[-1])},
+                {"title": "Owner", "value": sentence_case(role(card["approval"]["assigned_to"]).removeprefix("the "))},
+                {"title": "Expected recovery",
+                 "value": f"₹{rec:,.0f} a day" if rec is not None else "not computed"},
+                {"title": "Finding", "value":
+                    f"{sentence_case(label(run['kpi_id']))}, {run.get('region') or 'all regions'}, "
+                    f"{run['window']['from']} to {run['window']['to']}"},
+            ]},
+            {"type": "TextBlock", "wrap": True, "isSubtle": True, "size": "Small",
+             "text": "Drafted by WhyChain. Nothing executes until the owner approves."},
+        ],
+        "actions": [{"type": "Action.OpenUrl", "title": "Review in WhyChain", "url": link}],
+    }
+
+
+@app.post("/api/dispatch/teams")
+def dispatch_teams(payload: dict, request: Request) -> dict:
+    """Send a decision card to its owner in Microsoft Teams, or show what would be sent.
+
+    Posts to the incoming webhook in `WHYCHAIN_TEAMS_WEBHOOK` when one is set.
+    With none, returns the exact card and says it was not sent: the delivery is
+    real code, and the page never claims a message left the building when it
+    did not.
+    """
+    who = _who(request)
+    run = _finding_run(payload, effective_entitlement(who, payload.get("entitled")))
+    card = next((c for c in run.get("decisions", [])
+                 if (c.get("approval") or {}).get("action_id") == payload.get("action_id")), None)
+    if card is None:
+        raise HTTPException(404, f"no decision card {payload.get('action_id')!r} on this finding")
+    # The link is the address this request arrived on, or the public one the
+    # deployment declares, so a card never points at a laptop's loopback.
+    public = os.environ.get("WHYCHAIN_PUBLIC_URL", "").rstrip("/") or str(request.base_url).rstrip("/")
+    window = run.get("window") or {}
+    link = f"{public}/finding?" + urllib.parse.urlencode({k: v for k, v in {
+        "kpi": run.get("kpi_id"), "region": run.get("region"), "start": window.get("from"),
+        "end": window.get("to"), "industry": payload.get("industry")}.items() if v})
+    content = _adaptive_card(card, run, link)
+    webhook = os.environ.get("WHYCHAIN_TEAMS_WEBHOOK", "").strip()
+    sent, detail = False, "No Teams webhook is configured, so nothing was sent."
+    if webhook:
+        message = {"type": "message", "attachments": [{
+            "contentType": "application/vnd.microsoft.card.adaptive", "content": content}]}
+        try:
+            req = urllib.request.Request(
+                webhook, data=json.dumps(message).encode(),
+                headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                sent, detail = 200 <= resp.status < 300, f"Teams answered HTTP {resp.status}."
+        except Exception as exc:  # the reason is the answer
+            detail = f"Teams could not be reached: {type(exc).__name__}."
+        if sent:
+            _audit.append("card_dispatched", who.as_dict(), _subject(run, payload),
+                          {"action_id": card["approval"]["action_id"], "channel": "teams"})
+    return {"sent": sent, "detail": detail, "card": content}
+
+
+@app.get("/api/metrics")
+def metrics() -> PlainTextResponse:
+    """Request counts and latency, in the format Prometheus scrapes."""
+    return PlainTextResponse(METRICS.render())
+
+
 _NO_CACHE = {"Cache-Control": "no-cache"}
 
 
 @app.get("/")
+@app.get("/finding")
 def index() -> FileResponse:
+    """The decision view: findings to act on, then one finding at a time."""
+    return FileResponse(UI / "app.html", headers=_NO_CACHE)
+
+
+@app.get("/slide")
+def slide() -> FileResponse:
+    """One finding as a board-pack slide, laid out for print to PDF."""
+    return FileResponse(UI / "slide.html", headers=_NO_CACHE)
+
+
+@app.get("/uat")
+def uat() -> FileResponse:
+    """Acceptance checks that run in the browser against every scenario."""
+    return FileResponse(UI / "uat.html", headers=_NO_CACHE)
+
+
+@app.get("/workbench")
+def workbench() -> FileResponse:
+    """The analyst's workbench: every method section, the scenarios, the receipt."""
     return FileResponse(UI / "index.html", headers=_NO_CACHE)
 
 

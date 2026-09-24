@@ -60,6 +60,13 @@ _DOMAIN_PATTERNS: dict[str, tuple[tuple[str, str], ...]] = {
     # card number in the prompt.
     "pii": (
         (r"[\w.+-]+@[\w-]+\.[\w.]+", "[email]"),
+        # A UPI handle is an address with no dot after the @ ("name@okhdfcbank",
+        # "98xxxxxxxx@ybl"), so the email shape misses it. Placed before the
+        # phone pattern, or a number-based handle loses its digits to [phone]
+        # and leaves "@ybl" behind.
+        (r"\b[\w.-]{2,}@[a-zA-Z][a-zA-Z0-9]+\b(?![.@\w-])", "[upi]"),
+        # Permanent Account Number: five letters, four digits, one letter.
+        (r"\b[A-Z]{5}[0-9]{4}[A-Z]\b", "[pan]"),
         # Card-shaped runs, in groups or unbroken. Never legitimate in a ticket.
         (r"\b(?:\d[ -]?){15,18}\d\b", "[card]"),
         (r"\b\d{4}[ -]\d{4}[ -]\d{4}[ -]\d{4}\b", "[card]"),
