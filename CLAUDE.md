@@ -17,17 +17,34 @@ Innovation Challenge 2026, team CtrlAltReinvent, IIT Hyderabad. **Grand Finale
 ## Run it
 
 ```bash
-./run.sh
+./run.sh          # terminal, console at http://localhost:8000
+make app          # builds WhyChain.app: double-click, opens in its own window
 ```
 
-Console at `http://localhost:8000`. `make test` (512), `make smoke` (gates a
-demo), `make bench`, `make audit`, `make lint`, `make real-data`.
+Two views. `/` is the **decision view**: findings inbox, one finding at a
+time, sign-off, decisions, board-pack slide (`/slide`). `/workbench` is the
+analyst's full method page with the twelve `?demo=` scenarios.
+
+`make test` (558), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
+server), `make bench`, `make audit`, `make lint`, `make real-data`. `/uat` in
+any browser runs the acceptance checks against every scenario and persona.
+
+On another PC: `make package` builds `dist/WhyChain-portable.zip` (code, data,
+AI cache and the `.env` key: USB or AirDrop only). There, double-click, then
+`python app/launch.py --check` should end "9 of 9". `app/launch.py` is the
+launcher for all platforms.
 
 `make prepare` computes each contract's lineage once at ingest. It is idempotent
 and runs automatically from `gen`, `gen-all` and `run.sh`. A warehouse that has
 not been prepared still reads correctly, just slower.
 
-Before any demo: `make warm-ai`, then `make smoke`.
+Before any demo: `make warm-ai` (must end "All 7 cases warm"), `make
+demo-reset`, then `/uat` (must be all pass).
+
+Accountability: sign-off, decisions and dispatch go to a hash-chained log
+(`whychain/audit`). Identity is a demo picker unless `WHYCHAIN_IDENTITY=proxy`,
+where a single-sign-on proxy's headers decide who the reader is and which
+regions they see. See `whychain/identity.py`.
 
 ## Non-negotiables
 

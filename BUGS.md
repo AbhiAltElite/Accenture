@@ -35,11 +35,159 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 | T-25 | A design or docs check that greps for an exact sentence of prose | scripts/audit.py | It breaks the next time the prose improves, and it reports a copy edit as a governance failure (B-032). Assert the *claim* is present by a robust marker, or accept that the sentence is now a fixed asset and say so beside it |
 | T-24 | A control offered on one endpoint's parameters and not on its neighbours' | api, UI | `/api/series` took channel and device and silently ignored category; `/api/overview` and `/api/triage` took none of them while the console sent all three. The reader changes a control and the figures do not move (B-031). A filter is applied by one helper that **raises** when a declared dimension is missing from the frame, rather than by a per-endpoint loop that skips what it cannot find |
 | T-23 | Comparing two sources at different grains and calling the difference a disagreement | reconcile, api | A channel-sliced revenue series against a ledger that posts by region is a 68% "contradiction" that means only that one side was sliced. Narrow the second source by every dimension it has, and decline the comparison when the reader asked for one it does not (B-030). A false refusal costs more than a false explanation here, because refusal is what this engine asks to be trusted on |
+| T-29 | A handler called in-process as a Python function | api, scripts | FastAPI parameters declared as `Query(...)` arrive as `Query` objects, which are truthy, when the handler is called directly rather than over HTTP. Every parameter the caller omits becomes a filter for a slice that does not exist (B-040). Call through `TestClient`, or pass every parameter explicitly, and never report success without checking the response |
+| T-30 | A demo scenario is data, and data drifts | ui, datagen | A button's label promises an outcome its coordinates no longer produce: a gap on a metric that cannot be diagnosed, a refusal that crashes the page (B-039, B-041). Scenario coordinates are read out of the page by a test that asserts each one's promised outcome (`tests/test_scenarios.py`), and the rendered page is checked in a browser (`/uat`) |
+| T-31 | A page sentence composed from a template that is true only for some results | ui | "No cause survived testing" was printed over two causes that had passed testing, and "nothing external warned of this" over a verdict one of whose three causes is that a warning was received (B-044, B-045). Every fixed sentence is checked against every value its inputs can take, or the engine's own reason is shown instead |
 | T-18 | A benchmark result that improved for a reason nobody checked | bench, datagen | Numbers that move the flattering way get accepted; numbers that move the other way get investigated. A harness defect usually shows up as the former. Any invariant the generator depends on is executed by a test, never only stated in a docstring (see B-014) |
 
 ---
 
 ## Defects
+
+### B-048 · The evidence drawer showed tickets unmasked
+**Found:** 2026-09-24, adding PAN and UPI patterns · **Severity:** P1 · **Status:** fixed
+
+**Root cause:** personal data was masked at the quarantine boundary, before a
+ticket became prompt tokens, and nowhere else. `/api/document` returned the raw
+text, so an email or phone number the model never saw was shown to whoever
+opened the source in the drawer. Citation spans are measured on the masked text,
+so on a ticket that held personal data the highlight also landed in the wrong
+place. UPI handles (no dot after the @) and PAN numbers were not caught at all.
+
+**Fix:** the endpoint masks with the contract's declared classes and says what
+it scanned for and what it masked, and both drawers print that. UPI and PAN
+patterns added, UPI ahead of the phone pattern so a number-based handle is
+masked whole. `tests/test_personal_data.py`, verified to fail with the endpoint
+returning raw text. No synthetic ticket holds personal data, so no prompt, and
+no cached answer, changed.
+
+### B-047 · "These causes overlap" named one of two reasons their sizes exceed the fall
+**Found:** 2026-09-24, from a question in review · **Severity:** P2, Q&A risk · **Status:** fixed in the page
+
+**Symptom:** three causes of −₹26,821, −₹23,391 and −₹14,169 a day against a net
+fall of −₹36,381: 177%, and the page said only that they overlap.
+
+**Root cause:** two things make the sizes exceed the fall. The pricing cause is
+unscoped, so its sales sit inside the app and store slices the other two are
+measured on: overlap. And each cause is sized by difference-in-differences
+against regions it did not touch, which rose over those days, while the net fall
+is against the fortnight before: the release bug is sized at −₹26,821 against an
+app channel whose raw fall was −₹23,763. The second is the larger effect.
+
+**Fix:** the decision view says both. The engine's confidence caveat still says
+"overlap" only; changing it would change prompt inputs and the demo cache, so it
+is left for after the finale. An additive (Shapley) split is the real fix.
+
+### B-046 · Files read without an encoding break on Windows
+**Found:** 2026-09-24, preparing the portable package · **Severity:** P1 on Windows · **Status:** fixed
+
+**Symptom:** none on macOS or Linux; predicted, not observed, on Windows.
+
+**Root cause:** seven `read_text()`, `write_text()` and `open()` calls named no
+encoding, including the one in `ContractRegistry` that loads every contract.
+Python on Windows decodes those as cp1252, so any non-ASCII byte in a contract,
+the rupee sign among them, fails or garbles on load.
+
+**Fix:** `encoding="utf-8"` at all seven sites, found with an AST scan rather
+than grep so multi-line calls were not missed. The launcher also runs every
+child process in UTF-8 mode (`PYTHONUTF8=1`), which covers printing ₹ to a
+Windows console.
+
+### B-045 · A fixed "no gap" sentence contradicted one of the verdicts it described
+**Found:** 2026-09-24, content review of the decision view · **Severity:** P2 · **Status:** fixed
+
+**Root cause:** the decision view printed "nothing external warned of this" for
+every `no_gap`. The engine returns `no_gap` from three places, and one of them
+means a warning *was* published and the planning process *did* receive it. The
+page would have told a reader the opposite of the engine.
+
+**Fix:** a neutral heading per verdict, with the engine's own reason beneath it
+in every case. Trap T-31.
+
+### B-044 · "No cause survived testing" over two causes that had
+**Found:** 2026-09-24, value test of the decision view · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** West, app channel, 12 to 20 Aug. The headline said no cause
+survived testing; the engine had verified two, pulling in opposite directions
+(a release bug and its rollback) and together covering 39% of the movement, which
+is why it abstained.
+
+**Root cause:** the Unknown layout assumed an abstention means nothing was
+verified, and did not render verified causes at all, hiding evidence the engine
+found. The value test compared the causes on screen with the API and failed.
+
+**Fix:** the headline says how many causes passed and how little they explain,
+and the page shows them sized, under "Passed testing, but not enough to explain
+it", with the causes set aside for the slice beside them.
+
+### B-043 · The decision view sent an empty entitlement and every sign-off was refused
+**Found:** 2026-09-24, interaction test · **Severity:** P1 · **Status:** fixed
+
+**Root cause:** the page built its request body from the URL, including
+`entitled: ""` when the URL had none. The server reads a present but empty
+entitlement as "entitled to nothing", on purpose (an earlier fix closed the hole
+where `entitled=` switched the restriction off), so it refused.
+
+**Fix:** the client drops empty fields. The server rule stays, and
+`test_an_empty_entitlement_in_a_body_grants_nothing` holds it.
+
+### B-042 · A scoped reader's ranking crashed the workbench render
+**Found:** 2026-09-24, clicking every scenario · **Severity:** P1, on stage · **Status:** fixed
+
+**Symptom:** `?demo=entitled` showed the headline and nothing below it.
+
+**Root cause:** for a reader entitled to some regions the server withholds the
+ranking whole, returning `{"withheld": true, "reason": ...}`. `rankingBlock`
+read `.exact.length` from that notice and threw, and because `render()` builds
+the page as one string, the throw took every section below the headline with it.
+
+**Fix:** the withheld ranking renders as its own section saying why.
+
+### B-041 · The demo's entitlement refusal crashed instead of refusing
+**Found:** 2026-09-24, clicking every scenario · **Severity:** P0, demo moment 4 · **Status:** fixed
+
+**Symptom:** `?demo=blanked`, a South-only reader asking about the West, showed
+the rail and an empty page.
+
+**Root cause:** `/api/overview` refuses a region outside scope with 403, before
+the series is ever asked for. The console replaced the refused response with
+`{kpis: []}`, and `renderNav` then read `roots.forEach` from it and threw. The
+refusal the scenario exists to show was never reached. A first fix that asked
+for the overview again without the region also adopted that answer's region
+list, which silently reset West to "all" and answered a different question.
+
+**Fix:** on a refused overview the rail's metric list is fetched without the
+region, its dimension lists are not adopted, and the refusal is rendered at
+once through the same function the series refusal uses.
+
+### B-040 · `make warm-ai` warmed nothing and said it had
+**Found:** 2026-09-24 · **Severity:** P0 for the demo · **Status:** fixed
+
+**Symptom:** every case failed with 404 "no data for that slice", then the script
+printed "Re-running any of these is now instant" and exited 0.
+
+**Root cause:** it called `diagnose()` as a function. When the scope filters were
+added to its signature, the parameters the script did not pass arrived as
+FastAPI `Query` objects, which are truthy, so every case asked for a channel,
+device and category that do not exist. The cache was warm only because earlier
+sessions had clicked through by hand; a prompt change would have left six
+scenarios generating live, about 30 seconds each, on stage.
+
+**Fix:** it goes through HTTP with `TestClient`, covers every scenario the two
+views open for all three readers, re-requests each to prove it is answered from
+cache, and exits 1 naming any case that is not. Trap T-29.
+
+### B-039 · "Why nobody saw it coming" opened a metric that cannot be diagnosed
+**Found:** 2026-09-24 · **Severity:** P1, on stage · **Status:** fixed
+
+**Root cause:** the scenario pointed at on-time delivery, a ratio. The signal gap
+is computed inside a full diagnosis, and a ratio has none, so the button landed
+on "Detected, not diagnosed" with no gap anywhere on the page. It had done so
+since the scenario was added.
+
+**Fix:** it opens net revenue, West, 13 to 15 Aug, where the gap is found (nine
+warnings, up to 72 hours ahead), and scrolls to that section.
+`tests/test_scenarios.py` fails on the old coordinates, verified.
 
 ### B-038 · The chart key said every flagged day was a fall
 **Found:** 2026-09-21, reported from a click-through · **Severity:** P2 · **Status:** fixed

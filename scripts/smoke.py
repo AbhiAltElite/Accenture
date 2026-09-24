@@ -20,13 +20,15 @@ Exits non-zero if anything fails, so it can gate a demo.
 from __future__ import annotations
 
 import json
+import os
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 
-BASE = "http://localhost:8000"
+# The launcher serves on 8765 and `run.sh` on 8000; point this at either.
+BASE = os.environ.get("WHYCHAIN_BASE", "http://localhost:8000").rstrip("/")
 TIMEOUT = 60
 
 
@@ -365,12 +367,75 @@ def check_refusals(r: Report) -> None:
             r.fail(label, f"unexpected {status}: {str(body.get('detail'))[:80]}")
 
 
+def page(path: str) -> tuple[int, str]:
+    try:
+        with urllib.request.urlopen(f"{BASE}{path}", timeout=TIMEOUT) as response:
+            return response.status, response.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        return exc.code, ""
+    except Exception as exc:
+        return 0, f"{type(exc).__name__}: {exc}"
+
+
+def check_decision_view(r: Report) -> None:
+    """The decision view and what it stands on. Read-only: nothing is signed."""
+    print("\nDecision view")
+    for path, marker in (("/", "Findings"), ("/finding", "Findings"), ("/workbench", "WhyChain"),
+                         ("/slide", "board-pack"), ("/uat", "Acceptance checks")):
+        status, html = page(path)
+        if status == 200 and marker in html:
+            r.ok(f"page {path}")
+        else:
+            r.fail(f"page {path}", f"{status}, marker {marker!r} {'missing' if status == 200 else ''}")
+
+    status, body, _ = get("/api/me")
+    who = body.get("identity", {}) if status == 200 else {}
+    r.ok(f"identity: {who.get('name')} ({who.get('source')})") if who else r.fail("identity", f"{status}")
+
+    status, body, _ = get("/api/trackrecord")
+    if status == 200 and body.get("cases"):
+        r.ok(f"track record: {body['cases']} cases, {body['decoys_rejected']:.1%} decoys rejected")
+    else:
+        r.fail("track record", f"{status} {str(body)[:80]}")
+
+    status, body, _ = get("/api/audit")
+    if status == 200 and body["chain"]["intact"]:
+        r.ok(f"audit chain intact ({body['chain']['entries']} entries)")
+    else:
+        r.fail("audit chain", f"{status} {body.get('chain')}")
+
+    window = {"kpi": "net_revenue", "region": "West", "start": "2026-08-13", "end": "2026-08-15"}
+    status, diag, _ = get("/api/diagnose", **window, backend="none")
+    fp = diag.get("evidence_fingerprint") if status == 200 else None
+    status, body, _ = get("/api/signoff", **window, evidence=fp)
+    if status == 200 and body.get("accountable") == "finance_director":
+        r.ok("sign-off status readable, accountable role named")
+    else:
+        r.fail("sign-off status", f"{status} {str(body)[:80]}")
+
+    # Refused before anything is written, so this leaves the log untouched.
+    status, body = post("/api/decision", {**window, "action_id": "act-rel-4.05", "decision": "accept"})
+    if status == 403:
+        r.ok("a decision by the wrong role is refused")
+    else:
+        r.fail("decision rights", f"expected 403, got {status}")
+
+    status, body = post("/api/dispatch/teams", {**window, "action_id": "act-pc1099-launch-dip"})
+    if status == 200 and body.get("card", {}).get("type") == "AdaptiveCard":
+        r.ok(f"Teams card built ({'sent' if body.get('sent') else 'not sent: no webhook configured'})")
+    else:
+        r.fail("Teams card", f"{status} {str(body)[:80]}")
+
+    status, text = page("/api/metrics")
+    r.ok("metrics exposed") if status == 200 and "whychain_requests_total" in text else r.fail("metrics", str(status))
+
+
 def main() -> int:
     print(f"Driving {BASE} the way a reader does.")
     r = Report()
     for check in (check_service, check_overview, check_series, check_scenarios,
                   check_personas, check_entitlement, check_narrative,
-                  check_feedback, check_refusals):
+                  check_feedback, check_refusals, check_decision_view):
         try:
             check(r)
         except Exception as exc:
