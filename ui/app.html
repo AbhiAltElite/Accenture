@@ -147,6 +147,7 @@ h2{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-
 .filters select{border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--paper);color:var(--ink);padding:3px 6px;font:inherit}
 .filters .clear{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;padding:0}
 .mlist{display:grid;grid-template-columns:260px minmax(0,1fr);gap:20px;align-items:start;margin-top:14px}
+.mlist > *{min-width:0}
 .mlist nav{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
 .mlist nav a{display:block;padding:12px 16px;border-bottom:1px solid var(--line);color:var(--ink-2);text-decoration:none}
 .mlist nav a[aria-current="true"]{background:var(--accent-soft);color:var(--ink);font-weight:600;box-shadow:inset 3px 0 0 var(--accent)}
@@ -166,6 +167,7 @@ h2{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-
 .rowsbox tr.here td{background:var(--evidence-soft)}
 .rowsbox .scroll{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:var(--r-sm)}
 .rowsbox .scroll thead th{position:sticky;top:0;background:var(--paper);z-index:1}
+.rowsbox .scroll td,.rowsbox .scroll th{white-space:nowrap}
 .sqlbox{margin:0;padding:14px 16px;font:13px/1.55 var(--mono);color:var(--ink);background:var(--raised);white-space:pre;overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .rowsbox pre{margin:0;padding:14px 16px;font:13px/1.55 var(--mono);color:var(--ink);background:var(--raised);white-space:pre;overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .rowsbox .bar2{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
@@ -306,6 +308,8 @@ table.t td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabul
   .row{grid-template-columns:1fr auto}
   .row .hide-s{display:none}
   .audit-row{grid-template-columns:1fr}
+  .mlist,.kv2{grid-template-columns:minmax(0,1fr)}
+  .kv2 dd{margin-bottom:8px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 </style>
@@ -673,7 +677,7 @@ async function metricsView(p, token){
             <dt>Personal data</dt><dd>${m.personal_data.length ? `Text is scanned for ${esc(m.personal_data.map(x => ({pii:'personal data such as emails, phone numbers, card, PAN and UPI IDs'})[x] || human(x).toLowerCase()).join(', '))} and masked before any reader or model sees it.` : 'No personal data class declared.'}</dd>
           </dl></section>
         <section class="panel" style="margin-top:16px"><h2>Freshness</h2>
-          <table class="t"><thead><tr><th>Source</th><th class="n">Allowed lag</th><th class="n">Lag now</th><th>State</th></tr></thead><tbody>${fresh}</tbody></table></section>
+          <div style="overflow-x:auto"><table class="t"><thead><tr><th>Source</th><th class="n">Allowed lag</th><th class="n">Lag now</th><th>State</th></tr></thead><tbody>${fresh}</tbody></table></div></section>
         <section class="panel" style="margin-top:16px"><h2>The query</h2>
           <pre class="sqlbox">${esc(m.sql)}</pre>
           <div class="bar2"><button type="button" class="btn sm" id="mcopy">Copy the query</button><span class="small muted">Declared for ${m.dialect_targets.map(esc).join(', ')}. A finding's own query, with its region and dates, is behind each figure on the finding.</span></div></section>
