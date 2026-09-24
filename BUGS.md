@@ -45,6 +45,47 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-055 · A Teams card said "awaiting approval" over a decision already taken
+**Found:** 2026-09-24, in the interactive pass after accepting a decision · **Severity:** P2, demo risk · **Status:** fixed
+
+**Root cause:** `_adaptive_card` wrote a fixed heading and never read the audit
+trail, so after the owner accepted, the card a manager would read in Teams
+still showed the decision as pending. It also printed the engine's action text
+("for channel app, device mobile"), "Ecommerce lead" and ISO dates where the
+page says otherwise. **Fix:** the card reads the decision's latest audit entry
+and states it, with the page's wording and date format.
+`test_the_teams_card_carries_the_decision_as_it_stands`, verified to fail
+without the fix.
+
+### B-054 · A question about a month opened on its last day, not on the fall
+**Found:** 2026-09-24, testing the questions for the demo · **Severity:** P2, demo risk · **Status:** fixed
+
+**Root cause:** the workbench handed the reading to the page with `day: d.end`.
+"Why did net revenue fall in North in June?" read correctly as 1 to 30 June and
+opened 30 June, while the fall was on the 10th. **Fix:** the page opens the
+largest flagged move the engine found inside the window asked about, falls
+first, and says which day it opened.
+
+### B-053 · One finding page, two answers
+**Found:** 2026-09-24, by the extended value sweep in `/uat` · **Severity:** P2 · **Status:** fixed
+
+Three places where a page contradicted itself:
+
+- **Quotes.** The page draws from the deterministic pass, then `refine()`
+  replaced the whole diagnosis with the model's pass. On petroleum West, 13 to
+  15 Aug, the button said "6 customer quotes" and its drawer showed none: the
+  model's quotes had failed the character check and been dropped. `refine()`
+  now swaps only the prose, which is all it exists to do.
+- **Calendar.** "All 11 events" listed a capped 11 of 13. It now says "The 11
+  nearest of 13 events" when capped.
+- **Workbench causes tile.** A contradicted finding's tile read "Causes 1/1"
+  beside "No cause is proposed". A contradicted finding now shows none.
+
+Also aligned in the same pass: confidence reads High in the workbench as on the
+decision view (it said Strong), metric names, "E-commerce lead", the cost
+caption (a reference rate, not what the run cost), and the Ask box's
+clarifications, which printed metric ids.
+
 ### B-052 · An unknown finding hid a decision the service would accept
 **Found:** 2026-09-24, by the value sweep added to `/uat` · **Severity:** P2 · **Status:** fixed
 

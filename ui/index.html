@@ -1191,7 +1191,10 @@ const fmtDelta = (v, unit) => unit === 'ratio'
   : fmtValue(v, unit);
 const ACRONYM = {aov:'AOV', kpi:'KPI', sla:'SLA'};
 const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+// The decision view's names, so a metric is called the same thing on every page.
+const METRIC_NAME = {aov:'Average order value', on_time_delivery:'On-time delivery'};
 const title = id => {
+  if(METRIC_NAME[id]) return METRIC_NAME[id];
   const k = id.replace(/_/g,' ');
   return ACRONYM[id] || k.split(' ').map(w=>ACRONYM[w]||w).join(' ').replace(/^./,c=>c.toUpperCase());
 };
@@ -1228,7 +1231,9 @@ const words = t => String(t||'').replace(/_/g,' ');
    identifier itself. Sentence case rather than title case, because "Ecommerce
    Lead" reads like a job advert. */
 const role = t => {
-  const w = words(t).trim();
+  // Spelled as the decision view spells them, so a juror switching pages
+  // does not meet "Ecommerce lead" on one and "E-commerce lead" on the other.
+  const w = words(t).trim().replace(/\becommerce\b/i, 'e-commerce').replace(/\bfpa\b/i, 'FP&A');
   return w ? w[0].toUpperCase() + w.slice(1) : w;
 };
 /* Engine prose made readable at the point it is shown.
@@ -2347,34 +2352,62 @@ async function askQuestion(question){
   }
   submit.disabled = false;
 
+  // The model writes metric ids into its sentences ("aov, checkout_conversion");
+  // the reader sees the names the rest of the page uses, and whole sentences.
+  const said = t => {
+    let x = String(t || '');
+    (d.available_metrics || []).forEach(id => { x = x.split(id).join(title(id)); });
+    x = x.trim().replace(/^./, c => c.toUpperCase());
+    return x && !/[.?!]$/.test(x) ? x + '.' : x;
+  };
   if(d.problem){
-    out.innerHTML = `<div class="askread"><p>${escapeHtml(d.problem)}</p>
+    out.innerHTML = `<div class="askread"><p>${escapeHtml(said(d.problem))}</p>
       <p class="q">Choose a metric and window from the rail instead.</p></div>`;
     return;
   }
   if(d.clarification){
     out.innerHTML = `<div class="askread">
-      <p><strong>${escapeHtml(d.clarification)}</strong></p>
-      <p class="q">${escapeHtml(d.reading || '')}</p>
-      <p class="q">Nothing was run. The engine asks rather than choosing for you
-        when a question could mean two different metrics.</p></div>`;
+      <p><strong>${escapeHtml(said(d.clarification))}</strong></p>
+      <p class="q">${escapeHtml(said(d.reading))}</p>
+      <p class="q">Nothing was run. When a question is unclear, or asks for
+        something outside your access, the engine asks rather than choosing for you.</p></div>`;
     return;
   }
 
   const rejected = (d.rejected || []).length
     ? `<p class="q">${(d.rejected).map(escapeHtml).join('. ')}.</p>` : '';
   out.innerHTML = `<div class="askread">
-    <p>${escapeHtml(d.reading || '')}</p>
-    <p class="q">Running <strong>${escapeHtml(d.kpi_id)}</strong>
+    <p>${escapeHtml(said(d.reading))}</p>
+    <p class="q">Running <strong>${escapeHtml(title(d.kpi_id))}</strong>
       ${d.region ? '· ' + escapeHtml(d.region) : '· all regions'}
       · ${escapeHtml(d.start)} to ${escapeHtml(d.end)}
       · read by ${escapeHtml(d.model)}, ${d.tokens_in + d.tokens_out} tokens.
       Everything after this point is deterministic.</p>${rejected}</div>`;
 
+  // A question names a window ("in June"), and the finding is a day inside
+  // it. Opening on the window's last day answered about 30 June when the fall
+  // was on the 10th. The day is the largest flagged move the engine itself
+  // found in that window, falls first; with none, the window's end, where the
+  // page says nothing moved enough to explain.
+  let day = d.end;
+  try{
+    const sp = new URLSearchParams({kpi: d.kpi_id, from: d.start, to: d.end});
+    if(d.region) sp.set('region', d.region);
+    if(STATE.industry) sp.set('industry', STATE.industry);
+    if(STATE.entitled) sp.set('entitled', STATE.entitled);
+    const ser = await (await fetch('/api/series?' + sp)).json();
+    const inWin = (ser.anomalies || []).filter(a => a.day >= d.start && a.day <= d.end + 'T99');
+    const falls = inWin.filter(a => a.delta < 0), pool = falls.length ? falls : inWin;
+    if(pool.length){
+      day = pool.reduce((w, a) => Math.abs(a.delta) > Math.abs(w.delta) ? a : w).day;
+      out.insertAdjacentHTML('beforeend', `<p class="q askread" style="margin-top:0">The largest flagged ${falls.length ? 'fall' : 'move'} in that window is on ${escapeHtml(String(day).slice(0, 10))}; opening it.</p>`);
+    }
+  }catch(e){ /* the window's end still opens the metric */ }
+
   // Hand over to the ordinary path. The engine cannot tell that the query came
   // from a sentence, which is the point: there is no second code path to keep
   // correct.
-  STATE.pending = {region: d.region || '', day: d.end};
+  STATE.pending = {region: d.region || '', day};
   if(d.region !== null && d.region !== undefined) $('#region').value = d.region || '';
   go('/kpi/' + d.kpi_id);
 }
@@ -2568,7 +2601,7 @@ function contradictedStory(d){
   return `
     <p><strong>The two systems that post this number do not agree that it
     moved.</strong> ${escapeHtml(title(d.kpi_id))} and
-    <code>${escapeHtml(r.source || 'the second system')}</code> are
+    the ${escapeHtml(String(r.source || 'second system').replace(/_/g, ' '))} are
     ${r.worst_residual != null ? `<strong>${pct(Math.abs(r.worst_residual))}</strong> apart` : 'far apart'}
     over this window, against a ${r.tolerance_pct != null ? pct(r.tolerance_pct) : ''} tolerance
     their posting policies account for.</p>
@@ -2875,7 +2908,7 @@ function narrativeBlock(){
     ${contrastMarkup()}
     <p class="muted" style="margin-top:var(--sp-4)">Checks run:
       ${(v.checks_run||[]).map(c=>escapeHtml(c.replace(/_/g,' '))).join(' · ')}.</p>`,
-    false, `${rejected.length} rejected`);
+    false, rejected.length ? `${plural(rejected.length, 'sentence')} rejected` : 'no sentence rejected');
 }
 
 /* Which model did which job. Each task is routed to the cheapest tier that can
@@ -3200,8 +3233,9 @@ function basisLine(w, where, disputed, unit){
    cannot be acted on and does not mean what a reader assumes it means. The
    score stays -- on hover, and in full in the analyst's own section. */
 const BAND_WORDS = {
-  high:'Strong', moderate:'Moderate', medium:'Moderate',
-  low:'Weak', unknown:'Not enough evidence', none:'Not enough evidence',
+  // The decision view's words, so the same finding reads the same on both.
+  high:'High', moderate:'Moderate', medium:'Moderate',
+  low:'Low', unknown:'Not enough evidence', none:'Not enough evidence',
 };
 function bandWord(band){
   const k = String(band || '').toLowerCase();
@@ -3242,10 +3276,13 @@ function defensibilityBar(d){
   if(v.accepted || v.rejected)
     out.push(cell('sentence', 'Sentences', `${acc}<i>/</i>${acc + rej}`,
                   rej ? `${rej} rejected` : 'none rejected'));
-  out.push(cell('ruled', 'Causes', `${verified}<i>/</i>${verified + aside}`,
+  // A contradicted finding proposes no cause: the two systems disagree about
+  // the movement itself, so a candidate that passed its tests is not one.
+  if(d.verdict === 'contradicted') out.push(cell('ruled', 'Causes', '0', 'none proposed'));
+  else out.push(cell('ruled', 'Causes', `${verified}<i>/</i>${verified + aside}`,
                 aside ? `${aside} set aside` : 'none set aside'));
   if(t.cost_inr != null)
-    out.push(cell('cost', 'Cost', '\u20b9' + Number(t.cost_inr).toFixed(2), 'this run'));
+    out.push(cell('cost', 'Cost', '\u20b9' + Number(t.cost_inr).toFixed(2), 'at a reference rate'));
   return out.join('');
 }
 
@@ -3405,7 +3442,7 @@ function marginBlock(d){
         ${d.region?`<dt>Region</dt><dd>${escapeHtml(d.region)}</dd>`:''}
       </dl>
     </section>
-    ${rows.length?`<hr class="rule"><section><span class="label">Cost of this run</span>
+    ${rows.length?`<hr class="rule"><section><span class="label">Cost, at a reference rate</span>
       <dl>${rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></section>`:''}
     ${(d.confidence||{}).probability!=null?`<hr class="rule"><section><span class="label">Confidence</span>
       <dl>

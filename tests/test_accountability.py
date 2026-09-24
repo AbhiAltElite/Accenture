@@ -175,6 +175,19 @@ class TestService:
         link = r.json()["card"]["actions"][0]["url"]
         assert "/finding?" in link and "8765" not in link
 
+    def test_the_teams_card_carries_the_decision_as_it_stands(self, client):
+        # It said "awaiting approval" after the owner had accepted.
+        c, _ = client
+        body = {**WEST, "action_id": "act-pc1099-launch-dip"}
+        card = c.post("/api/dispatch/teams", json=body, headers=as_("fpa.analyst")).json()["card"]
+        assert card["body"][0]["text"] == "Decision awaiting approval"
+        assert c.post("/api/decision", json={**body, "decision": "accept"},
+                      headers=as_("category.manager")).status_code == 200
+        card = c.post("/api/dispatch/teams", json=body, headers=as_("fpa.analyst")).json()["card"]
+        assert card["body"][0]["text"].startswith("Decision accepted by Category Manager")
+        facts = {f["title"]: f["value"] for f in card["body"][2]["facts"]}
+        assert facts["Finding"].endswith("13 to 15 Aug 2026") and "₹" in facts["Expected recovery"]
+
     def test_trackrecord_is_read_not_typed(self, client):
         c, _ = client
         t = c.get("/api/trackrecord").json()

@@ -289,10 +289,13 @@ async function valueSweep(){
     if(!itext.includes(`of ${tri.total} detected`)) ip.push(`${tri.total} detected not shown`);
     record(`Values · ${ind}`, `Findings list: ${tri.findings.length} amounts, directions and the totals`, ip.length ? 'fail' : 'pass', ip.join('; ') || 'Every amount, percentage and total equals the engine.', inb.ms);
 
+    for(const persona of ['cfo', 'analyst', 'ops'])
     for(const f of tri.findings.filter(x => x.diagnosable)){
+      try{ frame.contentWindow.localStorage.setItem('whychain-persona', persona); }catch{}
+      const who = {cfo: 'finance director', analyst: 'analyst', ops: 'area sales'}[persona];
       const q = {kpi: f.kpi_id, region: f.region, start: f.start, end: f.end, industry: ind};
       const [dg, se] = await Promise.all([
-        J(`/api/diagnose?${qsU({...q, persona: 'cfo', backend: 'none'})}`),
+        J(`/api/diagnose?${qsU({...q, persona, backend: 'none'})}`),
         J(`/api/series?${qsU({kpi: f.kpi_id, region: f.region, industry: ind, from: shift(f.start, -45), to: shift(f.end, 10)})}`)]);
       const pg = await open(`/finding?${qsU(q)}`, d => d.querySelector('.pill.big') && !d.querySelector('.loading'), 30000);
       const view = pg.doc.getElementById('view'), text = view ? view.innerText : '', facts = (pg.doc.querySelector('.facts') || {}).innerText || '';
@@ -317,7 +320,34 @@ async function valueSweep(){
       });
       const ft = d.fair_target;
       if(ft && ft.factors && ft.factors.length && !text.includes(inrU(ft.policy_inr_per_day, true))) pr.push(`fair target ${inrU(ft.policy_inr_per_day, true)} missing`);
-      if(d.verdict === 'explained'){
+      // Inside the drawers, on the analyst's view where every one is present.
+      const drawer = async (key) => { const b = pg.doc.querySelector(`[data-ev="${CSS.escape(key)}"]`); if(!b) return null;
+        b.click(); await sleep(250); const box = pg.doc.querySelector('#layer .drawer'); const found = box ? box.cloneNode(true) : null;
+        const x = pg.doc.querySelector('#layer [data-close]'); if(x) x.click(); await sleep(100); return found; };
+      if(persona === 'analyst' && d.verdict === 'explained'){
+        for(const v of d.verified || []){
+          const t = await drawer(`cause:${v.candidate_id}`);
+          if(!t) pr.push(`no tests drawer for ${v.candidate_id}`);
+          else if(t.querySelectorAll('table.t tbody tr').length !== (v.tests || []).length) pr.push(`${v.candidate_id}: ${t.querySelectorAll('table.t tbody tr').length} tests shown of ${(v.tests || []).length}`);
+          if((v.citations || []).length){
+            const c = await drawer(`quotes:${v.candidate_id}`);
+            if(!c || c.querySelectorAll('.quote').length !== v.citations.length) pr.push(`${v.candidate_id}: quotes shown ${c ? c.querySelectorAll('.quote').length : 0} of ${v.citations.length}`);
+          }
+        }
+        if(g && g.verdict === 'gap_found'){
+          const sg = await drawer('signals');
+          if(!sg || sg.querySelectorAll('table.t tbody tr').length !== (g.signals || []).length) pr.push(`warnings drawer shows ${sg ? sg.querySelectorAll('table.t tbody tr').length : 0} of ${(g.signals || []).length}`);
+        }
+      }
+      if(persona === 'cfo'){
+        const cal = (await J(`/api/calendar?${qsU({kpi: f.kpi_id, region: f.region, industry: ind, from: shift(f.start, -14), to: f.end, ahead: 45})}`)).d;
+        const summ = [...pg.doc.querySelectorAll('#calendar summary')].map(x => x.textContent).join(' ');
+        if(cal){
+          const total = cal.behind.filter(e => e.day <= f.end).length + cal.ahead.length;
+          if(!new RegExp(`\\b${total} events`).test(summ)) pr.push(`calendar says "${summ}", engine has ${total} events`);
+        }
+      }
+      if(d.verdict === 'explained' && persona === 'cfo'){
         const sl = await open(`/slide?${qsU(q)}`, x => x.querySelector('.slide h1') || x.querySelector('.msg b'), 20000);
         const st = sl.doc.querySelector('.slide') ? sl.doc.querySelector('.slide').innerText : '';
         if(w && !st.includes(inrU(Math.abs(w.delta)))) pr.push(`slide does not show ${inrU(Math.abs(w.delta))}`);
@@ -325,7 +355,7 @@ async function valueSweep(){
       }
       pr.push(...lint(text));
       if(pg.errors.length) pr.push(`script error: ${pg.errors[0]}`);
-      record(`Values · ${ind}`, `${f.kpi_id}, ${f.region}, ${dtU(f.start)} to ${dtU(f.end)} (${d.verdict || dg.status})`, pr.length ? 'fail' : 'pass',
+      record(`Values · ${ind} · ${who}`, `${f.kpi_id}, ${f.region}, ${dtU(f.start)} to ${dtU(f.end)} (${d.verdict || dg.status})`, pr.length ? 'fail' : 'pass',
         pr.join('; ') || 'Headline, facts, ledger, gap, recoveries, fair target and slide equal the engine.', pg.ms);
     }
 
@@ -361,6 +391,22 @@ async function workbench(){
     if(!expect[d.id] && secs < 3) problems.push(`only ${secs} sections rendered`);
     if(d.id === 'gap' && ![...pg.doc.querySelectorAll('#rest .sec')].some(s => /not anticipated/i.test(s.textContent) && /gap found/i.test(s.textContent)))
       problems.push('the signal gap section is not on the page');
+    const day = (h.match(/\d{4}-\d{2}-\d{2}/) || [])[0];
+    if(day && !expect[d.id]){
+      // The workbench prints exact rupees for the analyst, never crores, and
+      // withholds observed against expected when the two systems disagree.
+      const exact = n => `₹${Math.round(Math.abs(n)).toLocaleString('en-IN')}`;
+      const sq = qsU({kpi: d.kpi, region: d.region, channel: d.channel, device: d.device, category: d.category, industry: d.industry, entitled: d.entitled, from: day, to: day});
+      const sr = (await J(`/api/series?${sq}`)).d;
+      const i = sr && sr.days ? sr.days.findIndex(x => x.startsWith(day)) : -1;
+      const lede = pg.doc.getElementById('main').innerText;
+      if(i >= 0 && sr.unit === 'INR'){
+        const gap = exact(sr.observed[i] - sr.expected[i]);
+        if(/unconfirmed/.test(h)){ if(!lede.includes(gap)) problems.push(`impact ${gap} on ${day} not shown`); }
+        else if(!lede.includes(exact(sr.observed[i])) || !lede.includes(exact(sr.expected[i])))
+          problems.push(`observed ${exact(sr.observed[i])} or expected ${exact(sr.expected[i])} on ${day} not shown`);
+      }
+    }
     if(pg.errors.length) problems.push(`script error: ${pg.errors[0]}`);
     record('Workbench', d.label, problems.length ? 'fail' : 'pass', problems.join('; ') || `${h.slice(0, 90)} · ${secs} sections`, pg.ms);
   }

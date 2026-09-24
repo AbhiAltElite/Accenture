@@ -10,6 +10,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import urllib.parse
 import urllib.request
 import warnings
@@ -3209,31 +3210,80 @@ def audit_log(
     return {"entries": list(reversed(entries)), "chain": _audit.verify()}
 
 
-def _adaptive_card(card: dict, run: dict, link: str) -> dict:
-    """A Microsoft Teams Adaptive Card for one decision, awaiting its owner."""
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def _card_span(start: str, end: str) -> str:
+    """"13 to 15 Aug 2026", the way the decision view writes a window."""
+    a, b = date.fromisoformat(start), date.fromisoformat(end)
+    tail = f"{b.day} {_MONTHS[b.month - 1]} {b.year}"
+    if a == b:
+        return tail
+    if (a.year, a.month) == (b.year, b.month):
+        return f"{a.day} to {tail}"
+    return f"{a.day} {_MONTHS[a.month - 1]}{'' if a.year == b.year else f' {a.year}'} to {tail}"
+
+
+def _card_action(action: str) -> str:
+    """The engine's action as the decision view words it."""
+    text = re.sub(r"for channel (\w+), device (\w+)", r"for the \1 channel on \2 devices", action)
+    text = re.sub(r"for device (\w+)", r"for \1", text)
+    text = re.sub(r"for channel (\w+)", r"for the \1 channel", text).replace("_", " ")
+    return text[:1].upper() + text[1:]
+
+
+def _card_role(identifier: str) -> str:
+    text = sentence_case(role(identifier).removeprefix("the "))
+    return re.sub(r"^Ecommerce", "E-commerce", text)
+
+
+def _adaptive_card(card: dict, run: dict, link: str, decided: dict | None = None) -> dict:
+    """A Microsoft Teams Adaptive Card for one decision, in its current state.
+
+    It said "awaiting approval" after the owner had accepted, so the manager
+    reading it in Teams saw a decision still pending that was already taken.
+    The state is read from the audit trail, the same record the page reads.
+    """
     rec = card.get("expected_recovery_inr_per_day")
+    verb = {"decision_accepted": "accepted", "decision_modified": "modified",
+            "decision_rejected": "rejected"}.get((decided or {}).get("event", ""))
+    heading = (f"Decision {verb} by {decided['actor']['name']}" if verb
+               else "Decision awaiting approval")
+    footer = ("Recorded in the WhyChain audit trail. Nothing was executed by WhyChain."
+              if verb else "Drafted by WhyChain. Nothing executes until the owner approves.")
     return {
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.5",
         "body": [
-            {"type": "TextBlock", "text": "Decision awaiting approval", "weight": "Bolder",
-             "size": "Medium"},
-            {"type": "TextBlock", "wrap": True, "text": card["action"]},
+            {"type": "TextBlock", "text": heading, "weight": "Bolder", "size": "Medium"},
+            {"type": "TextBlock", "wrap": True, "text": _card_action(card["action"])},
             {"type": "FactSet", "facts": [
                 {"title": "Verified cause", "value": sentence_case(card["cause"].split(": ", 1)[-1])},
-                {"title": "Owner", "value": sentence_case(role(card["approval"]["assigned_to"]).removeprefix("the "))},
+                {"title": "Owner", "value": _card_role(card["approval"]["assigned_to"])},
                 {"title": "Expected recovery",
-                 "value": f"₹{rec:,.0f} a day" if rec is not None else "not computed"},
+                 "value": f"₹{_indian(rec)} a day" if rec is not None else "not computed"},
                 {"title": "Finding", "value":
                     f"{sentence_case(label(run['kpi_id']))}, {run.get('region') or 'all regions'}, "
-                    f"{run['window']['from']} to {run['window']['to']}"},
+                    f"{_card_span(run['window']['from'], run['window']['to'])}"},
             ]},
-            {"type": "TextBlock", "wrap": True, "isSubtle": True, "size": "Small",
-             "text": "Drafted by WhyChain. Nothing executes until the owner approves."},
+            {"type": "TextBlock", "wrap": True, "isSubtle": True, "size": "Small", "text": footer},
         ],
         "actions": [{"type": "Action.OpenUrl", "title": "Review in WhyChain", "url": link}],
     }
+
+
+def _indian(n: float) -> str:
+    """24139 -> 24,139 and 1234567 -> 12,34,567: the page's grouping, not the West's."""
+    whole = str(round(abs(n)))
+    head, tail = whole[:-3], whole[-3:]
+    groups = []
+    while len(head) > 2:
+        groups.insert(0, head[-2:])
+        head = head[:-2]
+    if head:
+        groups.insert(0, head)
+    return ",".join([*groups, tail]) if groups else tail
 
 
 @app.post("/api/dispatch/teams")
@@ -3258,7 +3308,13 @@ def dispatch_teams(payload: dict, request: Request) -> dict:
     link = f"{public}/finding?" + urllib.parse.urlencode({k: v for k, v in {
         "kpi": run.get("kpi_id"), "region": run.get("region"), "start": window.get("from"),
         "end": window.get("to"), "industry": payload.get("industry")}.items() if v})
-    content = _adaptive_card(card, run, link)
+    action_id = (card.get("approval") or {}).get("action_id")
+    decided = next((e for e in reversed(_audit.entries())
+                    if e["event"].startswith("decision_") and e["payload"].get("action_id") == action_id
+                    and e["subject"].get("kpi_id") == run.get("kpi_id")
+                    and e["subject"].get("region") == run.get("region")
+                    and e["subject"].get("window") == run.get("window")), None)
+    content = _adaptive_card(card, run, link, decided)
     webhook = os.environ.get("WHYCHAIN_TEAMS_WEBHOOK", "").strip()
     sent, detail = False, "No Teams webhook is configured, so nothing was sent."
     if webhook:

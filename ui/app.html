@@ -490,7 +490,11 @@ function initTheme(){
 }
 // The perspective each seat reads from. Signing in as someone opens their view;
 // "View as" can still override it, and the page says when it has been.
-const ROLE_VIEW = {finance_director:'cfo', fpa_analyst:'analyst', area_sales_manager:'ops'};
+// A decision owner needs to see the card they own. The finance director's view
+// shows the one decision being backed, so the category manager signed in there
+// could not see, let alone accept, the pricing decision assigned to them.
+const ROLE_VIEW = {finance_director:'cfo', fpa_analyst:'analyst', area_sales_manager:'ops',
+  ecommerce_lead:'analyst', category_manager:'analyst'};
 function renderActor(){
   const me = S.me; if(!me) return;
   const who = me.identity;
@@ -766,7 +770,7 @@ function auditView(d){
       <span class="num small">${esc(when(e.at))}</span>
       <span><b>${esc(human(e.event.replace('finding_','').replace('decision_','decision ')))}</b><br><span class="small muted">${esc(e.actor.name)} · ${esc(e.actor.source === 'demo' ? 'demo identity' : 'single sign-on')}</span></span>
       <span class="small">${esc(kpiName(e.subject.kpi_id))}, ${esc(e.subject.region || 'all regions')}, ${e.subject.window ? span(e.subject.window.from, e.subject.window.to) : ''}<br>
-        <span class="muted">${esc(e.payload.statement || e.payload.action || '')}${e.payload.note ? ' · “' + esc(e.payload.note) + '”' : ''}</span></span>
+        <span class="muted">${esc(e.payload.statement || actionText(e.payload.action || ''))}${e.payload.note ? ' · “' + esc(e.payload.note) + '”' : ''}</span></span>
       <span class="num small muted" title="${esc(e.hash)}">${esc(e.hash.slice(0,10))}…</span></div>`).join('');
   return `<h1 style="margin-top:18px">Audit trail</h1>
     <p class="muted" style="max-width:70ch;margin:0 0 14px">Signatures, decisions, target adjustments and exports, newest first. Recording a decision never executes it.</p>
@@ -837,7 +841,12 @@ function worstDay(ser, f){
 async function refine(ctx, token){
   const r = await api('/api/diagnose?' + qs({...ctx.base, persona:S.persona}));
   if(token !== S.token || !r.ok) return;
-  ctx.diag = r; const el = $('#narr'); if(el) el.outerHTML = narrativeHtml(r.data);
+  // Only the prose is swapped. Replacing the whole diagnosis left a button
+  // saying "6 customer quotes" over a drawer reading the model's pass, where a
+  // quote that failed the character check had been dropped: two answers on one
+  // page. The figures and evidence stay those the page was drawn from.
+  ctx.diag.data.narrative = r.data.narrative;
+  const el = $('#narr'); if(el) el.outerHTML = narrativeHtml(ctx.diag.data);
 }
 function scopeText(f){
   const bits = [f.channel && `${f.channel} channel`, f.device && `${f.device} devices`, f.category && human(f.category)].filter(Boolean);
@@ -1126,12 +1135,15 @@ function calendarHtml(ctx){
       : 'The expected line does not model it.'} ${f.region && d.verdict === 'explained'
       ? 'A public holiday falls on every region alike, and each cause here passed a comparison with regions that had the same day, so the holiday cannot explain the difference.'
       : 'Read the gap on that day with that in mind.'}</p>` : '';
-  const behind = c.behind.filter(e => e.day <= f.end).slice(-8), ahead = c.ahead.slice(0, 6);
+  const allBehind = c.behind.filter(e => e.day <= f.end);
+  const behind = allBehind.slice(-8), ahead = c.ahead.slice(0, 6);
+  // Capped so the list stays readable, and said so: "All 11" over 13 was false.
+  const total = allBehind.length + c.ahead.length, shown = behind.length + ahead.length;
   return `<section class="panel" id="calendar" style="margin-top:14px"><h2>What was known, and what is coming</h2>
     ${strip}
     <p class="small muted" style="margin:2px 0 10px">▲ Warning · ■ Promotion · ● Holiday · Shaded: the window under review</p>
     ${holNote}
-    <details class="more"><summary>All ${behind.length + ahead.length} events</summary>
+    <details class="more"><summary>${shown === total ? `All ${total} events` : `The ${shown} nearest of ${total} events`}</summary>
     <div class="grid" style="margin-top:12px">
       <div><h2>Before and during</h2><ul class="cal-list">${behind.map(item).join('') || '<li class="muted">Nothing was published or planned.</li>'}</ul></div>
       <div><h2>Coming up, already dated</h2><ul class="cal-list">${ahead.map(item).join('') || '<li class="muted">Nothing dated in the next 45 days.</li>'}</ul>
@@ -1401,7 +1413,7 @@ function decideModal(ctx, actionId, choice){
   const c = (ctx.diag.data.decisions||[]).find(x => x.approval && x.approval.action_id === actionId);
   const verb = {accept:'Accept', modify:'Modify', reject:'Reject'}[choice];
   layer(`<div class="modal" role="dialog" aria-modal="true" aria-label="${verb} decision"><div class="box">
-    <h3>${verb}: ${esc(c.action)}</h3>
+    <h3>${verb}: ${esc(actionText(c.action))}</h3>
     <p class="small">Recording this decision does not execute it. The change itself happens in the system that owns it, by the people who own it.</p>
     <label class="small" for="dnote">${choice === 'modify' ? 'What changes (required)' : 'Note for the record (optional)'}</label>
     <textarea id="dnote" maxlength="500"></textarea><div class="err" id="derr"></div>

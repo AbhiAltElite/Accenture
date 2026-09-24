@@ -65,6 +65,9 @@ const inr = (n, sign) => { if(n == null || !isFinite(n)) return '–'; const a =
 const pct = x => x == null ? '–' : `${(Math.abs(x)*100).toFixed(1)}%`;
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const dt = s => { const [y,m,d] = String(s).slice(0,10).split('-').map(Number); return `${d} ${MON[m-1]} ${y}`; };
+// "13 to 15 Aug 2026", as the decision view writes a window.
+const span = (a, b) => { if(a === b) return dt(b); const [ya, ma, da] = a.split('-').map(Number), [yb, mb] = b.split('-').map(Number);
+  return ya === yb && ma === mb ? `${da} to ${dt(b)}` : ya === yb ? `${da} ${MON[ma-1]} to ${dt(b)}` : `${dt(a)} to ${dt(b)}`; };
 const human = s => { s = String(s||'').replace(/_/g,' '); return s.charAt(0).toUpperCase() + s.slice(1); };
 const causeText = c => String(c||'').replace(/^[\w.-]+:\s*/, '').replace(/\.$/, '')
   .replace(/^Promotion ([\w-]+) active in (.+)$/, (m, id, where) => `The ${id.replace(/^promo-/, '').replace(/-/g, ' ')} promotion, running in ${where}`);
@@ -106,7 +109,7 @@ document.getElementById('print').onclick = () => window.print();
   const signed = sig.ok && sig.data.signed;
   const rejected = c.ok ? c.data.rejected.length : null;
   out.innerHTML = `<section class="slide">
-    <div class="top"><span><b>WhyChain</b> · ${esc(human(f.industry || 'retail'))} · ${esc(human(f.kpi))}, ${esc(scope)} · ${dt(f.start)} to ${dt(f.end)}</span><span class="pill ${verdict[0]}"><svg viewBox="0 0 24 24" aria-hidden="true">${{ok:'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/>', unk:'<circle cx="12" cy="12" r="9"/><path d="M9.7 9.5a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5v.4"/><path d="M12 16.6v.1"/>', bad:'<path d="M12 3.8 21 19.5H3z"/><path d="M12 10v4"/><path d="M12 16.9v.1"/>'}[verdict[0]] || ''}</svg>${esc(verdict[1])}</span></div>
+    <div class="top"><span><b>WhyChain</b> · ${esc({retail:'Retail', petroleum:'Petroleum', power:'Power'}[f.industry || 'retail'] || human(f.industry))} · ${esc(human(f.kpi))}, ${esc(scope)} · ${span(f.start, f.end)}</span><span class="pill ${verdict[0]}"><svg viewBox="0 0 24 24" aria-hidden="true">${{ok:'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/>', unk:'<circle cx="12" cy="12" r="9"/><path d="M9.7 9.5a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5v.4"/><path d="M12 16.6v.1"/>', bad:'<path d="M12 3.8 21 19.5H3z"/><path d="M12 10v4"/><path d="M12 16.9v.1"/>'}[verdict[0]] || ''}</svg>${esc(verdict[1])}</span></div>
     <h1>${esc(title)}</h1>
     <div class="body">
       <div>

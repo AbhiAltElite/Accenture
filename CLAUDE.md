@@ -30,7 +30,7 @@ headline figure opens its aggregated rows, the query that reproduces them
 `/workbench` is the analyst's full method page with the twelve `?demo=`
 scenarios.
 
-`make test` (594), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
+`make test` (595), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
 server), `make bench`, `make audit`, `make lint`, `make real-data`. `/uat` in
 any browser runs the acceptance checks against every scenario and persona.
 
