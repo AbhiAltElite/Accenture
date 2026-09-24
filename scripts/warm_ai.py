@@ -88,11 +88,28 @@ def main() -> int:
     print(f"Backend      {describe(backend)}")
     print("Warming the cases the demo opens. The first pass is the slow one.\n")
 
+    # Every diagnosable row in each inbox, as the decision view lists it, so a
+    # juror pointing at any finding does not wait on the model. Read from the
+    # queue itself rather than copied, so it cannot drift from what is shown.
+    # The whole retail inbox; the top few elsewhere, which keeps a free tier
+    # inside its daily request limit.
+    seen = {q for _, q in CASES}
+    for industry, limit in (("retail", 12), ("petroleum", 3), ("power", 3)):
+        rows = client.get(f"/api/triage?industry={industry}&days=365&limit=12").json().get("findings", [])
+        for f in [r for r in rows if r.get("diagnosable")][:limit]:
+            q = (f"kpi={f['kpi_id']}&start={f['start']}&end={f['end']}&industry={industry}"
+                 + (f"&region={f['region']}" if f.get("region") else ""))
+            if q not in seen:
+                seen.add(q)
+                CASES.append((f"inbox {industry} {f.get('region') or 'all'} {f['start']}", q))
+
     failed: list[str] = []
     total = 0.0
     # Every reader, because the decision view asks for the prose in whichever
     # persona is selected, and opens as the finance director.
-    for name, query in [(f"{n} · {p}", f"{q}&persona={p}") for n, q in CASES for p in PERSONAS]:
+    runs = [(f"{n} · {p}", f"{q}&persona={p}") for n, q in CASES
+            for p in (PERSONAS if not n.startswith("inbox") else ("analyst",))]
+    for name, query in runs:
         began = time.perf_counter()
         response = client.get(f"/api/diagnose?{query}")
         elapsed = time.perf_counter() - began
@@ -130,7 +147,7 @@ def main() -> int:
             print(f"NOT WARM, still reaching the model: {', '.join(cold)}")
         print("Those scenarios will wait on the model in front of an audience.")
         return 1
-    print(f"All {len(CASES)} cases warm, for {len(PERSONAS)} readers each. Re-running any is now instant.")
+    print(f"All {len(CASES)} cases warm, scenarios for {len(PERSONAS)} readers each. Re-running any is now instant.")
     print("Re-run this after changing a prompt, a schema or the model: all")
     print("three are in the cache key, so a change to any is a different key.")
     return 0

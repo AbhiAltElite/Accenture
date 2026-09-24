@@ -1585,7 +1585,7 @@ async function whoami(){
   if(me.mode === 'demo'){
     box.innerHTML = `<span class="toollabel">Signed in</span><select id="wb-user" aria-label="Signed in as">${me.demo_users.map(u =>
       `<option value="${escapeHtml(u.id)}"${u.id === me.identity.id ? ' selected' : ''}>${escapeHtml(u.name.replace(' (demo)', ''))}</option>`).join('')}</select>
-      <span class="demo-chip" title="No single sign-on is connected; records made here are marked as a demo identity">demo</span>`;
+      <span class="demo-chip" title="No single sign-on is connected; records made here are marked as a demo identity">Demo</span>`;
     document.getElementById('wb-user').onchange = e => { try{ localStorage.setItem('whychain-user', e.target.value); }catch{ /* ignore */ } };
   }else{
     box.innerHTML = `<span class="toollabel">Signed in</span><span>${escapeHtml(me.identity.name)}</span>`;

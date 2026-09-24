@@ -181,6 +181,10 @@ class TestService:
         report = json.loads(Path("bench/report.json").read_text(encoding="utf-8"))
         assert t["cases"] == report["counts"]["cases"]
         assert t["decoys_rejected"] == report["rates"]["negative_control_rejection"]
+        named = [c for c in report["cases"] if c["verdict"] == "explained"]
+        assert t["named_a_cause"] == len(named)
+        assert t["exactly_right"] == sum(1 for c in named if set(c["verified"]) == {c["case_id"] + "-cause"})
+        assert 0 <= t["decoy_let_through"] <= t["named_a_cause"]
 
     def test_headers_and_metrics(self, client):
         c, _ = client
@@ -196,3 +200,47 @@ class TestService:
         for path in ("/", "/finding", "/workbench", "/slide", "/uat", "/kpi/net_revenue"):
             r = c.get(path)
             assert r.status_code == 200 and b"WhyChain" in r.content, path
+
+
+JUL = {"kpi": "net_revenue", "region": "West", "start": "2026-07-08", "end": "2026-07-12", "industry": "retail"}
+
+
+class TestFairTarget:
+    def test_a_warned_condition_is_flagged_not_excused(self, client):
+        c, _ = client
+        ft = c.get("/api/diagnose", params={**QUERY, "backend": "none"}).json()["fair_target"]
+        weather = ft["factors"][0]
+        assert weather["warned"] and not weather["excused_by_policy"]
+        assert ft["policy_inr_per_day"] == ft["net_inr_per_day"]
+        # scaled for the overlap: never more than the movement itself
+        assert abs(weather["amount_inr_per_day"]) < abs(ft["net_inr_per_day"])
+        assert ft["all_excused_inr_per_day"] == round(ft["net_inr_per_day"] - weather["amount_inr_per_day"], 2)
+
+    def test_only_the_owner_adjusts_and_a_reason_is_required(self, client):
+        c, _ = client
+        body = {**JUL, "excuse": ["wx-flood-jul"]}
+        assert c.post("/api/adjustment", json=body, headers=as_("fpa.analyst")).status_code == 403
+        assert c.post("/api/adjustment", json=body, headers=as_("finance.director")).status_code == 422
+        r = c.post("/api/adjustment", json={**body, "note": "Both DCs closed by order"}, headers=as_("finance.director"))
+        assert r.status_code == 200
+        assert r.json()["recorded"]["payload"]["team_inr_per_day"] == 0.0
+
+    def test_a_controllable_cause_cannot_be_excused(self, client):
+        c, _ = client
+        r = c.post("/api/adjustment", json={**WEST, "excuse": ["rel-4.05"], "note": "x"},
+                   headers=as_("finance.director"))
+        assert r.status_code == 422
+
+    def test_withheld_whole_under_partial_entitlement(self, client):
+        # The net less the visible factors would recover a withheld cause's
+        # exact value, so no figure is shown at all.
+        c, _ = client
+        q = {"kpi": "net_revenue", "start": "2026-08-13", "end": "2026-08-16",
+             "backend": "none", "entitled": "South"}
+        for persona in ("analyst", "cfo", "ops"):
+            ft = c.get("/api/diagnose", params={**q, "persona": persona}).json()["fair_target"]
+            assert ft["withheld"] is True and ft["factors"] == []
+            assert not {"net_inr_per_day", "policy_inr_per_day", "all_excused_inr_per_day"} & set(ft)
+        r = c.post("/api/adjustment", json={**WEST, "entitled": "South", "excuse": ["wx-mumbai-aug"],
+                                            "note": "x"}, headers=as_("finance.director"))
+        assert r.status_code == 403

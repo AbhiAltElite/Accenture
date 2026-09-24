@@ -38,11 +38,54 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 | T-29 | A handler called in-process as a Python function | api, scripts | FastAPI parameters declared as `Query(...)` arrive as `Query` objects, which are truthy, when the handler is called directly rather than over HTTP. Every parameter the caller omits becomes a filter for a slice that does not exist (B-040). Call through `TestClient`, or pass every parameter explicitly, and never report success without checking the response |
 | T-30 | A demo scenario is data, and data drifts | ui, datagen | A button's label promises an outcome its coordinates no longer produce: a gap on a metric that cannot be diagnosed, a refusal that crashes the page (B-039, B-041). Scenario coordinates are read out of the page by a test that asserts each one's promised outcome (`tests/test_scenarios.py`), and the rendered page is checked in a browser (`/uat`) |
 | T-31 | A page sentence composed from a template that is true only for some results | ui | "No cause survived testing" was printed over two causes that had passed testing, and "nothing external warned of this" over a verdict one of whose three causes is that a warning was received (B-044, B-045). Every fixed sentence is checked against every value its inputs can take, or the engine's own reason is shown instead |
+| T-32 | A field attached to the diagnosis after the projection | api | `diagnose()` projects, then adds fields. Anything added there skips entitlement. A hash is safe; anything that names a cause or sizes one is not, and must be withheld whole when the projection withheld a cause, since a partial set of figures subtracts to the missing one. B-049. The audit check `No surface names a cause outside entitlement` catches it |
 | T-18 | A benchmark result that improved for a reason nobody checked | bench, datagen | Numbers that move the flattering way get accepted; numbers that move the other way get investigated. A harness defect usually shows up as the former. Any invariant the generator depends on is executed by a test, never only stated in a docstring (see B-014) |
 
 ---
 
 ## Defects
+
+### B-050 · Two decoy figures that read alike, and one cause listed twice
+**Found:** 2026-09-24, checking the track record before the finale · **Severity:** P2, Q&A risk · **Status:** open, documented
+
+**What:** the benchmark's `negative_control_rejection` is 87.5%: of the 64
+cases planted with a decoy, the engine verified that case's *own* decoy in 8.
+The inbox's "a planted decoy got through in 14" counts, among the 68 answers
+that named a cause, those that verified *any* decoy, including one planted for
+a neighbouring case in the same panel. Both are right as defined. Quoted side
+by side they look like a contradiction, and 87.5% alone reads as more than it
+is. Say the strict one: 14 of 68 answers carried a decoy.
+
+Separately, 6 benchmark cases list the same verified id twice
+(`bench-04-south-1` and five more). **Root cause:** `from_operations` makes one
+candidate per document, and the generator writes a release log and an ops note
+naming the same release, so the candidate is built and verified twice.
+`explained_movement` keys by id, so the explained share and the confidence are
+not double counted; only the list repeats. The track record's exact count uses
+a set and is unaffected; an earlier "97%" that did not was withdrawn. No live
+finding in the three warehouses has a duplicate (12 checked).
+
+**Fix, deferred past the finale:** dedupe candidates by id in `from_operations`,
+merging descriptions. It changes the benchmark lists and possibly prompts, so it
+needs a re-bench and a re-warm, which is not a risk worth taking this week.
+
+### B-049 · The fair target named a cause withheld by entitlement
+**Found:** 2026-09-24, by `make audit` the day the fair target shipped · **Severity:** P1 · **Status:** fixed
+
+**Root cause:** `fair_target` was computed from the full evidence and attached
+after the projection, the same way the evidence fingerprint is. The fingerprint
+is a hash and discloses nothing; the fair target lists causes by name with their
+rupee sizes. A reader entitled to South saw the Mumbai weather cause and its
+value on a finding whose causes panel correctly withheld it. The same trap as
+the four surfaces in the audit check's docstring: a new field added after the
+projection is outside entitlement until someone puts it inside.
+
+**Fix:** when the projection withheld any cause, the fair target is withheld
+whole, with a notice and no figures. Dropping only the withheld factor would not
+do: the net less the visible factors recovers its exact value. `/api/adjustment`
+refuses under partial entitlement for the same reason.
+`test_withheld_whole_under_partial_entitlement`, verified to fail with the guard
+disabled.
 
 ### B-048 · The evidence drawer showed tickets unmasked
 **Found:** 2026-09-24, adding PAN and UPI patterns · **Severity:** P1 · **Status:** fixed

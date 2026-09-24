@@ -81,6 +81,11 @@ a{color:var(--accent)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);font-weight:500}
 .themebtn{border:1px solid var(--line-2);background:var(--paper);color:var(--ink-3);border-radius:var(--r-sm);font-size:13px;padding:4px 10px;cursor:pointer;min-width:58px}
 .themebtn:hover{color:var(--ink)}
+.onpage{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;margin:18px 2px 0;font-size:14px}
+.onpage span{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.onpage a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}
+.onpage a:hover{border-bottom-color:var(--accent)}
+#why,#gap,#calendar,#decide,#fair{scroll-margin-top:72px}
 .viewnote{font-size:14px;color:var(--ink-3);margin:10px 0 0}
 .demo-chip{font-family:var(--mono);font-size:11px;color:var(--warn);border:1px solid var(--warn);border-radius:var(--r-sm);padding:0 5px}
 
@@ -165,15 +170,15 @@ details.scen .menu small{display:block;color:var(--ink-3);font-size:12.5px}
 .facts small.cap{display:block;font-size:13px;color:var(--ink-3);font-weight:400;font-family:var(--sans);margin-top:2px}
 .facts div{display:grid}
 .facts > div > span{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
-.facts > div{gap:4px}
+.facts > div{gap:4px;align-content:start}
 .facts b{font-size:19px;font-weight:600}
 .facts b.lead{font-size:24px}
 .actions{display:grid;gap:8px}
-.actions{gap:10px}
-.actions .who{font-size:13.5px;color:var(--ink-3);text-align:center;margin-bottom:4px}
+.actions{gap:10px;align-content:start}
+.actions .who{font-size:13px;line-height:1.4;color:var(--ink-3);margin:-2px 0 6px;padding-bottom:12px;border-bottom:1px solid var(--line)}
 .signed-bar{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin-top:20px;padding:12px 16px;border-radius:var(--r-md);background:var(--ok-soft);color:var(--ok);font-size:14.5px}
 .signed-bar.changed{background:var(--warn-soft);color:var(--warn)}
-.grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:20px;margin-top:20px}
+.grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:20px;margin-top:20px;align-items:start}
 .cause{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 16px;padding:18px 0;border-bottom:1px solid var(--line)}
 .cause:first-of-type{padding-top:0}
 .cause .d{font-weight:600}
@@ -210,6 +215,13 @@ table.t th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:up
 table.t td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
 table.t td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .loading{color:var(--ink-3);padding:30px 0}
+.fair-sum{display:grid;grid-template-columns:repeat(3,minmax(0,max-content));column-gap:56px;row-gap:16px;margin:0 0 18px}
+.fair-sum > div{display:grid;gap:4px;align-content:start}
+.fair-sum span{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.fair-sum b{font-size:19px;font-weight:600}
+.fair-sum small.cap{display:block;font-size:13px;color:var(--ink-3)}
+.fair-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:18px;align-items:center;padding:14px 0;border-top:1px solid var(--line)}
+.fair-amt{font-size:15px;text-align:right}
 .cal{width:100%;height:auto;display:block}
 .cal .tk{stroke:var(--line);stroke-width:1}
 .cal text{font-family:var(--mono);font-size:11px;fill:var(--ink-3)}
@@ -430,7 +442,7 @@ function renderActor(){
   const who = me.identity;
   if(me.mode === 'demo'){
     $('#actor').innerHTML = `<select id="user" aria-label="Signed in as" title="Signed in as (demo identity: no single sign-on is connected)">${me.demo_users.map(u => `<option value="${esc(u.id)}"${u.id===who.id?' selected':''}>${esc(u.name.replace(' (demo)',''))}</option>`).join('')}</select>
-      <span class="demo-chip" title="No single sign-on is connected. Every record made here is marked as a demo identity.">demo</span>`;
+      <span class="demo-chip" title="No single sign-on is connected. Every record made here is marked as a demo identity.">Demo</span>`;
     $('#user').onchange = async e => { S.user = e.target.value; store.set('whychain-user', S.user); S.me = (await api('/api/me')).data;
       const v = ROLE_VIEW[S.me.identity.role]; if(v){ S.persona = v; store.set('whychain-persona', v); markPersona(); }
       renderActor(); route(); };
@@ -444,13 +456,19 @@ const myName = () => S.me && S.me.identity ? S.me.identity.name : '';
 
 /* ---------- routing ---------- */
 function go(url){ history.pushState({}, '', url); route(); }
-addEventListener('popstate', route);
+let routed = location.pathname + location.search;
+addEventListener('popstate', () => {
+  // A fragment-only change is a scroll within the page, never a new page.
+  if(location.pathname + location.search === routed) return;
+  route();
+});
 document.addEventListener('click', e => {
   const a = e.target.closest('a[data-nav]');
   if(!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
   e.preventDefault(); go(a.getAttribute('href'));
 });
 function route(){
+  routed = location.pathname + location.search;
   closeLayer();
   const p = new URLSearchParams(location.search);
   const onFinding = location.pathname === '/finding';
@@ -534,13 +552,16 @@ async function inbox(p, token){
 }
 function trackStrip(){
   const t = S.track; if(!t) return '';
+  // Exact counts from the benchmark, stated the strict way: an audience should
+  // never have to ask what a percentage was a percentage of.
+  const exact = t.named_a_cause ? Math.round(t.exactly_right / t.named_a_cause * 100) : null;
   return `<div class="track"><span class="t">Track record</span>
-    <span>Measured on <b>${t.cases}</b> test cases</span>
-    <span><b>${pct(t.noise_explained,0)}</b> of noise explained</span>
-    <span><b>${pct(t.decoys_rejected)}</b> of planted decoys rejected</span>
-    <span>true cause verified <b>${pct(t.true_cause_verified)}</b> of the time</span>
-    <span>abstentions correct <b>${pct(t.abstention_precision)}</b></span>
-    <span class="muted small">from the benchmark run of ${dt(t.measured_at)}</span></div>`;
+    <span>Named a cause in <b>${t.named_a_cause}</b> of ${t.cases} test cases</span>
+    <span>Exactly the true cause, nothing else, in <b>${t.exactly_right}</b> of those (${exact}%)</span>
+    <span>A planted decoy got through in <b>${t.decoy_let_through}</b></span>
+    <span><b>${t.noise_cases_explained}</b> of ${t.noise_cases} noise-only cases explained</span>
+    <span>Abstentions correct: <b>${pct(t.abstention_precision)}</b></span>
+    <span class="muted small">Synthetic test cases, benchmark run of ${dt(t.measured_at)}</span></div>`;
 }
 function rowHtml(f, sig){
   // A list row has room for a word, not a sentence: short labels here, the
@@ -553,7 +574,7 @@ function rowHtml(f, sig){
     <span data-pill="${esc(keyOf(f))}">${sig ? `<span class="pill ok">${svg('signed')}Signed</span>` : f.diagnosable ? `<span class="pill idle">${svg('checking')}Checking</span>` : pill('detected', false, 'Detected')}</span>
     <span><span class="t">${esc(kpiName(f.kpi_id))}, ${esc(f.region || 'all regions')}</span><br>
       <span class="s">${span(f.start, f.end)} · ${pct(f.pct)} ${dir} expected${f.also_moved && f.also_moved.length ? ` · ${esc(f.also_moved.map(kpiName).join(', '))} moved too` : ''}${valued}</span></span>
-    <span class="r"><span class="num">${inr(f.impact_inr_per_day)}</span><br><span class="s">a day</span></span>
+    <span class="r"><span class="num">${inr(f.impact_inr_per_day)}</span><br><span class="s">per day</span></span>
     <span class="r hide-s status">${status}</span></a>`;
 }
 async function fillVerdicts(rows, entries, entitled, token){
@@ -593,7 +614,7 @@ function auditView(d){
         <span class="muted">${esc(e.payload.statement || e.payload.action || '')}${e.payload.note ? ' · “' + esc(e.payload.note) + '”' : ''}</span></span>
       <span class="num small muted" title="${esc(e.hash)}">${esc(e.hash.slice(0,10))}…</span></div>`).join('');
   return `<h1 style="margin-top:18px">Audit trail</h1>
-    <p class="muted" style="max-width:70ch;margin:0 0 14px">Signatures and decisions, newest first. Recording a decision never executes it.</p>
+    <p class="muted" style="max-width:70ch;margin:0 0 14px">Signatures, decisions and target adjustments, newest first. Recording a decision never executes it.</p>
     <div class="list" style="border-top:1px solid var(--line);border-radius:var(--r-md)"><div class="chain">${chain}</div>${rows || '<div class="empty">No signatures or decisions yet.</div>'}</div>`;
 }
 
@@ -698,7 +719,7 @@ function findingView(ctx){
   const actions = `<div class="actions">
       ${signed ? `<button type="button" class="btn primary" data-sign>Sign again</button>`
                : `<button type="button" class="btn primary" data-sign>${signLabel}</button>`}
-      <div class="who">${canSign ? `You are the accountable ${esc(roleName(owner).toLowerCase())}.` : `Only the ${esc(roleName(owner).toLowerCase())} signs this.`}</div>
+      <div class="who">${canSign ? 'You are the accountable owner.' : `Signed by the ${esc(roleName(owner).toLowerCase())} only.`}</div>
       <a class="btn" href="/slide?${qs(ctx.base)}" target="_blank" rel="noopener">Board-pack slide</a>
       <a class="btn" href="/kpi/${esc(f.kpi)}" >Open in workbench</a>
     </div>`;
@@ -722,6 +743,7 @@ function findingView(ctx){
       </div>
       ${actions}
     </section>
+    <nav class="onpage" id="onpage" aria-label="On this page"></nav>
     ${main}
     ${calendarHtml(ctx)}
     ${withheld}
@@ -767,10 +789,49 @@ function explainedBody(ctx){
   const ruled = ctx.cand && ctx.cand.rejected ? `<section class="panel"><h2>Ruled out</h2>${ctx.cand.rejected.length ? `<ul class="ruled" style="padding-left:18px;margin:0">${ctx.cand.rejected.map(r => `<li><s>${esc(causeText(r.description))}</s><br><span class="small">${esc(reasonText(r.reason))}.${r.per_region && Object.keys(r.per_region).length > 1 ? ' Where it ran: ' + Object.entries(r.per_region).map(([k,v]) => `${esc(k)} ${v<0?'−':'+'}${pct(v)}`).join(', ') + '.' : ''}</span></li>`).join('')}</ul>` : '<p class="small muted">No candidate was rejected.</p>'}</section>`
     : persona === 'analyst' ? '' : '';
   return `<div class="grid">
-      <section class="panel"><h2>Why it moved · ₹ a day against the fortnight before</h2>${causeRows}${overlap}${outlook}${narrativeHtml(d)}</section>
+      <section class="panel" id="why"><h2>Why it moved · ₹ a day against the fortnight before</h2>${causeRows}${overlap}${outlook}${narrativeHtml(d)}</section>
       <div class="stack">${setAsideHtml(d)}${ruled}${gapHtml(d)}${reconHtml(d)}</div>
     </div>
-    ${decisionsHtml(ctx)}`;
+    ${decisionsHtml(ctx)}
+    ${fairHtml(ctx)}`;
+}
+/* What the team is judged on: the movement less the conditions beyond its
+   control, computed by the server from the tested causes. A condition that was
+   warned in time is flagged, not excused; only the accountable owner can excuse
+   it, and that is recorded. */
+function fairHtml(ctx){
+  const d = ctx.diag.data, ft = d.fair_target;
+  if(!ft) return '';
+  const owner = (ctx.sig && ctx.sig.accountable) || 'finance_director';
+  const mine = myRole() === owner;
+  const done = ctx.audit.find(e => e.event === 'target_adjusted' && e.subject.window
+    && e.subject.window.from === ctx.f.start && e.subject.window.to === ctx.f.end);
+  if(!ft.factors.length) return `<section class="panel" id="fair" style="margin-top:20px"><h2>Fair target</h2>
+    <p class="small" style="margin:0">${esc(ft.note)}</p></section>`;
+  const excused = new Set(done ? (done.payload.excused || []).map(x => x.candidate_id) : []);
+  const rows = ft.factors.map(f => `<div class="fair-row">
+      <div><b>${esc(causeText(f.cause))}</b><br><span class="small muted">Beyond the team's control · ${f.direction === 'headwind' ? 'worked against it' : 'worked in its favour'}${ft.scaled_for_overlap ? ' · scaled for the overlap' : ''}</span></div>
+      <div class="num fair-amt">${inr(f.amount_inr_per_day, {sign:true})}<span class="muted small"> /day</span></div>
+      <div>${f.warned && excused.has(f.candidate_id) ? `<span class="pill ok">${svg('explained')}Warned ${Math.round(f.lead_time_hours)} h ahead · excused by the owner</span>`
+           : f.warned ? `<span class="pill warn">${svg('contradicted')}Warned ${Math.round(f.lead_time_hours)} h ahead · not excused</span>`
+                      : `<span class="pill ok">${svg('explained')}Unforeseeable · excused</span>`}</div></div>`).join('');
+  const differs = ft.all_excused_inr_per_day !== ft.policy_inr_per_day;
+  const action = done
+    ? `<p class="signed-bar" style="margin-top:16px"><b>Adjusted</b><span>${esc(done.actor.name)} · ${esc(when(done.at))}</span><span>The team is judged on <b class="num">${inr(done.payload.team_inr_per_day, {sign:true})}</b> a day.</span></p>
+       ${done.payload.note ? `<p class="small" style="margin:8px 0 0"><span class="muted">Reason on the record:</span> ${esc(done.payload.note)}</p>` : ''}`
+    : differs ? (mine
+      ? `<button type="button" class="btn" id="excuse" style="margin-top:14px">Excuse the warned conditions anyway</button>`
+      : `<p class="small muted" style="margin:14px 0 0">Only the ${esc(roleName(owner).toLowerCase())} can excuse a condition, and it is recorded.</p>`) : '';
+  return `<section class="panel" id="fair" style="margin-top:20px"><h2>Fair target · what the team is judged on</h2>
+    <div class="fair-sum">
+      <div><span>Movement</span><b class="num">${inr(ft.net_inr_per_day, {sign:true})}</b><small class="cap">a day, against the fortnight before</small></div>
+      ${done ? `<div><span>Team judged on, as adjusted</span><b class="num">${inr(done.payload.team_inr_per_day, {sign:true})}</b><small class="cap">a day · by policy ${inr(ft.policy_inr_per_day, {sign:true})}</small></div>`
+             : `<div><span>Team judged on, by policy</span><b class="num">${inr(ft.policy_inr_per_day, {sign:true})}</b><small class="cap">a day</small></div>`}
+      ${differs && !done ? `<div><span>If every condition were excused</span><b class="num">${inr(ft.all_excused_inr_per_day, {sign:true})}</b><small class="cap">a day</small></div>` : ''}
+    </div>
+    ${rows}
+    <p class="note">${esc(ft.note)} A condition in the team's favour raises the bar the same way.</p>
+    ${action}</section>`;
 }
 function setAsideHtml(d){
   const s = d.set_aside || [];
@@ -792,7 +853,7 @@ function unknownBody(ctx){
         ${x.v ? `<span class="meta"><button type="button" class="ev" data-ev="cause:${esc(x.id)}">${esc(testsLine(x.v))}</button></span>` : ''}</div>`).join('')}
       ${a.coverage !== undefined ? `<p class="note">Together they account for ${pct(a.coverage, 0)} of the movement.</p>` : ''}` : '';
   return `<div class="grid">
-      <section class="panel">${partialHtml}<h2${partial.length ? ' style="margin-top:14px"' : ''}>${reasons.length ? 'What we checked' : 'What happens next'}</h2>
+      <section class="panel" id="why">${partialHtml}<h2${partial.length ? ' style="margin-top:14px"' : ''}>${reasons.length ? 'What we checked' : 'What happens next'}</h2>
         ${reasons.length ? `<ul style="padding-left:18px;margin:0 0 10px">${reasons.map(r => `<li>${esc(plain(r, d))}.</li>`).join('')}</ul>` : ''}
         ${a.next_check ? `<p><b>Next check:</b> ${esc(a.next_check.charAt(0).toUpperCase()+a.next_check.slice(1))}.</p>` : ''}
         ${a.question ? `<p><b>A question for you:</b> ${esc(a.question)}</p>` : ''}
@@ -804,7 +865,7 @@ function unknownBody(ctx){
 function contradictedBody(ctx){
   const d = ctx.diag.data, r = d.reconciliation || {};
   return `<div class="grid">
-      <section class="panel"><h2>Why nothing is explained</h2><p>${esc(r.reason || ((d.abstention || {}).blocking || [])[0] || 'The two systems that post this number disagree beyond their tolerance.')}</p>
+      <section class="panel" id="why"><h2>Why nothing is explained</h2><p>${esc(r.reason || ((d.abstention || {}).blocking || [])[0] || 'The two systems that post this number disagree beyond their tolerance.')}</p>
         ${(r.breaches||[]).length ? `<table class="t"><thead><tr><th>Day</th><th class="n">This system</th><th class="n">Finance ledger</th><th class="n">Gap</th></tr></thead><tbody>
           ${r.breaches.map(b => `<tr><td>${dt(b.day)}</td><td class="n">${inr(b.primary)}</td><td class="n">${inr(b.secondary)}</td><td class="n">${pct(b.residual)}</td></tr>`).join('')}</tbody></table>` : ''}
         ${narrativeHtml(d)}</section>
@@ -843,7 +904,7 @@ function calendarHtml(ctx){
     const detail = e.kind === 'signal'
       ? `${String(e.detail).split('. ')[0]} · up to ${Math.round(e.lead_time_hours)} h ahead · ${e.publisher}`
       : plain(e.detail, d);
-    return `<li><span class="num small">${esc(dt(e.day).replace(/ \d{4}$/, ''))}</span> <span class="pill ${k[1]}">${esc(k[0])}</span> <b>${esc(cap(e.label))}</b>${e.count > 1 ? ` <span class="small muted">(${e.count} warnings)</span>` : ''}<br><span class="small muted">${esc(detail)}</span></li>`; };
+    return `<li><span class="num small">${esc(dt(e.day).replace(/ \d{4}$/, ''))}</span> <span class="pill ${k[1]}">${esc(k[0])}</span> <b>${esc(cap(e.label))}</b>${e.count > 1 ? ` <span class="small muted">· ${e.count} warnings</span>` : ''}<br><span class="small muted">${esc(detail)}</span></li>`; };
   // A public holiday inside the window is the question a reader in India asks
   // first, so it is answered here rather than left for Q&A.
   const hol = c.behind.filter(e => e.kind === 'calendar' && e.day >= f.start && e.day <= f.end);
@@ -855,7 +916,7 @@ function calendarHtml(ctx){
   const behind = c.behind.filter(e => e.day <= f.end).slice(-8), ahead = c.ahead.slice(0, 6);
   return `<section class="panel" id="calendar" style="margin-top:14px"><h2>What was known, and what is coming</h2>
     ${strip}
-    <p class="small muted" style="margin:2px 0 10px">▲ warning · ■ promotion · ● holiday. Shaded: the window under review.</p>
+    <p class="small muted" style="margin:2px 0 10px">▲ Warning · ■ Promotion · ● Holiday · Shaded: the window under review</p>
     ${holNote}
     <details class="more"><summary>All ${behind.length + ahead.length} events</summary>
     <div class="grid" style="margin-top:12px">
@@ -868,7 +929,7 @@ function narrativeHtml(d){
   const n = d.narrative; if(!n) return '<div id="narr"></div>';
   const v = n.validation || {};
   const acc = (v.accepted || n.sentences || []).length, rej = (v.rejected || []).length;
-  const by = n.writer === 'template' ? 'from a template, no model' : `by the model · ${acc} of ${acc + rej} sentences validated`;
+  const by = n.writer === 'template' ? 'From a template, no model' : `By the model · ${acc} of ${acc + rej} sentences validated`;
   const text = plain((n.sentences && n.sentences.length ? n.sentences.map(s => s.text).join(' ') : n.text) || '', d);
   // Collapsed: the table above already says it, and a reader who wants it in
   // sentences can open it. The label says who wrote it and how it was checked.
@@ -918,7 +979,7 @@ function decisionsHtml(ctx){
         <button type="button" class="btn sm" data-teams="${esc(a.action_id)}" style="margin-left:auto">Send to Teams</button>
       </div></div>`;
   }).join('');
-  return `<section class="panel" style="margin-top:14px"><h2>${S.persona === 'ops' ? 'Actions in your territory' : 'What to do'}</h2>${body}</section>`;
+  return `<section class="panel" id="decide" style="margin-top:20px"><h2>${S.persona === 'ops' ? 'Actions in your territory' : 'What to do'}</h2>${body}</section>`;
 }
 function recordHtml(ctx){
   if(!ctx.audit.length) return '';
@@ -949,11 +1010,26 @@ const fmtUnit = (v, u) => u === 'INR' ? inr(v) : u === 'ratio' ? `${(v*100).toFi
 /* ---------- interaction ---------- */
 function wireFinding(ctx){
   const view = $('#view');
+  // Built from what was rendered, so a link never points at a section this
+  // verdict does not have (a contradicted finding has no gap and no decisions).
+  const first = {explained:'Causes', contradicted:'Why nothing is explained'}[ctx.diag.data.verdict] || 'What we checked';
+  const links = [['why', first], ['gap', 'Signal gap'], ['calendar', 'Calendar'], ['decide', 'Decisions'], ['fair', 'Fair target']]
+    .filter(([id]) => document.getElementById(id));
+  const nav = $('#onpage');
+  if(nav){
+    nav.innerHTML = links.length > 1 ? '<span>On this page</span>' + links.map(([id, t]) => `<a href="#${id}" data-jump="${id}">${t}</a>`).join('') : '';
+    // Scrolled, not navigated: following a #fragment fires popstate, which the
+    // router reads as a new page and re-renders the whole finding.
+    nav.querySelectorAll('[data-jump]').forEach(a => a.onclick = e => {
+      e.preventDefault(); document.getElementById(a.dataset.jump).scrollIntoView({block:'start', behavior:'smooth'});
+    });
+  }
   view.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => evidence(ctx, b.dataset.ev));
   view.querySelectorAll('[data-fb]').forEach(b => b.onclick = () => feedback(ctx, b));
   view.querySelectorAll('[data-decide]').forEach(b => b.onclick = () => decideModal(ctx, ...b.dataset.decide.split(':')));
   view.querySelectorAll('[data-teams]').forEach(b => b.onclick = () => teams(ctx, b.dataset.teams));
   const s = view.querySelector('[data-sign]'); if(s) s.onclick = () => signModal(ctx);
+  const x = view.querySelector('#excuse'); if(x) x.onclick = () => excuseModal(ctx);
 }
 async function feedback(ctx, b){
   const [id, judgement] = b.dataset.fb.split(':');
@@ -1084,6 +1160,21 @@ function signModal(ctx){
   if(act) act.onclick = async () => {
     const u = S.me.demo_users.find(x => x.role === owner); if(!u) return;
     S.user = u.id; store.set('whychain-user', S.user); S.me = (await api('/api/me')).data; renderActor(); signModal(ctx);
+  };
+}
+function excuseModal(ctx){
+  const ft = ctx.diag.data.fair_target, warned = ft.factors.filter(f => f.warned);
+  layer(`<div class="modal" role="dialog" aria-modal="true" aria-label="Excuse conditions"><div class="box">
+    <h3>Excuse conditions the team was warned about</h3>
+    <ul>${warned.map(f => `<li><b>${esc(causeText(f.cause))}</b>, ${inr(f.amount_inr_per_day, {sign:true})} a day, warned ${Math.round(f.lead_time_hours)} hours ahead.</li>`).join('')}</ul>
+    <p class="small">The team would be judged on <b class="num">${inr(ft.all_excused_inr_per_day, {sign:true})}</b> a day instead of <b class="num">${inr(ft.policy_inr_per_day, {sign:true})}</b>. The policy holds a team accountable for preparing for a warned condition, so say why this one is excused.</p>
+    <label class="small" for="xnote">Why (required)</label><textarea id="xnote" maxlength="500"></textarea><div class="err" id="xerr"></div>
+    <div class="foot"><button type="button" class="btn" data-close>Cancel</button><button type="button" class="btn primary" id="xgo">Excuse and record</button></div></div></div>`);
+  $('#xgo').onclick = async () => {
+    if(!$('#xnote').value.trim()){ $('#xerr').textContent = 'Say why: a warned condition is excused only with a reason on the record.'; return; }
+    const r = await api('/api/adjustment', {method:'POST', body: JSON.stringify({...ctx.base, excuse: warned.map(f => f.candidate_id), note: $('#xnote').value})});
+    if(!r.ok){ $('#xerr').textContent = detail(r); return; }
+    closeLayer(); toast('Adjustment recorded in the audit trail.'); route();
   };
 }
 function decideModal(ctx, actionId, choice){

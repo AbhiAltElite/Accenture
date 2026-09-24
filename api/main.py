@@ -2462,7 +2462,75 @@ def diagnose(
     # sees the same value, and a signature can be checked against it without
     # running the diagnosis a second time.
     projected["evidence_fingerprint"] = evidence_fingerprint(result)
+    # From the full evidence, but withheld whole when the reader's entitlement
+    # removed any cause: the net less the visible factors would otherwise
+    # recover exactly what the withheld one was worth.
+    projected["fair_target"] = fair_target(
+        result, withheld=bool((projected.get("entitlement") or {}).get("notice")))
     return projected
+
+
+def fair_target(result: dict, withheld: bool = False) -> dict | None:
+    """How much of a movement the team should be judged on.
+
+    The planning and operating split from management accounting, with the
+    evidence doing the work opinion usually does. A verified cause the contract
+    marks as having no lever is a condition beyond the team's control. Its size
+    is its measured contribution, scaled back when causes overlap so the pieces
+    sum to the real movement.
+
+    Two refinements the research on the controllability principle asks for:
+    a condition that was *warned in time* is flagged rather than excused, since
+    a team can prepare for what it was told was coming; and a favourable
+    condition raises the bar exactly as an adverse one lowers it, so good luck
+    is not free. Nothing here changes a target; it is a proposal that only the
+    metric's accountable owner can apply, through /api/adjustment.
+    """
+    if result.get("verdict") != "explained":
+        return None
+    movement = result.get("movement") or {}
+    if withheld or movement.get("per_cause_withheld"):
+        return {"withheld": True, "factors": [],
+                "note": ("A cause here lies outside your entitlement, so the fair target is "
+                         "shown only to a reader entitled to every region it touches.")}
+    per_cause = movement.get("per_cause") or {}
+    net = float(movement.get("total_change") or 0.0)
+    gross = sum(abs(v) for v in per_cause.values())
+    scale = min(1.0, abs(net) / gross) if gross else 1.0
+    gap = result.get("signal_gap") or {}
+    factors = []
+    for card in result.get("decisions") or []:
+        if card.get("controllable"):
+            continue
+        cid = card.get("candidate_id")
+        amount = round(float(per_cause.get(cid, 0.0)) * scale, 2)
+        warned = gap.get("verdict") == "gap_found" and card.get("driver") == gap.get("signal_type")
+        factors.append({
+            "candidate_id": cid,
+            "cause": card.get("cause"),
+            "amount_inr_per_day": amount,
+            "direction": "headwind" if amount < 0 else "tailwind",
+            "warned": warned,
+            "lead_time_hours": gap.get("best_lead_time_hours") if warned else None,
+            "excused_by_policy": not warned,
+        })
+    if not factors:
+        return {"net_inr_per_day": round(net, 2), "factors": [], "policy_inr_per_day": round(net, 2),
+                "all_excused_inr_per_day": round(net, 2),
+                "note": "Every verified cause has a lever, so the whole movement is the team's."}
+    excused = sum(f["amount_inr_per_day"] for f in factors if f["excused_by_policy"])
+    every = sum(f["amount_inr_per_day"] for f in factors)
+    return {
+        "net_inr_per_day": round(net, 2),
+        "factors": factors,
+        # Removing an adverse (negative) factor lifts the team's figure toward
+        # zero; removing a favourable one pushes it down. Same arithmetic.
+        "policy_inr_per_day": round(net - excused, 2),
+        "all_excused_inr_per_day": round(net - every, 2),
+        "scaled_for_overlap": scale < 1.0,
+        "note": ("Conditions warned in time are flagged, not excused: the team could "
+                 "prepare. Only the accountable owner can excuse one, and it is recorded."),
+    }
 
 
 @app.post("/api/feedback")
@@ -2691,11 +2759,30 @@ def trackrecord() -> dict:
     report = json.loads(path.read_text(encoding="utf-8"))
     rates, counts = report.get("rates", {}), report.get("counts", {})
     fit = report.get("calibration_fit") or {}
+    # Of the cases where the engine named a cause, how often the planted cause
+    # was among those it verified. The planted cause is `<case_id>-cause`, by
+    # the generator's own convention (datagen/bulk.py), and the report keeps the
+    # verified list per case, so this is read, not re-scored. It is the figure a
+    # reader who signs cares about: when it answers, is it right.
+    cases = report.get("cases", [])
+    named = [c for c in cases if c.get("verdict") == "explained"]
+    truth = lambda c: f"{c['case_id']}-cause"  # noqa: E731
+    exact = sum(1 for c in named if set(c.get("verified") or []) == {truth(c)})
+    # The strict count, not the benchmark's per-case decoy rate: a decoy planted
+    # for a neighbouring case in the same panel counts here too. The per-case
+    # rate (87.5%) is correct as defined and reads as more than it is.
+    decoy_through = sum(1 for c in named if any(v.endswith("-decoy") for v in c.get("verified") or []))
+    noise = [c for c in cases if c.get("expected") == "no_anomaly"]
     return {
         "cases": counts.get("cases"),
         "noise_explained": rates.get("false_alarm_rate"),
         "decoys_rejected": rates.get("negative_control_rejection"),
         "true_cause_verified": rates.get("topk_accuracy"),
+        "named_a_cause": len(named),
+        "exactly_right": exact,
+        "decoy_let_through": decoy_through,
+        "noise_cases": len(noise),
+        "noise_cases_explained": sum(1 for c in noise if c.get("verdict") == "explained"),
         "true_cause_first": rates.get("top1_accuracy"),
         "abstention_precision": rates.get("abstention_precision"),
         "abstention_recall": rates.get("abstention_recall"),
@@ -2825,6 +2912,54 @@ def decide(payload: dict, request: Request) -> dict:
             "note": str(payload.get("note") or "")[:500],
             "evidence": evidence_fingerprint(run),
             "executed": False,
+        },
+    )
+    return {"recorded": entry}
+
+
+@app.post("/api/adjustment")
+def adjust_target(payload: dict, request: Request) -> dict:
+    """Excuse conditions beyond the team's control from a finding's target.
+
+    Only the metric's accountable owner may, only conditions the evidence marks
+    as uncontrollable can be excused, and the adjustment is recorded with the
+    evidence it rests on. Nothing about the finding itself changes.
+    """
+    who = _who(request)
+    vertical = _vertical(payload.get("industry"))
+    contract = _contract(str(payload.get("kpi") or "net_revenue"), vertical)
+    if who.role != contract.owner_role:
+        raise HTTPException(403, {
+            "refused": f"only {role(contract.owner_role)} adjusts a {label(contract.kpi_id)} target",
+            "accountable": contract.owner_role, "you": who.role,
+        })
+    run = _finding_run(payload, effective_entitlement(who, payload.get("entitled")))
+    plan = fair_target(run)
+    if plan and plan.get("withheld"):
+        raise HTTPException(403, "a cause on this finding lies outside your entitlement")
+    if not plan or not plan["factors"]:
+        raise HTTPException(409, "nothing on this finding is beyond the team's control")
+    wanted = set(payload.get("excuse") or [])
+    allowed = {f["candidate_id"] for f in plan["factors"]}
+    if not wanted or not wanted <= allowed:
+        raise HTTPException(422, {"refused": "only conditions beyond the team's control can be excused",
+                                  "excusable": sorted(allowed)})
+    excused = [f for f in plan["factors"] if f["candidate_id"] in wanted]
+    # A warned condition is excused only with a reason on the record: the
+    # policy holds a team accountable for preparing for what it was told.
+    if any(f["warned"] for f in excused) and not str(payload.get("note") or "").strip():
+        raise HTTPException(422, "a condition the team was warned about needs a reason to be excused")
+    amount = round(sum(f["amount_inr_per_day"] for f in excused), 2)
+    entry = _audit.append(
+        "target_adjusted", who.as_dict(), _subject(run, payload),
+        {
+            "excused": [{"candidate_id": f["candidate_id"], "amount_inr_per_day": f["amount_inr_per_day"],
+                         "warned": f["warned"]} for f in excused],
+            "net_inr_per_day": plan["net_inr_per_day"],
+            "team_inr_per_day": round(plan["net_inr_per_day"] - amount, 2),
+            "statement": "Conditions beyond the team's control excused from its target.",
+            "evidence": evidence_fingerprint(run),
+            "note": str(payload.get("note") or "")[:500],
         },
     )
     return {"recorded": entry}

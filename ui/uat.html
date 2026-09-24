@@ -153,6 +153,32 @@ async function decisionView(){
   try{ frame.contentWindow.localStorage.removeItem('whychain-persona'); }catch{}
 }
 
+async function fairTarget(){
+  // The panel's figures against the engine's, on one finding where the only
+  // uncontrollable cause was warned in time and one where it is the whole fall.
+  try{ frame.contentWindow.localStorage.setItem('whychain-persona', 'cfo'); }catch{}
+  for(const [label, w] of [['West, 13 to 15 Aug: one warned condition', {start:'2026-08-13', end:'2026-08-15'}],
+                           ['West, 8 to 12 Jul: the flood is the whole fall', {start:'2026-07-08', end:'2026-07-12'}]]){
+    const q = new URLSearchParams({kpi:'net_revenue', region:'West', industry:'retail', ...w});
+    const ft = (await J(`/api/diagnose?${q}&persona=cfo&backend=none`)).d.fair_target;
+    const pg = await open(`/finding?${q}`, d => d.getElementById('fair') && !d.querySelector('.loading'));
+    const panel = pg.doc.getElementById('fair'), problems = [];
+    if(!panel){ record('Fair target', label, 'fail', 'no panel rendered', pg.ms); continue; }
+    const sums = [...panel.querySelectorAll('.fair-sum b')].map(b => num(b.textContent));
+    const amts = [...panel.querySelectorAll('.fair-amt')].map(e => num(e.textContent));
+    if(sums[0] !== Math.round(Math.abs(ft.net_inr_per_day))) problems.push(`movement ${sums[0]} vs engine ${ft.net_inr_per_day}`);
+    const adjusted = /as adjusted/i.test(panel.innerText);
+    if(!adjusted && sums[1] !== Math.round(Math.abs(ft.policy_inr_per_day))) problems.push(`judged on ${sums[1]} vs engine ${ft.policy_inr_per_day}`);
+    ft.factors.forEach((f, i) => { if(amts[i] !== Math.round(Math.abs(f.amount_inr_per_day))) problems.push(`factor ${amts[i]} vs engine ${f.amount_inr_per_day}`); });
+    if(ft.factors.some(f => f.warned) && !/Warned \d+ h ahead/.test(panel.innerText)) problems.push('a warned condition is not flagged');
+    problems.push(...lint(panel.innerText));
+    if(pg.errors.length) problems.push(`script error: ${pg.errors[0]}`);
+    record('Fair target', label, problems.length ? 'fail' : 'pass',
+      problems.join('; ') || `${ft.factors.length} condition${ft.factors.length === 1 ? '' : 's'}${adjusted ? ', adjusted on the record' : ''}. Figures match the engine.`, pg.ms);
+  }
+  try{ frame.contentWindow.localStorage.removeItem('whychain-persona'); }catch{}
+}
+
 async function workbench(){
   const probe = await open('/workbench', (d, w) => Array.isArray(w.WHYCHAIN_DEMOS));
   const DEMOS = probe.win.WHYCHAIN_DEMOS;
@@ -187,7 +213,7 @@ async function slide(){
 document.getElementById('run').onclick = async e => {
   e.target.disabled = true; results.length = 0; document.getElementById('rows').innerHTML = '';
   const t0 = performance.now();
-  for(const step of [service, decisionView, workbench, slide]){
+  for(const step of [service, decisionView, fairTarget, workbench, slide]){
     try{ await step(); }catch(err){ record('Harness', step.name, 'fail', String(err && err.message || err)); }
   }
   frame.src = 'about:blank';
