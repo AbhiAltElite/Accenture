@@ -1,4 +1,4 @@
-.PHONY: help run real-data prepare setup gen gen-all demo test bench scale status audit guardrails smoke verify-ai capture-ai warm-ai readme-pdf docker docker-ai lint check-attribution ci clean
+.PHONY: help run app package demo-reset real-data prepare setup gen gen-all demo test bench scale status audit guardrails smoke verify-ai capture-ai warm-ai readme-pdf docker docker-ai lint check-attribution ci clean
 
 # `make` with no target lists the targets, so the entry point to this
 # repository is the same command whether or not you have read the README.
@@ -11,6 +11,20 @@ help:             ## list the targets in this file
 
 run:              ## one command: environment, data, server, browser, model check
 	./run.sh
+
+app:              ## build WhyChain.app: double-click to open the console in its own window
+	./app/build_mac_app.sh
+
+package:          ## one zip that runs on another PC: code, data, AI cache, key (see app/package.py)
+	./app/build_mac_app.sh >/dev/null
+	.venv/bin/python app/package.py $(ARGS)
+
+demo-reset:       ## start the demo clean: archive signatures, decisions and feedback (nothing is deleted)
+	@stamp=$$(date +%Y%m%d-%H%M%S); dest=data/archive/$$stamp; moved=0; \
+	for f in data/audit/audit.jsonl data/feedback/feedback.jsonl data/feedback/applied.jsonl; do \
+	  if [ -s $$f ]; then mkdir -p $$dest; mv $$f $$dest/; moved=1; fi; done; \
+	if [ $$moved = 1 ]; then echo "Archived to $$dest. The audit trail and feedback start empty."; \
+	else echo "Nothing to archive; already clean."; fi
 
 setup:            ## create venv and install dependencies
 	python3 -m venv .venv

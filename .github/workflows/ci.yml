@@ -58,6 +58,30 @@ jobs:
         # These must never be skipped or relaxed to pass, see CONTRIBUTING.
         run: pytest -m invariant -q
 
+  desktop-app:
+    name: Desktop app (${{ matrix.os }})
+    # The launcher is what runs on a teammate's laptop at the finale. This is a
+    # clean machine of each kind: no virtualenv, no warehouse, no key. The
+    # launcher builds all of it from nothing, starts the engine and runs its
+    # own check. The model checks are skipped because CI has no key; everything
+    # else, including the entitlement refusal, must pass.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: First run, then the self-check
+        env:
+          WHYCHAIN_APP_QUIET: "1"
+          WHYCHAIN_CHECK_NO_AI: "1"
+          WHYCHAIN_LLM_BACKEND: none
+        run: python app/launch.py --check
+
   attribution:
     name: Attribution
     # The submission must read as the team's own work. This fails the build
