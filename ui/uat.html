@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WhyChain · acceptance checks</title>
+<style>
+/* Acceptance checks that run in whatever browser is open, on whatever PC.
+   Each scenario is loaded into the frame below exactly as a presenter would
+   open it, and what the page rendered is compared with what the engine
+   answers for the same request. Nothing here writes: no signature, no
+   decision, no feedback. Those are covered by tests/test_accountability.py. */
+:root{--ink:#131c19;--ink-3:#5a6661;--line:#dbe1de;--ok:#17644a;--ok-soft:#dcefe5;--bad:#a3261d;--bad-soft:#f7e0dd;--warn:#855a0b;--warn-soft:#f7ebd0;--accent:#0f5a6b;--ground:#f2f4f3;--paper:#fff}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;--ink:#e8eeeb;--ink-3:#8d9994;--line:#26302d;--ok:#77c9a1;--ok-soft:#132a20;--bad:#ee8c83;--bad-soft:#331c19;--warn:#dbb066;--warn-soft:#2e2510;--accent:#6cc3d6;--ground:#0e1312;--paper:#151c1a}}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 "IBM Plex Sans",-apple-system,"Segoe UI",sans-serif}
+main{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
+h1{font-size:26px;margin:0 0 4px}
+p{margin:0 0 12px;color:var(--ink-3);max-width:75ch}
+.top{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:14px 0}
+button{font:inherit;font-weight:600;background:var(--accent);color:#fff;border:0;border-radius:5px;padding:8px 16px;cursor:pointer}
+button:disabled{opacity:.5}
+#summary{font-size:18px;font-weight:600}
+.frame{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--paper);height:330px}
+iframe{width:200%;height:660px;border:0;transform:scale(.5);transform-origin:0 0}
+table{border-collapse:collapse;width:100%;background:var(--paper);border:1px solid var(--line);border-radius:6px;margin-top:14px;font-size:14px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+td.r{white-space:nowrap;font-weight:600}
+.pass{color:var(--ok)} .fail{color:var(--bad)} .warn{color:var(--warn)}
+tr.fail td{background:var(--bad-soft)} tr.warn td{background:var(--warn-soft)}
+.ms{font-family:ui-monospace,Menlo,monospace;color:var(--ink-3);font-size:12.5px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Acceptance checks</h1>
+  <p>Every scenario a presenter can open, loaded here the way they would open it, and checked against what the engine answers. Read-only: nothing is signed, decided or recorded. Run it on each laptop before the demo.</p>
+  <div class="top"><button type="button" id="run">Run all checks</button><span id="summary">Not run yet.</span></div>
+  <div class="frame"><iframe id="f" title="Page under test" src="about:blank"></iframe></div>
+  <table><thead><tr><th>Area</th><th>Check</th><th>Result</th><th>Detail</th><th>Time</th></tr></thead><tbody id="rows"></tbody></table>
+</main>
+<script>
+'use strict';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const frame = document.getElementById('f');
+const results = [];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function record(area, check, state, detail, ms){
+  results.push(state);
+  const tr = document.createElement('tr'); tr.className = state;
+  tr.innerHTML = `<td>${esc(area)}</td><td>${esc(check)}</td><td class="r ${state}">${state === 'pass' ? 'Pass' : state === 'warn' ? 'Warning' : 'Fail'}</td><td>${esc(detail)}</td><td class="ms">${ms === undefined ? '' : Math.round(ms) + ' ms'}</td>`;
+  document.getElementById('rows').appendChild(tr);
+  const p = results.filter(x => x === 'pass').length, f = results.filter(x => x === 'fail').length, w = results.filter(x => x === 'warn').length;
+  document.getElementById('summary').textContent = `${p} of ${results.length} pass${f ? `, ${f} failing` : ''}${w ? `, ${w} warning${w === 1 ? '' : 's'}` : ''}`;
+}
+const J = async u => { const r = await fetch(u, {headers:{'X-WhyChain-User':'fpa.analyst'}}); return {status:r.status, d: await r.json().catch(() => null)}; };
+const num = t => Number(String(t).replace(/[^0-9.]/g, ''));
+
+/* Load a page into the frame and wait until it says it is done. */
+let loads = 0;
+async function open(url, ready, limit = 20000){
+  const errors = [];
+  // A unique parameter on every load. Two scenarios can differ only by their
+  // #fragment, and a fragment change is not a navigation: no load event fires
+  // and the wait below never starts. The pages ignore parameters they do not read.
+  const [path, hash] = url.split('#');
+  const fresh = `${path}${path.includes('?') ? '&' : '?'}uat=${++loads}${hash ? '#' + hash : ''}`;
+  await new Promise(res => { frame.onload = res; frame.src = fresh; });
+  const w = frame.contentWindow;
+  w.addEventListener('error', e => errors.push(String(e.message)));
+  w.addEventListener('unhandledrejection', e => errors.push(String(e.reason && (e.reason.message || e.reason))));
+  const t0 = performance.now();
+  while(performance.now() - t0 < limit){
+    try{ if(ready(frame.contentDocument, w)) break; }catch{ /* not yet */ }
+    await sleep(100);
+  }
+  await sleep(300);
+  return {doc: frame.contentDocument, win: w, errors, ms: performance.now() - t0, timedOut: performance.now() - t0 >= limit};
+}
+const SUSPECT = /\bundefined\b|\bNaN\b|\[object Object\]/;
+/* What a reader should never see: engine ids and column names, the house
+   style's banned words, and the slips that make a page look unchecked. */
+const LINT = [
+  [/\bundefined\b|\bNaN\b|\[object Object\]/, 'a broken value'],
+  [/\b[a-z]+_[a-z][a-z_]*\b/, 'a column name'],
+  [/\b(?:rel|wx|promo|comp|pc\d+)-[\w.-]+/, 'an engine id'],
+  [/—/, 'an em dash'],
+  [/root cause/i, '"root cause"'],
+  [/\bnobody\b|\bthe only\b/i, 'an absolute claim'],
+  [/\b(\w+) \1\b/i, 'a doubled word'],
+  [/\b1 (?:alternatives|causes|days|entries|findings|quotes|sentences)\b/, 'a plural after 1'],
+  [/[.!?] [a-z]/, 'a sentence starting in lower case'],
+];
+function lint(text){
+  const found = [];
+  for(const [re, what] of LINT){ const m = text.match(re); if(m) found.push(`${what}: "${text.slice(Math.max(0, m.index - 25), m.index + m[0].length + 25).replace(/\s+/g, ' ')}"`); }
+  return found;
+}
+
+async function service(){
+  const t0 = performance.now();
+  const h = await J('/api/health');
+  record('Service', 'Engine and warehouse', h.d && h.d.status === 'ok' ? 'pass' : 'fail', h.d ? `${h.d.status}, warehouse ${h.d.warehouse}` : `HTTP ${h.status}`, performance.now() - t0);
+  const m = await J('/api/models');
+  const live = (m.d && m.d.backends || []).filter(b => b.available && b.id !== 'none');
+  record('Service', 'Model backend reachable', live.length ? 'pass' : 'warn', live.length ? live.map(b => `${b.label}: ${b.model}`).join('; ') : 'None. Figures are unaffected; prose falls back to templates and the receipt says so.');
+  const t = await J('/api/trackrecord');
+  record('Service', 'Track record from the benchmark', t.d && t.d.cases ? 'pass' : 'fail', t.d ? `${t.d.cases} cases, measured ${t.d.measured_at}` : `HTTP ${t.status}`);
+  const a = await J('/api/audit');
+  record('Service', 'Audit chain intact', a.d && a.d.chain.intact ? 'pass' : 'fail', a.d ? `${a.d.chain.entries} entries${a.d.chain.intact ? '' : `, broken at ${a.d.chain.broken_at}`}` : `HTTP ${a.status}`);
+  for(const ind of ['retail', 'petroleum', 'power']){
+    const o = await J(`/api/overview?industry=${ind}`);
+    record('Service', `Industry: ${ind}`, o.status === 200 && o.d.kpis.length ? 'pass' : 'fail', o.status === 200 ? `${o.d.kpis.length} metrics` : `HTTP ${o.status}`);
+  }
+}
+
+async function decisionView(){
+  const probe = await open('/', (d, w) => Array.isArray(w.WHYCHAIN_SCENARIOS));
+  const SCEN = probe.win.WHYCHAIN_SCENARIOS, link = probe.win.WHYCHAIN_SCENARIO_LINK;
+  const rows = await open('/', d => d.querySelectorAll('.row').length && ![...d.querySelectorAll('.pill')].some(p => p.textContent === 'Checking'));
+  const inboxText = rows.doc.getElementById('view').innerText, inboxLint = lint(inboxText);
+  record('Decision view', 'Findings inbox fills its verdicts, and reads cleanly', rows.doc.querySelectorAll('.row').length && !rows.timedOut && !inboxLint.length ? 'pass' : 'fail',
+    `${rows.doc.querySelectorAll('.row').length} findings${rows.timedOut ? ', verdicts still checking after 20 s' : ''}${inboxLint.length ? '; ' + inboxLint.join('; ') : ''}`, rows.ms);
+  const aud = await open('/?tab=audit', d => d.querySelector('.chain'));
+  const audLint = lint(aud.doc.getElementById('view').innerText);
+  record('Decision view', 'Audit trail reads cleanly', audLint.length ? 'fail' : 'pass', audLint.join('; ') || 'No problems in the text.', aud.ms);
+  for(const persona of ['analyst', 'cfo', 'ops']){
+    for(const s of SCEN){
+      try{ frame.contentWindow.localStorage.setItem('whychain-persona', persona); }catch{}
+      const url = link(s);
+      const q = new URLSearchParams(url.split('?')[1].split('#')[0]);
+      const api = await J(`/api/diagnose?${q}&persona=${persona}&backend=none`);
+      const want = api.status === 403 ? 'Outside your access' : api.status === 422 ? 'Detected, not diagnosed'
+        : {explained:'Verified', unknown:'Unknown', contradicted:'Contradicted'}[api.d.verdict];
+      const pg = await open(url, d => d.querySelector('.pill.big') && !d.querySelector('.loading'));
+      const got = (pg.doc.querySelector('.pill.big') || {}).textContent || 'nothing rendered';
+      const text = pg.doc.getElementById('view').innerText;
+      const problems = [];
+      if(!got.startsWith(want)) problems.push(`shows "${got}", engine says "${want}"`);
+      problems.push(...lint(text));
+      if(pg.errors.length) problems.push(`script error: ${pg.errors[0]}`);
+      if(api.status === 200 && api.d.verdict !== 'contradicted'){
+        const causes = (api.d.verified || api.d.causes || []).map(v => Math.abs(v.contribution)).sort((a, b) => b - a);
+        const shown = [...pg.doc.querySelectorAll('.cause .w')].map(e => e.textContent.includes('cr') ? num(e.textContent) * 1e7 : num(e.textContent));
+        const tol = causes.some(c => c >= 1e7) ? 6e4 : 1;
+        if(causes.length !== shown.length || causes.some((c, i) => Math.abs(Math.round(c) - shown[i]) > tol))
+          problems.push(`causes on screen ${shown.map(Math.round).join(', ') || 'none'} vs engine ${causes.map(Math.round).join(', ')}`);
+      }
+      record(`Decision view · ${({cfo:'finance director', ops:'area sales'})[persona] || 'analyst'}`, s.t, problems.length ? 'fail' : 'pass',
+        problems.join('; ') || `${got}. Figures match the engine.`, pg.ms);
+    }
+  }
+  try{ frame.contentWindow.localStorage.removeItem('whychain-persona'); }catch{}
+}
+
+async function workbench(){
+  const probe = await open('/workbench', (d, w) => Array.isArray(w.WHYCHAIN_DEMOS));
+  const DEMOS = probe.win.WHYCHAIN_DEMOS;
+  const expect = {blanked: 'Outside your entitlement'};
+  for(const d of DEMOS){
+    const pg = await open(`/kpi/${d.kpi}?demo=${d.id}`, doc => {
+      const h = doc.getElementById('headline');
+      return h && h.textContent.trim() && doc.getElementById('main').getAttribute('aria-busy') === 'false';
+    });
+    const h = (pg.doc.getElementById('headline') || {}).textContent || '';
+    const secs = pg.doc.querySelectorAll('#rest .sec').length;
+    const problems = [];
+    if(!h.trim()) problems.push('no headline rendered');
+    if(expect[d.id] && !h.includes(expect[d.id])) problems.push(`headline "${h}"`);
+    if(!expect[d.id] && secs < 3) problems.push(`only ${secs} sections rendered`);
+    if(d.id === 'gap' && ![...pg.doc.querySelectorAll('#rest .sec')].some(s => /not anticipated/i.test(s.textContent) && /gap found/i.test(s.textContent)))
+      problems.push('the signal gap section is not on the page');
+    if(pg.errors.length) problems.push(`script error: ${pg.errors[0]}`);
+    record('Workbench', d.label, problems.length ? 'fail' : 'pass', problems.join('; ') || `${h.slice(0, 90)} · ${secs} sections`, pg.ms);
+  }
+  try{ frame.contentWindow.localStorage.setItem('whychain-industry', 'retail'); }catch{}
+}
+
+async function slide(){
+  const pg = await open('/slide?kpi=net_revenue&region=West&start=2026-08-13&end=2026-08-15&industry=retail', d => d.querySelector('.slide h1') || d.querySelector('.msg b'));
+  const h = pg.doc.querySelector('.slide h1');
+  const sl = h ? lint(pg.doc.querySelector('.slide').innerText) : ['no slide rendered'];
+  record('Board-pack slide', 'West, 13 to 15 Aug', h && !pg.errors.length && !sl.length ? 'pass' : 'fail',
+    sl.join('; ') || h.textContent.slice(0, 100), pg.ms);
+}
+
+document.getElementById('run').onclick = async e => {
+  e.target.disabled = true; results.length = 0; document.getElementById('rows').innerHTML = '';
+  const t0 = performance.now();
+  for(const step of [service, decisionView, workbench, slide]){
+    try{ await step(); }catch(err){ record('Harness', step.name, 'fail', String(err && err.message || err)); }
+  }
+  frame.src = 'about:blank';
+  document.getElementById('summary').textContent += ` · ${Math.round((performance.now() - t0) / 1000)} s`;
+  e.target.disabled = false;
+};
+if(new URLSearchParams(location.search).get('run') === '1') document.getElementById('run').click();
+</script>
+</body>
+</html>

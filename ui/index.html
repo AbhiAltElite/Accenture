@@ -335,7 +335,10 @@ h1{font-family:var(--display);font-size:clamp(23px,2.1vw + 13px,32px);
 /* Collapsed, these are a list and should stack like one. The spacing that
    separates one section's *content* from the next belongs to the open state,
    so it is applied there rather than carried by every header regardless. */
-.sec{margin-top:var(--sp-2)}
+.sec{margin-top:var(--sp-2);
+  /* Clears the masthead and the anchor bar, both sticky. Without it every jump
+     landed with the section's own heading hidden under the bar that sent it. */
+  scroll-margin-top:calc(var(--masthead-h,50px) + 52px)}
 /* Space below an open section, never above it. The gap exists to separate that
    section's content from what follows; putting it on top as well pushes the
    header away from the list it belongs to and makes an open section look
@@ -973,6 +976,20 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
 .anchorbar a em{font-style:normal; font-family:var(--mono); color:var(--ink-4);
   margin-right:5px; font-size:var(--t-2xs);}
 @media (max-width:820px){ .objhead{gap:var(--sp-4);} }
+
+/* Shared with the decision view: the same three destinations in the same
+   place on every page, so no page is a dead end. */
+.appnav{display:flex;align-items:stretch;gap:2px;flex:none}
+.appnav a{display:flex;align-items:center;padding:0 var(--sp-3);font-size:var(--t-sm);
+  color:var(--ink-3);text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px}
+.appnav a:hover{color:var(--ink)}
+.appnav a[aria-current="page"]{color:var(--ink);font-weight:600;border-bottom-color:var(--accent)}
+.whoami{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--t-xs);color:var(--ink-3);white-space:nowrap}
+.whoami select{width:auto;min-height:30px;padding:2px var(--sp-2);font-size:var(--t-xs)}
+.themebtn{font:inherit;font-size:var(--t-xs);border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-3);
+  border-radius:var(--r-sm);padding:2px var(--sp-3);min-height:30px;min-width:58px;cursor:pointer;flex:none}
+.themebtn:hover{color:var(--ink)}
+.demo-chip{font-family:var(--mono);font-size:11px;color:var(--flag);border:1px solid var(--flag);border-radius:var(--r-sm);padding:0 5px}
 </style>
 </head>
 <body>
@@ -1008,21 +1025,20 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
 </defs></svg>
 <header class="masthead">
   <a class="mark" href="/"><b>WhyChain</b><span>Diagnostic engine</span></a>
+  <nav class="appnav" aria-label="Primary">
+    <a href="/">Findings</a><a href="/?tab=audit">Audit trail</a><a href="/workbench" aria-current="page">Workbench</a>
+  </nav>
   <div class="context" id="context"></div>
   <div class="tools">
-    <span class="toollabel">Industry</span>
     <div class="seg" id="industry" role="group" aria-label="Industry"></div>
-    <span class="toollabel">Reading as</span>
-    <div class="seg" id="persona" role="group" aria-label="Persona">
+    <span class="toollabel">View as</span>
+    <div class="seg" id="persona" role="group" aria-label="View as">
+      <button data-persona="cfo" aria-pressed="false" title="Finance director: size, decision, and how much to believe it">Finance director</button>
       <button data-persona="analyst" aria-pressed="true" title="FP&amp;A: every step, including the working">Analyst</button>
-      <button data-persona="cfo" aria-pressed="false" title="Finance director: size, decision, and how much to believe it">CFO</button>
       <button data-persona="ops" aria-pressed="false" title="Area sales manager: the lever they hold and who signs it off">Area sales</button>
     </div>
-    <div class="seg" id="theme" role="group" aria-label="Appearance">
-      <button data-theme="auto" aria-pressed="true">Auto</button>
-      <button data-theme="light" aria-pressed="false">Light</button>
-      <button data-theme="dark" aria-pressed="false">Dark</button>
-    </div>
+    <button type="button" class="themebtn" id="theme" title="Appearance: follows the system, light or dark">Auto</button>
+    <div class="whoami" id="whoami"></div>
   </div>
 </header>
 
@@ -1142,6 +1158,7 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
 
 <script>
 const $ = s => document.querySelector(s);
+const escapeHtml = t => String(t == null ? '' : t).replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
 const inr = n => '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
 /* Format a value in the unit its contract declares.
@@ -1262,12 +1279,13 @@ function renderIndustries(list){
     const on = v.id === STATE.industry;
     const dis = v.generated ? '' : ' disabled';
     const why = v.generated ? v.driven_by : 'Not generated yet: run make gen-all';
-    return `<button data-industry="${v.id}" aria-pressed="${on}"${dis} title="${why}">${v.label}</button>`;
+    // Short name in the bar, the full one in the tooltip, as on the decision view.
+    return `<button data-industry="${v.id}" aria-pressed="${on}"${dis} title="${v.label}. ${why}">${v.label.split(' ')[0]}</button>`;
   }).join('');
   seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
     if(b.dataset.industry === STATE.industry) return;
     try{ localStorage.setItem('whychain-industry', b.dataset.industry); }catch{ /* ignore */ }
-    location.href = '/';
+    location.href = '/workbench';
   }));
 }
 
@@ -1419,14 +1437,31 @@ const DEMOS = [
    kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15', entitled:'South'},
 
   // --- that none of this is wired to one dataset ---------------------------
+  // Net revenue rather than on-time delivery. The signal gap is computed inside a
+  // full diagnosis, and a ratio metric has none, so this entry used to land on
+  // "Detected, not diagnosed" with no gap on the page at all (B-039).
   {id:'gap', group:'Reach', label:'Why nobody saw it coming',
-   note:'On-time delivery in the West. A warning was published, no step in the planning cycle consumes that class of signal, and the finding names who owns the gap.',
-   kpi:'on_time_delivery', region:'West', range:'90', day:'2026-07-10'},
+   note:'Net revenue in the West. Severe weather warnings were published up to 72 hours ahead, no step in the planning cycle consumes that class of signal, and the finding names who owns the gap.',
+   kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15', focus:/not anticipated/i},
 
   {id:'petroleum', group:'Reach', label:'Another industry, tests failing',
    note:'Petroleum marketing: four candidates, two verified, two rejected on placebo and difference-in-differences. Same engine, different vocabulary.',
    industry:'petroleum', kpi:'net_realisation', region:'', range:'90', day:'2026-08-14'},
 ];
+
+// Published for /uat, which reads the list rather than evaluating code.
+window.WHYCHAIN_DEMOS = DEMOS;
+/* "pii:phone x1" -> "1 phone number". What was masked, or that the scan ran
+   and found nothing: both are results, and saying neither would leave a reader
+   unsure the check happened. */
+const PII_NAME = {email:'email address', phone:'phone number', card:'card number', 'id-number':'ID number',
+  upi:'UPI ID', pan:'PAN', address:'street address'};
+function piiLine(pd){
+  if(!pd || !pd.scanned_for || !pd.scanned_for.length) return '';
+  if(!pd.masked.length) return 'Scanned for personal data: none found.';
+  return 'Personal data masked: ' + pd.masked.map(m => { const [, kind, n] = m.match(/^[^:]+:(.+) x(\d+)$/) || [null, m, '1'];
+    return `${n} ${PII_NAME[kind] || kind}${n === '1' ? '' : 's'}`; }).join(', ') + '. The model never saw them either.';
+}
 
 function renderDemos(){
   const box = document.querySelector('#demos');
@@ -1471,6 +1506,9 @@ function applyDemo(d, booting){
   $('#entitled').value = d.entitled || '';
   STATE.entitled = d.entitled || null;
   STATE.persona = PERSONAS.includes(d.persona) ? d.persona : 'analyst';
+  // Consumed by the next render, once. A scenario about one section should open
+  // on it rather than leave the presenter scrolling for it in front of people.
+  STATE.focus = d.focus || null;
   markPersona();
   markDemo(d.id);
   // Read by `go` on the next line, which is the one place a chosen day is
@@ -1519,8 +1557,8 @@ const THEMES=['auto','light','dark'];
 function applyTheme(t){
   if(t==='auto') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme',t);
-  document.querySelectorAll('#theme button').forEach(b=>
-    b.setAttribute('aria-pressed', String(b.dataset.theme===t)));
+  const btn = document.getElementById('theme');
+  if(btn){ btn.textContent = t.charAt(0).toUpperCase() + t.slice(1); btn.setAttribute('aria-label', 'Appearance: ' + t); }
   if(STATE.series) drawChart();
   if(STATE.overview) drawSparks();
 }
@@ -1528,15 +1566,34 @@ function initTheme(){
   let saved='auto';
   try{ saved = localStorage.getItem('whychain-theme') || 'auto'; }catch{ /* private mode */ }
   applyTheme(THEMES.includes(saved)?saved:'auto');
-  $('#theme').addEventListener('click',e=>{
-    const b=e.target.closest('button[data-theme]'); if(!b) return;
-    try{ localStorage.setItem('whychain-theme',b.dataset.theme); }catch{ /* ignore */ }
-    applyTheme(b.dataset.theme);
+  // One button stepping Auto, Light, Dark, as on the decision view.
+  let cur = THEMES.includes(saved) ? saved : 'auto';
+  $('#theme').addEventListener('click',()=>{
+    cur = THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length];
+    try{ localStorage.setItem('whychain-theme',cur); }catch{ /* ignore */ }
+    applyTheme(cur);
   });
 }
 
 /* ---------- data ---------- */
+/* Who is signed in. The same control as the decision view: a named demo user
+   unless single sign-on is in front, and the choice is shared between pages. */
+async function whoami(){
+  const box = document.getElementById('whoami'); if(!box) return;
+  let user = 'fpa.analyst'; try{ user = localStorage.getItem('whychain-user') || user; }catch{ /* private */ }
+  let me; try{ me = await (await fetch('/api/me', {headers:{'X-WhyChain-User': user}})).json(); }catch{ return; }
+  if(me.mode === 'demo'){
+    box.innerHTML = `<span class="toollabel">Signed in</span><select id="wb-user" aria-label="Signed in as">${me.demo_users.map(u =>
+      `<option value="${escapeHtml(u.id)}"${u.id === me.identity.id ? ' selected' : ''}>${escapeHtml(u.name.replace(' (demo)', ''))}</option>`).join('')}</select>
+      <span class="demo-chip" title="No single sign-on is connected; records made here are marked as a demo identity">demo</span>`;
+    document.getElementById('wb-user').onchange = e => { try{ localStorage.setItem('whychain-user', e.target.value); }catch{ /* ignore */ } };
+  }else{
+    box.innerHTML = `<span class="toollabel">Signed in</span><span>${escapeHtml(me.identity.name)}</span>`;
+  }
+}
+
 async function boot(){
+  whoami();
   initTheme();
   initPersona();
   // The rail's sticky offset reads this, so it has to exist before first paint
@@ -1561,7 +1618,19 @@ async function boot(){
     STATE.drivenBy = active.driven_by || '';
     renderIndustries(STATE.industries);
   }catch(e){ /* single-industry deployment; the switcher stays empty */ }
-  STATE.kpis = await (await fetch('/api/kpis')).json();
+  try{
+    STATE.kpis = await (await fetch('/api/kpis')).json();
+  }catch(e){
+    $('#main').setAttribute('aria-busy','false');
+    $('#overview').hidden = false;
+    $('#overview').innerHTML = `<div class="overview" style="padding:var(--sp-6) 0">
+      <div style="background:var(--surface);border:1px solid var(--down);border-left:4px solid var(--down);border-radius:var(--r-md);padding:var(--sp-5);max-width:680px">
+        <h2 style="font-size:var(--t-lg);color:var(--down);margin-bottom:var(--sp-2)">Unable to connect to WhyChain server</h2>
+        <p style="font-size:var(--t-base);color:var(--ink-2);margin-bottom:var(--sp-3)">The browser cannot reach <code>/api/kpis</code>. If you opened this file directly from the filesystem (<code>file://</code>), browser security prevents loading data via fetch.</p>
+        <p style="font-size:var(--t-sm);color:var(--ink-3)">Please run the local server using <code>./run.sh</code> or <code>make serve</code> and open <a href="http://127.0.0.1:8000" style="color:var(--accent);font-weight:600">http://127.0.0.1:8000</a>.</p>
+      </div></div>`;
+    return;
+  }
   // Values arrive with the first overview response, which reads them from this
   // deployment's own warehouse. Until then the controls hold only their "all"
   // option, which is the state the page opens in anyway.
@@ -1642,9 +1711,8 @@ async function boot(){
     });
   });
   addEventListener('popstate',route);
-  document.querySelector('.masthead .mark').addEventListener('click',e=>{
-    e.preventDefault(); go('/');
-  });
+  // The mark goes home, to the findings, as it does on every page. The
+  // workbench's own overview is the Workbench tab.
   renderDemos();
   // A `?demo=` link is the same thing the rail buttons do, so it is applied
   // through the same function rather than through a second code path that
@@ -1716,7 +1784,7 @@ function renderNav(){
   const byId = Object.fromEntries(data.kpis.map(k=>[k.kpi_id,k]));
   const rows=[]; const walk=(id,depth)=>{ const k=byId[id]; if(!k) return;
     rows.push({k,depth}); k.children.forEach(c=>walk(c,depth+1)); };
-  data.roots.forEach(r=>walk(r,0));
+  (data.roots || []).forEach(r=>walk(r,0));
   $('#nav').innerHTML = rows.map(({k,depth})=>`
     <button class="navitem d${depth}" data-kpi="${k.kpi_id}"
       aria-current="${STATE.kpi===k.kpi_id}"><span class="label">${title(k.kpi_id)}</span>${
@@ -1769,7 +1837,7 @@ async function showOverview(){
     rows.push({k,depth});
     k.children.forEach(c=>walk(c,depth+1));
   };
-  data.roots.forEach(r=>walk(r,0));
+  (data.roots || []).forEach(r=>walk(r,0));
 
   const fmt=(k,v)=>fmtValue(v, k.unit);
   const flagged = rows.reduce((n,{k})=>n+(k.material_drops||0),0);
@@ -1817,7 +1885,7 @@ async function showOverview(){
     ${rows.map(({k,depth})=>`
       <tr class="kpi d${depth}" data-kpi="${k.kpi_id}" tabindex="0">
         <td><span class="name">${title(k.kpi_id)}</span>
-            <span class="owner">${escapeHtml(role(k.owner_role))} · ${k.grain.split(' by ')[0]}</span></td>
+            <span class="owner">${escapeHtml(role(k.owner_role))}${k.grain ? ' · ' + escapeHtml(k.grain.split(' by ')[0]) : ''}</span></td>
         <td class="n"><span class="val">${fmt(k,k.latest)}</span></td>
         <td class="n hide-sm"><span class="chg ${k.period_change<0?'down':'up'}">${
           k.period_change==null?'–':(k.period_change>0?'+':'')+pct(k.period_change)}</span></td>
@@ -1828,7 +1896,7 @@ async function showOverview(){
              count where it was, and an unexplained still number reads as a
              broken control. */
           (k.not_narrowed && k.not_narrowed.length)
-            ? `<span class="na" title="This metric's grain is ${escapeHtml(k.grain)}">
+            ? `<span class="na" title="This metric's grain is ${escapeHtml(k.grain || '')}">
                  no ${escapeHtml(k.not_narrowed.join('/'))}</span>` : ''}</span></td>
       </tr>`).join('')}
     </tbody></table>
@@ -1856,6 +1924,7 @@ async function showOverview(){
   document.querySelectorAll('.kcard').forEach(b=>
     b.addEventListener('click',()=>go('/kpi/'+b.dataset.kpi)));
   drawSparks();
+  requestAnimationFrame(drawSparks);
   $('#main').setAttribute('aria-busy','false');
 }
 
@@ -1973,26 +2042,24 @@ function triageMarkup(){
 }
 
 function drawSparks(){
-  if(!STATE.overview) return;
+  if(!STATE.overview || !STATE.overview.kpis) return;
   const css=getComputedStyle(document.documentElement), col=n=>css.getPropertyValue(n).trim();
   const byId=Object.fromEntries(STATE.overview.kpis.map(k=>[k.kpi_id,k]));
   document.querySelectorAll('canvas.spark').forEach(c=>{
-    const k=byId[c.dataset.kpi]; if(!k||!k.spark.length) return;
-    // Measure the box rather than assuming it. The width was hardcoded to 120
-    // while the CSS track was wider, so every sparkline was drawn small and
-    // then stretched to fit, which is why they read slightly soft.
-    // Same rule as the main chart: measure the box. 38 against a 34px CSS
-    // track squashed every sparkline by a tenth.
-    const dpr=devicePixelRatio||1, w=c.clientWidth||132, h=c.clientHeight||34;
-    c.width=w*dpr; c.height=h*dpr;
+    const k=byId[c.dataset.kpi]; if(!k||!k.spark||k.spark.length<2) return;
+    const dpr=window.devicePixelRatio||1, w=c.clientWidth||160, h=c.clientHeight||32;
+    if(!w || !h) return;
+    c.width=Math.round(w*dpr); c.height=Math.round(h*dpr);
     const x=c.getContext('2d'); x.scale(dpr,dpr); x.clearRect(0,0,w,h);
-    const all=[...k.spark,...k.spark_expected];
+    const all=[...k.spark,...(k.spark_expected||[])];
     let lo=Math.min(...all), hi=Math.max(...all); if(hi===lo) hi=lo+1;
     const X=i=>(i/(k.spark.length-1))*(w-2)+1, Y=v=>h-2-((v-lo)/(hi-lo))*(h-4);
-    x.strokeStyle=col('--ink-3'); x.lineWidth=1; x.setLineDash([2,2]); x.beginPath();
-    k.spark_expected.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v))); x.stroke();
-    x.setLineDash([]);
-    x.strokeStyle=col(k.material_drops?'--down':'--ink'); x.lineWidth=1.3; x.beginPath();
+    if(k.spark_expected && k.spark_expected.length){
+      x.strokeStyle=col('--ink-4') || '#94a3b8'; x.lineWidth=1; x.setLineDash([2,2]); x.beginPath();
+      k.spark_expected.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v))); x.stroke();
+      x.setLineDash([]);
+    }
+    x.strokeStyle=col(k.material_drops?'--down':'--ink') || '#0f172a'; x.lineWidth=1.3; x.beginPath();
     k.spark.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v))); x.stroke();
   });
 }
@@ -2033,6 +2100,31 @@ function stage(text){
   if(el) el.innerHTML = `<span class="working">${text}</span>`;
 }
 
+async function showRefusal(res){
+  $('#eyebrow').textContent='';
+  // Everything the previous slice put on the page goes with it. A refusal
+  // that only rewrites the headline leaves the refused region's own figures
+  // underneath it: the breadcrumb naming the region, the observed and
+  // expected rupees, the impact, the confidence, the run's telemetry and a
+  // twelve-item index into sections that are no longer there. That is the
+  // leak this branch exists to prevent, and it reappears the moment a band is
+  // added to the page and not added here, which is exactly what happened.
+  clearFindingChrome();
+  // A refusal is its own answer. Rendering it as "no data" would tell a reader
+  // the region is empty rather than that they may not see it, and leaving the
+  // previous page in place is how a refused region's figures stayed on screen.
+  const why = res.status === 403
+    ? ((await res.json().catch(()=>({}))).detail || {}) : null;
+  $('#headline').textContent = why ? 'Outside your entitlement' : 'No data for that slice';
+  $('#story').innerHTML = why
+    ? `<p>${escapeHtml(why.detail || 'This region is outside what you may see.')}</p>
+       <p class="q">The refusal happens before anything is computed, so no
+       figure for this region exists to leak into a chart or a sentence.</p>`
+    : '';
+  $('#rest').innerHTML = '';
+  $('#main').setAttribute('aria-busy','false');
+}
+
 async function load(){
   $('#main').setAttribute('aria-busy','true');
   stage('Reading the contract'); $('#headline').textContent='';
@@ -2046,9 +2138,22 @@ async function load(){
     // removes every other channel from the control that chose it.
     const oq=new URLSearchParams(); if($('#region').value) oq.set('region',$('#region').value);
     if(STATE.entitled) oq.set('entitled',STATE.entitled);
-    const ores = await fetch('/api/overview?'+oq);
-    STATE.overview = ores.ok ? await ores.json() : {kpis: []};
-    adoptDimensionValues(STATE.overview);
+    let ores = await fetch('/api/overview?'+oq);
+    // A region outside the reader's scope is refused here, before the series is
+    // ever asked for, and the page used to die on the refusal instead of showing
+    // it (B-041). The rail still needs its metric list, which does not depend on
+    // the region, so it is asked for again without one; the server applies the
+    // entitlement to that too. The dimension lists from that second answer are
+    // not adopted: they hold only the reader's own regions, and adopting them
+    // would quietly reset the refused region to "all" and answer a different
+    // question from the one asked.
+    let refused = null;
+    if(ores.status === 403 && oq.has('region')){
+      refused = ores; oq.delete('region'); ores = await fetch('/api/overview?'+oq);
+    }
+    STATE.overview = ores.ok ? await ores.json() : {kpis: [], roots: []};
+    if(!refused) adoptDimensionValues(STATE.overview);
+    else { renderNav(); await showRefusal(refused); STATE.overview = null; return; }
   }
   renderNav();
   const kpi=STATE.kpi, region=$('#region').value, days=+$('#range').value;
@@ -2059,31 +2164,7 @@ async function load(){
 
   stage('Separating trend and seasonality');
   const seriesRes = await fetch('/api/series?'+q);
-  if(!seriesRes.ok){
-    $('#eyebrow').textContent='';
-    // Everything the previous slice put on the page goes with it. A refusal
-    // that only rewrites the headline leaves the refused region's own figures
-    // underneath it: the breadcrumb naming the region, the observed and
-    // expected rupees, the impact, the confidence, the run's telemetry and a
-    // twelve-item index into sections that are no longer there. That is the
-    // leak this branch exists to prevent, and it reappears the moment a band is
-    // added to the page and not added here, which is exactly what happened.
-    clearFindingChrome();
-    // A refusal is its own answer. Rendering it as "no data" would tell a reader
-    // the region is empty rather than that they may not see it, and leaving the
-    // previous page in place is how a refused region's figures stayed on screen.
-    const why = seriesRes.status === 403
-      ? ((await seriesRes.json().catch(()=>({}))).detail || {}) : null;
-    $('#headline').textContent = why ? 'Outside your entitlement' : 'No data for that slice';
-    $('#story').innerHTML = why
-      ? `<p>${escapeHtml(why.detail || 'This region is outside what you may see.')}</p>
-         <p class="q">The refusal happens before anything is computed, so no
-         figure for this region exists to leak into a chart or a sentence.</p>`
-      : '';
-    $('#rest').innerHTML = '';
-    $('#main').setAttribute('aria-busy','false');
-    return;
-  }
+  if(!seriesRes.ok){ await showRefusal(seriesRes); return; }
   const series = await seriesRes.json();
   // Every material movement, not only the falls. The detector labels both
   // directions and `rank_exact` already sorts by the direction the total moved,
@@ -2443,6 +2524,13 @@ function render(){
   wireClaims();
   wireFeedback();
   wirePicks();
+  if(STATE.focus){
+    const want = STATE.focus;
+    STATE.focus = null;
+    const sec = [...document.querySelectorAll('#rest .sec')]
+      .find(s => want.test(s.querySelector('.name')?.textContent || ''));
+    if(sec){ sec.open = true; sec.scrollIntoView({block:'start'}); }
+  }
 }
 
 function explainedStory(d){
@@ -2704,7 +2792,16 @@ function signalGapBlock(){
 /* ═══ two-track ranking ══════════════════════════════════════════════════ */
 function rankingBlock(){
   const r = STATE.diagnosis && STATE.diagnosis.ranking;
-  if(!r || (!r.exact.length && !r.associational.length)) return '';
+  if(!r) return '';
+  // A reader scoped to some regions gets the ranking withheld whole, because it
+  // is computed across slices they may not see. Reading `.exact` off that
+  // notice threw, and the throw took every section below the headline with it
+  // (B-042). The refusal is the answer, so it is shown as one.
+  if(r.withheld){
+    return section('How we chose between explanations',
+      `<p>Withheld: ${escapeHtml(r.reason || 'outside your entitlement')}.</p>`, false, 'withheld');
+  }
+  if(!(r.exact||[]).length && !(r.associational||[]).length) return '';
   const rowsOf = list => list.length
     ? `<table><tbody>${list.map(x=>`<tr>
          <td>${escapeHtml(x.label)}</td>
@@ -2797,9 +2894,10 @@ function contrastMarkup(){
   const c = STATE.contrast;
   if(!c) return '';
   if(!c.captured){
-    return `<p class="muted" style="margin-top:var(--sp-5)">${escapeHtml(c.note)}</p>`;
+    return c.note ? `<p class="muted" style="margin-top:var(--sp-5)">${escapeHtml(c.note)}</p>` : '';
   }
   const a = c.with_model, b = c.without_model;
+  if(!a || !b) return '';
   // Name the case. This panel is a capture, not a rerun of whatever is on
   // screen, and it was rendered with no indication of that -- so a reader
   // comparing its figures against the page above found two sets that did not
@@ -2810,29 +2908,29 @@ function contrastMarkup(){
   // Reading is where the model does its work here, so it is counted rather than
   // left to be inferred from the prose. Sentence counts alone were the whole
   // caption, which measured the least interesting difference.
-  const read = v => `${plural(v.documents_found,'document')} read, ${plural(v.citations,'span')} cited`;
+  const read = v => `${plural(v.documents_found || 0,'document')} read, ${plural(v.citations || 0,'span')} cited`;
   return `
     <h4 class="label" style="margin-top:var(--sp-5)">With the model, and without</h4>
-    <p class="muted">${escapeHtml(prose(c.note))}</p>
+    <p class="muted">${escapeHtml(prose(c.note || ''))}</p>
     <p class="muted">A captured run of <b>${which}</b>, not the diagnosis above:
-      ${escapeHtml((c.captured_at||'').slice(0,10))} against ${escapeHtml(c.backend)}.
+      ${escapeHtml((c.captured_at||'').slice(0,10))} against ${escapeHtml(c.backend || '')}.
       Its figures belong to that case.</p>
     <div class="tracks" style="margin-top:var(--sp-4)">
       <div>
         <h4 class="exactly">Model on</h4>
-        <p class="caption">${plural(a.model_calls,'call')} · ${a.tokens} tokens ·
-          ${read(a)} · ${plural(a.sentences,'sentence')}, ${a.rejected} rejected</p>
-        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(prose(a.narrative))}</p>
+        <p class="caption">${plural(a.model_calls || 0,'call')} · ${a.tokens || 0} tokens ·
+          ${read(a)} · ${plural(a.sentences || 0,'sentence')}, ${a.rejected || 0} rejected</p>
+        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(prose(a.narrative || ''))}</p>
       </div>
       <div>
         <h4 class="merely">Model off</h4>
-        <p class="caption">${plural(b.model_calls,'call')} · ${read(b)} ·
-          ${plural(b.sentences,'sentence')}, ${b.rejected} rejected</p>
-        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(prose(b.narrative))}</p>
+        <p class="caption">${plural(b.model_calls || 0,'call')} · ${read(b)} ·
+          ${plural(b.sentences || 0,'sentence')}, ${b.rejected || 0} rejected</p>
+        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(prose(b.narrative || ''))}</p>
       </div>
     </div>
     <div class="gate" style="margin-top:var(--sp-4)">
-      ${Object.entries(a.figures).map(([k,v])=>`<div><b>${
+      ${Object.entries(a.figures || {}).map(([k,v])=>`<div><b>${
         escapeHtml(String(Array.isArray(v)?v.length:v))}</b>${escapeHtml(k.replace(/_/g,' '))}</div>`).join('')}
     </div>
     <p class="muted">Every figure is identical in both columns. That is the
@@ -3787,14 +3885,13 @@ async function showDocument(docId){
       ${d.ts.slice(0,16).replace('T',' ')} · ${d.length} characters</p>
     ${d.injection_flags.length ? `<p class="pill na" style="margin-top:14px;display:inline-block">
       Contains instruction-like text: ${d.injection_flags.join(', ')}. Read as data.</p>` : ''}
-    <dl class="field"><dt>Full record, exactly as written</dt>
+    ${d.personal_data ? `<p class="muted">${escapeHtml(piiLine(d.personal_data))}</p>` : ''}
+    <dl class="field"><dt>Full record${d.personal_data && d.personal_data.masked.length ? ', personal data masked' : ', exactly as written'}</dt>
       <dd><pre style="white-space:pre-wrap">${escapeHtml(d.text)}</pre></dd></dl>
     <p class="muted">An untrusted source. Nothing inside it is treated as an
       instruction, and the engine quotes rather than paraphrases.</p>`;
   $('#docback').addEventListener('click',()=>{ $('#dbody').innerHTML = back; wireDocLinks(); });
 }
-
-const escapeHtml = t => t.replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
 
 function closeDrawer(){
   $('#drawer').classList.remove('on'); $('#scrim').classList.remove('on');
@@ -4019,7 +4116,7 @@ function showTip(mouseY){
   t.classList.add('on');
 }
 
-addEventListener('resize',()=>STATE.series&&drawChart());
+addEventListener('resize',()=>{ if(STATE.series) drawChart(); if(STATE.overview) drawSparks(); });
 boot();
 </script>
 </body>
