@@ -131,7 +131,7 @@ document.getElementById('print').onclick = () => window.print();
       </div>
     </div>
     <div class="foot">
-      <span>Every figure resolves to the query, rows or document behind it. The model writes no numbers. Run <span class="mono">${esc(String(x.run_id).replace(/^run-/, ''))}</span>.</span>
+      <span>Every figure resolves to the query, rows or document behind it. The model calculates no numbers; each one it writes is checked against the evidence. Run <span class="mono">${esc(String(x.run_id).replace(/^run-/, ''))}</span>.</span>
       <span class="sig">${signed ? `Signed by <b>${esc(signed.actor.name)}</b><br>${dt(signed.at)}, ${esc(signed.at.slice(11,16))} UTC · evidence <span class="mono">${esc(signed.payload.evidence.slice(0,12))}</span>${sig.data.unchanged ? '' : '<br><span class="changed">Evidence has changed since signing</span>'}`
         : `<b>Not signed</b><br>Awaiting the ${esc(human((sig.ok && sig.data.accountable) || 'finance_director').toLowerCase())}`}</span>
     </div></section>`;

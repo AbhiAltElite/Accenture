@@ -17,7 +17,7 @@
    Red: contradicted or refused. A refusal gets the same visual weight as a
    verified answer, because it is an answer. */
 :root{
-  --r-sm:3px; --r-md:5px;
+  --r-sm:3px; --r-md:5px; --r-lg:8px;
   --ground:#f2f4f3; --paper:#ffffff; --raised:#f7f9f8; --sunk:#e8ecea;
   --ink:#131c19; --ink-2:#39453f; --ink-3:#5a6661; --ink-4:#7f8a85;
   --line:#dbe1de; --line-2:#c1cac6;
@@ -91,6 +91,87 @@ a{color:var(--accent)}
 .onpage a:hover{border-bottom-color:var(--accent)}
 #why,#gap,#calendar,#decide,#fair{scroll-margin-top:72px}
 .viewnote{font-size:14px;color:var(--ink-3);margin:10px 0 0}
+/* The chain. Links are rounded like a chain's, joined by a ring; a broken one
+   is red and dashed, and the ring into it is broken too. Every state carries a
+   word and an icon as well as a colour. */
+#chain,#fishbone{scroll-margin-top:72px}
+.fbd > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
+.fbd > summary::-webkit-details-marker{display:none}
+.fbd > summary::after{content:'Show';font-size:12px;color:var(--accent);margin-left:auto}
+.fbd[open] > summary::after{content:'Hide'}
+.fbd > summary h2{margin:0}
+.fbd[open] > summary{margin-bottom:14px}
+.chain-lede{margin:0 0 14px;font-size:15px;line-height:1.55;color:var(--ink-2)}
+.whychain{display:flex;list-style:none;margin:0;padding:6px 2px 4px;overflow-x:auto}
+.whychain li{flex:1 1 0;min-width:112px;display:flex}
+.whychain li + li{margin-left:16px;position:relative}
+.whychain li + li::before{content:'';position:absolute;left:-24px;top:50%;width:30px;height:12px;transform:translateY(-50%);
+  border:2.5px solid var(--line-2);border-radius:var(--r-lg);z-index:0}
+.whychain li:has(.held) + li:has(.held)::before{border-color:var(--ok)}
+.whychain li + li:has(.broken)::before{border-color:var(--bad);border-style:dashed}
+.whychain .link{position:relative;z-index:1;flex:1;text-align:left;cursor:pointer;font:inherit;color:var(--ink);
+  background:var(--paper);border:2.5px solid var(--line-2);border-radius:var(--r-lg);padding:10px 12px 12px;min-width:0;overflow-wrap:anywhere;display:flex;flex-direction:column;gap:3px}
+.whychain .link:disabled{cursor:default}
+.whychain .link:not(:disabled):hover{background:var(--raised)}
+.whychain .link .k{display:flex;align-items:center;gap:5px;font-size:10.5px;letter-spacing:.05em;white-space:nowrap;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.whychain .link .k svg{width:13px;height:13px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.whychain .link b{font-size:14px;line-height:1.3;font-weight:600}
+.whychain .link small{font-size:12.5px;line-height:1.35;color:var(--ink-3)}
+.whychain .link.held{border-color:var(--ok)}
+.whychain .link.held .k{color:var(--ok)}
+.whychain .link.open,.whychain .link.withheld{border-style:dashed;border-color:var(--ink-4)}
+.whychain .link.broken{border-color:var(--bad);border-style:dashed;background:var(--bad-soft)}
+.whychain .link.broken .k{color:var(--bad)}
+.whychain .link.skipped{border-style:dotted;border-color:var(--line-2);opacity:.55}
+@media (max-width:760px){
+  .whychain{flex-direction:column;overflow:visible}
+  .whychain li + li{margin:18px 0 0}
+  .whychain li + li::before{left:28px;top:-26px;width:14px;height:34px;transform:none}
+}
+/* The bridge. Totals in the ink, a step against the metric's good direction in
+   the bad tone and with it in the good one, the unexplained remainder hatched
+   and neutral: the colour carries direction and the label carries the figure. */
+#bridge{scroll-margin-top:72px}
+.wf{display:block;width:100%;min-width:640px;height:auto;font-family:var(--sans)}
+.wf .wf-axis{stroke:var(--line-2);stroke-width:1.5}
+.wf .wf-link{stroke:var(--ink-4);stroke-width:1.2;stroke-dasharray:3 3}
+.wf .wf-break{stroke:var(--paper);stroke-width:3;fill:none}
+.wf .wf-bar rect{rx:var(--r-sm)}
+.wf .total rect{fill:var(--ink-3)}
+.wf .bad rect{fill:var(--bad)}
+.wf .good rect{fill:var(--ok)}
+.wf .rest rect{fill:var(--unk-soft);stroke:var(--unk);stroke-width:1.5;stroke-dasharray:4 3}
+.wf .wf-v{fill:var(--ink);font-size:13px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.wf .wf-l{fill:var(--ink-3);font-size:12px}
+.wf [data-ev]{cursor:pointer}
+.wf [data-ev]:hover rect,.wf [data-ev]:focus rect{opacity:.82}
+.wf [data-ev]:focus{outline:none}
+.wf [data-ev]:focus-visible rect{stroke:var(--accent);stroke-width:2.5}
+/* The fishbone. Drawn in the page's own tokens so it follows the theme; wide
+   content scrolls in its own box rather than the page. */
+.fishwrap{overflow-x:auto}
+.fish{display:block;width:100%;min-width:760px;height:auto;font-family:var(--sans)}
+.fish .fb-spine{stroke:var(--ink-3);stroke-width:3.5;stroke-linecap:round}
+.fish .fb-tail{stroke:var(--ink-3);stroke-width:3;fill:none;stroke-linecap:round}
+.fish .fb-bone{stroke:var(--line-2);stroke-width:2.2}
+.fish .fb-cat{fill:var(--ink-3);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.fish .fb-empty{fill:var(--ink-4);font-size:12px;font-style:italic}
+.fish .fb-head{fill:var(--raised);stroke:var(--ink-3);stroke-width:2}
+.fish .fb-h1{fill:var(--ink);font-size:14px;font-weight:600}
+.fish .fb-h2{fill:var(--ink);font-size:17px;font-family:var(--mono)}
+.fish .fb-h3{fill:var(--ink-3);font-size:12px}
+.fish .fb-e line{stroke:var(--line-2);stroke-width:1.5}
+.fish .fb-e text{fill:var(--ink-2);font-size:12.5px}
+.fish .fb-e .fb-note{fill:var(--ink-3);font-size:11.5px}
+.fish .fb-e .fb-m{font-weight:700}
+.fish .fb-e.verified text:first-of-type{fill:var(--ink);font-weight:600}
+.fish .fb-e.verified .fb-m{fill:var(--ok)}
+.fish .fb-e.untestable .fb-m{fill:var(--unk)}
+.fish .fb-e.rejected text:first-of-type{text-decoration:line-through;text-decoration-color:var(--bad)}
+.fish .fb-e.rejected .fb-m{fill:var(--bad)}
+.fish .fb-e.aside text{fill:var(--ink-4)}
+.fishkey{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 0}
+.fb-k.verified{color:var(--ok)}.fb-k.rejected{color:var(--bad)}.fb-k.untestable{color:var(--unk)}
 .demo-chip{font-family:var(--mono);font-size:11px;color:var(--warn);border:1px solid var(--warn);border-radius:var(--r-sm);padding:0 5px}
 
 main{max-width:1240px;margin:0 auto;padding:28px 24px 96px}
@@ -243,6 +324,7 @@ details.more p{margin:10px 0 0}
 .dcard .t{font-weight:600}
 .dcard .t{font-size:16px}
 .dcard .m{font-size:14.5px;line-height:1.55;color:var(--ink-2);margin-top:6px}
+.dcard .done-note{border-left:3px solid var(--ok, #3fa46a);padding-left:10px}
 .dcard .row2{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center}
 .dcard .state{font-size:13px;font-weight:600;color:var(--ok)}
 .withheld{font-size:14.5px;color:var(--ink-3);border:1px dashed var(--line-2);border-radius:var(--r-md);padding:14px 18px}
@@ -539,21 +621,31 @@ function route(){
   $('#nav-findings').setAttribute('aria-current', !onFinding && !['audit', 'metrics'].includes(p.get('tab')) ? 'page' : 'false');
   $('#nav-audit').setAttribute('aria-current', p.get('tab') === 'audit' ? 'page' : 'false');
   $('#nav-metrics').setAttribute('aria-current', p.get('tab') === 'metrics' ? 'page' : 'false');
+  // `?demo=` is the link the rehearsal uses. It opened the plain inbox here
+  // and only worked on the workbench (B-061). A scenario this view has opens
+  // its finding; one only the workbench has goes there.
+  const demo = p.get('demo');
+  if(demo){
+    const s = SCEN.find(x => x.id === demo);
+    if(s){ history.replaceState(history.state, '', scenarioLink(s)); route(); }
+    else location.replace(`/workbench?demo=${encodeURIComponent(demo)}`);
+    return;
+  }
   S.token++;
   if(onFinding) finding(p, S.token); else inbox(p, S.token);
 }
 
 /* ---------- scenarios: every coordinate read off the warehouse ---------- */
 const SCEN = [
-  {g:'Explained', t:'Three causes and a trap', d:'West revenue, 13 to 15 Aug. A perfectly correlated promotion is rejected.', q:{kpi:'net_revenue', region:'West', start:'2026-08-13', end:'2026-08-15'}},
-  {g:'Explained', t:'Why nobody saw it coming', d:'Same finding, opened at the signal gap.', q:{kpi:'net_revenue', region:'West', start:'2026-08-13', end:'2026-08-15'}, h:'gap'},
-  {g:'Explained', t:'One day, asked about the app', d:'The store-only weather cause is set aside as impossible.', q:{kpi:'net_revenue', region:'West', channel:'app', start:'2026-08-12', end:'2026-08-20'}},
-  {g:'Refused', t:'Abstains: no cause survives', d:'West, 27 to 28 Jul. Unknown, with the next check named.', q:{kpi:'net_revenue', region:'West', start:'2026-07-27', end:'2026-07-28'}},
-  {g:'Refused', t:'Two systems disagree', d:'North, 10 to 12 Jun. Caught before anything is explained.', q:{kpi:'net_revenue', region:'North', start:'2026-06-10', end:'2026-06-12'}},
-  {g:'Refused', t:'Detected, not diagnosed', d:'Checkout conversion is a rate; the identity does not apply.', q:{kpi:'checkout_conversion', start:'2026-08-29', end:'2026-08-30'}},
-  {g:'Access', t:'Scoped to South', d:'A reader entitled to one region sees only its findings.', q:{kpi:'net_revenue', start:'2026-07-30', end:'2026-08-04', entitled:'South'}},
-  {g:'Access', t:'South reader asks about the West', d:'Refused before anything is computed.', q:{kpi:'net_revenue', region:'West', start:'2026-08-13', end:'2026-08-15', entitled:'South'}},
-  {g:'Reach', t:'Another industry', d:'Petroleum marketing: two candidates verified, two rejected.', q:{kpi:'net_realisation', start:'2026-08-14', end:'2026-08-15'}, industry:'petroleum'},
+  {id:'trap', g:'Explained', t:'Two causes, and a trap', d:'West revenue, 13 to 15 Aug. Release and rain verified, a correlated promotion rejected, a three-week-old SKU that cannot be verified yet.', q:{kpi:'net_revenue', region:'West', start:'2026-08-13', end:'2026-08-15'}},
+  {id:'gap', g:'Explained', t:'Why nobody saw it coming', d:'Same finding, opened at the signal gap.', q:{kpi:'net_revenue', region:'West', start:'2026-08-13', end:'2026-08-15'}, h:'gap'},
+  {id:'channel', g:'Explained', t:'The same finding, asked about the app', d:'The store-only weather cause is set aside as impossible.', q:{kpi:'net_revenue', region:'West', channel:'app', start:'2026-08-13', end:'2026-08-15'}},
+  {id:'refusal', g:'Refused', t:'Abstains: no cause survives', d:'West, 27 to 28 Jul. Unknown, with the next check named.', q:{kpi:'net_revenue', region:'West', start:'2026-07-27', end:'2026-07-28'}},
+  {id:'contradiction', g:'Refused', t:'Two systems disagree', d:'North, 10 to 12 Jun. Caught before anything is explained.', q:{kpi:'net_revenue', region:'North', start:'2026-06-10', end:'2026-06-12'}},
+  {id:'hourly', g:'Refused', t:'Detected, not diagnosed', d:'Checkout conversion is a rate; the identity does not apply.', q:{kpi:'checkout_conversion', start:'2026-08-25', end:'2026-08-25'}},
+  {id:'entitled', g:'Access', t:'Scoped to South', d:'A reader entitled to one region sees only its findings.', q:{kpi:'net_revenue', start:'2026-07-30', end:'2026-08-04', entitled:'South'}},
+  {id:'blanked', g:'Access', t:'South reader asks about the West', d:'Refused before anything is computed.', q:{kpi:'net_revenue', region:'West', start:'2026-08-13', end:'2026-08-15', entitled:'South'}},
+  {id:'petroleum', g:'Reach', t:'Another industry', d:'Petroleum marketing: two candidates verified, two rejected.', q:{kpi:'net_realisation', start:'2026-08-14', end:'2026-08-15'}, industry:'petroleum'},
 ];
 function scenarioLink(s){ return `/finding?${qs({...s.q, industry: s.industry || 'retail'})}${s.h ? '#'+s.h : ''}`; }
 // Published for /uat, which reads them rather than evaluating code: the page's
@@ -597,19 +689,17 @@ async function inbox(p, token){
   if(tab === 'audit'){ view.innerHTML = trackStrip() + auditView(aud.data); return; }
   if(!tri.ok){ view.innerHTML = trackStrip() + `<div class="panel refusal"><h1>Outside your access</h1><p>${esc(detail(tri))}</p></div>`; return; }
   const rows = tri.data.findings || [];
+  S.inboxRows = rows;
   // A total over the flagged days, not a sum of daily rates: these findings
   // sit in different months, and adding their per-day figures reads as a
   // loss running every day right now.
-  const falls = rows.filter(f => f.direction !== 'rise');
-  const atStake = falls.reduce((a,f) => a + (f.impact_inr_per_day||0) * (f.days||1), 0);
-  const flaggedDays = falls.reduce((a,f) => a + (f.days||1), 0);
   const signed = rows.filter(f => signedFor(entries, f));
   const shown = tab === 'signed' ? signed : tab === 'all' ? rows : rows.filter(f => !signedFor(entries, f));
   const scope = tri.data.scope ? ` · scoped to ${esc(tri.data.scope.join(', '))}` : '';
   view.innerHTML = `${trackStrip()}
     <dl class="summary">
       <div><dt>Largest open findings</dt><dd>${rows.length - signed.length}<small> shown, of ${tri.data.total} detected${scope}</small></dd></div>
-      <div><dt>Shortfall in these findings</dt><dd class="num">${inr(atStake)}<small> over ${flaggedDays} flagged days</small></dd></div>
+      <div><dt>Revenue shortfall in these findings</dt><dd class="num" id="stake">${stakeHtml(rows, verdictFor(entries))}</dd></div>
       <div><dt>Awaiting a signature</dt><dd id="awaiting">…</dd></div>
     </dl>
     <div class="bar-row">
@@ -759,6 +849,31 @@ async function fillVerdicts(rows, entries, entitled, token, status=''){
   }
   if(token === S.token && status && !kept && $('#rows')) $('#rows').innerHTML = `<div class="empty">No finding here has that status. Try another, or clear the filters.</div>`;
   if(token === S.token && $('#awaiting')) $('#awaiting').innerHTML = `${awaiting}<small> verified, unsigned</small>`;
+  // Over every finding in the queue, signed or not, so the figure does not
+  // change when the verdicts arrive for only the rows on this tab.
+  if(token === S.token && $('#stake') && S.inboxRows) $('#stake').innerHTML = stakeHtml(S.inboxRows, verdictFor(entries));
+}
+/* What the business is short, and only that (B-060). The headline counted a
+   finding the ledger disputes, whose "shortfall" may be an incomplete extract,
+   and added on-time delivery priced at a declared rate to real revenue. Both
+   are still shown, beside the figure rather than inside it. A total over the
+   flagged days, not a sum of daily rates: these findings sit in different
+   months, and adding per-day figures reads as a loss running every day now. */
+// A verdict read on this page, or the one recorded when the finding was signed.
+const verdictFor = entries => f => S.verdicts.get(keyOf(f))
+  || (((signedFor(entries, f) || {}).payload) || {}).verdict;
+function stakeHtml(rows, verdictOf){
+  const falls = rows.filter(f => f.direction !== 'rise');
+  const total = fs => fs.reduce((a,f) => a + (f.impact_inr_per_day||0) * (f.days||1), 0);
+  const disputed = falls.filter(f => verdictOf(f) === 'contradicted');
+  const money = falls.filter(f => f.unit === 'INR' && !disputed.includes(f));
+  const rated = falls.filter(f => f.unit !== 'INR' && !disputed.includes(f));
+  const days = money.reduce((a,f) => a + (f.days||1), 0);
+  const aside = [
+    disputed.length && `${inr(total(disputed))} more the ledger disputes`,
+    rated.length && `${inr(total(rated))} more at contract rates`,
+  ].filter(Boolean);
+  return `${inr(total(money))}<small> over ${days} flagged days${aside.length ? `<br>${aside.join(' · ')}` : ''}</small>`;
 }
 function auditView(d){
   if(!d) return `<div class="panel">The audit trail could not be read.</div>`;
@@ -836,6 +951,18 @@ function worstDay(ser, f){
   const pool = drops.length ? drops : inWin;
   return pool.reduce((w,a) => Math.abs(a.delta) > Math.abs(w.delta) ? a : w);
 }
+/* The figure the queue ranked this finding on, so the number a reader clicked
+   is on the page it opened (B-060): the mean gap to expected over the flagged
+   days in the window, in the worst day's direction. Shown only when there is
+   more than one day, where it differs from the worst day above it. */
+function flaggedMean(ctx){
+  const {ser, f, worst} = ctx;
+  if(!ser || !ser.anomalies || !worst) return '';
+  const days = ser.anomalies.filter(a => a.day >= f.start && a.day <= f.end && Math.sign(a.delta) === Math.sign(worst.delta));
+  if(days.length < 2) return '';
+  const mean = days.reduce((a,x) => a + Math.abs(x.delta), 0) / days.length;
+  return `<small class="cap">Worst day. ${inr(mean)} a day across the ${days.length} flagged days</small>`;
+}
 /* The model-written prose arrives second. Every figure is already on the page
    and stays put; only the paragraph changes. */
 async function refine(ctx, token){
@@ -875,7 +1002,7 @@ function findingView(ctx){
   const band = conf && typeof conf === 'object' ? conf.band : (d.headline && d.headline.confidence) || conf;
   const recon = d.reconciliation;
   const facts = [
-    worst && `<div><span>${worst.delta < 0 ? 'Short of expected' : 'Above expected'}</span><b class="lead num"><button type="button" class="ev" data-ev="movement" title="The rows behind this figure, and the query that produces them">${inr(Math.abs(worst.delta))}</button></b><small class="cap">${trend(worst.delta < 0 ? 'down' : 'up', (ctx.ser && ctx.ser.favourable) || 'up', `${pct(worst.pct)} ${worst.delta < 0 ? 'below' : 'above'} expected`)}</small></div>`,
+    worst && `<div><span>${worst.delta < 0 ? 'Short of expected' : 'Above expected'}</span><b class="lead num"><button type="button" class="ev" data-ev="movement" title="The rows behind this figure, and the query that produces them">${inr(Math.abs(worst.delta))}</button></b><small class="cap">${trend(worst.delta < 0 ? 'down' : 'up', (ctx.ser && ctx.ser.favourable) || 'up', `${pct(worst.pct)} ${worst.delta < 0 ? 'below' : 'above'} expected`)}</small>${flaggedMean(ctx)}</div>`,
     worst && `<div><span>Observed</span><b class="num">${inr(worst.observed)}</b></div>`,
     worst && `<div><span>Expected</span><b class="num">${inr(worst.expected)}</b></div>`,
     // The calibrated probability belongs to a reported answer. On a refusal it
@@ -916,6 +1043,7 @@ function findingView(ctx){
       ${actions}
     </section>
     <nav class="onpage" id="onpage" aria-label="On this page"></nav>
+    ${chainHtml(ctx)}
     ${main}
     ${calendarHtml(ctx)}
     ${withheld}
@@ -960,10 +1088,11 @@ function explainedBody(ctx){
   const outlook = ro ? `<p class="note">If every lever is pulled, about <b class="num">${inr(ro.recoverable_inr_per_day)}</b> a day comes back.${ro.not_actionable_inr_per_day >= 1 ? ` <b class="num">${inr(ro.not_actionable_inr_per_day)}</b> a day has no lever and can only be monitored.` : ''}${rest >= 1 ? ` The other <b class="num">${inr(rest)}</b> a day is not expected back.` : ''}${ro.overlap_adjusted ? ' These are scaled back for the overlap.' : ''}</p>` : '';
   const ruled = ctx.cand && ctx.cand.rejected ? `<section class="panel"><h2>Ruled out</h2>${ctx.cand.rejected.length ? `<ul class="ruled" style="padding-left:18px;margin:0">${ctx.cand.rejected.map(r => `<li><s>${esc(causeText(r.description))}</s><br><span class="small">${esc(reasonText(r.reason))}.${r.per_region && Object.keys(r.per_region).length > 1 ? ' Where it ran: ' + Object.entries(r.per_region).map(([k,v]) => `${esc(k)} ${v<0?'−':'+'}${pct(v)}`).join(', ') + '.' : ''}</span></li>`).join('')}</ul>` : '<p class="small muted">No candidate was rejected.</p>'}</section>`
     : persona === 'analyst' ? '' : '';
-  return `<div class="grid">
+  return `${waterfallHtml(ctx)}<div class="grid">
       <section class="panel" id="why"><h2>Why it moved · ₹ a day against the fortnight before</h2>${causeRows}${overlap}${outlook}${narrativeHtml(d)}</section>
       <div class="stack">${setAsideHtml(d)}${ruled}${gapHtml(d)}${reconHtml(d)}</div>
     </div>
+    ${fishboneHtml(ctx)}
     ${decisionsHtml(ctx)}
     ${fairHtml(ctx)}`;
 }
@@ -1024,7 +1153,7 @@ function unknownBody(ctx){
         <span class="bar"><i style="width:${Math.round(Math.abs(x.w||0)/max*100)}%"></i></span>
         ${x.v ? `<span class="meta"><button type="button" class="ev" data-ev="cause:${esc(x.id)}">${esc(testsLine(x.v))}</button></span>` : ''}</div>`).join('')}
       ${a.coverage !== undefined ? `<p class="note">Together they account for ${pct(a.coverage, 0)} of the movement.</p>` : ''}` : '';
-  return `<div class="grid">
+  return `${waterfallHtml(ctx)}<div class="grid">
       <section class="panel" id="why">${partialHtml}<h2${partial.length ? ' style="margin-top:14px"' : ''}>${reasons.length ? 'What we checked' : 'What happens next'}</h2>
         ${reasons.length ? `<ul style="padding-left:18px;margin:0 0 10px">${reasons.map(r => `<li>${esc(plain(r, d))}.</li>`).join('')}</ul>` : ''}
         ${a.next_check ? `<p><b>Next check:</b> ${esc(a.next_check.charAt(0).toUpperCase()+a.next_check.slice(1))}.</p>` : ''}
@@ -1033,6 +1162,7 @@ function unknownBody(ctx){
       <div class="stack">${setAsideHtml(d)}${ctx.cand && ctx.cand.rejected && ctx.cand.rejected.length ? `<section class="panel"><h2>Ruled out</h2><ul class="ruled" style="padding-left:18px;margin:0">${ctx.cand.rejected.map(r => `<li><s>${esc(causeText(r.description))}</s><br><span class="small">${esc(reasonText(r.reason))}.</span></li>`).join('')}</ul></section>` : ''}
         ${reconHtml(d)}</div>
     </div>
+    ${fishboneHtml(ctx)}
     ${decisionsHtml(ctx)}`;
 }
 function contradictedBody(ctx){
@@ -1195,6 +1325,7 @@ function decisionsHtml(ctx){
       <div class="t">${esc(actionText(c.action))}</div>
       <div class="m">Because: ${esc(causeText(c.cause))} · owner ${esc(roleName(a.assigned_to).toLowerCase())} · expected recovery <b class="num">${inr(c.expected_recovery_inr_per_day)}</b> a day${c.recovery_basis ? ` (${esc(plain(c.recovery_basis, d).replace(/^./, x => x.toLowerCase()))})` : ''}</div>
       ${c.monitoring ? `<div class="m">Then watch ${esc(c.monitoring.watch)}.</div>` : ''}
+      ${c.already_actioned ? `<div class="m done-note">Already done on ${esc(dt(c.already_actioned.on))}, per ${esc(c.already_actioned.doc_id)}: ${esc(c.already_actioned.text)} What is left to decide is whether it worked.</div>` : ''}
       <div class="row2">
         ${done ? `<span class="state">${esc(human(done.event.replace('decision_','')))} by ${esc(done.actor.name)}</span>` :
           mine ? `<button type="button" class="btn sm primary" data-decide="${esc(a.action_id)}:accept">Accept</button>
@@ -1241,12 +1372,267 @@ function detectedView(ctx){
 const fmtUnit = (v, u) => u === 'INR' ? inr(v) : u === 'ratio' ? `${(v*100).toFixed(1)}%` : Math.round(v).toLocaleString('en-IN');
 
 /* ---------- interaction ---------- */
+/* ---------- the chain: every link from the movement to the decision ----------
+   The product's name, drawn. A finding is a chain of claims, each resting on
+   the one before: the metric moved, the second system agrees it moved, the
+   movement adds back exactly to its slices, a cause survived testing, the
+   record corroborates it, it has a lever, someone owns the decision, the owner
+   signs. A refusal is a chain that breaks, and the page shows where, which is
+   the design's claim made visible rather than asserted. Links after a break are
+   drawn as not reached: nothing downstream of a broken link is attempted. */
+function chainLinks(ctx){
+  const d = ctx.diag.data, v = d.verdict, w = ctx.worst, r = d.reconciliation || {};
+  const causes = causesOf(d);
+  const cards = d.decisions || [];
+  const card = cards.find(c => c.controllable && c.approval);
+  const L = [];
+  const add = (name, state, main, sub, go) => L.push({name, state, main, sub, go});
+
+  add('Moved', w ? 'held' : 'open', w ? `${inr(Math.abs(w.delta))} ${w.delta < 0 ? 'below' : 'above'} expected` : 'Not flagged',
+      w && isFinite(w.robust_z) ? `unusual at z ${w.robust_z.toFixed(1).replace('-', '−')} and over the rupee floor` : '', 'ev:movement');
+
+  if(r.state === 'agreed') add('Confirmed', 'held', 'Ledger agrees', `within ${pct(r.worst_residual)}`, 'why');
+  else if(r.state === 'contradicted') add('Confirmed', 'broken', 'Ledger disagrees', `by up to ${pct(r.worst_residual)}: check the extract first`, 'why');
+  else add('Confirmed', 'open', 'Not compared', 'no second posting for this slice', 'why');
+
+  const top = d.ranking && d.ranking.exact && d.ranking.exact[0];
+  add('Located', 'held', top ? cap(top.label.replace(' · ', ': ')) : 'Adds back exactly',
+      top ? `${pct(top.share, 0)} of the movement, exactly` : 'price, volume and mix sum to the total', 'why');
+
+  const rej = ctx.cand ? ctx.cand.rejected.length : null, unt = ctx.cand ? ctx.cand.cannot_verify.length : null;
+  const tested = rej === null ? 'passed every test' : `passed every test; ${rej} rejected${unt ? `, ${unt} untestable` : ''}`;
+  if(v === 'explained') add('Caused', 'held', `${causes.length} cause${causes.length === 1 ? '' : 's'} verified`, tested, 'why');
+  else if(v === 'unknown') add('Caused', 'broken', causes.length ? 'Explains too little' : 'No cause survived',
+      ((d.abstention || {}).next_check ? 'the next check is named' : 'unknown is the answer'), 'why');
+  else add('Caused', 'skipped', 'Not attempted', 'data first', 'why');
+
+  const docs = (d.verified || []).reduce((a, x) => a + (x.supporting_documents || 0), 0);
+  if(!causes.length) add('Evidence', 'skipped', 'Nothing to corroborate', '', 'why');
+  else if(!d.verified) add('Evidence', 'withheld', 'Withheld here', 'citations are in the analyst view', 'why');
+  else add('Evidence', docs ? 'held' : 'open', docs ? `${docs} document${docs === 1 ? '' : 's'}` : 'None found',
+      docs ? 'quoted to the character' : 'the tests stand alone', 'why');
+
+  if(!causes.length) add('Lever', 'skipped', 'No cause, no lever', '', 'decide');
+  else if(card) add('Lever', 'held', cap(String(card.lever || '').replace(/_/g, ' ')), `owned by the ${roleName(card.owner).toLowerCase()}`, 'decide');
+  else add('Lever', 'open', 'No lever', 'monitor instead', 'decide');
+
+  const decided = card && ctx.audit.find(e => e.event.startsWith('decision_') && e.payload.action_id === card.approval.action_id);
+  if(!card) add('Decided', 'skipped', 'Nothing to decide', '', 'decide');
+  else if(decided) add('Decided', 'held', cap(human(decided.event.replace('decision_', ''))), `by ${decided.actor.name.replace(' (demo)', '')}`, 'decide');
+  else if(card.already_actioned) add('Decided', 'held', 'Already done', `${dt(card.already_actioned.on)}, per ${card.already_actioned.doc_id}`, 'decide');
+  else add('Decided', 'open', `Awaiting the ${roleName(card.approval.assigned_to).toLowerCase()}`, 'nothing executes until then', 'decide');
+
+  const owner = (ctx.sig && ctx.sig.accountable) || 'finance_director';
+  const signed = ctx.sig && ctx.sig.signed;
+  // A signature over evidence that has since changed holds nothing: the page
+  // asks for a re-sign, and so does the chain.
+  if(signed && ctx.sig.unchanged) add('Signed', 'held', 'Signed', signed.actor.name.replace(' (demo)', ''), null);
+  else if(signed) add('Signed', 'open', 'Re-sign needed', 'the evidence changed after signing', null);
+  else add('Signed', 'open', `Awaiting the ${roleName(owner).toLowerCase()}`, 'the accountable owner', null);
+
+  // Past a break nothing is attempted, and the chain says so rather than
+  // drawing links that would read as held.
+  const at = L.findIndex(x => x.state === 'broken');
+  if(at >= 0) L.slice(at + 1).forEach(x => { x.state = 'skipped'; x.main = 'Not reached'; x.sub = ''; });
+  return L;
+}
+// How each link reads mid-sentence: "breaks at the cause", not "at caused".
+const NOUN = {Moved: 'the movement', Confirmed: 'the second system', Located: 'the breakdown', Caused: 'the cause',
+  Evidence: 'the evidence', Lever: 'the lever', Decided: 'the decision', Signed: 'the signature'};
+function chainHtml(ctx){
+  const L = chainLinks(ctx);
+  const broke = L.find(x => x.state === 'broken');
+  const waiting = L.filter(x => x.state === 'open');
+  const lede = broke
+    ? `The chain breaks at <b>${esc(NOUN[broke.name] || broke.name.toLowerCase())}</b>: ${esc(broke.main.toLowerCase())}. Nothing after it is attempted, and that is the answer rather than a gap in it.`
+    : `Every link from the movement to its cause holds.${waiting.length ? ` ${waiting.length === 1 ? 'One is' : `${waiting.length} are`} still open: ${esc(waiting.map(x => x.name.toLowerCase()).join(', '))}.` : ''}`;
+  const glyph = {held: 'explained', broken: 'contradicted', open: 'checking', withheld: 'refused', skipped: 'cannot_verify'};
+  const word = {held: 'holds', broken: 'broken', open: 'open', withheld: 'withheld', skipped: 'not reached'};
+  return `<section class="panel" id="chain" style="margin-top:20px"><h2>The chain · every link has to hold</h2>
+    <p class="chain-lede">${lede}</p>
+    <ol class="whychain">${L.map((x, i) => `<li><button type="button" class="link ${x.state}" ${x.go && x.go.startsWith('ev:') ? `data-ev="${x.go.slice(3)}"` : x.go ? `data-jump="${x.go}"` : 'disabled'}
+        aria-label="${esc(`${i + 1}. ${x.name}, ${word[x.state]}: ${x.main}. ${x.sub}`)}">
+        <span class="k">${svg(glyph[x.state])}${i + 1} · ${esc(x.name)}</span>
+        <b>${esc(x.main)}</b>${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</button></li>`).join('')}</ol>
+    <p class="small muted" style="margin:10px 0 0">Solid: the link holds. Dashed: open, waiting on a person or not checkable here. Red: broken, where the engine stopped.</p>
+  </section>`;
+}
+
+/* ---------- the variance bridge ----------
+   The finance reader's own picture of a variance: where the day started, one
+   signed bar per tested cause, what is left unexplained, where it ended. Every
+   figure is the server's (whychain/decompose/waterfall.py), which checks that
+   the steps add up before it returns a bridge at all; this only draws it.
+   The axis starts above zero so the steps are visible, and the chart says so. */
+function waterfallHtml(ctx){
+  const d = ctx.diag.data, w = d.waterfall;
+  if(!w || !w.steps || !w.steps.length) return '';
+  const fav = (ctx.ser && ctx.ser.favourable) || 'up';
+  const cols = [{kind: 'start', label: w.start.label, value: w.start.value}, ...w.steps, {kind: 'end', label: w.end.label, value: w.end.value}];
+  // Running totals: each step floats from where the last one ended.
+  let run = w.start.value;
+  const bars = cols.map(c => {
+    if(c.kind === 'start' || c.kind === 'end') return {...c, lo: 0, hi: c.value};
+    const from = run; run += c.value;
+    return {...c, lo: Math.min(from, run), hi: Math.max(from, run), from, to: run};
+  });
+  const tops = bars.flatMap(b => b.kind === 'start' || b.kind === 'end' ? [b.hi] : [b.lo, b.hi]);
+  const hiV = Math.max(...tops), loV = Math.min(...tops.filter(v => v > 0));
+  const span = Math.max(hiV - loV, 1);
+  // A round floor well below the lowest step, so no bar is drawn from nothing.
+  const mag = Math.pow(10, Math.floor(Math.log10(span)));
+  const floor = Math.max(0, Math.floor((loV - span * 0.6) / mag) * mag);
+  const W = 980, H = 330, top = 36, base = 250, left = 18, right = 18;
+  const y = v => base - (Math.max(v, floor) - floor) / (hiV - floor) * (base - top);
+  const n = bars.length, slot = (W - left - right) / n, bw = Math.min(96, slot * 0.56);
+  const chars = Math.max(10, Math.floor(slot / 7.2));
+  const lines = s => { const words = String(s).split(' '); const out = ['']; for(const t of words){
+    if((out[out.length - 1] + ' ' + t).trim().length > chars && out.length < 3) out.push(t); else out[out.length - 1] = (out[out.length - 1] + ' ' + t).trim(); }
+    if(out.length === 3 && out[2].length > chars) out[2] = out[2].slice(0, chars - 1) + '…'; return out; };
+  const tone = b => b.kind === 'rest' ? 'rest' : b.kind === 'cause'
+    ? ((b.value < 0) === (fav === 'up') ? 'bad' : 'good') : 'total';
+  const clickable = id => d.verified && id ? ` data-ev="cause:${esc(id)}" tabindex="0" role="button"` : '';
+  let g = '';
+  bars.forEach((b, i) => {
+    const x = left + slot * i + (slot - bw) / 2, yt = y(b.hi), yb = y(b.lo), h = Math.max(yb - yt, 2);
+    const total = b.kind === 'start' || b.kind === 'end';
+    const label = total ? inr(b.value) : inr(b.value, {sign: true});
+    const tip = total ? `${b.label}: ${inr(b.value)} a day`
+      : `${b.label}: ${inr(b.value, {sign: true})} a day${b.measured !== null && b.measured !== undefined && Math.abs(b.measured - b.value) >= 1 ? `, measured alone at ${inr(b.measured, {sign: true})}` : ''}`;
+    g += `<g class="wf-bar ${tone(b)}"${b.kind === 'cause' ? clickable(b.id) : ''}><title>${esc(tip)}</title>
+      <rect x="${x}" y="${yt}" width="${bw}" height="${h}"/>
+      <text class="wf-v" x="${x + bw / 2}" y="${(b.kind === 'cause' || b.kind === 'rest') && b.value < 0 ? yb + 16 : yt - 8}" text-anchor="middle">${esc(label)}</text>
+      ${lines(b.label).map((t, k) => `<text class="wf-l" x="${x + bw / 2}" y="${base + 22 + k * 15}" text-anchor="middle">${esc(t)}</text>`).join('')}
+    </g>`;
+    // The connector: where this bar ended is where the next one starts.
+    if(i < n - 1){
+      const endV = total ? b.value : b.to, xe = x + bw, xn = left + slot * (i + 1) + (slot - bw) / 2;
+      g += `<line class="wf-link" x1="${xe}" y1="${y(endV)}" x2="${xn}" y2="${y(endV)}"/>`;
+    }
+    if(total && floor > 0) g += `<path class="wf-break" d="M${x - 3} ${base - 9} l${bw + 6} -6 M${x - 3} ${base - 3} l${bw + 6} -6"/>`;
+  });
+  const moved = w.end.value - w.start.value;
+  const causes = w.steps.filter(s => s.kind === 'cause'), rest = w.steps.find(s => s.kind === 'rest');
+  const lede = causes.length
+    ? `${inr(w.start.value)} a day in the fortnight before, ${inr(w.end.value)} in this window: ${inr(moved, {sign: true})} a day. ${causes.length === 1 ? 'One tested cause accounts' : `${causes.length} tested causes account`} for ${inr(causes.reduce((a, s) => a + s.value, 0), {sign: true})}${rest ? `, and ${inr(rest.value, {sign: true})} is ${w.withheld ? 'not shown to you or not explained' : 'not explained by anything tested'}` : ''}.`
+    : `${inr(w.start.value)} a day in the fortnight before, ${inr(w.end.value)} in this window. ${w.withheld ? 'The causes of this movement are outside what you may see, or untested.' : 'No tested cause accounts for any of it, which is why the answer is unknown.'}`;
+  const notes = [
+    w.scaled_for_overlap && `Measured one at a time, the causes add to ${Math.round(w.overlap * 100)}% of the movement, because they touch some of the same sales. Each is scaled by the same factor so the bridge adds up; hover a bar for its measured figure.`,
+    floor > 0 && `The axis starts at ${inr(floor)}, not zero, so the steps are visible; the first and last bars are cut where marked.`,
+  ].filter(Boolean);
+  return `<section class="panel" id="bridge" style="margin-top:20px"><h2>The bridge · ₹ a day, the fortnight before to this window</h2>
+    <p class="chain-lede">${lede}</p>
+    <div class="fishwrap"><svg class="wf" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(`Bridge: ${cols.map(c => `${c.label} ${inr(c.value, {sign: c.kind !== 'start' && c.kind !== 'end'})}`).join(', ')}`)}">
+      <line class="wf-axis" x1="${left}" y1="${base}" x2="${W - right}" y2="${base}"/>
+      ${g}
+    </svg></div>
+    ${notes.map(t => `<p class="small muted" style="margin:6px 0 0">${esc(t)}</p>`).join('')}
+  </section>`;
+}
+/* ---------- the fishbone: every hypothesis, on its bone, with its verdict ----------
+   The cause-and-effect diagram quality and operations teams already draw, with
+   one difference: each entry on a bone has been through the tests, so the
+   diagram separates what survived from what was rejected and why, and shows
+   the bones where the record held nothing at all. Placement is the server's
+   (whychain/verify/fishbone.py), deterministic and explained per entry. */
+function fishEntries(ctx){
+  const d = ctx.diag.data, out = new Map();
+  const idOf = s => (String(s).match(/^([\w.-]+):/) || [])[1] || String(s);
+  const put = (id, state, text, bone, note) => { if(bone && !out.has(id)) out.set(id, {id, state, text, bone: bone.id, because: bone.because, note}); };
+  (d.verified || []).forEach(x => put(x.candidate_id, 'verified', causeText(x.description), x.bone, `${inr(x.contribution, {sign: true})} a day`));
+  (d.causes || []).forEach(x => put(idOf(x.cause), 'verified', causeText(x.cause), x.bone, `${inr(x.contribution, {sign: true})} a day`));
+  if(ctx.cand){
+    (ctx.cand.cannot_verify || []).forEach(x => put(x.candidate_id, 'untestable', causeText(x.description), x.bone, 'Could not be tested yet'));
+    (ctx.cand.rejected || []).forEach(x => put(x.candidate_id, 'rejected', causeText(x.description), x.bone, cap(String(x.reason || 'rejected').toLowerCase())));
+  }
+  (d.set_aside || []).forEach(x => put(x.candidate_id, 'aside', causeText(x.description), x.bone, 'Set aside: could not touch this slice'));
+  return [...out.values()];
+}
+function fishboneHtml(ctx){
+  const d = ctx.diag.data, all = d.bones || [];
+  if(!all.length) return '';
+  const entries = fishEntries(ctx);
+  // A reader who is not shown rejected hypotheses must not be told a bone is
+  // empty: it may hold one they cannot see.
+  const partial = !ctx.cand && (d.withheld || []).includes('rejected candidates');
+  const order = {verified: 0, untestable: 1, rejected: 2, aside: 3};
+  const shown = all.filter(b => b.id !== 'other' || entries.some(e => e.bone === 'other'));
+  const n = shown.length, k = Math.ceil(n / 2);
+  const W = 980, H = 420, spine = H / 2, x0 = 18, headX = 760;
+  const gap = (headX - x0 - 20) / k, slant = Math.min(120, gap * 0.5);
+  const chars = Math.max(14, Math.floor((gap - 34) / 6.4));
+  const clip = s => s.length > chars ? s.slice(0, chars - 1) + '…' : s;
+  // Two lines at most, broken at a word, the second clipped: a cause is read
+  // more often than it is hovered.
+  const wrap = s => {
+    if(s.length <= chars) return [s];
+    const cut = s.lastIndexOf(' ', chars);
+    const at = cut > chars * 0.5 ? cut : chars;
+    return [s.slice(0, at), clip(s.slice(at).trim())];
+  };
+  const mark = {verified: '✓', untestable: '◌', rejected: '✕', aside: '–'};
+  let svgs = '';
+  shown.forEach((b, i) => {
+    const top = i < k, j = top ? i : i - k;
+    // Top and bottom bones meet the spine at the same points, as the diagram
+    // is drawn by hand; the last pair stops short of the head.
+    const ax = x0 + 8 + gap * (j + 1), ay = spine;
+    const ex = ax - slant, ey = top ? 58 : H - 58;
+    svgs += `<line class="fb-bone" x1="${ax}" y1="${ay}" x2="${ex}" y2="${ey}"/>
+      <text class="fb-cat" x="${ex}" y="${top ? ey - 16 : ey + 26}" text-anchor="middle">${esc(b.label)}</text>`;
+    const mine = entries.filter(e => e.bone === b.id).sort((p, q) => order[p.state] - order[q.state]);
+    const list = mine.length > 3 ? [...mine.slice(0, 2), {state: 'more', text: `and ${mine.length - 2} more`, note: '', id: ''}] : mine;
+    if(!list.length){
+      const t = 0.42, px = ex + t * (ax - ex), py = ey + t * (ay - ey);
+      svgs += `<text class="fb-empty" x="${px + 10}" y="${py + 4}">${partial ? 'Nothing verified' : 'Nothing in the record'}</text>`;
+    }
+    list.forEach((e, m) => {
+      // Fixed steps of 44px from the outer end on top and from the spine
+      // below, so each entry's three lines clear the next and the label.
+      const py = top ? ey + 14 + m * 44 : ay + 26 + m * 44;
+      const t = (py - ey) / (ay - ey), px = ex + t * (ax - ex);
+      const ls = wrap(e.text);
+      svgs += `<g class="fb-e ${e.state}"><title>${esc(`${e.text}${e.note ? '. ' + e.note : ''}${e.because ? `. On this bone because the record ${e.because}.` : ''}`)}</title>
+        <line x1="${px}" y1="${py}" x2="${px + 9}" y2="${py}"/>
+        <text x="${px + 13}" y="${py - 3}"><tspan class="fb-m">${mark[e.state] || ''}</tspan> ${esc(ls[0])}${ls[1] ? `<tspan x="${px + 24}" dy="14">${esc(ls[1])}</tspan>` : ''}</text>
+        ${e.note ? `<text class="fb-note" x="${px + 24}" y="${py + (ls[1] ? 25 : 11)}">${esc(clip(e.note))}</text>` : ''}</g>`;
+    });
+  });
+  const mv = d.movement || {};
+  const effect = `${kpiName(d.kpi_id)}${d.region ? ', ' + d.region : ''}`;
+  const amount = isFinite(mv.total_change) ? `${inr(mv.total_change, {sign: true})} a day` : '';
+  const count = st => entries.filter(e => e.state === st).length;
+  const tally = [[count('verified'), 'verified'], [count('rejected'), 'rejected by a test'],
+    [count('untestable'), 'could not be tested yet'], [count('aside'), 'set aside before testing']]
+    .filter(([n2]) => n2).map(([n2, t]) => `${n2} ${t}`).join(', ');
+  const lede = partial
+    ? `${tally || 'Nothing'} shown. Hypotheses tested and rejected are withheld for this reader; the analyst view places them on their bones.`
+    : entries.length
+    ? `${entries.length} hypothes${entries.length === 1 ? 'is' : 'es'} in the record for this window: ${tally}.`
+    : 'The operational record holds no hypothesis for this window on any bone. That is why the answer is unknown, and why the next check is to look further, not to guess.';
+  // The analyst's working map. Open for the analyst; one click away for the
+  // readers who act on the bridge instead.
+  return `<section class="panel" id="fishbone" style="margin-top:20px"><details class="fbd"${S.persona === 'analyst' ? ' open' : ''}>
+    <summary><h2>Cause and effect · every hypothesis, tested</h2></summary>
+    <p class="chain-lede">${lede}</p>
+    <div class="fishwrap"><svg class="fish" viewBox="0 0 ${W} ${H}" role="img" aria-label="Fishbone diagram: ${esc(effect)}. ${esc(entries.map(e => `${e.text}: ${e.state}`).join('; '))}">
+      <path class="fb-tail" d="M${x0} ${spine} l-14 -22 M${x0} ${spine} l-14 22"/>
+      <line class="fb-spine" x1="${x0}" y1="${spine}" x2="${headX}" y2="${spine}"/>
+      ${svgs}
+      <path class="fb-head" d="M${headX} ${spine - 58} H ${W - 70} Q ${W - 6} ${spine} ${W - 70} ${spine + 58} H ${headX} Z"/>
+      <text class="fb-h1" x="${headX + 14}" y="${spine - 18}">${esc(clip(effect))}</text>
+      <text class="fb-h2" x="${headX + 14}" y="${spine + 6}">${esc(amount)}</text>
+      <text class="fb-h3" x="${headX + 14}" y="${spine + 28}">${esc({explained: 'Explained', unknown: 'Unknown: not enough', contradicted: 'Data disputed'}[d.verdict] || d.verdict)}</text>
+    </svg></div>
+    <p class="small muted fishkey"><span class="fb-k verified">✓ Verified</span><span class="fb-k untestable">◌ Could not be tested yet</span><span class="fb-k rejected">✕ Rejected by a test</span><span class="fb-k aside">– Set aside before testing</span></p>
+  </details></section>`;
+}
 function wireFinding(ctx){
   const view = $('#view');
   // Built from what was rendered, so a link never points at a section this
   // verdict does not have (a contradicted finding has no gap and no decisions).
   const first = {explained:'Causes', contradicted:'Why nothing is explained'}[ctx.diag.data.verdict] || 'What we checked';
-  const links = [['why', first], ['gap', 'Signal gap'], ['calendar', 'Calendar'], ['decide', 'Decisions'], ['fair', 'Fair target']]
+  const links = [['chain', 'The chain'], ['bridge', 'The bridge'], ['why', first], ['fishbone', 'Fishbone'], ['gap', 'Signal gap'], ['calendar', 'Calendar'], ['decide', 'Decisions'], ['fair', 'Fair target']]
     .filter(([id]) => document.getElementById(id));
   const nav = $('#onpage');
   if(nav){
@@ -1258,6 +1644,9 @@ function wireFinding(ctx){
     });
   }
   view.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => evidence(ctx, b.dataset.ev));
+  view.querySelectorAll('.whychain [data-jump]').forEach(b => b.onclick = () => {
+    const to = document.getElementById(b.dataset.jump); if(to) to.scrollIntoView({block:'start', behavior:'smooth'});
+  });
   view.querySelectorAll('[data-fb]').forEach(b => b.onclick = () => feedback(ctx, b));
   view.querySelectorAll('[data-decide]').forEach(b => b.onclick = () => decideModal(ctx, ...b.dataset.decide.split(':')));
   view.querySelectorAll('[data-teams]').forEach(b => b.onclick = () => teams(ctx, b.dataset.teams));

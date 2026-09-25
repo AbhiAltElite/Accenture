@@ -229,7 +229,9 @@ async function queryRows(){
 
 async function navigation(){
   // Back returns to the page before; the workbench link keeps the finding.
-  const inbox = await open('/', d => d.querySelectorAll('.row').length);
+  // "All", not the default tab: a finding someone has signed leaves "Needs a
+  // decision", and the check is about navigation, not about the demo's state.
+  const inbox = await open('/?tab=all', d => d.querySelectorAll('.row').length);
   const row = [...inbox.doc.querySelectorAll('.row')].find(r => /13 to 15 Aug/.test(r.textContent));
   const problems = [];
   if(!row) problems.push('the West 13 to 15 Aug finding is not in the inbox');
@@ -276,16 +278,27 @@ async function valueSweep(){
   for(const ind of ['retail', 'petroleum', 'power']){
     try{ frame.contentWindow.localStorage.setItem('whychain-industry', ind); frame.contentWindow.localStorage.setItem('whychain-persona', 'cfo'); }catch{}
     const tri = (await J(`/api/triage?industry=${ind}&limit=12&days=365`)).d;
-    const inb = await open('/', d => d.querySelectorAll('.row').length && ![...d.querySelectorAll('.pill')].some(x => x.textContent === 'Checking'), 30000);
+    const inb = await open('/?tab=all', d => d.querySelectorAll('.row').length && ![...d.querySelectorAll('.pill')].some(x => x.textContent === 'Checking'), 30000);
     const itext = inb.doc.getElementById('view').innerText, ip = [];
     tri.findings.forEach(f => {
       if(!itext.includes(inrU(f.impact_inr_per_day))) ip.push(`${f.region} ${f.start}: amount ${inrU(f.impact_inr_per_day)} not shown`);
       if(!itext.includes(`${pctU(f.pct)} ${f.delta < 0 ? 'below' : 'above'} expected`)) ip.push(`${f.region} ${f.start}: ${pctU(f.pct)} not shown`);
     });
+    // The headline is revenue short, and only that (B-060): a finding the
+    // ledger disputes and a metric priced at a declared rate are shown beside
+    // it, not inside it. Verdicts are read the way the page reads them.
     const falls = tri.findings.filter(f => f.direction !== 'rise');
-    const total = falls.reduce((a, f) => a + f.impact_inr_per_day * (f.days || 1), 0), days = falls.reduce((a, f) => a + (f.days || 1), 0);
-    if(!itext.includes(inrU(total))) ip.push(`shortfall total ${inrU(total)} not shown`);
+    const verdictOf = {};
+    for(const f of falls.filter(x => x.diagnosable))
+      verdictOf[f.region + f.start + f.kpi_id] = ((await J(`/api/diagnose?${qsU({kpi: f.kpi_id, region: f.region, start: f.start, end: f.end, industry: ind, persona: 'cfo', backend: 'none'})}`)).d || {}).verdict;
+    const sum = fs => fs.reduce((a, f) => a + f.impact_inr_per_day * (f.days || 1), 0);
+    const disputed = falls.filter(f => verdictOf[f.region + f.start + f.kpi_id] === 'contradicted');
+    const money = falls.filter(f => f.unit === 'INR' && !disputed.includes(f)), rated = falls.filter(f => f.unit !== 'INR' && !disputed.includes(f));
+    const days = money.reduce((a, f) => a + (f.days || 1), 0);
+    if(!itext.includes(inrU(sum(money)))) ip.push(`revenue shortfall ${inrU(sum(money))} not shown`);
     if(!itext.includes(`over ${days} flagged days`)) ip.push(`${days} flagged days not shown`);
+    if(disputed.length && !itext.includes(`${inrU(sum(disputed))} more the ledger disputes`)) ip.push(`disputed ${inrU(sum(disputed))} not shown beside the total`);
+    if(rated.length && !itext.includes(`${inrU(sum(rated))} more at contract rates`)) ip.push(`${inrU(sum(rated))} at contract rates not shown beside the total`);
     if(!itext.includes(`of ${tri.total} detected`)) ip.push(`${tri.total} detected not shown`);
     record(`Values · ${ind}`, `Findings list: ${tri.findings.length} amounts, directions and the totals`, ip.length ? 'fail' : 'pass', ip.join('; ') || 'Every amount, percentage and total equals the engine.', inb.ms);
 
@@ -322,7 +335,9 @@ async function valueSweep(){
       if(ft && ft.factors && ft.factors.length && !text.includes(inrU(ft.policy_inr_per_day, true))) pr.push(`fair target ${inrU(ft.policy_inr_per_day, true)} missing`);
       // Inside the drawers, on the analyst's view where every one is present.
       const drawer = async (key) => { const b = pg.doc.querySelector(`[data-ev="${CSS.escape(key)}"]`); if(!b) return null;
-        b.click(); await sleep(250); const box = pg.doc.querySelector('#layer .drawer'); const found = box ? box.cloneNode(true) : null;
+        // Dispatched rather than .click(): a bar in the bridge is an SVG group,
+        // which has no click() method, and is wired the same way as a button.
+        b.dispatchEvent(new MouseEvent('click', {bubbles: true})); await sleep(250); const box = pg.doc.querySelector('#layer .drawer'); const found = box ? box.cloneNode(true) : null;
         const x = pg.doc.querySelector('#layer [data-close]'); if(x) x.click(); await sleep(100); return found; };
       if(persona === 'analyst' && d.verdict === 'explained'){
         for(const v of d.verified || []){

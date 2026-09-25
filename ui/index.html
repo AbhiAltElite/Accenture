@@ -1404,11 +1404,11 @@ function renderScopeControls(values, labels){
    sendable to someone who was not in the room. */
 const DEMOS = [
   // --- what the engine concludes, and how it got there ---------------------
-  {id:'trap', group:'Explained', label:'Three causes and a trap',
-   note:'A promotion correlating perfectly that caused nothing. It ran in the East too, and the East was fine, which is what difference-in-differences bites on.',
+  {id:'trap', group:'Explained', label:'Two causes, and a trap',
+   note:'Release and rain verified. A promotion correlating perfectly that caused nothing is rejected: it ran in the East too, and the East was fine. A SKU three weeks old cannot be verified yet, and says so.',
    kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15'},
 
-  {id:'channel', group:'Explained', label:'One day, two true answers',
+  {id:'channel', group:'Explained', label:'The same day, asked about the app',
    note:'The same West day asked about the app. The store-only weather cause is set aside as impossible, and the ledger has no channel to reconcile against, so that check is declined rather than failed.',
    kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15', channel:'app'},
 
@@ -1427,7 +1427,9 @@ const DEMOS = [
 
   {id:'hourly', group:'Refused', label:'Detected, not diagnosed',
    note:'Checkout conversion is a rate on an hourly grain. Detection stands; the price/volume/mix identity does not apply to a ratio, and the page says which.',
-   kpi:'checkout_conversion', region:'', range:'90', day:'2026-08-29'},
+   // 25 Aug, not 29 Aug: the 29th was flagged only because East orders were
+   // read 5.5 hours off their sessions, and went when that was fixed (B-058).
+   kpi:'checkout_conversion', region:'', range:'90', day:'2026-08-25'},
 
   // --- who is asking, and what they may see --------------------------------
   {id:'cfo', group:'Reader', label:'As the finance director',
