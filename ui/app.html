@@ -284,6 +284,15 @@ details.scen .menu small{display:block;color:var(--ink-3);font-size:14px}
    aligned and half height, it left an empty patch that read as misplaced. */
 .head > .actions{align-self:stretch;display:flex;flex-direction:column;gap:10px}
 .head > .actions .actsep{margin-top:auto}
+/* What the signature records fills the box below the button: the audit
+   trail's promise stated where the reader signs, not empty space. */
+.actions .records{margin-top:4px;font-size:14.5px;color:var(--ink-2)}
+.actions .records .rh{display:block;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
+.actions .records ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.actions .records li{position:relative;padding-left:18px;line-height:1.4}
+.actions .records li::before{content:'';position:absolute;left:2px;top:.5em;width:7px;height:7px;border-radius:var(--r-pill);background:var(--brand)}
+.actions .records li b{color:var(--ink)}
+.actions .records .num{font-family:var(--mono);font-size:13.5px}
 .actions .owner-note b{color:var(--ink);font-weight:700}
 .actions .owner-note.mine b{color:var(--accent-ink)}
 .signed-bar{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin-top:20px;padding:12px 16px;border-radius:var(--r-md);background:var(--ok-soft);color:var(--ok);font-size:14.5px}
@@ -1262,6 +1271,12 @@ function findingView(ctx){
       <p class="owner-note${canSign ? ' mine' : ''}">${canSign ? '<b>You sign this.</b> You are its accountable owner.' : `<b>Signed by the ${esc(roleName(owner).toLowerCase())}.</b> You can read and share it.`}</p>
       ${signed ? `<button type="button" class="btn primary" data-sign>Sign again</button>`
                : `<button type="button" class="btn primary" data-sign>${signLabel}</button>`}
+      <div class="records"><span class="rh">${signed ? 'The signature on record' : 'What a signature records'}</span>
+        <ul>
+          <li><b>${esc(signed ? signed.actor.name.replace(' (demo)', '') : roleName(owner))}</b>${signed ? `, ${esc(when(signed.at))}` : ', by name, with the time'}</li>
+          <li>The evidence it rests on, <span class="num">${esc(String((signed && signed.payload.evidence) || d.evidence_fingerprint || '').slice(0, 10))}</span></li>
+          <li>${signed && !sig.unchanged ? 'The evidence has changed since: sign again' : 'A new signature is needed if that evidence changes'}</li>
+        </ul></div>
       <span class="actsep" aria-hidden="true"></span>
       <a class="btn" href="/slide?${qs(ctx.base)}" target="_blank" rel="noopener">Board-pack slide</a>
       <a class="btn" href="${esc(benchLink(f, worst))}">Open in workbench</a>
