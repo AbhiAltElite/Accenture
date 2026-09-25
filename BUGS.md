@@ -48,6 +48,30 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-066 · A Mac stops anything that arrived by AirDrop or download, including our Python
+**Found:** 2026-09-25, building the offline packages · **Severity:** P1 for sharing by AirDrop · **Status:** designed around; the full fix is signing
+
+macOS marks every file that arrives by AirDrop, a browser, Slack or email as
+quarantined, and refuses to run a quarantined program that is not signed and
+notarised by a registered Apple developer. That covers `Start WhyChain.command`,
+`WhyChain.app` and the Python the offline package carries. Since macOS 15 the
+old right-click, Open bypass no longer works for unsigned files; the approval
+is System Settings, Privacy & Security, Open Anyway.
+
+**What is done:** a copy made by USB stick or shared drive in Finder is not
+marked, so it opens with no prompt; `START HERE.txt` says so first. By AirDrop
+or download, one approval of `Start WhyChain.command` is the only one: its first
+line clears the mark from its own folder and nothing outside it, before any
+program in the folder runs, so the bundled Python and `WhyChain.app` are never
+stopped afterwards. `launch.py` and the app bundle do the same before running
+anything, for a start that bypassed the script. Tested by marking a package the
+way AirDrop does, unzipping it the way Finder does (2,505 files marked), and
+running it with pip pointed at a dead address: marks cleared, environment built
+from the bundled Python, nothing downloaded, 9 of 9.
+
+**The only complete fix** is a Developer ID signature and notarisation, which
+needs a paid Apple developer account. Recorded rather than pretended away.
+
 ### B-065 · Moving the app to another computer failed in six ways, none of them tested
 **Found:** 2026-09-25, packaging the app and installing it cold from the zip · **Severity:** P1, demo risk · **Status:** fixed
 

@@ -60,8 +60,11 @@ if [ ! -f "$DIR/app/launch.py" ]; then
   exit 1
 fi
 mkdir -p "$DIR/data/app"
+# Opened, so approved: clear the downloaded mark from this folder before its
+# bundled Python is run, or macOS stops that too.
+/usr/bin/xattr -dr com.apple.quarantine "$DIR" 2>/dev/null
 PY=""
-for CANDIDATE in "$DIR/.venv/bin/python" /opt/homebrew/bin/python3 /usr/local/bin/python3 \
+for CANDIDATE in "$DIR/.venv/bin/python" "$DIR/runtime/python/bin/python3" /opt/homebrew/bin/python3 /usr/local/bin/python3 \
                  /Library/Frameworks/Python.framework/Versions/Current/bin/python3 /usr/bin/python3; do
   if [ -x "$CANDIDATE" ] && "$CANDIDATE" -c "import sys" >/dev/null 2>&1; then PY="$CANDIDATE"; break; fi
 done

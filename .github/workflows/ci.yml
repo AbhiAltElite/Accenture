@@ -109,6 +109,48 @@ jobs:
           "$PYV" -m pip uninstall -y uvicorn
           python app/launch.py --check
 
+  offline-package:
+    name: Offline package, Python inside (${{ matrix.target }})
+    # What a team laptop receives from `make package-offline`: its own Python
+    # and every dependency, nothing installed on the machine, no internet. The
+    # runner's own Python only stages the files; the index is pointed at a dead
+    # address so any download fails; and the job fails unless the environment
+    # was built from the bundled interpreter.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: windows-latest, target: win}
+          - {os: macos-latest, target: mac-arm}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Stage the bundled Python and every wheel, as the package carries them
+        run: |
+          python -m pip install -q certifi
+          python app/package.py --stage ${{ matrix.target }}
+      - name: First run through the double-click file, offline
+        env:
+          WHYCHAIN_APP_QUIET: "1"
+          WHYCHAIN_APP_CHECK: "1"
+          WHYCHAIN_CHECK_NO_AI: "1"
+          WHYCHAIN_LLM_BACKEND: none
+          PIP_INDEX_URL: http://127.0.0.1:9/simple
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            Windows) cmd //c 'app\WhyChain.bat' ;;
+            macOS)   ./app/whychain.command ;;
+          esac
+      - name: The environment was built from the bundled Python
+        shell: bash
+        run: |
+          cat .venv/pyvenv.cfg
+          grep -iE "^home = .*runtime" .venv/pyvenv.cfg
+
   attribution:
     name: Attribution
     # The submission must read as the team's own work. This fails the build

@@ -99,3 +99,42 @@ def test_mac_wheels_are_fetched_for_every_tag_a_mac_accepts():
 @pytest.mark.parametrize("prefix", ["data/ground_truth/", "data/audit/", "data/feedback/"])
 def test_the_package_leaves_out_what_a_demo_must_not_carry(prefix):
     assert prefix in _load("package").SKIP_PREFIXES
+
+
+# --- the offline packages: Python inside, one per machine type ----------------
+
+def test_the_bundled_python_is_pinned_and_checked(tmp_path, monkeypatch):
+    """A download that does not match the release's published checksum is
+    deleted and refused, never unpacked."""
+    runtime = _load("runtime")
+    assert runtime.RELEASE and runtime.VERSION.startswith("3.14")
+    monkeypatch.setattr(runtime, "CACHE", tmp_path)
+    name = runtime.asset("win")
+    (tmp_path / f"SHA256SUMS-{runtime.RELEASE}").write_text(f"{'0' * 64}  {name}\n")
+    (tmp_path / name).write_bytes(b"not the file the release published")
+    with pytest.raises(SystemExit, match="checksum"):
+        runtime.fetch("win")
+    assert not (tmp_path / name).exists()
+
+
+def test_the_mac_instructions_cover_the_downloaded_mark():
+    """macOS 15 removed right-click Open for unsigned files; Open Anyway is the path."""
+    package = _load("package")
+    text = package.start_here("mac-arm")
+    assert "Open Anyway" in text and "USB" in text and "com.apple.quarantine" in text
+    assert "Run anyway" in package.start_here("win")
+
+
+def test_the_mac_starter_clears_the_mark_before_running_anything():
+    script = (ROOT / "app" / "whychain.command").read_text()
+    clear = script.index("xattr -dr com.apple.quarantine")
+    assert clear < script.index('"$PY" app/launch.py')
+    assert script.index("runtime/python/bin/python3") < script.index("/opt/homebrew")
+
+
+def test_every_entry_prefers_the_bundled_python():
+    assert "runtime\\python\\python.exe" in (ROOT / "app" / "WhyChain.bat").read_text()
+    assert "runtime/python/bin/python3" in (ROOT / "app" / "whychain.sh").read_text()
+    assert "runtime/python/bin/python3" in (ROOT / "app" / "build_mac_app.sh").read_text()
+    launch = _load("launch")
+    assert "runtime" in str(launch.BUNDLED_PY)

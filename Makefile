@@ -15,6 +15,10 @@ run:              ## one command: environment, data, server, browser, model chec
 app:              ## build WhyChain.app: double-click to open the console in its own window
 	./app/build_mac_app.sh
 
+package-offline:  ## one zip per machine type with Python inside: unzip, double-click, no internet
+	./app/build_mac_app.sh >/dev/null
+	.venv/bin/python app/package.py --bundle win mac-arm mac-intel $(ARGS)
+
 package:          ## one zip that runs on another PC: code, data, AI cache, key (see app/package.py)
 	./app/build_mac_app.sh >/dev/null
 	.venv/bin/python app/package.py $(ARGS)

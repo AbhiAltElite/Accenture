@@ -3,7 +3,7 @@
 # Close the window to stop the engine. Everything it does is in launch.py.
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY=""
-for CANDIDATE in .venv/bin/python python3.14 python3.13 python3.12 python3; do
+for CANDIDATE in .venv/bin/python runtime/python/bin/python3 python3.14 python3.13 python3.12 python3; do
   if command -v "$CANDIDATE" >/dev/null 2>&1 && "$CANDIDATE" -c "import sys" >/dev/null 2>&1; then
     PY="$CANDIDATE"; break
   fi

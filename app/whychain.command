@@ -2,8 +2,12 @@
 # macOS: double-click (the first time: right-click, Open). Opens Terminal so
 # the first install can be watched, then WhyChain in its own window.
 cd "$(cd "$(dirname "$0")/.." && pwd)"
+# Approving this file once is the only approval needed: the downloaded mark is
+# cleared from this folder (and nothing outside it) before anything in it runs,
+# so the bundled Python and WhyChain.app are not stopped by macOS afterwards.
+/usr/bin/xattr -dr com.apple.quarantine "$(pwd)" 2>/dev/null
 PY=""
-for CANDIDATE in .venv/bin/python /opt/homebrew/bin/python3 /usr/local/bin/python3 \
+for CANDIDATE in .venv/bin/python runtime/python/bin/python3 /opt/homebrew/bin/python3 /usr/local/bin/python3 \
                  /Library/Frameworks/Python.framework/Versions/Current/bin/python3 python3; do
   if command -v "$CANDIDATE" >/dev/null 2>&1 && "$CANDIDATE" -c "import sys" >/dev/null 2>&1; then
     PY="$CANDIDATE"; break

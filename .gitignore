@@ -73,3 +73,8 @@ data/audit/
 _internal*.zip
 scratch/
 *.orig
+
+# The portable package's downloaded Python runtimes and dependency wheels.
+build/
+wheels/
+runtime/

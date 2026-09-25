@@ -62,6 +62,9 @@ IMPORTS = ("uvicorn", "fastapi", "duckdb", "pandas", "numpy", "scipy", "statsmod
 PROFILE = APPDATA / "window-profile"
 WINDOWS = os.name == "nt"
 VENV_PY = ROOT / ".venv" / ("Scripts/python.exe" if WINDOWS else "bin/python")
+# The Python that travels inside a machine-specific package (app/runtime.py), so
+# the other computer needs none of its own. Preferred whenever it is present.
+BUNDLED_PY = ROOT / "runtime" / "python" / ("python.exe" if WINDOWS else "bin/python3")
 WHEELS = ROOT / "wheels"
 SOURCES = ("api", "whychain", "ui", "contracts", "data/calibration.json", ".env")
 WAREHOUSES = ("whychain.duckdb", "petroleum.duckdb", "power.duckdb")
@@ -207,7 +210,7 @@ def _version(python: str) -> tuple[int, int] | None:
 
 def base_python() -> str:
     """A Python the pinned dependencies install on, found without a PATH."""
-    candidates = [sys.executable]
+    candidates = [str(BUNDLED_PY), sys.executable]
     if WINDOWS:
         py = shutil.which("py")
         for major, minor in reversed(SUPPORTED):
@@ -345,6 +348,9 @@ def _lock() -> None:
 
 def ensure_environment() -> None:
     """The virtualenv, then the warehouse. Seconds once done."""
+    # First, before any Python here is run: a quarantined interpreter is
+    # stopped by macOS the moment it starts.
+    _unquarantine()
     _lock()
     try:
         if not _ready():
@@ -362,23 +368,21 @@ def ensure_environment() -> None:
 
         if not (ROOT / ".env").exists() and (ROOT / ".env.example").exists():
             shutil.copy(ROOT / ".env.example", ROOT / ".env")
-        _unquarantine()
     finally:
         SETUP_LOCK.unlink(missing_ok=True)
 
 
 def _unquarantine() -> None:
-    """Let WhyChain.app open from where it is on this Mac.
+    """Let this folder's own programs run on this Mac.
 
-    A zip that arrived by AirDrop or download marks every file as quarantined,
-    and macOS then runs a quarantined app from a hidden temporary copy that
-    cannot see the folder around it, so the app found nothing and did nothing.
-    Reaching this line means the reader has already chosen to run WhyChain from
-    this folder, so the mark is cleared on this folder's own app bundle only.
+    A zip that arrived by AirDrop or download marks every file as quarantined.
+    macOS then refuses the bundled Python and runs a quarantined app from a
+    hidden temporary copy that cannot see its folder. Reaching this line means
+    the reader has already approved WhyChain and chosen to run it from this
+    folder, so the mark is cleared from this folder and nothing outside it.
     """
-    bundle = ROOT / "WhyChain.app"
-    if sys.platform == "darwin" and bundle.is_dir():
-        subprocess.run(["xattr", "-dr", "com.apple.quarantine", str(bundle)],
+    if sys.platform == "darwin":
+        subprocess.run(["/usr/bin/xattr", "-dr", "com.apple.quarantine", str(ROOT)],
                        check=False, capture_output=True)
 
 

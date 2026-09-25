@@ -34,6 +34,14 @@ scenarios.
 server), `make bench`, `make audit`, `make lint`, `make real-data`. `/uat` in
 any browser runs the acceptance checks against every scenario and persona.
 
+**For team laptops: `make package-offline`** builds `dist/WhyChain-win.zip`,
+`WhyChain-mac-arm.zip` and `WhyChain-mac-intel.zip`, each with its own Python
+(python-build-standalone, pinned in `app/runtime.py`, checksum-verified) and
+every dependency inside: unzip, double-click, no installs, no internet. On a Mac,
+a copy made by USB or shared drive opens with no prompt; one that arrived by
+AirDrop or download needs one "Open Anyway" for `Start WhyChain.command`, which
+then clears the downloaded mark from its own folder (B-066).
+
 On another PC: `make package` builds `dist/WhyChain-portable.zip` (code, data,
 AI cache and the `.env` key: USB or AirDrop only; `ARGS=--no-key` to leave it
 out) and a `.sha256` beside it. There, follow `START HERE.txt`: double-click

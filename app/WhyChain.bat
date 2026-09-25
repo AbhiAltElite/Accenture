@@ -20,7 +20,9 @@ rem Any working Python runs the launcher, which then finds 3.12 to 3.14 itself.
 rem Each candidate is run, not just found: "python" on a fresh Windows is often
 rem the Microsoft Store placeholder, which exists and runs nothing.
 set "PY="
-py -3 -c "import sys" >nul 2>nul && set "PY=py -3"
+rem The Python inside a machine-specific package comes first: nothing to install.
+if exist "runtime\python\python.exe" set "PY=runtime\python\python.exe"
+if not defined PY py -3 -c "import sys" >nul 2>nul && set "PY=py -3"
 if not defined PY python -c "import sys" >nul 2>nul && set "PY=python"
 if not defined PY python3 -c "import sys" >nul 2>nul && set "PY=python3"
 if not defined PY goto :nopython
