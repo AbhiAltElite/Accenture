@@ -77,8 +77,9 @@ regions they see. See `whychain/identity.py`.
 
 ## Non-negotiables
 
-1. **The LLM never calculates.** It reads unstructured text, ranks hypotheses
-   and writes prose. Every figure comes from deterministic code.
+1. **The LLM never calculates.** It interprets the question, reads unstructured
+   text (tickets, notes) in the writer's own words, and writes prose. Ranking
+   causes is statistical, not the model. Every figure comes from deterministic code.
 2. **A claim that cannot be traced is not shipped.** A deterministic validator
    runs after the model and rejects any sentence whose figures are not in the
    evidence table.

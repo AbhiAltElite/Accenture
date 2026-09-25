@@ -17,8 +17,9 @@ this has recurred, and who owns the gap.
 It sits on top of existing BI rather than replacing it.
 
 **The rule the whole design serves:** the quantitative layer is deterministic.
-The language model reads unstructured text, ranks competing hypotheses and
-writes the narrative. It never calculates, and it never decides what is true. A
+The language model interprets the question, reads unstructured text in the
+writer's own words (every quote checked against its source) and writes the
+narrative. Causes are ranked and tested by statistics. It never calculates, and it never decides what is true. A
 polished false diagnosis is worse than an explicit UNKNOWN.
 
 ---
