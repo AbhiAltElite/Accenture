@@ -42,11 +42,36 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 | T-33 | A candidate tested at a wider scope than the one its source names | verify | A note about one SKU or one category, tested as the whole region, borrows every other cause's movement and verifies (B-056). Carry every scope the source names; when a scope cannot be read, return `cannot_verify` rather than widening |
 | T-34 | A contract that reads a source's timestamps without that source's correction | contracts | `orders` got `tz_normalise` in B-019; `aov` and `checkout_conversion` read the same `order_ts` and did not (B-058). A test asserts every contract reading `pos_txn.order_ts` declares it, rather than each contract remembering |
 | T-35 | Scoring the benchmark and not the demo | bench, uat | The cases a jury sees are the ones that must be right. Score each demo case against its own planted causes, not only for page-equals-API consistency (B-063) |
+| T-36 | A component class named after a common word, in a shared stylesheet | ui | `ui/theme.css` defines `.who` (the seat chip), `.facts`, `.chain`, `.status`; a page that already used the same word for something else inherited a border, padding and flex from the theme (B-067). Page classes that could collide are named for what they are (`owner-note`, `kvgrid`, `whychain`), and a new shared class is grepped for in every page before it lands |
 | T-18 | A benchmark result that improved for a reason nobody checked | bench, datagen | Numbers that move the flattering way get accepted; numbers that move the other way get investigated. A harness defect usually shows up as the former. Any invariant the generator depends on is executed by a test, never only stated in a docstring (see B-014) |
 
 ---
 
 ## Defects
+
+### B-068 · The UI pass that followed the redesign: nine defects a reader saw
+**Found:** 2026-09-26, reviewing the redesign on screen · **Severity:** P2 · **Status:** fixed
+
+**Symptom and root cause, each:**
+- The board-pack slide rendered dark text on a dark ground in a dark-mode system. The shared theme's `prefers-color-scheme: dark` block overrode the slide's own `:root`. The slide now carries `data-theme="light"`, which the dark block excludes: a board pack is paper.
+- The seat avatar wrapped onto a second line of the top bar at 1280px. The bar was `flex-wrap: wrap` and its content summed to within 9px of the width. It no longer wraps above 760px, and the tabs tighten below 1400px.
+- A large figure ran out of its card in the workbench (`₹2,71,63,12…`). A fixed size with no fit for a nine-digit rupee value. Long values drop a size; none wrap.
+- "All unit classs": plurals were an appended `s`. `pluralWord` now forms them.
+- An em dash in the power industry's summary, shown on the workbench.
+- "Relative size" meters were sized against the largest cause, so the largest always read full and said nothing. They show each cause's share of the movement, with the percentage.
+- The calendar ran a warning on every day into a solid saw of triangles, drew events from before the axis into the lane labels, and set two labels on top of each other. Consecutive warnings are one band with a count, only events on the axis are drawn, and the labels are placed apart.
+- Figures in the what-if cards carried no direction beyond their sign, and "+₹0" was printed with a sign. They are coloured by direction, and zero has no sign.
+- Captions, table cells and badges began in lower case ("a day", "not excused", "volume"). Much of it is contract and engine data. Fixed at display: every block of text starts with a capital, and the data is untouched.
+
+**Regression test:** `/uat` (74 of 74) and the screenshots of this pass; the class collision is T-36.
+
+### B-067 · "You are the accountable owner" drawn as a seat chip
+**Found:** 2026-09-26 · **Severity:** P2 · **Status:** fixed
+
+**Symptom:** the owner line under the sign button rendered as a bordered pill with the avatar chip's padding and flex layout.
+**Root cause:** the page's `.actions .who` and the theme's `.who` (the signed-in seat) are the same class. The theme loads first, and every property the page did not set came from it.
+**Fix:** renamed to `.owner-note`; the right column is now one contained sign-off box.
+**Lesson:** T-36.
 
 ### B-066 · A Mac stops anything that arrived by AirDrop or download, including our Python
 **Found:** 2026-09-25, building the offline packages · **Severity:** P1 for sharing by AirDrop · **Status:** designed around; the full fix is signing

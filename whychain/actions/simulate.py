@@ -257,7 +257,7 @@ def price_move(
         Assumption("gross margin", f"{margin:.0%}",
                    f"gross_margin_pct declared in {contract.kpi_id}.yml, version "
                    f"{contract.version}; a business-owned input, not a measured "
-                   f"one -- no cost column exists in the source")
+                   f"one; no cost column exists in the source")
     )
 
     below_cost = (1 + d) < (1 - margin)

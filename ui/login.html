@@ -11,7 +11,6 @@
    page never flashes in the other theme. */
 try{ const t = localStorage.getItem('whychain-theme') || 'light';
   if(t !== 'auto') document.documentElement.setAttribute('data-theme', t); }catch{ document.documentElement.setAttribute('data-theme', 'light'); }
-try{ if(localStorage.getItem('whychain-present') === 'on') document.documentElement.setAttribute('data-present', 'on'); }catch{}
 </script>
 <style>
 /* Sign-in. In production the organisation's single sign-on proxy decides who

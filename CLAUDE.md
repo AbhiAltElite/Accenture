@@ -23,10 +23,13 @@ make app          # builds WhyChain.app: double-click, opens in its own window
 
 Sign-in at `/login`: a choice of demo seat (no password anywhere), or single
 sign-on in proxy mode. Design: `ui/theme.css` (fonts bundled in `ui/fonts`,
-OFL), light by default, a "Presenting in a room" switch in the seat menu that
-scales everything for a projector. A finding page carries the chain, the
-variance bridge, the fishbone and **What-if analysis** (price slider and
-horizon, every figure from the engine).
+OFL), light by default, and scaled up automatically from 1900px wide
+(external monitors and projectors; laptops are never zoomed, B-068). A finding
+page carries the chain, the variance bridge, the fishbone, the calendar and
+**What-if analysis** (price slider and horizon, every figure from the engine).
+A decision goes to its owner as a Teams card; once accepted or modified it
+becomes a **change request** (`/api/dispatch/ticket`, `WHYCHAIN_TICKET_WEBHOOK`),
+a preview until a service desk is connected. The board-pack slide is always light.
 
 Two views. `/` is the **decision view**: findings inbox (filter by metric,
 region, falls or rises, status), one finding at a time, sign-off, decisions,
@@ -37,7 +40,7 @@ headline figure opens its aggregated rows, the query that reproduces them
 `/workbench` is the analyst's full method page with the twelve `?demo=`
 scenarios.
 
-`make test` (643), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
+`make test` (645), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
 server), `make bench`, `make audit`, `make lint`, `make real-data`. `/uat` in
 any browser runs the acceptance checks against every scenario and persona.
 

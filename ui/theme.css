@@ -45,7 +45,7 @@
 
   --brand:#a100ff; --brand-deep:#460073; --brand-mid:#7500c0; --brand-tint:#f4e8ff;
   --ground:#f6f6f9; --paper:#ffffff; --raised:#fafafc; --sunk:#efeff4;
-  --ink:#0b0b12; --ink-2:#2c2c36; --ink-3:#4a4a5a; --ink-4:#6b6b7e;
+  --ink:#0b0b12; --ink-2:#26262f; --ink-3:#3f3f4d; --ink-4:#565666;
   --line:#e7e7ef; --line-2:#d4d4e0;
   --accent:#a100ff; --accent-ink:#7500c0; --accent-soft:#f4e8ff;
   --evidence:#7500c0; --evidence-soft:#f3e6ff;
@@ -56,7 +56,7 @@
   color-scheme:dark;
   --shadow-1:0 1px 2px rgba(0,0,0,.4); --shadow-2:0 8px 28px rgba(0,0,0,.5);
   --ground:#0b0b10; --paper:#15151c; --raised:#1b1b24; --sunk:#23232e;
-  --ink:#f4f4f8; --ink-2:#d6d6e0; --ink-3:#b0b0c2; --ink-4:#8c8ca3;
+  --ink:#f6f6fa; --ink-2:#e0e0e8; --ink-3:#c6c6d4; --ink-4:#a8a8bc;
   --line:#262632; --line-2:#383848;
   --accent:#b54dff; --accent-ink:#d9a3ff; --accent-soft:#2a1340; --brand-tint:#2a1340;
   --evidence:#d9a3ff; --evidence-soft:#2a1340;
@@ -67,7 +67,7 @@
   color-scheme:dark;
   --shadow-1:0 1px 2px rgba(0,0,0,.4); --shadow-2:0 8px 28px rgba(0,0,0,.5);
   --ground:#0b0b10; --paper:#15151c; --raised:#1b1b24; --sunk:#23232e;
-  --ink:#f4f4f8; --ink-2:#d6d6e0; --ink-3:#b0b0c2; --ink-4:#8c8ca3;
+  --ink:#f6f6fa; --ink-2:#e0e0e8; --ink-3:#c6c6d4; --ink-4:#a8a8bc;
   --line:#262632; --line-2:#383848;
   --accent:#b54dff; --accent-ink:#d9a3ff; --accent-soft:#2a1340; --brand-tint:#2a1340;
   --evidence:#d9a3ff; --evidence-soft:#2a1340;
@@ -82,7 +82,7 @@
 .mark b span{color:var(--brand)}
 
 /* ---------- micro-caps: the label voice of the whole product ---------- */
-.mc{font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.mc{font-size:13.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
 
 /* ---------- the top bar ----------
    A white bar across the top with the product's destinations as labelled tabs
@@ -129,25 +129,12 @@
   border-radius:var(--r-md);box-shadow:var(--shadow-2);padding:8px}
 .seatname{padding:10px 12px 4px}
 .seatname b{display:block;font-size:15px}
-.seatname small{display:block;font-size:13px;color:var(--ink-3);line-height:1.4;margin-top:2px}
+.seatname small{display:block;font-size:14px;color:var(--ink-3);line-height:1.4;margin-top:2px}
 .seatmenu .health{padding:6px 12px 12px;border-bottom:1px solid var(--line);margin-bottom:6px}
 .seatmenu a,.seatmenu button{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:0;background:none;
   border-radius:var(--r-sm);font:inherit;font-size:15px;color:var(--ink);text-decoration:none;cursor:pointer;text-align:left}
 .seatmenu a:hover,.seatmenu button:hover{background:var(--sunk)}
 .seatmenu svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;color:var(--ink-3)}
-
-/* ---------- the command palette ---------- */
-.palette-scrim{position:fixed;inset:0;z-index:60;background:rgba(12,6,24,.28);backdrop-filter:blur(6px);
-  -webkit-backdrop-filter:blur(6px);display:flex;justify-content:center;align-items:flex-start;padding-top:12vh}
-.palette{width:min(640px,92vw);background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-2);overflow:hidden}
-.palette input{width:100%;border:0;border-bottom:1px solid var(--line);background:none;padding:18px 22px;font-size:17px;color:var(--ink);outline:none}
-.palette ul{list-style:none;margin:0;padding:8px;max-height:52vh;overflow:auto}
-.palette li{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--r-md);cursor:pointer}
-.palette li[aria-selected="true"]{background:var(--accent-soft)}
-.palette li .k{margin-left:auto}
-.palette li b{font-weight:600;font-size:15px}
-.palette li small{display:block;color:var(--ink-3);font-size:13px}
-.palette .grp{padding:10px 14px 4px}
 
 /* ---------- chain meters ----------
    A size read as a run of interlocking links, filled in proportion: the
@@ -162,13 +149,13 @@
 
 /* ---------- delta badge ---------- */
 .delta{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:var(--r-pill);font-family:var(--mono);
-  font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+  font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
 .delta.bad{background:var(--bad-soft);color:var(--bad)}
 .delta.good{background:var(--ok-soft);color:var(--ok)}
 .delta.neutral{background:var(--unk-soft);color:var(--unk)}
 
 /* ---------- status tags ---------- */
-.tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:var(--r-pill);font-size:12.5px;font-weight:700;
+.tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:var(--r-pill);font-size:13px;font-weight:700;
   letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line-2);color:var(--ink-3);background:var(--paper)}
 .tag.ok{color:var(--ok);background:var(--ok-soft);border-color:transparent}
 .tag.brand{color:var(--brand-mid);background:var(--brand-tint);border-color:transparent}
@@ -177,12 +164,28 @@
 
 .num,code,pre,kbd{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 
-/* ---------- presenting in a room ----------
-   One switch, in the seat menu, that sets everything larger for a projector at
-   the back of a hall. Zoom rather than a second set of sizes, so every page
-   and every chart keeps its proportions exactly. */
-:root[data-present="on"] body{zoom:1.18}
+/* ---------- large screens ----------
+   Text sized for a laptop reads small on a projector or a wall screen, which
+   report a wide viewport. Everything scales up with the screen, by zoom so
+   every page and chart keeps its proportions, with no switch to remember.
+   Zoom re-lays out the whole page on every change, which made a laptop's
+   full-screen window (1512 to 1728px) sluggish when it started at 1600px, so
+   it starts where only an external monitor or a projector reaches. */
+@media (min-width:1900px){body{zoom:1.15}}
+@media (min-width:2400px){body{zoom:1.4}}
+@media (min-width:3000px){body{zoom:1.75}}
 
 /* On a phone the bar scrolls away with the page rather than holding a quarter
    of the screen. */
 @media (max-width:760px){.topbar{position:static}}
+
+/* ---------- where a jump lands ----------
+   A section reached from "on this page" or a chain link glows once, so the
+   eye finds it on a long page, in front of a room as much as at a desk. */
+@keyframes spotlight{
+  0%{box-shadow:0 0 0 0 var(--accent),var(--shadow-1)}
+  18%{box-shadow:0 0 0 4px var(--accent),0 0 28px 4px color-mix(in srgb,var(--accent) 35%,transparent)}
+  100%{box-shadow:0 0 0 0 transparent,var(--shadow-1)}
+}
+.spotlight{animation:spotlight 1.8s ease-out 1}
+@media (prefers-reduced-motion:reduce){.spotlight{animation:none;outline:3px solid var(--accent);outline-offset:2px}}

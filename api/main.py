@@ -235,7 +235,7 @@ def _external_for(ext, candidate, event_end: date) -> list[dict]:
     something it did to itself and its own record describes it. For a fuel
     marketer or a generator it is not. Those businesses move because of refinery
     turnarounds, port closures, tariff orders and grid constraints, and the
-    record that describes those is external and public — an IMD cyclone warning
+    record that describes those is external and public: an IMD cyclone warning
     with a named publisher and a measurable lead time, which is already in the
     warehouse and already read by the signal-gap stage.
 
@@ -3360,12 +3360,7 @@ def dispatch_teams(payload: dict, request: Request) -> dict:
     link = f"{public}/finding?" + urllib.parse.urlencode({k: v for k, v in {
         "kpi": run.get("kpi_id"), "region": run.get("region"), "start": window.get("from"),
         "end": window.get("to"), "industry": payload.get("industry")}.items() if v})
-    action_id = (card.get("approval") or {}).get("action_id")
-    decided = next((e for e in reversed(_audit.entries())
-                    if e["event"].startswith("decision_") and e["payload"].get("action_id") == action_id
-                    and e["subject"].get("kpi_id") == run.get("kpi_id")
-                    and e["subject"].get("region") == run.get("region")
-                    and e["subject"].get("window") == run.get("window")), None)
+    decided = _decided(run, (card.get("approval") or {}).get("action_id"))
     content = _adaptive_card(card, run, link, decided)
     webhook = os.environ.get("WHYCHAIN_TEAMS_WEBHOOK", "").strip()
     sent, detail = False, "No Teams webhook is configured, so nothing was sent."
@@ -3384,6 +3379,97 @@ def dispatch_teams(payload: dict, request: Request) -> dict:
             _audit.append("card_dispatched", who.as_dict(), _subject(run, payload),
                           {"action_id": card["approval"]["action_id"], "channel": "teams"})
     return {"sent": sent, "detail": detail, "card": content}
+
+
+def _decided(run: dict, action_id: str | None) -> dict | None:
+    """The latest decision recorded on this action for this finding, if any."""
+    return next((e for e in reversed(_audit.entries())
+                 if e["event"].startswith("decision_") and e["payload"].get("action_id") == action_id
+                 and e["subject"].get("kpi_id") == run.get("kpi_id")
+                 and e["subject"].get("region") == run.get("region")
+                 and e["subject"].get("window") == run.get("window")), None)
+
+
+def _change_request(card: dict, run: dict, link: str, decided: dict) -> dict:
+    """The work item an accepted decision becomes in the owner's service desk.
+
+    WhyChain decides nothing and executes nothing. Once the owner has accepted,
+    the change itself is made where changes are made, under that system's own
+    approvals, and the ticket carries back what the change desk needs: what to
+    do, who owns it, why, what it is worth, how to tell it worked, and the
+    audit entry and evidence it rests on, so the ticket can be checked against
+    the finding rather than trusted.
+    """
+    rec = card.get("expected_recovery_inr_per_day")
+    mon = card.get("monitoring") or {}
+    verb = {"decision_accepted": "Accepted", "decision_modified": "Accepted with a change"}[decided["event"]]
+    note = str(decided["payload"].get("note") or "").strip()
+    return {
+        "reference": f"WC-{decided['hash'][:8].upper()}",
+        "type": "change_request",
+        "title": _card_action(card["action"]),
+        "assignee_role": _card_role(card["approval"]["assigned_to"]),
+        "requested_by": decided["actor"]["name"],
+        "decision": f"{verb} by {decided['actor']['name'].replace(' (demo)', '')} on "
+                    f"{_card_span(decided['at'][:10], decided['at'][:10])}",
+        "change_note": note or None,
+        "reason": sentence_case(card["cause"].split(": ", 1)[-1]),
+        "finding": (f"{sentence_case(label(run['kpi_id']))}, {run.get('region') or 'all regions'}, "
+                    f"{_card_span(run['window']['from'], run['window']['to'])}"),
+        "expected_recovery": f"₹{_indian(rec)} a day" if rec is not None else "not computed",
+        "done_when": (f"No alert on {mon['threshold']}, watching {mon['watch']}"
+                      if mon.get("threshold") and mon.get("watch") else None),
+        "check_within": mon.get("window"),
+        "evidence": {"audit_entry": decided["hash"],
+                     "fingerprint": decided["payload"].get("evidence"), "link": link},
+    }
+
+
+@app.post("/api/dispatch/ticket")
+def dispatch_ticket(payload: dict, request: Request) -> dict:
+    """Raise the change request for a decision the owner has accepted.
+
+    Posted as JSON to `WHYCHAIN_TICKET_WEBHOOK` (a service desk's inbound
+    integration) when one is set; without one, the exact request is returned
+    and the page says it was not raised. Only an accepted or modified decision
+    becomes a ticket: a rejection is the end of it, and a pending one is still
+    the owner's to make.
+    """
+    who = _who(request)
+    run = _finding_run(payload, effective_entitlement(who, payload.get("entitled")))
+    card = next((c for c in run.get("decisions", [])
+                 if (c.get("approval") or {}).get("action_id") == payload.get("action_id")), None)
+    if card is None:
+        raise HTTPException(404, f"no decision card {payload.get('action_id')!r} on this finding")
+    decided = _decided(run, card["approval"]["action_id"])
+    if decided is None or decided["event"] == "decision_rejected":
+        raise HTTPException(409, "only an accepted decision becomes a change request"
+                            if decided else "the owner has not decided yet")
+    public = os.environ.get("WHYCHAIN_PUBLIC_URL", "").rstrip("/") or str(request.base_url).rstrip("/")
+    window = run.get("window") or {}
+    link = f"{public}/finding?" + urllib.parse.urlencode({k: v for k, v in {
+        "kpi": run.get("kpi_id"), "region": run.get("region"), "start": window.get("from"),
+        "end": window.get("to"), "industry": payload.get("industry")}.items() if v})
+    ticket = _change_request(card, run, link, decided)
+    raised = next((e for e in reversed(_audit.entries()) if e["event"] == "ticket_raised"
+                   and e["payload"].get("reference") == ticket["reference"]), None)
+    if raised:
+        return {"sent": True, "detail": f"Already raised by {raised['actor']['name']}.", "ticket": ticket}
+    webhook = os.environ.get("WHYCHAIN_TICKET_WEBHOOK", "").strip()
+    sent, detail = False, "No service desk is connected, so no ticket was raised."
+    if webhook:
+        try:
+            req = urllib.request.Request(
+                webhook, data=json.dumps(ticket).encode(),
+                headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                sent, detail = 200 <= resp.status < 300, f"The service desk answered HTTP {resp.status}."
+        except Exception as exc:  # the reason is the answer
+            detail = f"The service desk could not be reached: {type(exc).__name__}."
+        if sent:
+            _audit.append("ticket_raised", who.as_dict(), _subject(run, payload),
+                          {"action_id": card["approval"]["action_id"], "reference": ticket["reference"]})
+    return {"sent": sent, "detail": detail, "ticket": ticket}
 
 
 @app.get("/api/metrics")

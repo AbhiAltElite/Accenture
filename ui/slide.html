@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,7 +11,7 @@
    browser. It is always light: a board pack is paper. Every figure is read
    from the same endpoints as the decision view; nothing is typed here. */
 :root{
-  --r-sm:8px; --r-md:12px;--ink:#0b0b12;--ink-2:#34343f;--ink-3:#5a5a6b;--line:#e2e2ea;--accent:#a100ff;--soft:#f4e8ff;
+  --r-sm:8px; --r-md:12px;--ink:#0b0b12;--ink-2:#26262f;--ink-3:#3f3f4d;--line:#e2e2ea;--accent:#a100ff;--soft:#f4e8ff;
   --ok:#0a7d4f;--ok-soft:#e2f5ec;--unk:#4b5565;--unk-soft:#eceef3;--bad:#c4122f;--bad-soft:#fde8eb;--warn:#935800;--warn-soft:#fff2d9;
   --serif:"Plus Jakarta Sans","Segoe UI",sans-serif;--sans:"Inter","Segoe UI",sans-serif;--mono:"JetBrains Mono",Menlo,monospace;color-scheme:light}
 *{box-sizing:border-box}
@@ -20,7 +20,7 @@ body{margin:0;background:#efeff4;font-family:var(--sans);color:var(--ink)}
 .bar button{font:inherit;font-weight:600;border:1px solid #d4d4e0;background:#fff;border-radius:var(--r-pill);padding:8px 18px;cursor:pointer}
 .bar button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
 .slide{width:min(1280px,calc(100vw - 32px));aspect-ratio:16/9;margin:14px auto 24px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.12);
-  padding:3.2% 4%;display:grid;grid-template-rows:auto auto 1fr auto;gap:2.2%;overflow:hidden;font-size:clamp(9px,1.1vw,14.5px)}
+  padding:3.2% 4%;display:grid;grid-template-rows:auto auto 1fr auto;gap:2.2%;overflow:hidden;font-size:clamp(10px,1.15vw,15.5px)}
 .top{display:flex;justify-content:space-between;align-items:center;font-size:.9em;color:var(--ink-3);border-bottom:3px solid var(--accent);padding-bottom:.6em}
 .top img{width:1.5em;height:1.5em;vertical-align:-.4em;margin-right:.4em}
 .top b{color:var(--ink);letter-spacing:-.01em}

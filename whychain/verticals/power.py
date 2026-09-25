@@ -157,7 +157,7 @@ POWER = Vertical(
     driven_by="Set from outside: regulatory tariff orders, fuel supply, grid "
               "constraints, merit order and weather-driven load",
     graph_summary=(
-        "Five connected metrics across three sources. Realisation is scheduled blocks times average realised tariff; blocks come from what is declared and what the grid actually takes. Both legs are set elsewhere — one by a regulator, the other by a merit order."
+        "Five connected metrics across three sources. Realisation is scheduled blocks times average realised tariff; blocks come from what is declared and what the grid actually takes. Both legs are set elsewhere: one by a regulator, the other by a merit order."
     ),
     contracts_dir=Path("contracts/power"),
     warehouse=Path("data/warehouse/power.duckdb"),

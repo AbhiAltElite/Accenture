@@ -33,8 +33,8 @@ DEFAULT_PATH = Path("data/audit/audit.jsonl")
 GENESIS = "0" * 64
 
 EVENTS = frozenset({"finding_signed", "decision_accepted", "decision_modified",
-                    "decision_rejected", "card_dispatched", "target_adjusted",
-                    "rows_exported"})
+                    "decision_rejected", "card_dispatched", "ticket_raised",
+                    "target_adjusted", "rows_exported"})
 
 
 def _canonical(obj: object) -> str:

@@ -190,6 +190,31 @@ class TestService:
         facts = {f["title"]: f["value"] for f in card["body"][2]["facts"]}
         assert facts["Finding"].endswith("13 to 15 Aug 2026") and "₹" in facts["Expected recovery"]
 
+    def test_only_an_accepted_decision_becomes_a_change_request(self, client):
+        # A ticket for a decision nobody has taken would put a change in the
+        # service desk's queue that its owner never agreed to.
+        c, _ = client
+        body = {**WEST, "action_id": "act-rel-4.05"}
+        assert c.post("/api/dispatch/ticket", json=body, headers=as_("fpa.analyst")).status_code == 409
+        assert c.post("/api/decision", json={**body, "decision": "accept"},
+                      headers=as_("ecommerce.lead")).status_code == 200
+        r = c.post("/api/dispatch/ticket", json=body, headers=as_("ecommerce.lead"))
+        assert r.status_code == 200 and r.json()["sent"] is False
+        t = r.json()["ticket"]
+        assert t["reference"].startswith("WC-") and t["assignee_role"].startswith("E-commerce")
+        assert t["decision"].startswith("Accepted by E-commerce Lead") and "₹" in t["expected_recovery"]
+        assert t["done_when"] and "/finding?" in t["evidence"]["link"]
+        entry = next(e for e in c.get("/api/audit").json()["entries"]
+                     if e["event"] == "decision_accepted")
+        assert t["evidence"]["audit_entry"] == entry["hash"]
+
+    def test_a_rejected_decision_raises_no_ticket(self, client):
+        c, _ = client
+        body = {**WEST, "action_id": "act-rel-4.05"}
+        assert c.post("/api/decision", json={**body, "decision": "reject"},
+                      headers=as_("ecommerce.lead")).status_code == 200
+        assert c.post("/api/dispatch/ticket", json=body, headers=as_("ecommerce.lead")).status_code == 409
+
     def test_trackrecord_is_read_not_typed(self, client):
         c, _ = client
         t = c.get("/api/trackrecord").json()
