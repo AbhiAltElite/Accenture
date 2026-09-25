@@ -47,8 +47,13 @@ jobs:
       # developer's `make test` does. Generating the dataset is the repository's
       # own documented first step; running it here means the suite CI reports on
       # is the suite that was written.
-      - name: Generate the warehouse
-        run: PYTHONPATH=. python -m datagen.build
+      # All three industries, and their lineage prepared, as the app ships
+      # them. Retail alone left the petroleum scenario and cache-warmer tests
+      # with no warehouse to read, so CI failed on a demo that works.
+      - name: Generate the warehouses
+        run: |
+          PYTHONPATH=. python -m datagen.build all
+          PYTHONPATH=. python scripts/prepare.py
 
       - name: Test
         run: pytest -q
