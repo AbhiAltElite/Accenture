@@ -122,6 +122,9 @@ _retriever: object | None = None
 _retriever_rows: int = 0
 _feedback = FeedbackStore()
 _applied = AppliedStore()
+# Where a demo reset moves the records to. A module setting so a test can point
+# it, and the stores, somewhere that is not the presenter's real demo data.
+_ARCHIVE = Path("data/archive")
 # Keyed on the file's mtime rather than loaded once at import. `make bench`
 # refits the curve while the service is running, and a calibration that only
 # takes effect after a restart is one that silently disagrees with the report
@@ -3015,6 +3018,35 @@ def _subject(run: dict, body: dict) -> dict:
         "slice": {k: body.get(k) for k in ("channel", "device", "category") if body.get(k)},
         "window": run.get("window"),
     }
+
+
+@app.post("/api/demo/reset")
+def demo_reset(request: Request) -> dict:
+    """Start the demo clean: sign-offs, decisions and feedback moved aside.
+
+    The same as `make demo-reset`, for a presenter with no terminal. Demo mode
+    only: under single sign-on the audit trail is a record of real decisions and
+    nothing in the product may reset it. Nothing is deleted. The files move to
+    `data/archive/<time>/` with a note of who reset it, and the chain starts
+    again from its genesis, which `verify` reads as intact.
+    """
+    if identity_mode() != "demo":
+        raise HTTPException(403, "the audit trail cannot be reset under single sign-on")
+    who = _who(request)
+    stamp = datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S")
+    dest = _ARCHIVE / stamp
+    moved = []
+    with _audit._lock:
+        for path in (_audit.path, _feedback.path, _applied.path):
+            if path.exists() and path.stat().st_size:
+                dest.mkdir(parents=True, exist_ok=True)
+                path.replace(dest / path.name)
+                moved.append(path.name)
+        if moved:
+            (dest / "RESET.json").write_text(json.dumps(
+                {"reset_by": who.as_dict(), "at": datetime.now(tz=UTC).isoformat(timespec="seconds"),
+                 "moved": moved}, indent=2), encoding="utf-8")
+    return {"archived_to": str(dest) if moved else None, "moved": moved}
 
 
 @app.get("/api/me")

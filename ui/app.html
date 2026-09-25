@@ -610,6 +610,9 @@ main section[id]{scroll-margin-top:88px}
 #view :is(code,.num,kbd)::first-letter{text-transform:none}
 .summary .aside{display:block;margin-top:6px;font-size:14.5px;color:var(--ink-2)}
 .summary .aside b{font-size:15px;color:var(--ink)}
+.share{display:inline-block;width:160px;height:10px;border-radius:var(--r-pill);background:var(--sunk);overflow:hidden;vertical-align:middle;flex:none}
+.share i{display:block;height:100%;border-radius:var(--r-pill);background:var(--brand)}
+.share.unk i{background:var(--unk)} .share.ok i{background:var(--ok)} .share.bad i{background:var(--bad)}
 </style>
 </head>
 <body>
@@ -635,6 +638,7 @@ main section[id]{scroll-margin-top:88px}
       <div class="seatname" id="seatname"></div>
       <div class="health" id="health"><i></i>Checking the engine…</div>
       <button type="button" id="theme"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg><span id="theme-tip">Appearance</span></button>
+      <button type="button" id="demo-reset" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.6"/><path d="M4 4v4h4"/></svg>Reset demo</button>
       <a href="/login" id="nav-signout"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 16l-4-4 4-4M6 12h10"/></svg>Switch seat</a>
     </div>
   </div>
@@ -824,6 +828,27 @@ function renderActor(){
   $('#actor').setAttribute('aria-label', `${name}, ${me.mode === 'demo' ? 'demo seat' : 'single sign-on'}: menu`);
   $('#seatname').innerHTML = `<b>${esc(name)}</b><small>${me.mode === 'demo' ? 'Demo seat. Records made here are marked as a demo identity.' : 'Signed in through single sign-on'}</small>`;
   $('#nav-signout').href = `/login?next=${next}`;
+  // Demo only: under single sign-on the record is real and cannot be reset.
+  const reset = $('#demo-reset');
+  if(reset){ reset.hidden = me.mode !== 'demo'; reset.onclick = demoReset; }
+}
+/* Start the demo clean between rehearsals, without a terminal. Archived, never
+   deleted, and asked first: a presenter clicks it by mistake at most once. */
+function demoReset(){
+  $('#seatmenu').hidden = true;
+  layer(`<div class="modal" role="dialog" aria-modal="true" aria-label="Reset demo"><div class="box">
+    <h3>Reset the demo?</h3>
+    <p>Every sign-off, decision and piece of feedback made in this demo is moved to <code>data/archive/</code>, and the audit trail starts empty. Nothing is deleted.</p>
+    <p class="small muted">Only in the demo. Under single sign-on the audit trail cannot be reset.</p>
+    <div class="foot"><button type="button" class="btn" data-close>Cancel</button><button type="button" class="btn primary" id="reset-go">Reset</button></div></div></div>`);
+  $('#reset-go').onclick = async () => {
+    const r = await api('/api/demo/reset', {method:'POST', body:'{}'});
+    closeLayer();
+    if(!r.ok){ toast(detail(r)); return; }
+    S.verdicts.clear();
+    toast(r.data.moved.length ? 'Demo reset. The record is archived and starts empty.' : 'Already clean: nothing to archive.');
+    route();
+  };
 }
 function markPersona(){ document.querySelectorAll('[data-persona]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.persona === S.persona))); }
 const myRole = () => S.me && S.me.identity ? S.me.identity.role : null;
@@ -2180,13 +2205,13 @@ async function ticket(ctx, actionId){
 }
 
 
-/* ---------- tick meters ----------
-   Discrete, like a level meter: twelve ticks, lit in proportion. Easier to
-   compare at a glance than a thin bar, and legible in greyscale print. */
-function meter(frac, tone = 'brand', n = 12){
-  const on = Math.max(frac > 0 ? 1 : 0, Math.round(Math.min(Math.max(frac, 0), 1) * n));
-  return `<span class="meter ${tone === 'brand' ? '' : tone}" role="img" aria-label="${Math.round(Math.min(frac, 1) * 100)} percent">${
-    Array.from({length: n}, (_, i) => `<i${i < on ? ' class="on"' : ''}></i>`).join('')}</span>`;
+/* ---------- share bars ----------
+   A solid bar on a track, the way a finance dashboard shows a share: read in a
+   glance and from the back of a room. Chain-link outlines filled in part read
+   as unfinished rather than as a proportion. */
+function meter(frac, tone = 'brand'){
+  const pct = Math.round(Math.min(Math.max(frac, 0), 1) * 100);
+  return `<span class="share ${tone === 'brand' ? '' : tone}" role="img" aria-label="${pct} percent"><i style="width:${Math.max(pct, frac > 0 ? 2 : 0)}%"></i></span>`;
 }
 
 /* A cause's share of the whole movement, drawn and said. Sized against the

@@ -136,17 +136,6 @@
 .seatmenu a:hover,.seatmenu button:hover{background:var(--sunk)}
 .seatmenu svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;color:var(--ink-3)}
 
-/* ---------- chain meters ----------
-   A size read as a run of interlocking links, filled in proportion: the
-   product's own mark, used as its measure. */
-.meter{display:inline-flex;align-items:center;vertical-align:middle;padding:0 2px}
-.meter i{width:15px;height:9px;border-radius:var(--r-pill);border:2px solid var(--line-2);background:transparent;flex:none}
-.meter i + i{margin-left:-4px}
-.meter i.on{border-color:var(--accent)}
-.meter.ok i.on{border-color:var(--ok)}
-.meter.bad i.on{border-color:var(--bad)}
-.meter.unk i.on{border-color:var(--unk)}
-
 /* ---------- delta badge ---------- */
 .delta{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:var(--r-pill);font-family:var(--mono);
   font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}

@@ -215,6 +215,27 @@ class TestService:
                       headers=as_("ecommerce.lead")).status_code == 200
         assert c.post("/api/dispatch/ticket", json=body, headers=as_("ecommerce.lead")).status_code == 409
 
+    def test_a_demo_reset_archives_the_record_and_starts_clean(self, client, tmp_path, monkeypatch):
+        c, m = client
+        from whychain.feedback.apply import AppliedStore
+        from whychain.feedback.store import FeedbackStore
+        monkeypatch.setattr(m, "_feedback", FeedbackStore(tmp_path / "feedback.jsonl"))
+        monkeypatch.setattr(m, "_applied", AppliedStore(tmp_path / "applied.jsonl"))
+        monkeypatch.setattr(m, "_ARCHIVE", tmp_path / "archive")
+        assert c.post("/api/signoff", json=WEST, headers=as_("finance.director")).status_code == 200
+        r = c.post("/api/demo/reset", headers=as_("fpa.analyst"))
+        assert r.status_code == 200 and r.json()["moved"] == ["audit.jsonl"]
+        assert c.get("/api/audit").json()["entries"] == []
+        archived = next((tmp_path / "archive").iterdir())
+        assert (archived / "audit.jsonl").exists() and (archived / "RESET.json").exists()
+        assert c.get("/api/audit").json()["chain"]["intact"]
+
+    def test_single_sign_on_cannot_reset_the_record(self, client, monkeypatch):
+        c, _ = client
+        monkeypatch.setenv("WHYCHAIN_IDENTITY", "proxy")
+        r = c.post("/api/demo/reset", headers={**SOUTH, "X-WhyChain-User": "finance.director"})
+        assert r.status_code == 403
+
     def test_trackrecord_is_read_not_typed(self, client):
         c, _ = client
         t = c.get("/api/trackrecord").json()
