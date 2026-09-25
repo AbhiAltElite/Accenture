@@ -338,7 +338,7 @@ def main() -> None:
     args.json.write_text(json.dumps(
         {"data": [asdict(p) for p in points], "load": [asdict(x) for x in loads]},
         indent=1,
-    ))
+    ), encoding="utf-8")
     print(f"\nWritten to {args.json}")
 
 

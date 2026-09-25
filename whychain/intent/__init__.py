@@ -249,6 +249,14 @@ def interpret(
         )
         payload = _first_json_object(completion.text)
     except Exception as exc:
+        # A refused call is a limit of the service, not a fault in the question,
+        # and a reader in front of an audience should be told which in words.
+        if "429" in str(exc):
+            return Intent(
+                question,
+                problem="the model's request allowance is used up for now, so this question "
+                        "cannot be read. Every figure is still computed without the model",
+            )
         return Intent(
             question,
             problem=f"the question could not be read ({type(exc).__name__}: {exc})",

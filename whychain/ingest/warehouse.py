@@ -11,6 +11,8 @@ hourly series, which is the failure the reconciliation layer exists to prevent.
 
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Iterable
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
@@ -83,6 +85,63 @@ def _row_filter_clause(contract: KPIContract, placeholders: str) -> str:
     return declared.replace(_ENTITLEMENT_BINDING, f"({placeholders})")
 
 
+def prepared_name(base: str, transforms: tuple[str, ...]) -> str:
+    """The table a materialised transform chain lives in.
+
+    The chain is hashed into the name rather than described by it. Two contracts
+    declaring the same transforms over the same base share one table; a contract
+    that changes its chain looks for a name that does not exist yet and falls
+    back to computing it, which is a miss rather than stale rows. Editing the SQL
+    of a transform changes the hash too, so a redefined transform cannot be
+    served from a table built under the old definition.
+    """
+    payload = "|".join((base, *transforms, *(TRANSFORMS[n] for n in transforms)))
+    digest = hashlib.sha256(payload.encode()).hexdigest()[:12]
+    return f"_prepared_{base}_{digest}"
+
+
+def materialise(path: Path | str, contracts: Iterable[KPIContract]) -> list[str]:
+    """Compute each declared transform chain once and store the result.
+
+    `dedupe_order_id` is a window partitioned by order id. No region predicate
+    can be pushed below a window, so every read re-derived it over the whole
+    table: measured, sixteen times the rows cost twenty-seven times the time
+    while the same aggregation without the transforms stayed flat. The work is
+    identical on every read and the source never changes between generations, so
+    it belongs at ingest.
+
+    Writes, so it takes its own connection rather than the engine's read-only
+    one. Nothing in the query path calls this.
+    """
+    built: list[str] = []
+    con = duckdb.connect(str(path))
+    try:
+        for contract in contracts:
+            chain = tuple(contract.lineage.transforms)
+            if not chain:
+                continue
+            base = contract.lineage.upstream[0].split(".")[0]
+            name = prepared_name(base, chain)
+            if con.execute(
+                "SELECT count(*) FROM information_schema.tables WHERE table_name = ?",
+                [name],
+            ).fetchone()[0]:
+                continue
+            sql = base
+            for transform in chain:
+                if transform not in TRANSFORMS:
+                    raise IngestError(
+                        f"{contract.kpi_id} declares transform {transform!r}, "
+                        "which is not implemented."
+                    )
+                sql = f"({TRANSFORMS[transform].format(table=sql)})"
+            con.execute(f"CREATE TABLE {name} AS SELECT * FROM {sql}")
+            built.append(name)
+    finally:
+        con.close()
+    return built
+
+
 class Warehouse:
     """A read-only connection to the source tables."""
 
@@ -92,6 +151,7 @@ class Warehouse:
             raise IngestError(f"no warehouse at {self.path}, run `make gen` first")
         # Read-only: the engine analyses, it never writes to the source of truth.
         self._con = duckdb.connect(str(self.path), read_only=True)
+        self._table_names: frozenset[str] | None = None
 
     def close(self) -> None:
         self._con.close()
@@ -103,17 +163,48 @@ class Warehouse:
         self.close()
 
     def _prepared(self, contract: KPIContract) -> str:
-        """Base table with the contract's declared transforms applied, as a subquery."""
+        """Base table with the contract's declared transforms applied.
+
+        Returns a materialised table when `materialise()` has built one for this
+        exact chain, and otherwise the nested subquery that was always here. The
+        fallback is the point: a warehouse that has never been prepared behaves
+        exactly as it did before, so the absence of a build step degrades
+        performance and nothing else.
+
+        The two are asserted row-for-row equivalent by
+        `test_materialised_matches_the_declared_transforms`, because a
+        materialised table that drifts from the transforms a contract declares
+        would make the lineage claim false while still looking true.
+        """
         base = contract.lineage.upstream[0].split(".")[0]
-        sql = base
-        for name in contract.lineage.transforms:
+        chain = tuple(contract.lineage.transforms)
+        for name in chain:
             if name not in TRANSFORMS:
                 raise IngestError(
                     f"{contract.kpi_id} declares transform {name!r}, which is not implemented. "
                     "A contract must not claim lineage the query does not perform."
                 )
+        if chain:
+            table = prepared_name(base, chain)
+            if table in self._tables():
+                return table
+        sql = base
+        for name in chain:
             sql = f"({TRANSFORMS[name].format(table=sql)})"
         return sql
+
+    def _tables(self) -> frozenset[str]:
+        """Every table in this warehouse, read once per connection.
+
+        Cached because `_prepared` runs on every query and the answer cannot
+        change: the connection is read-only.
+        """
+        if self._table_names is None:
+            rows = self._con.execute(
+                "SELECT table_name FROM information_schema.tables"
+            ).fetchall()
+            self._table_names = frozenset(r[0] for r in rows)
+        return self._table_names
 
     def kpi_series(
         self,
@@ -311,6 +402,18 @@ class Warehouse:
             return self._con.execute(sql, params).df()
         except duckdb.Error as exc:
             raise IngestError(f"{contract.kpi_id}: bridge query failed: {exc}") from exc
+
+    def select(self, sql: str, params: list[object]) -> pd.DataFrame:
+        """Run a statement composed from a contract (`whychain.ingest.rows`).
+
+        Never a caller's text: the statement is built from names the contract
+        declares, and every request value arrives bound. The connection is
+        read-only, so even a wrong statement cannot write.
+        """
+        try:
+            return self._con.execute(sql, params).df()
+        except duckdb.Error as exc:
+            raise IngestError(f"query failed: {exc}") from exc
 
     def _columns(self, prepared: str) -> set[str]:
         """Column names of a prepared subquery, so dimensions can be optional."""

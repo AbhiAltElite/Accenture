@@ -32,7 +32,7 @@ engine abstains rather than guessing.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from enum import StrEnum
 
@@ -73,6 +73,41 @@ class Candidate:
     channel: str | None = None
     device: str | None = None
     category: str | None = None
+    # A note about one product is about that product. Without this a SKU event
+    # was tested and sized as the whole region, borrowed every other cause's
+    # movement and verified (B-056).
+    sku: str | None = None
+
+    def scope(self) -> dict[str, str]:
+        """Every finer slice this cause was recorded against, and nothing else.
+
+        The one place scope is read, so a new dimension cannot be applied by
+        the tests and forgotten by the sizing, which is how B-056 would recur.
+        """
+        return {dim: value for dim in SCOPE_DIMENSIONS
+                if (value := getattr(self, dim)) is not None}
+
+
+# The order a slice is narrowed in, and the order a reader is told it.
+SCOPE_DIMENSIONS = ("channel", "device", "category", "sku")
+
+
+def narrow_to(panel: pd.DataFrame, candidate: Candidate) -> pd.DataFrame:
+    """The rows a candidate could have touched.
+
+    A dimension the panel does not carry cannot be narrowed on, and is not
+    silently ignored either: the caller gets an empty frame, which every test
+    below reads as "no data" and turns into CANNOT_VERIFY.
+    """
+    out = panel
+    for column in SCOPE_DIMENSIONS:
+        value = getattr(candidate, column, None)
+        if value is None:
+            continue
+        if column not in out.columns:
+            return out.iloc[0:0]
+        out = out[out[column] == value]
+    return out
 
 
 @dataclass(frozen=True)
@@ -172,11 +207,10 @@ def _placebo_distribution(
     out: list[float] = []
     for step in range(1, PLACEBO_WINDOWS + 1):
         end = candidate.start - timedelta(days=baseline_days + 1 + step * 14)
-        window = Candidate(
+        window = replace(
+            candidate,
             candidate_id=f"{candidate.candidate_id}-placebo-{step}",
-            kind=candidate.kind, start=end - timedelta(days=length), end=end,
-            exposed_regions=exposed, channel=candidate.channel,
-            device=candidate.device, category=candidate.category,
+            start=end - timedelta(days=length), end=end, exposed_regions=exposed,
         )
         treated = _change(daily, window, exposed, baseline_days)
         comparison = _change(daily, window, control, baseline_days)
@@ -192,16 +226,7 @@ def verify(
     baseline_days: int = 14,
 ) -> Verification:
     """Run every applicable test and decide the candidate's state."""
-    scoped = panel
-    for column, value in (
-        ("channel", candidate.channel),
-        ("device", candidate.device),
-        ("category", candidate.category),
-    ):
-        if value is not None:
-            scoped = scoped[scoped[column] == value]
-
-    daily = _daily_by_region(scoped)
+    daily = _daily_by_region(narrow_to(panel, candidate))
     exposed = tuple(candidate.exposed_regions)
     control = tuple(r for r in all_regions if r not in exposed)
 

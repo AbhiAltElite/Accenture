@@ -1,5 +1,10 @@
 from whychain.verify.candidates import from_operations, from_promotions
-from whychain.verify.relevance import Relevance, filter_relevant, is_relevant
+from whychain.verify.relevance import (
+    Relevance,
+    filter_relevant,
+    is_relevant,
+    touches_scope,
+)
 from whychain.verify.tests import (
     Candidate,
     Outcome,
@@ -18,5 +23,6 @@ __all__ = [
     "from_operations",
     "from_promotions",
     "is_relevant",
+    "touches_scope",
     "verify",
 ]

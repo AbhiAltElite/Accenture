@@ -10,6 +10,7 @@ the failure the whole design exists to avoid.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -59,14 +60,80 @@ def _identifier(text: str, doc_id: object) -> str:
     return first or f"doc-{doc_id}"
 
 
+def _sku(text: str, skus: Iterable[str]) -> str | None:
+    """The product a note names, if it names one the warehouse holds.
+
+    Notes write codes the way people type them: "PC-1099", "pc1099", "PC 1099".
+    The code is split into its letters and digits and matched with any
+    separator between them, bounded so that "PC-10990" is not "PC-1099". Only
+    codes present in the data are looked for, so a note cannot invent a scope.
+    """
+    for sku in sorted(set(skus), key=len, reverse=True):
+        parts = re.findall(r"[A-Za-z]+|\d+", str(sku))
+        if not parts:
+            continue
+        pattern = r"(?<![A-Za-z0-9])" + r"[-_ ]?".join(map(re.escape, parts)) + r"(?![A-Za-z0-9]*\d)"
+        if re.search(pattern, text, flags=re.IGNORECASE):
+            return str(sku)
+    return None
+
+
+# A note that undoes a change is the lever being pulled, not a new cause. Tested
+# as one, the recovery it produced verified as a cause of the opposite sign and
+# the finding abstained over a contradiction it had manufactured (B-057).
+_REMEDIATION = re.compile(
+    r"\b(roll(?:ed)?[- ]?back|revert(?:ed)?|hotfix(?:ed)?)\b", re.IGNORECASE
+)
+
+
+def is_remediation(text: str) -> bool:
+    """Whether a note records a change being undone."""
+    return bool(_REMEDIATION.search(str(text)))
+
+
+def remediations(
+    documents: pd.DataFrame, candidate_id: str, after: date, until: date | None = None
+) -> list[dict]:
+    """Notes that undo the change a candidate names, dated on or after it.
+
+    Matched on the version the identifier carries ("rel-4.05" and "Release note
+    4.05: rollback..."), so a remediation is linked to the release it reverses
+    rather than to anything else that mentions a rollback.
+    """
+    if documents.empty:
+        return []
+    version = re.search(r"\d+(?:\.\d+)+|\d{2,}", candidate_id)
+    if not version:
+        return []
+    token = re.compile(r"(?<![\d.])" + re.escape(version.group(0)) + r"(?![\d.]\d)")
+    ts = pd.to_datetime(documents["ts"])
+    rows = documents[
+        documents["doc_type"].isin(["release_log", "ops_note"])
+        & (ts.dt.date >= after)
+        & ((ts.dt.date <= until) if until else True)
+    ]
+    out = []
+    for _, row in rows.iterrows():
+        text = str(row["text"])
+        if is_remediation(text) and token.search(text):
+            out.append({"doc_id": row["doc_id"], "on": pd.Timestamp(row["ts"]).date().isoformat(),
+                        "text": text})
+    return out
+
+
 def from_operations(
     documents: pd.DataFrame,
     start: date,
     end: date,
     window_days: int = 10,
     vocabulary: Vocabulary = RETAIL_VOCABULARY,
+    skus: Iterable[str] = (),
 ) -> list[Candidate]:
-    """Candidates from release logs and operational notes."""
+    """Candidates from release logs and operational notes.
+
+    Remediations are left out: they are what the decision card reports as
+    already done, not a hypothesis about why the metric moved.
+    """
     if documents.empty:
         return []
     ts = pd.to_datetime(documents["ts"]).dt.date
@@ -77,8 +144,11 @@ def from_operations(
     ]
 
     out: list[Candidate] = []
+    skus = tuple(skus)
     for _, row in in_scope.iterrows():
         text = str(row["text"])
+        if is_remediation(text):
+            continue
         identifier = _identifier(text, row["doc_id"])
         region = row["region"]
         scope = _scope(text, vocabulary)
@@ -93,6 +163,7 @@ def from_operations(
                 channel=scope["channel"],
                 device=scope["device"],
                 category=scope["category"],
+                sku=_sku(text, skus),
             )
         )
     return out

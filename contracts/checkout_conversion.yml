@@ -2,7 +2,7 @@
 # parent: hourly, digital channels only. Comparing it to a daily all-channel
 # metric is exactly the reconciliation the engine has to get right.
 kpi_id: checkout_conversion
-version: 1
+version: 2
 owner_role: ecommerce_lead
 unit: ratio
 definition: >
@@ -86,5 +86,10 @@ access_policy:
   domain_restriction: [pii]
 
 lineage:
-  upstream: [sessions, pos_txn]
-  transforms: []
+  # pos_txn first, because the declared transforms apply to the first upstream
+  # source. The East extract stamps orders 5.5 hours ahead of its sessions, and
+  # with no correction 07:00 to 11:00 showed hundreds of sessions and no orders
+  # while orders from 01:00 to 05:00 matched no session row and were dropped.
+  # Every "East conversion 100% below expected" finding was that (B-058).
+  upstream: [pos_txn, sessions]
+  transforms: [tz_normalise, exclude_test_accounts]

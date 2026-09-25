@@ -18,6 +18,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 from whychain.evidence import ClaimState
+from whychain.verify.tests import narrow_to
 
 
 def _slice_revenue(
@@ -28,13 +29,7 @@ def _slice_revenue(
     frame = panel[(day >= lo) & (day <= hi)]
     if candidate.exposed_regions:
         frame = frame[frame["region"].isin(candidate.exposed_regions)]
-    for column, value in (
-        ("channel", candidate.channel),
-        ("device", candidate.device),
-        ("category", candidate.category),
-    ):
-        if value is not None:
-            frame = frame[frame[column] == value]
+    frame = narrow_to(frame, candidate)
     if frame.empty:
         return 0.0
     return float(frame["revenue"].sum()) / max((hi - lo).days + 1, 1)

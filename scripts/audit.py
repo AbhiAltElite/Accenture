@@ -349,12 +349,22 @@ def _():
 
 # ------------------------------------------------------------------ DESIGN
 def _ui() -> str:
-    return Path("ui/index.html").read_text()
+    return Path("ui/index.html").read_text(encoding="utf-8")
+
+
+def _product_ui() -> str:
+    """Every page a reader sees: the workbench, the decision view and the slide.
+
+    The rules that say what must never appear hold on all of them. /uat is a
+    test harness, not product, and scales its thumbnails on purpose.
+    """
+    return "\n".join(Path(f"ui/{p}").read_text(encoding="utf-8")
+                     for p in ("index.html", "app.html", "slide.html"))
 
 
 @check("design", "No gradients, glass, glow or decorative blur")
 def _():
-    html = _ui()
+    html = _product_ui()
     for banned in ("linear-gradient", "radial-gradient", "backdrop-filter", "blur("):
         assert banned not in html, f"found {banned}"
     return "none present"
@@ -363,7 +373,7 @@ def _():
 @check("design", "No emoji or AI marketing language")
 def _():
     import re
-    html = _ui()
+    html = _product_ui()
     assert not re.search(r"[\U0001F300-\U0001FAFF]", html), "emoji in the interface"
     banned = r"(?i)\b(ai-powered|magic|supercharge|unlock|smart insights|copilot)\b"
     assert not re.search(banned, html), "marketing language in the copy"
@@ -373,7 +383,7 @@ def _():
 @check("design", "No hover scaling or bouncy motion")
 def _():
     import re
-    html = _ui()
+    html = _product_ui()
     # Canvas device-pixel-ratio scaling is not a CSS transform; look for the
     # actual offence rather than the substring.
     assert not re.search(r"transform:\s*[^;]*scale\(", html), "CSS scale transform present"
@@ -384,16 +394,18 @@ def _():
 @check("design", "Restrained radii and no card-grid-everything")
 def _():
     import re
-    html = _ui()
+    html = _product_ui()
     # Radii must come from tokens, and there must be few of them. Four different
     # literal values across one page is drift rather than design.
     literals = re.findall(r"border-radius:\s*(\d+)px", html)
     assert not literals, f"radii set outside the token scale: {sorted(set(literals))}"
 
     declared = re.findall(r"--r-\w+:\s*(\d+)px", html)
-    values = [int(v) for v in declared]
+    # Distinct values, not declarations: each page declares the same two, and
+    # the rule is about how many radii a reader sees, not how many files say so.
+    values = sorted({int(v) for v in declared})
     assert values, "no radius tokens declared"
-    assert len(values) <= 3, f"{len(values)} radius tokens; two is usually enough"
+    assert len(values) <= 3, f"{len(values)} radius values; two is usually enough"
     assert max(values) <= 8, f"oversized radius token: {max(values)}px"
     used = len(re.findall(r"border-radius:var\(--r-", html))
     return f"{len(values)} tokens, {used} uses, max {max(values)}px"

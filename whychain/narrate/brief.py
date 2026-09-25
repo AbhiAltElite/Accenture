@@ -27,6 +27,26 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from whychain.evidence import Unit
+from whychain.text import action_text, role
+
+
+def grouped(value: float) -> str:
+    """Digits grouped the Indian way, as every figure on the page is.
+
+    ₹4,68,00,895 rather than ₹46,800,895. The page and the prose it sits beside
+    disagreed on this, and a reader checking one against the other should not
+    have to regroup digits to do it. The validator compares numerals without
+    their commas, so either grouping resolves to the same fact.
+    """
+    whole = f"{abs(value):.0f}"
+    if len(whole) > 3:
+        head, tail = whole[:-3], whole[-3:]
+        pairs = []
+        while len(head) > 2:
+            pairs.insert(0, head[-2:])
+            head = head[:-2]
+        whole = ",".join([head, *pairs, tail]) if head else ",".join([*pairs, tail])
+    return whole
 
 
 def format_value(value: float | None, unit: Unit) -> str:
@@ -43,13 +63,13 @@ def format_value(value: float | None, unit: Unit) -> str:
             # The sign belongs outside the currency symbol. "₹-39,486" is how a
             # naive format string renders a loss and it is not how anyone
             # writes one.
-            return f"{'−' if value < 0 else ''}₹{abs(value):,.0f}"
+            return f"{'−' if value < 0 else ''}₹{grouped(value)}"
         case Unit.PCT:
             return f"{value * 100:.1f}%"
         case Unit.PCT_POINT:
             return f"{value:+.1f} percentage points"
         case Unit.COUNT:
-            return f"{value:,.0f}"
+            return f"{'-' if value < 0 else ''}{grouped(value)}"
         case Unit.HOURS:
             return f"{value:,.0f} hours"
         case Unit.RATIO:
@@ -250,8 +270,8 @@ def build_brief(result: dict) -> Brief:
         facts.append(
             _fact(
                 f"f-decision-{i}",
-                f"decision: {card.get('action')}"
-                + (f", owned by {card.get('owner')}" if card.get("owner") else ""),
+                f"decision: {action_text(card.get('action'))}"
+                + (f", owned by {role(card.get('owner'))}" if card.get("owner") else ""),
                 card.get("expected_recovery_inr_per_day"),
                 Unit.INR,
                 "decision",

@@ -15,7 +15,7 @@ from whychain.detect import (
     material,
     seasonal_periods,
 )
-from whychain.detect.calendar import festival_factor
+from whychain.detect.calendar import festival_factor, holidays_for, market_for
 
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
@@ -41,6 +41,19 @@ class TestCalendar:
     def test_ordinary_month_is_flat(self):
         f = festival_factor(pd.Series(pd.date_range("2026-06-01", "2026-06-25", freq="D")))
         assert np.allclose(f, 1.0), "June has no shopping festival"
+
+    def test_market_for_resolves_and_defaults(self):
+        assert market_for("fiscal_in") == "India"
+        assert market_for("fiscal_uk") == "UnitedKingdom"
+        assert market_for("uk") == "UnitedKingdom"
+        assert market_for("unknown_custom") == "India"
+        assert market_for(None) == "India"
+
+    def test_holidays_for_returns_market_holidays(self):
+        in_h = holidays_for("India", (2026,))
+        uk_h = holidays_for("UnitedKingdom", (2026,))
+        assert date(2026, 8, 15) in in_h
+        assert date(2026, 12, 25) in uk_h
 
 
 class TestDecomposition:

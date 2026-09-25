@@ -64,13 +64,46 @@ def touches_region(candidate, region: str | None) -> Relevance:
     )
 
 
+def touches_scope(candidate, slice_: dict[str, str] | None) -> Relevance:
+    """Did it happen in the part of the business the movement is sliced to?
+
+    The same argument as `touches_region`, one level finer. A release regression
+    recorded against the app on mobile is a real event that really moved the
+    app. Asked about the store channel it is not a weak candidate, it is not a
+    candidate at all, and an engine that tests it anyway will sometimes pass it
+    and report a cause that could not have produced the movement in front of it.
+
+    This gate exists because the reader can now narrow by channel and device. A
+    filter that changes what is decomposed without changing what is considered
+    is how a false explanation gets in.
+
+    Unrecorded is not excluded, for the reason `touches_region` gives: a
+    candidate whose channel was never extracted from the note is missing
+    information, not evidence of irrelevance.
+    """
+    for dimension, value in (slice_ or {}).items():
+        recorded = getattr(candidate, dimension, None)
+        if recorded and recorded != value:
+            return Relevance(
+                False,
+                f"was confined to {dimension} {recorded}, "
+                f"and the movement is in {value}",
+            )
+    return Relevance(True, "no finer scope to exclude it")
+
+
 def is_relevant(
-    candidate, window_start: date, window_end: date, region: str | None
+    candidate,
+    window_start: date,
+    window_end: date,
+    region: str | None,
+    slice_: dict[str, str] | None = None,
 ) -> Relevance:
-    """Both gates. A candidate must pass each to be worth testing."""
+    """Every gate. A candidate must pass each to be worth testing."""
     for gate in (
         overlaps_window(candidate, window_start, window_end),
         touches_region(candidate, region),
+        touches_scope(candidate, slice_),
     ):
         if not gate.relevant:
             return gate
@@ -78,7 +111,11 @@ def is_relevant(
 
 
 def filter_relevant(
-    candidates, window_start: date, window_end: date, region: str | None
+    candidates,
+    window_start: date,
+    window_end: date,
+    region: str | None,
+    slice_: dict[str, str] | None = None,
 ) -> tuple[list, list[tuple[object, str]]]:
     """Split candidates into those worth testing and those set aside.
 
@@ -89,7 +126,7 @@ def filter_relevant(
     """
     keep, aside = [], []
     for candidate in candidates:
-        verdict = is_relevant(candidate, window_start, window_end, region)
+        verdict = is_relevant(candidate, window_start, window_end, region, slice_)
         if verdict.relevant:
             keep.append(candidate)
         else:

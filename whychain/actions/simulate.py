@@ -67,6 +67,12 @@ class Scenario:
     # Figures the headline must be read against rather than instead of. A price
     # move has two, and showing one is how a reader is talked into it.
     alongside: tuple[tuple[str, float], ...] = ()
+    # The causes this estimate was computed from. Entitlement withholds a
+    # scenario by this, not by whether its text happens to name a cause: the
+    # sustained-external estimate is the *sum* of the external causes' figures
+    # and names none of them, so a reader entitled to South alone was shown the
+    # West weather cause's rupees under a neutral heading.
+    derived_from: tuple[str, ...] = ()
 
     def as_dict(self) -> dict:
         return {
@@ -90,6 +96,7 @@ class Scenario:
             "assumptions": [a.as_dict() for a in self.assumptions],
             "bounded_by": self.bounded_by,
             "unavailable_because": self.unavailable_because,
+            "derived_from": list(self.derived_from),
         }
 
 
@@ -154,6 +161,7 @@ def rollback(
             ),
         ),
         bounded_by="the movement this cause was measured to account for",
+        derived_from=(target.candidate.candidate_id,),
     )
 
 
@@ -310,6 +318,7 @@ def sustained_external(
             Assumption("horizon", f"{horizon_days} days", "the scenario input"),
         ),
         bounded_by="a straight-line projection of an effect measured over a few days",
+        derived_from=tuple(v.candidate.candidate_id for v in external),
     )
 
 

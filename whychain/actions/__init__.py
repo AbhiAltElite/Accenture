@@ -35,6 +35,7 @@ from whychain.actions.simulate import Scenario, simulate
 from whychain.contracts import Driver, KPIContract
 from whychain.evidence import ClaimState
 from whychain.text import label, plain, role, sentence_case
+from whychain.verify.tests import SCOPE_DIMENSIONS
 
 # Shared with the impact simulator so a card and a scenario cannot disagree
 # about what the same action recovers. See whychain/actions/recovery.py.
@@ -189,7 +190,8 @@ def _monitoring_for(
     the driver is something the business can only watch.
     """
     route = (driver.owner_role if driver and driver.owner_role else contract.owner_role)
-    scope = candidate.category or candidate.device or candidate.channel or "all slices"
+    scope = (getattr(candidate, "sku", None) or candidate.category or candidate.device
+             or candidate.channel or "all slices")
 
     if driver and driver.id == "release_quality":
         return MonitoringRule(
@@ -329,9 +331,8 @@ def decision_cards(
             )
 
         scope = ", ".join(
-            f"{k} {val}" for k, val in
-            (("channel", candidate.channel), ("device", candidate.device),
-             ("category", candidate.category)) if val
+            f"{k} {val}" for k in SCOPE_DIMENSIONS
+            if (val := getattr(candidate, k, None))
         ) or ", ".join(candidate.exposed_regions) or "the affected slice"
         action = f"Apply {lever.replace('_', ' ')} for {scope}"
 

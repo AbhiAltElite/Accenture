@@ -11,24 +11,24 @@
 :root{
   /* Paper and ink. The page has a ground rather than being white with grey
      text on it, which is what stops long tabular reading from glaring. */
-  --paper:#f5f1e9; --surface:#fffdf8; --raised:#efeade; --sunk:#e7e1d3;
+  --paper:#f1f3f5; --surface:#ffffff; --raised:#f7f8fa; --sunk:#e8ebef;
   /* Every step clears WCAG AA against the paper above it, which the previous
      scale did not: --ink-3 is the most-used colour on the page after --ink and
      it sat at 3.51:1, under the 4.5 small text needs, with --ink-4 at 2.32:1.
      That is what made the secondary text read as washed out. The warmth is kept
      but reduced, so these register as considered grey rather than muddy brown,
      and hierarchy is carried by weight and size rather than by fading out. */
-  --ink:#141210; --ink-2:#3a3631; --ink-3:#5b554d; --ink-4:#7c7568;
-  --line:#ded7c8; --line-strong:#c3baa7; --line-heavy:#8f8672;
+  --ink:#13171b; --ink-2:#39424b; --ink-3:#59626d; --ink-4:#7e8792;
+  --line:#dde2e8; --line-strong:#c3cad3; --line-heavy:#949ca7;
 
   /* Two accents, each with exactly one job, because a page where colour means
      several things means none. Evergreen: this held up under test. Ochre: there
      is evidence behind this and clicking opens it. Nothing else is coloured. */
-  --accent:#1c5941; --accent-ink:#0f3b2b; --accent-soft:#dce9e2;
-  --evidence:#875010; --evidence-ink:#663d0b; --evidence-soft:#f6e8d4;
-  --down:#992722; --down-soft:#f3dfdc;
-  --up:#1c6446;
-  --flag:#87580f; --flag-soft:#f5e7cf;
+  --accent:#0f5a6b; --accent-ink:#0a404d; --accent-soft:#d8e8ed;
+  --evidence:#8a5712; --evidence-ink:#68410c; --evidence-soft:#f6e9d6;
+  --down:#a82920; --down-soft:#f7e2e0;
+  --up:#186246;
+  --flag:#8a5c0c; --flag-soft:#f8ecd2;
 
   /* One 1.16 ratio from a 17px base. Deliberately shallow: a working
      instrument wants a narrow range of sizes and a wide range of weights and
@@ -46,6 +46,12 @@
      Serif carries prose and display figures; sans carries chrome and tables;
      mono carries identifiers, section numbers and anything a reader might copy. */
   --serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+  /* Display face, as one switch. Headlines, figures and the narrative were set
+     in the serif, which reads as an essay -- and a warm cream ground under a
+     serif display with a sage accent is, as of 2026, its own stock look. The
+     instrument this is meant to be sets everything in the sans and leaves the
+     serif defined but unused, so reverting is one line rather than twenty. */
+  --display:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
 
@@ -53,24 +59,24 @@
   --r-sm:3px; --r-md:5px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --paper:#131210; --surface:#1a1815; --raised:#22201b; --sunk:#292620;
-  --ink:#f4f1ea; --ink-2:#bdb6a8; --ink-3:#968e80; --ink-4:#726a5d;
-  --line:#2a2721; --line-strong:#413c33; --line-heavy:#6b6455;
-  --accent:#79c09e; --accent-ink:#a4d9bc; --accent-soft:#1a3128;
-  --evidence:#d69d57; --evidence-ink:#e8bd83; --evidence-soft:#31240e;
-  --down:#df8880; --down-soft:#31201e;
-  --up:#79c09e;
-  --flag:#d5a960; --flag-soft:#312816;
+  --paper:#0e1116; --surface:#161a20; --raised:#1d222a; --sunk:#242a33;
+  --ink:#eef1f5; --ink-2:#b2bac5; --ink-3:#88919d; --ink-4:#68717c;
+  --line:#252b34; --line-strong:#353d48; --line-heavy:#58616d;
+  --accent:#5cc0d4; --accent-ink:#90dbea; --accent-soft:#0c2931;
+  --evidence:#d8a25c; --evidence-ink:#ecc48c; --evidence-soft:#32250f;
+  --down:#e98a81; --down-soft:#331f1d;
+  --up:#6bc39a;
+  --flag:#d3a75e; --flag-soft:#31280f;
 }}
 :root[data-theme="dark"]{
-  --paper:#131210; --surface:#1a1815; --raised:#22201b; --sunk:#292620;
-  --ink:#f4f1ea; --ink-2:#bdb6a8; --ink-3:#968e80; --ink-4:#726a5d;
-  --line:#2a2721; --line-strong:#413c33; --line-heavy:#6b6455;
-  --accent:#79c09e; --accent-ink:#a4d9bc; --accent-soft:#1a3128;
-  --evidence:#d69d57; --evidence-ink:#e8bd83; --evidence-soft:#31240e;
-  --down:#df8880; --down-soft:#31201e;
-  --up:#79c09e;
-  --flag:#d5a960; --flag-soft:#312816;
+  --paper:#0e1116; --surface:#161a20; --raised:#1d222a; --sunk:#242a33;
+  --ink:#eef1f5; --ink-2:#b2bac5; --ink-3:#88919d; --ink-4:#68717c;
+  --line:#252b34; --line-strong:#353d48; --line-heavy:#58616d;
+  --accent:#5cc0d4; --accent-ink:#90dbea; --accent-soft:#0c2931;
+  --evidence:#d8a25c; --evidence-ink:#ecc48c; --evidence-soft:#32250f;
+  --down:#e98a81; --down-soft:#331f1d;
+  --up:#6bc39a;
+  --flag:#d3a75e; --flag-soft:#31280f;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
@@ -92,7 +98,7 @@ body{background:var(--paper);color:var(--ink);
   flex:0 0 auto;white-space:nowrap;
   text-decoration:none;color:var(--ink);padding-right:var(--sp-5);
   border-right:1px solid var(--line)}
-.masthead .mark b{font-family:var(--serif);font-size:var(--t-md);font-weight:600;
+.masthead .mark b{font-family:var(--display);font-size:var(--t-md);font-weight:600;
   letter-spacing:-.015em}
 .masthead .mark span{font-size:var(--t-2xs);color:var(--ink-3);
   letter-spacing:.09em;text-transform:uppercase;padding-top:2px}
@@ -127,6 +133,17 @@ body{background:var(--paper);color:var(--ink);
   .masthead .mark{border-right:none;padding-right:0}
   .masthead .tools{margin-left:0;flex-wrap:wrap;gap:var(--sp-3)}
 }
+/* Under about 760px the three control groups cannot be made to fit on one row
+   and cannot be broken up either -- a segmented control that wraps mid-way
+   stops reading as one choice. So the row scrolls inside its own track, the
+   way the section index does, rather than pushing the document 43px wider than
+   the viewport and giving the whole page a horizontal scrollbar. */
+@media (max-width:760px){
+  .masthead .tools{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
+    width:100%;padding-bottom:2px}
+  .masthead .tools::-webkit-scrollbar{display:none}
+  .masthead .seg{flex:none}
+}
 
 /* ═══ shell ══════════════════════════════════════════════════════════════
    Rail · document · margin. The margin column is the distinctive move: run
@@ -151,14 +168,25 @@ body{background:var(--paper);color:var(--ink);
 }
 @media (max-width:900px){
   .shell{grid-template-columns:1fr}
-  .rail{position:static;height:auto;border-right:none;
-    border-bottom:1px solid var(--line-strong)}
   .content{padding:var(--sp-5) var(--sp-4) var(--sp-8)}
 }
 
 /* ═══ rail ═══════════════════════════════════════════════════════════════ */
-.rail{position:sticky;top:54px;height:calc(100vh - 54px);overflow-y:auto;
+/* Offset by the masthead's measured height rather than by 54. 54 is its
+   min-height, and it wraps to two rows under about 900px, so the hardcoded
+   value put the rail's top 66px above where the masthead actually ends.
+   --masthead-h is published by the script on load and on resize. */
+.rail{position:sticky;top:var(--masthead-h,54px);
+  height:calc(100vh - var(--masthead-h,54px));overflow-y:auto;
   border-right:1px solid var(--line);padding:var(--sp-6) var(--sp-5)}
+/* Below the single-column breakpoint the rail is a band above the document,
+   not a column beside it. This has to sit *after* the base rule: it used to
+   live up in the shell block, where equal specificity let the base rule win
+   and the rail stayed sticky and full-height directly on top of the content. */
+@media (max-width:900px){
+  .rail{position:static;height:auto;border-right:none;
+    border-bottom:1px solid var(--line-strong)}
+}
 .railgroup{margin-bottom:var(--sp-6)}
 .railgroup:last-child{margin-bottom:0}
 /* One letterspaced label style, used only for structural headings, rail
@@ -219,6 +247,36 @@ details.railnote > summary:hover{color:var(--ink-2)}
 details.railnote > p{margin-top:var(--sp-2)}
 details.queuenote{margin-top:var(--sp-3)}
 
+/* Scenario buttons. Same flat-row language as `.navitem` rather than a second
+   button style: the rail already has one way of listing things you can pick,
+   and a launcher that looked like a toolbar would read as a different product
+   bolted to the side. The group heading is quieter than a rail label because it
+   sits inside one. */
+.demogroup{margin-bottom:var(--sp-3)}
+.demogroup:last-child{margin-bottom:0}
+.demohead{display:block;font-size:var(--t-2xs);letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-4);margin:0 0 var(--sp-1) var(--sp-3)}
+button.demo{display:block;width:100%;text-align:left;background:none;border:none;
+  font:inherit;font-size:var(--t-sm);color:var(--ink-2);
+  padding:var(--sp-2) var(--sp-3);border-radius:var(--r-sm);cursor:pointer;
+  line-height:var(--lh-snug);min-height:32px}
+button.demo:hover{background:var(--sunk);color:var(--ink)}
+button.demo[aria-pressed="true"]{color:var(--ink);font-weight:600;
+  background:var(--sunk)}
+/* Folded, and last. It is a way in for a reader meeting the console for the
+   first time, not a control anyone returns to, so it sits below the controls
+   they do and stays out of the way until it is asked for. */
+details.demos > summary{list-style:none;cursor:pointer;display:flex;
+  align-items:baseline;gap:var(--sp-3)}
+details.demos > summary::-webkit-details-marker{display:none}
+details.demos > summary > .label{margin-bottom:0}
+details.demos > summary::after{content:"+";font-family:var(--mono);
+  font-size:var(--t-xs);color:var(--ink-4);margin-left:auto}
+details.demos[open] > summary::after{content:"\2212"}
+details.demos > summary:hover .demohint{color:var(--ink-2)}
+.demohint{font-size:var(--t-2xs);color:var(--ink-4);letter-spacing:.04em}
+details.demos > #demos{margin-top:var(--sp-3)}
+
 /* ═══ document head ══════════════════════════════════════════════════════ */
 .eyebrow{font-family:var(--mono);font-size:var(--t-xs);color:var(--ink-3);
   letter-spacing:-.01em;margin-bottom:var(--sp-4);min-height:1.3em}
@@ -227,10 +285,14 @@ details.queuenote{margin-top:var(--sp-3)}
   animation:ellipsis 1.4s steps(4,end) infinite}
 @keyframes ellipsis{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
 @media (prefers-reduced-motion:reduce){.working::after{animation:none;content:"..."}}
-h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
-  font-weight:500;letter-spacing:-.02em;text-wrap:balance;margin-bottom:var(--sp-5);
-  max-width:24ch}
-.prose{font-family:var(--serif);font-size:var(--t-md);line-height:var(--lh-normal);
+/* The headline was fixed at 32px over a 24ch measure, so in a narrow document
+   column it ran to three lines and 115px before anything else. It scales with
+   the column now and the measure is wider, which takes the same sentence to two
+   lines at laptop width and one on a wide screen. */
+h1{font-family:var(--display);font-size:clamp(23px,2.1vw + 13px,32px);
+  line-height:1.18;font-weight:500;letter-spacing:-.02em;text-wrap:balance;
+  margin-bottom:var(--sp-4);max-width:30ch}
+.prose{font-family:var(--display);font-size:var(--t-md);line-height:var(--lh-normal);
   max-width:var(--measure)}
 .prose p{margin-bottom:var(--sp-4)}
 .prose p:last-child{margin-bottom:0}
@@ -257,7 +319,7 @@ h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
 .grouphead{border-top:1px solid var(--line-heavy);padding-top:var(--sp-3);
   margin-bottom:var(--sp-4);display:flex;align-items:baseline;gap:var(--sp-4);
   flex-wrap:wrap}
-.grouphead h2{font-family:var(--serif);font-size:var(--t-md);font-weight:600;
+.grouphead h2{font-family:var(--display);font-size:var(--t-md);font-weight:600;
   letter-spacing:-.01em;margin:0;flex:none}
 .grouphead p{font-size:var(--t-xs);color:var(--ink-3);margin:0;flex:1;
   min-width:16ch;line-height:var(--lh-snug)}
@@ -273,7 +335,10 @@ h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
 /* Collapsed, these are a list and should stack like one. The spacing that
    separates one section's *content* from the next belongs to the open state,
    so it is applied there rather than carried by every header regardless. */
-.sec{margin-top:var(--sp-2)}
+.sec{margin-top:var(--sp-2);
+  /* Clears the masthead and the anchor bar, both sticky. Without it every jump
+     landed with the section's own heading hidden under the bar that sent it. */
+  scroll-margin-top:calc(var(--masthead-h,50px) + 52px)}
 /* Space below an open section, never above it. The gap exists to separate that
    section's content from what follows; putting it on top as well pushes the
    header away from the list it belongs to and makes an open section look
@@ -289,14 +354,32 @@ h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
   background:var(--surface);border:1px solid var(--line);
   border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);
   transition:border-color .1s,background .1s}
-.sec > summary:hover{border-color:var(--ink-3);background:var(--raised)}
-/* Open, the header hands off to its body, so the card loses the edge it would
-   otherwise share with content that is not inside it. */
-.sec[open] > summary{margin-bottom:var(--sp-5);
+.sec > summary:hover{border-color:var(--line-heavy);background:var(--raised)}
+/* Open, the section is one card: the header keeps its top corners, loses its
+   bottom ones, and the body carries the remaining three sides. Previously the
+   header was a card and the body was loose text beneath it, so an open section
+   had no boundary and twelve of them ran together into one column of prose --
+   which is most of why this read as a document rather than as an application. */
+.sec[open] > summary{margin-bottom:0;
   border-bottom-left-radius:0;border-bottom-right-radius:0;
-  border-bottom-color:var(--line-heavy);background:var(--raised)}
+  border-bottom-color:var(--line);background:var(--raised)}
+.sec[open] > .body{border:1px solid var(--line);border-top:0;
+  border-bottom-left-radius:var(--r-md);border-bottom-right-radius:var(--r-md);
+  background:var(--surface);padding:var(--sp-5) var(--sp-5) var(--sp-4)}
 .sec > .sechead{cursor:default;margin-bottom:var(--sp-5)}
 .sec > summary::-webkit-details-marker{display:none}
+/* Icons inherit the colour of the text they sit with, which is the whole
+   reason they are outlines on currentColor and not a coloured set. */
+/* One rule paints every icon. The symbols carry geometry only: no fill, no
+   stroke, no width -- so a <use> inherits whatever the element it sits in is
+   doing, and an icon in a red row comes out red without a second sprite. */
+svg.ico,svg.chev{fill:none;stroke:currentColor;stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.sec .ico{width:17px;height:17px;flex:none;color:var(--ink-4)}
+.sec > summary:hover .ico{color:var(--accent)}
+.sec .chev{width:16px;height:16px;flex:none;color:var(--ink-3);
+  transition:transform .12s ease}
+.sec[open] > summary .chev{transform:rotate(180deg)}
 .sec .num{font-family:var(--mono);font-size:var(--t-xs);color:var(--ink-4);
   font-weight:500;flex:none;letter-spacing:.02em}
 /* The name takes the slack, so the count and the expander land on the same
@@ -306,14 +389,11 @@ h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
 .sec .count{font-size:var(--t-xs);color:var(--ink-3);
   font-family:var(--mono);flex:none}
 .sec > summary:hover .name{color:var(--accent-ink)}
-.sec > summary::after{content:"+";font-family:var(--mono);color:var(--ink-3);
-  font-size:var(--t-md);flex:none;width:16px;text-align:center;line-height:1}
-.sec[open] > summary::after{content:"\2212"}
 .sec .body{padding:0 var(--sp-1)}
 .sec .body > p{max-width:var(--measure);color:var(--ink-2);
   margin-bottom:var(--sp-4);font-size:var(--t-base)}
 .sec .body > p:last-child{margin-bottom:0}
-.lede{font-family:var(--serif);font-size:var(--t-md);color:var(--ink) !important;
+.lede{font-family:var(--display);font-size:var(--t-md);color:var(--ink) !important;
   line-height:var(--lh-normal)}
 
 /* ═══ figure row ═════════════════════════════════════════════════════════
@@ -326,8 +406,16 @@ h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
   border-right:1px solid var(--line);margin-right:var(--sp-5);flex:0 1 auto}
 .figures > div:last-child{border-right:none;margin-right:0;padding-right:0}
 .figures dt{font-size:var(--t-2xs);color:var(--ink-3);letter-spacing:.09em;
-  text-transform:uppercase;margin-bottom:var(--sp-2);white-space:nowrap}
-.figures dd{font-family:var(--serif);font-size:var(--t-xl);line-height:1.1;
+  text-transform:uppercase;margin-bottom:var(--sp-2);white-space:nowrap;
+  display:flex;align-items:center;gap:6px}
+.figures dt .ico{width:14px;height:14px;flex:none;color:var(--ink-4)}
+.figures dd{font-family:var(--mono);font-variant-numeric:tabular-nums}
+/* What this page is, in one sentence, above the numbers. It sits at reading
+   size rather than at caption size because the first thing a reader meets
+   should not be the smallest thing on the page. */
+.purpose{max-width:64ch;font-size:var(--t-base);line-height:var(--lh-snug);
+  color:var(--ink-2);margin:var(--sp-3) 0 var(--sp-4)}
+.figures dd{font-family:var(--display);font-size:var(--t-xl);line-height:1.1;
   letter-spacing:-.02em;white-space:nowrap}
 .figures dd small{font-family:var(--sans);font-size:var(--t-xs);color:var(--ink-3);
   letter-spacing:0;margin-left:var(--sp-2)}
@@ -340,7 +428,7 @@ h1{font-family:var(--serif);font-size:var(--t-2xl);line-height:var(--lh-tight);
 /* ═══ watchlist (overview) ═══════════════════════════════════════════════ */
 .overview h1{font-size:var(--t-2xl);max-width:20ch}
 .overview .sub{color:var(--ink-2);font-size:var(--t-base);max-width:62ch;
-  margin-bottom:var(--sp-7);font-family:var(--serif)}
+  margin-bottom:var(--sp-7);font-family:var(--display)}
 table.watch{width:100%;border-collapse:collapse}
 table.watch thead th{font-size:var(--t-2xs);font-weight:600;color:var(--ink-3);
   letter-spacing:.09em;text-transform:uppercase;text-align:left;
@@ -364,11 +452,11 @@ tr.picked{background:var(--raised)}
 table.watch td{padding:var(--sp-4) var(--sp-4) var(--sp-4) 0;vertical-align:middle}
 table.watch td:last-child,table.watch th:last-child{padding-right:0}
 table.watch td.n{text-align:right;white-space:nowrap}
-.watch .name{font-family:var(--serif);font-size:var(--t-md);font-weight:500;
+.watch .name{font-family:var(--display);font-size:var(--t-md);font-weight:500;
   line-height:var(--lh-snug);color:var(--ink);display:block}
 .watch .owner{font-size:var(--t-xs);color:var(--ink-3);display:block;
   margin-top:2px}
-.watch .val{font-size:var(--t-md);font-family:var(--serif);letter-spacing:-.01em}
+.watch .val{font-size:var(--t-md);font-family:var(--display);letter-spacing:-.01em}
 .watch .chg{font-size:var(--t-sm)}
 .watch canvas{width:100%;height:34px;display:block;min-width:110px}
 .watch .d1 .name{padding-left:var(--sp-5)}
@@ -378,6 +466,7 @@ table.watch td.n{text-align:right;white-space:nowrap}
   font-size:var(--t-sm);font-weight:400}
 .watch .flagcount{font-size:var(--t-sm);color:var(--ink-3)}
 .watch .flagcount b{color:var(--down);font-weight:600}
+.watch .flagcount .na{display:block;font-size:var(--t-2xs);color:var(--ink-4)}
 @media (max-width:820px){
   table.watch .hide-sm{display:none}
 }
@@ -459,6 +548,10 @@ canvas#c.panning{cursor:grabbing}
   margin-top:var(--sp-3);flex-wrap:wrap}
 .striplegend i{display:inline-block;width:14px;height:2px;background:currentColor;
   margin-right:var(--sp-2);vertical-align:middle}
+/* The two flag keys are dots because that is what the chart draws for them,
+   while observed and expected are lines. A key that is not the shape of the
+   thing it names is a key a reader has to decode. */
+.striplegend i.dotkey{width:6px;height:6px;border-radius:50%}
 /* The band is an area, so its key is one, and it carries the hairline the
    chart's own gridlines use so the two read as the same material. */
 .striplegend i.bandkey{height:9px;background:var(--sunk);
@@ -556,7 +649,7 @@ td.num,th.num{text-align:right}
   padding:var(--sp-5) var(--sp-5) var(--sp-5) 0;margin-bottom:var(--sp-6)}
 .verdict .vlabel{font-size:var(--t-2xs);letter-spacing:.11em;text-transform:uppercase;
   color:var(--ink-3);font-weight:600;margin-bottom:var(--sp-3);display:block}
-.verdict h3{font-family:var(--serif);font-size:var(--t-lg);font-weight:500;
+.verdict h3{font-family:var(--display);font-size:var(--t-lg);font-weight:500;
   line-height:var(--lh-snug);margin-bottom:var(--sp-3);max-width:48ch}
 .verdict p{font-size:var(--t-sm);color:var(--ink-2);max-width:var(--measure);
   margin-bottom:var(--sp-2)}
@@ -566,7 +659,7 @@ td.num,th.num{text-align:right}
 .decision{border-top:1px solid var(--line-strong);padding:var(--sp-5) 0;
   margin-bottom:0}
 .decision:first-of-type{border-top:none;padding-top:0}
-.decision h3{font-family:var(--serif);font-size:var(--t-md);font-weight:600;
+.decision h3{font-family:var(--display);font-size:var(--t-md);font-weight:600;
   line-height:var(--lh-snug);margin-bottom:var(--sp-2)}
 .decision h4{font-size:var(--t-2xs);font-weight:600;color:var(--ink-3);
   letter-spacing:.09em;text-transform:uppercase;margin-bottom:var(--sp-3)}
@@ -603,7 +696,7 @@ table.components td{padding:var(--sp-3) 0;border-bottom:1px solid var(--line);
 table.components tr:last-child td{border-bottom:none}
 .components .cname{width:11rem;color:var(--ink);padding-right:var(--sp-4)}
 .components .cval{width:5rem;text-align:right;padding-right:var(--sp-5);
-  color:var(--ink);font-family:var(--serif);font-size:var(--t-base)}
+  color:var(--ink);font-family:var(--display);font-size:var(--t-base)}
 .components .cdetail{color:var(--ink-2);line-height:var(--lh-snug);
   font-size:var(--t-sm)}
 @media (max-width:560px){
@@ -626,9 +719,9 @@ table.components tr:last-child td{border-bottom:none}
 /* ═══ scenarios ══════════════════════════════════════════════════════════ */
 .scenario{border-top:1px solid var(--line);padding:var(--sp-5) 0}
 .scenario:first-of-type{border-top:none;padding-top:0}
-.scenario h4{font-family:var(--serif);font-size:var(--t-base);font-weight:500;
+.scenario h4{font-family:var(--display);font-size:var(--t-base);font-weight:500;
   color:var(--ink);margin-bottom:var(--sp-3)}
-.scenario .figure{font-family:var(--serif);font-size:var(--t-lg);
+.scenario .figure{font-family:var(--display);font-size:var(--t-lg);
   margin-bottom:var(--sp-4);letter-spacing:-.01em}
 .scenario.off h4{color:var(--ink-3)}
 .scenario .bounded{margin-top:var(--sp-3);font-size:var(--t-sm)}
@@ -663,7 +756,7 @@ table.components tr:last-child td{border-bottom:none}
   border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .gapfacts dt{font-size:var(--t-2xs);color:var(--ink-3);letter-spacing:.09em;
   text-transform:uppercase;margin-bottom:var(--sp-2)}
-.gapfacts dd{font-family:var(--serif);font-size:var(--t-lg);line-height:1.1;
+.gapfacts dd{font-family:var(--display);font-size:var(--t-lg);line-height:1.1;
   letter-spacing:-.015em}
 .gapfacts dd small{font-family:var(--sans);font-size:var(--t-xs);
   color:var(--ink-3);letter-spacing:0;margin-left:6px}
@@ -695,7 +788,7 @@ table.components tr:last-child td{border-bottom:none}
 }
 
 /* ═══ narrative + validator ══════════════════════════════════════════════ */
-.written{font-family:var(--serif);font-size:var(--t-md);line-height:var(--lh-normal);
+.written{font-family:var(--display);font-size:var(--t-md);line-height:var(--lh-normal);
   max-width:var(--measure);margin-bottom:var(--sp-5)}
 .written .s{display:inline}
 .written .s:hover{background:var(--evidence-soft)}
@@ -709,7 +802,7 @@ table.components tr:last-child td{border-bottom:none}
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);
   margin-bottom:var(--sp-4)}
 .gate div{font-size:var(--t-xs);color:var(--ink-3)}
-.gate b{display:block;font-family:var(--serif);font-size:var(--t-lg);
+.gate b{display:block;font-family:var(--display);font-size:var(--t-lg);
   color:var(--ink);line-height:1.2;margin-bottom:2px}
 .gate b.no{color:var(--down)}
 
@@ -734,7 +827,7 @@ table.components tr:last-child td{border-bottom:none}
   overflow-y:auto;padding:var(--sp-6) var(--sp-6) var(--sp-9)}
 .drawer.on{transform:none}
 @media (prefers-reduced-motion:reduce){.drawer,.scrim{transition:none}}
-.drawer h3{font-family:var(--serif);font-size:var(--t-lg);font-weight:500;
+.drawer h3{font-family:var(--display);font-size:var(--t-lg);font-weight:500;
   line-height:var(--lh-snug);margin-bottom:var(--sp-1);max-width:34ch}
 .drawer .close{position:absolute;top:var(--sp-4);right:var(--sp-5);border:none;
   background:none;font-size:var(--t-lg);color:var(--ink-3);
@@ -744,7 +837,7 @@ table.components tr:last-child td{border-bottom:none}
 .field dt{font-size:var(--t-2xs);color:var(--ink-3);letter-spacing:.09em;
   text-transform:uppercase;margin-bottom:var(--sp-2)}
 .field dd{font-size:var(--t-sm)}
-.quote{font-family:var(--serif);font-size:var(--t-base);line-height:var(--lh-snug);
+.quote{font-family:var(--display);font-size:var(--t-base);line-height:var(--lh-snug);
   color:var(--ink);border-left:2px solid var(--evidence);
   padding:var(--sp-1) 0 var(--sp-1) var(--sp-4);margin:var(--sp-3) 0}
 .quote cite{display:block;font-family:var(--mono);font-size:var(--t-2xs);
@@ -752,26 +845,205 @@ table.components tr:last-child td{border-bottom:none}
 pre{background:var(--sunk);border-radius:var(--r-sm);
   padding:var(--sp-3) var(--sp-4);overflow-x:auto;font-family:var(--mono);
   font-size:var(--t-2xs);line-height:var(--lh-snug);color:var(--ink-2)}
+
+/* ---------- object header, KPI strip, anchor bar ----------
+   The three conventions a finance reader already knows from Fiori's object
+   page, and the reason that floorplan survives documents this long: the key
+   facts sit in a header rather than inside section four, and the section list
+   stays on screen so nobody scrolls looking for one. Neither adds information;
+   both change where it is. */
+.crumb{font:500 var(--t-2xs)/1.4 var(--sans); color:var(--ink-4);
+  letter-spacing:.04em; text-transform:uppercase; margin:0 0 var(--sp-2);}
+.crumb span{color:var(--ink-3);}
+.crumb i{font-style:normal; color:var(--line-heavy); padding:0 var(--sp-1);}
+.crumb a{color:var(--ink-3); text-decoration:none; border-bottom:1px solid var(--line-strong);}
+.crumb a:hover{color:var(--ink); border-bottom-color:var(--ink-3);}
+.crumb .back{display:inline-flex;align-items:center;gap:4px;margin-right:var(--sp-2);padding:4px 10px 4px 6px;
+  font:600 13px/1 var(--sans);letter-spacing:0;text-transform:none;color:var(--ink-2);background:var(--surface);
+  border:1px solid var(--line-strong);border-radius:var(--r-sm);cursor:pointer;vertical-align:middle}
+.crumb .back:hover{color:var(--ink);border-color:var(--ink-3)}
+.crumb .back svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+.basis{font:400 var(--t-sm)/var(--lh-snug) var(--sans); color:var(--ink-2);
+  margin:0 0 var(--sp-4); max-width:66ch;}
+.basis b{font-weight:600; color:var(--ink); font-family:var(--mono);
+  font-variant-numeric:tabular-nums;}
+.basis .basisnote{display:block; margin-top:var(--sp-2); color:var(--ink-3);
+  font-size:var(--t-xs); line-height:var(--lh-snug);}
+
+.objhead{display:flex; flex-wrap:wrap; gap:var(--sp-4) var(--sp-6);
+  padding:var(--sp-4) 0; margin:0 0 var(--sp-4);
+  border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
+.objhead .kpi{display:flex; flex-direction:column; gap:2px; min-width:0;}
+.objhead .kpi .k{font:500 var(--t-2xs)/1.3 var(--sans); color:var(--ink-4);
+  letter-spacing:.06em; text-transform:uppercase; white-space:nowrap;}
+.objhead .kpi .v{font:500 var(--t-lg)/1.15 var(--display); color:var(--ink);
+  font-variant-numeric:tabular-nums;}
+.objhead .kpi .v.down{color:var(--down);}
+.objhead .kpi .v small{font:400 var(--t-xs)/1 var(--sans); color:var(--ink-3);
+  display:block; margin-top:3px; letter-spacing:0; text-transform:none;}
+.objhead .kpi .v.words{font-size:var(--t-md);}
+
+.status{display:inline-flex; align-items:center; gap:6px; align-self:flex-start;
+  font:600 var(--t-2xs)/1 var(--sans); letter-spacing:.06em;
+  text-transform:uppercase; padding:5px 9px; border-radius:var(--r-sm);}
+.status.neg{background:var(--down-soft); color:var(--down);}
+.status.warn{background:var(--flag-soft); color:var(--flag);}
+.status.ok{background:var(--accent-soft); color:var(--accent-ink);}
+.status.neutral{background:var(--sunk); color:var(--ink-3);}
+
+/* Below the masthead, not over it: the masthead is sticky at z-index 15, so
+   the bar parks underneath it and its offset is the masthead's measured height
+   rather than a guessed constant -- the bar wraps to two rows at narrow widths
+   and a constant is wrong at exactly the size a phone uses. */
+/* ---------- the picture: KPI cards ----------
+   Bordered and flat, not floating. A shadow under every card is the tell of a
+   page that wants to look designed; a hairline is what an instrument uses, and
+   it keeps five cards reading as one row rather than as five objects. */
+.kcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));
+  gap:var(--sp-3);margin:0 0 var(--sp-5)}
+.kcard{display:flex;flex-direction:column;gap:2px;text-align:left;
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-md);padding:var(--sp-4);cursor:pointer;
+  font:inherit;color:inherit;transition:border-color .1s,background .1s}
+.kcard:hover{border-color:var(--line-heavy);background:var(--raised)}
+.kcard.flagged{border-left:2px solid var(--down)}
+.kname{font:500 var(--t-2xs)/1.3 var(--sans);color:var(--ink-3);
+  letter-spacing:.07em;text-transform:uppercase}
+.kval{font:500 var(--t-xl)/1.15 var(--mono);color:var(--ink);
+  font-variant-numeric:tabular-nums;margin-top:var(--sp-2)}
+.kchg{font:500 var(--t-xs)/1.3 var(--mono);color:var(--ink-3)}
+.kchg.down{color:var(--down)} .kchg.up{color:var(--up)}
+.kchg small{font-family:var(--sans);color:var(--ink-4);margin-left:5px;
+  font-weight:400}
+.kcard .spark{width:100%;height:30px;margin:var(--sp-3) 0 var(--sp-2)}
+.kflag{display:flex;align-items:center;gap:5px;
+  font:500 var(--t-2xs)/1.3 var(--sans);color:var(--down)}
+.kflag .ico{width:13px;height:13px;flex:none}
+.kflag .na{color:var(--ink-4);font-weight:400}
+
+/* The sentence the whole product is. It sits between the two halves of the
+   page because that is where the claim is: everything above it is what a BI
+   tool already gives you, everything below is what it does not. */
+.handoff{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:baseline;
+  border-top:1px solid var(--line-heavy);padding-top:var(--sp-4);
+  margin:var(--sp-6) 0 var(--sp-5);max-width:72ch;
+  font-size:var(--t-sm);color:var(--ink-3);line-height:var(--lh-snug)}
+.handoff span{font-weight:600;color:var(--ink);font-size:var(--t-base)}
+
+.alldetail{margin-top:var(--sp-7);border-top:1px solid var(--line);
+  padding-top:var(--sp-4)}
+.alldetail > summary{list-style:none;cursor:pointer}
+.alldetail > summary::-webkit-details-marker{display:none}
+.alldetail > summary .label{margin-bottom:0;display:inline-block}
+.alldetail > summary:hover .label{color:var(--ink)}
+
+/* The restraint strip. One row of cells divided by hairlines rather than five
+   floating cards: cards would give each number its own edge and shadow and
+   make five equal facts look like five separate features, when the point is
+   that they are one receipt. */
+.defbar{display:flex; flex-wrap:wrap; align-items:stretch;
+  border:1px solid var(--line); border-radius:var(--r-md);
+  background:var(--surface); margin:0 0 var(--sp-5); overflow:hidden;}
+.defbar .dcell{display:flex; gap:6px; align-items:flex-start; flex:1 1 104px;
+  padding:var(--sp-3) var(--sp-2); border-right:1px solid var(--line); min-width:0;}
+.defbar .dcell:last-child{border-right:0;}
+/* A cell that wrapped to a second row keeps its own hairline above it, so the
+   strip still reads as a grid rather than as a row with an orphan under it. */
+.defbar{row-gap:0}
+.defbar .dcell{border-top:1px solid transparent}
+.defbar .ico{width:16px; height:16px; flex:none; color:var(--ink-4); margin-top:3px;}
+/* The label may wrap. Held at nowrap, "Model calls" set a 133px floor on every
+   cell, five of which will not fit a document column, so the strip broke to
+   three rows and stood 235px tall above the answer. */
+.defbar .dk{display:block; font:500 var(--t-2xs)/1.3 var(--sans); color:var(--ink-4);
+  letter-spacing:.05em; text-transform:uppercase;}
+.defbar .dv{display:block; font:500 var(--t-sm)/1.3 var(--mono); color:var(--ink);
+  font-variant-numeric:tabular-nums;}
+.defbar .dv i{font-style:normal; color:var(--ink-4); padding:0 1px;}
+.defbar .dv small{display:block; font:400 var(--t-2xs)/1.3 var(--sans);
+  color:var(--ink-3); letter-spacing:0; text-transform:none; margin-top:2px;}
+/* Two per row only when five genuinely cannot fit. At 820 they still can: the
+   rule was firing in a 675px document column and forcing 337px cells, which
+   stood the strip three rows and 235px tall directly above the answer. */
+@media (max-width:560px){ .defbar .dcell{flex-basis:50%;} }
+
+.anchorbar{position:sticky; top:var(--masthead-h,54px); z-index:14; display:flex; gap:0;
+  overflow-x:auto; scrollbar-width:none;
+  background:var(--paper); border-bottom:1px solid var(--line);
+  margin:0 0 var(--sp-5);}
+.anchorbar::-webkit-scrollbar{display:none;}
+.anchorbar a{flex:none; padding:10px var(--sp-3); text-decoration:none;
+  font:500 var(--t-xs)/1.2 var(--sans); color:var(--ink-3);
+  border-bottom:2px solid transparent; white-space:nowrap;}
+.anchorbar a:hover{color:var(--ink);}
+.anchorbar a.on{color:var(--ink); border-bottom-color:var(--accent);}
+.anchorbar a em{font-style:normal; font-family:var(--mono); color:var(--ink-4);
+  margin-right:5px; font-size:var(--t-2xs);}
+@media (max-width:820px){ .objhead{gap:var(--sp-4);} }
+
+/* Shared with the decision view: the same three destinations in the same
+   place on every page, so no page is a dead end. */
+.appnav{display:flex;align-items:stretch;gap:2px;flex:none}
+.appnav a{display:flex;align-items:center;padding:0 var(--sp-3);font-size:var(--t-sm);
+  color:var(--ink-3);text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px}
+.appnav a:hover{color:var(--ink)}
+.appnav a[aria-current="page"]{color:var(--ink);font-weight:600;border-bottom-color:var(--accent)}
+.whoami{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--t-xs);color:var(--ink-3);white-space:nowrap}
+.whoami select{width:auto;min-height:30px;padding:2px var(--sp-2);font-size:var(--t-xs)}
+.themebtn{font:inherit;font-size:var(--t-xs);border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-3);
+  border-radius:var(--r-sm);padding:2px var(--sp-3);min-height:30px;min-width:58px;cursor:pointer;flex:none}
+.themebtn:hover{color:var(--ink)}
+.demo-chip{font-family:var(--mono);font-size:11px;color:var(--flag);border:1px solid var(--flag);border-radius:var(--r-sm);padding:0 5px}
 </style>
 </head>
 <body>
+<!-- Icon set, drawn here rather than pulled from a library.
+
+     Fourteen marks on a 24 grid at a single 1.5 stroke, no fills, currentColor
+     throughout, so an icon inherits whatever the text beside it is doing --
+     including the muted greys and the semantic reds, which a coloured icon
+     font cannot do. They are outlines of the thing each section contains, not
+     decoration, and there are no emoji anywhere: an emoji is a different
+     typeface at a different optical weight and it is the single clearest tell
+     that nobody chose the icon. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="i-movement" viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="21 12 21 7 16 7"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><polyline points="8.5 12.2 11 14.7 15.5 9.5"/></symbol>
+<symbol id="i-foresight" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></symbol>
+<symbol id="i-decision" viewBox="0 0 24 24"><path d="M8 4.5H6.5A1.5 1.5 0 0 0 5 6v13a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19V6a1.5 1.5 0 0 0-1.5-1.5H16"/><rect x="8" y="2.8" width="8" height="3.4" rx="1"/><polyline points="9.2 13 11.2 15 15 10.6"/></symbol>
+<symbol id="i-monitor" viewBox="0 0 24 24"><path d="M18 8.8a6 6 0 1 0-12 0c0 5-2.2 6.4-2.2 6.4h16.4S18 13.8 18 8.8Z"/><path d="M13.7 19a2 2 0 0 1-3.4 0"/></symbol>
+<symbol id="i-lever" viewBox="0 0 24 24"><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="9.5" cy="8" r="2.2"/><circle cx="15" cy="16" r="2.2"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><line x1="9" y1="7" x2="20" y2="7"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="17" x2="20" y2="17"/><circle cx="5" cy="7" r="1.1"/><circle cx="5" cy="12" r="1.1"/><circle cx="5" cy="17" r="1.1"/></symbol>
+<symbol id="i-rank" viewBox="0 0 24 24"><rect x="4" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="16" y="14" width="4" height="6" rx="1"/></symbol>
+<symbol id="i-split" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v8.5h8.5"/></symbol>
+<symbol id="i-ruled" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><line x1="9.2" y1="9.2" x2="14.8" y2="14.8"/><line x1="14.8" y1="9.2" x2="9.2" y2="14.8"/></symbol>
+<symbol id="i-source" viewBox="0 0 24 24"><ellipse cx="12" cy="6.2" rx="7.5" ry="3"/><path d="M4.5 6.2v11.6c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3V6.2"/><path d="M4.5 12c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3"/></symbol>
+<symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 2.8h12v18.4l-2.4-1.6-2.4 1.6-2.4-1.6-2.4 1.6L6 19.6Z"/><line x1="9.2" y1="8" x2="14.8" y2="8"/><line x1="9.2" y1="12" x2="14.8" y2="12"/></symbol>
+<symbol id="i-review" viewBox="0 0 24 24"><path d="M11 4.5H5.5A1.5 1.5 0 0 0 4 6v12.5A1.5 1.5 0 0 0 5.5 20H18a1.5 1.5 0 0 0 1.5-1.5V13"/><path d="M17.2 3.6a1.9 1.9 0 0 1 2.7 2.7L13 13.2l-3.4.7.7-3.4Z"/></symbol>
+<symbol id="i-hidden" viewBox="0 0 24 24"><path d="M9.6 6a8.4 8.4 0 0 1 2.4-.3c6 0 9.5 6.3 9.5 6.3a15 15 0 0 1-3 3.6"/><path d="M6.3 7.9A15.3 15.3 0 0 0 2.5 12S6 18.3 12 18.3a8.7 8.7 0 0 0 3.6-.8"/><line x1="3.5" y1="3.5" x2="20.5" y2="20.5"/></symbol>
+<symbol id="i-calc" viewBox="0 0 24 24"><rect x="5" y="2.8" width="14" height="18.4" rx="2"/><line x1="8.5" y1="7" x2="15.5" y2="7"/><line x1="8.7" y1="11.5" x2="8.8" y2="11.5"/><line x1="12" y1="11.5" x2="12.1" y2="11.5"/><line x1="15.3" y1="11.5" x2="15.4" y2="11.5"/><line x1="8.7" y1="15.5" x2="8.8" y2="15.5"/><line x1="12" y1="15.5" x2="12.1" y2="15.5"/><line x1="15.3" y1="15.5" x2="15.4" y2="15.5"/></symbol>
+<symbol id="i-model" viewBox="0 0 24 24"><rect x="7.5" y="7.5" width="9" height="9" rx="1.5"/><line x1="10" y1="7.5" x2="10" y2="4"/><line x1="14" y1="7.5" x2="14" y2="4"/><line x1="10" y1="20" x2="10" y2="16.5"/><line x1="14" y1="20" x2="14" y2="16.5"/><line x1="7.5" y1="10" x2="4" y2="10"/><line x1="7.5" y1="14" x2="4" y2="14"/><line x1="20" y1="10" x2="16.5" y2="10"/><line x1="20" y1="14" x2="16.5" y2="14"/></symbol>
+<symbol id="i-sentence" viewBox="0 0 24 24"><path d="M20.5 14.5a2 2 0 0 1-2 2H8l-4.5 4V5.5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2Z"/><line x1="7.5" y1="8.5" x2="16.5" y2="8.5"/><line x1="7.5" y1="12" x2="13" y2="12"/></symbol>
+<symbol id="i-cost" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.2 8h5.6M9.2 11h5.6M13.6 8c1.6 0 2 1.2 2 2s-.7 2.4-2.6 2.4H9.4l4.2 3.6"/></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24"><polyline points="7 10 12 15 17 10"/></symbol>
+</defs></svg>
 <header class="masthead">
   <a class="mark" href="/"><b>WhyChain</b><span>Diagnostic engine</span></a>
+  <nav class="appnav" aria-label="Primary">
+    <a href="/">Findings</a><a href="/?tab=audit">Audit trail</a><a href="/?tab=metrics">Metrics</a><a href="/workbench" aria-current="page">Workbench</a>
+  </nav>
   <div class="context" id="context"></div>
   <div class="tools">
-    <span class="toollabel">Industry</span>
     <div class="seg" id="industry" role="group" aria-label="Industry"></div>
-    <span class="toollabel">Reading as</span>
-    <div class="seg" id="persona" role="group" aria-label="Persona">
-      <button data-persona="analyst" aria-pressed="true">Analyst</button>
-      <button data-persona="cfo" aria-pressed="false">CFO</button>
-      <button data-persona="ops" aria-pressed="false">Ops</button>
+    <span class="toollabel">View as</span>
+    <div class="seg" id="persona" role="group" aria-label="View as">
+      <button data-persona="cfo" aria-pressed="false" title="Finance director: size, decision, and how much to believe it">Finance director</button>
+      <button data-persona="analyst" aria-pressed="true" title="FP&amp;A: every step, including the working">Analyst</button>
+      <button data-persona="ops" aria-pressed="false" title="Area sales manager: the lever they hold and who signs it off">Area sales</button>
     </div>
-    <div class="seg" id="theme" role="group" aria-label="Appearance">
-      <button data-theme="auto" aria-pressed="true">Auto</button>
-      <button data-theme="light" aria-pressed="false">Light</button>
-      <button data-theme="dark" aria-pressed="false">Dark</button>
-    </div>
+    <button type="button" class="themebtn" id="theme" title="Appearance: follows the system, light or dark">Auto</button>
+    <div class="whoami" id="whoami"></div>
   </div>
 </header>
 
@@ -787,6 +1059,18 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
       <div class="field-row">
         <label for="region">Region</label>
         <select id="region"><option value="">All regions</option></select>
+      </div>
+      <div class="field-row" id="row-channel" hidden>
+        <label for="channel">Channel</label>
+        <select id="channel"><option value="">All channels</option></select>
+      </div>
+      <div class="field-row" id="row-category" hidden>
+        <label for="category">Category</label>
+        <select id="category"><option value="">All categories</option></select>
+      </div>
+      <div class="field-row" id="row-device" hidden>
+        <label for="device">Device</label>
+        <select id="device"><option value="">All devices</option></select>
       </div>
       <div class="field-row">
         <label for="range">Period</label>
@@ -808,9 +1092,9 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
         <select id="backend"></select>
       </div>
       <details class="railnote"><summary>Why this is on the page</summary><p id="backendnote">Model choice is a governance decision
-        before it is a quality one, so it is shown rather than buried in an
-        environment variable. Switching it changes what is read and written,
-        never what is computed.</p></details>
+        before a quality one, so it is shown rather than buried in an environment
+        variable. It changes what is read and written, never what is
+        computed.</p></details>
     </div>
 
     <div class="railgroup">
@@ -825,10 +1109,16 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
         </select>
       </div>
       <details class="railnote"><summary>Try this</summary><p>Try picking a region you are <em>not</em> looking at.
-        Any cause outside that reader's access is dropped before the answer is
-        written, rather than written and then hidden. If that changes the
-        answer, the page says how much was left out and who to ask for it.</p></details>
+        Causes outside that reader's access are dropped before the answer is
+        written, not written and then hidden. If that changes the answer, the page
+        says how much was left out and who to ask.</p></details>
     </div>
+
+    <details class="railgroup demos">
+      <summary><span class="label">Scenarios</span><span class="demohint">Every
+        method, one click</span></summary>
+      <div id="demos"></div>
+    </details>
   </nav>
 
   <main class="content" id="main" aria-busy="true">
@@ -836,13 +1126,12 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
       <form class="ask" id="askform" autocomplete="off">
         <label class="askrow">
           <span class="visually-hidden">Ask about a metric</span>
-          <input id="askbox" type="text" placeholder="Ask in plain language &#8212; why did West revenue drop last week?">
+          <input id="askbox" type="text" placeholder="Ask in plain language: why did West revenue drop last week?">
           <button type="submit" id="askgo">Read the question</button>
         </label>
-        <p class="askhint" id="askhint">The model turns the sentence into a query
-          and shows you what it understood. It does not answer it: the engine
-          runs the query exactly as it would if you had chosen the metric and
-          window yourself.</p>
+        <p class="askhint" id="askhint">The model turns your sentence into a query
+          and shows what it understood. It does not answer it. The engine runs
+          that query exactly as if you had picked the metric yourself.</p>
         <!-- Shown on focus. Four lines of explanation for a control nobody has
              touched yet sat above the headline on every page and pushed the
              answer 200px down the document. The explanation is worth having
@@ -851,9 +1140,14 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
       </form>
       <div id="overview"></div>
       <div id="diagnosis" hidden>
+        <p class="crumb" id="crumb"></p>
         <p class="eyebrow" id="eyebrow"></p>
         <h1 id="headline"></h1>
+        <p class="basis" id="basis"></p>
+        <div class="objhead" id="objhead" hidden></div>
+        <div class="defbar" id="defbar" hidden></div>
         <div class="prose" id="story"></div>
+        <nav class="anchorbar" id="anchorbar" aria-label="Sections" hidden></nav>
         <div id="rest"></div>
       </div>
     </div>
@@ -869,6 +1163,7 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
 
 <script>
 const $ = s => document.querySelector(s);
+const escapeHtml = t => String(t == null ? '' : t).replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
 const inr = n => '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
 /* Format a value in the unit its contract declares.
@@ -896,7 +1191,10 @@ const fmtDelta = (v, unit) => unit === 'ratio'
   : fmtValue(v, unit);
 const ACRONYM = {aov:'AOV', kpi:'KPI', sla:'SLA'};
 const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+// The decision view's names, so a metric is called the same thing on every page.
+const METRIC_NAME = {aov:'Average order value', on_time_delivery:'On-time delivery'};
 const title = id => {
+  if(METRIC_NAME[id]) return METRIC_NAME[id];
   const k = id.replace(/_/g,' ');
   return ACRONYM[id] || k.split(' ').map(w=>ACRONYM[w]||w).join(' ').replace(/^./,c=>c.toUpperCase());
 };
@@ -933,7 +1231,9 @@ const words = t => String(t||'').replace(/_/g,' ');
    identifier itself. Sentence case rather than title case, because "Ecommerce
    Lead" reads like a job advert. */
 const role = t => {
-  const w = words(t).trim();
+  // Spelled as the decision view spells them, so a juror switching pages
+  // does not meet "Ecommerce lead" on one and "E-commerce lead" on the other.
+  const w = words(t).trim().replace(/\becommerce\b/i, 'e-commerce').replace(/\bfpa\b/i, 'FP&A');
   return w ? w[0].toUpperCase() + w.slice(1) : w;
 };
 /* Engine prose made readable at the point it is shown.
@@ -989,13 +1289,250 @@ function renderIndustries(list){
     const on = v.id === STATE.industry;
     const dis = v.generated ? '' : ' disabled';
     const why = v.generated ? v.driven_by : 'Not generated yet: run make gen-all';
-    return `<button data-industry="${v.id}" aria-pressed="${on}"${dis} title="${why}">${v.label}</button>`;
+    // Short name in the bar, the full one in the tooltip, as on the decision view.
+    return `<button data-industry="${v.id}" aria-pressed="${on}"${dis} title="${v.label}. ${why}">${v.label.split(' ')[0]}</button>`;
   }).join('');
   seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
     if(b.dataset.industry === STATE.industry) return;
     try{ localStorage.setItem('whychain-industry', b.dataset.industry); }catch{ /* ignore */ }
-    location.href = '/';
+    location.href = '/workbench';
   }));
+}
+
+/* ---------- scope ----------
+
+   Every request that reads a figure is scoped the same way, from one place.
+   Region was threaded through six query strings by hand, and adding channel by
+   the same method would mean six chances to miss one -- which does not fail, it
+   renders an app-only bridge beside an all-channel candidate list and calls the
+   difference a contradiction.
+
+   `sku` is not offered. A select with hundreds of entries is a search box, and
+   nothing on this page is ranked by it. */
+const SLICE_DIMS = ['channel', 'category', 'device'];
+
+/* Select a scope value that the option list may not carry yet.
+
+   The lists arrive with the first overview response, and several things set a
+   scope before that: a `?demo=` link, a `?region=` link, a click on a triage
+   row. Assigning `.value` for an option that does not exist yet is silently
+   ignored by the DOM, so the page went on to answer the national question and
+   looked exactly as though it had been asked one. The option is added first,
+   and the real list replaces it a moment later. */
+function setScope(dim, value){
+  const el = document.querySelector('#' + dim);
+  if(!el) return;
+  const has = Array.prototype.some.call(el.options, o => o.value === (value || ''));
+  if(value && !has){
+    el.innerHTML += `<option value="${escapeHtml(value)}">${escapeHtml(sentence(value))}</option>`;
+  }
+  el.value = value || '';
+}
+
+function currentSlice(){
+  const out = {};
+  SLICE_DIMS.forEach(d => {
+    const el = document.querySelector('#' + d);
+    if(el && el.value) out[d] = el.value;
+  });
+  return out;
+}
+
+/* Region, the finer slice, and entitlement, onto any query string. */
+function scoped(q){
+  const region = $('#region').value;
+  if(region) q.set('region', region);
+  Object.entries(currentSlice()).forEach(([d, v]) => q.set(d, v));
+  if(STATE.entitled) q.set('entitled', STATE.entitled);
+  return q;
+}
+
+/* The controls a vertical actually has, with that vertical's own words for
+   them. The region list was written into the markup as North/South/East/West,
+   which is retail's answer handed to every industry: petroleum sells through
+   aviation, direct and retail, not web, app and store. */
+/* The first response that carries them wins, and later ones only refresh the
+   lists. Re-rendering on every load would be harmless but for one thing: it
+   runs while a reader may have a select open. */
+function adoptDimensionValues(payload){
+  const values = payload && payload.dimension_values;
+  if(!values) return;
+  const before = JSON.stringify(STATE.dimensionValues || null);
+  if(before === JSON.stringify(values)) return;
+  STATE.dimensionValues = values;
+  renderScopeControls(values, STATE.dimensions);
+}
+
+function renderScopeControls(values, labels){
+  const fill = (dim, plural) => {
+    const el = document.querySelector('#' + dim);
+    const row = document.querySelector('#row-' + dim);
+    const list = (values && values[dim]) || [];
+    if(!el) return;
+    const label = (labels && labels[dim]) || sentence(dim);
+    const lab = document.querySelector('label[for="' + dim + '"]');
+    if(lab) lab.textContent = label;
+    const keep = el.value;
+    el.innerHTML = `<option value="">All ${escapeHtml(label.toLowerCase())}${plural}</option>`
+      + list.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(sentence(v))}</option>`).join('');
+    el.value = list.indexOf(keep) >= 0 ? keep : '';
+    if(row) row.hidden = list.length < 2;
+  };
+  fill('region', 's');
+  SLICE_DIMS.forEach(d => fill(d, d === 'category' ? '' : 's'));
+  const catRow = document.querySelector('#row-category');
+  if(catRow && !catRow.hidden){
+    const el = document.querySelector('#category');
+    const first = el && el.querySelector('option[value=""]');
+    if(first) first.textContent = 'All categories';
+  }
+}
+
+/* ---------- scenarios ----------
+
+   A demo that depends on finding the right row in a dropdown fails in front of
+   people, and it fails slowly, which is worse. Each entry below sets the metric,
+   the region, the period, the day, the reader and the access scope together and
+   then routes, so one click lands on one finding.
+
+   Every coordinate here was read back off this warehouse rather than typed from
+   memory: each `day` is a day the detector actually flags for that metric and
+   region, so a button cannot land on "nothing moved enough to explain". When the
+   generator is re-run with a different seed these need re-reading.
+
+   `?demo=<id>` applies the same thing from a link, which is what makes a finding
+   sendable to someone who was not in the room. */
+const DEMOS = [
+  // --- what the engine concludes, and how it got there ---------------------
+  {id:'trap', group:'Explained', label:'Two causes, and a trap',
+   note:'Release and rain verified. A promotion correlating perfectly that caused nothing is rejected: it ran in the East too, and the East was fine. A SKU three weeks old cannot be verified yet, and says so.',
+   kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15'},
+
+  {id:'channel', group:'Explained', label:'The same day, asked about the app',
+   note:'The same West day asked about the app. The store-only weather cause is set aside as impossible, and the ledger has no channel to reconcile against, so that check is declined rather than failed.',
+   kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15', channel:'app'},
+
+  {id:'graph', group:'Explained', label:'The break, one level down',
+   note:'Orders on the same days. Revenue is orders times AOV, so a break shows in both, and the graph is why they are read together.',
+   kpi:'orders', region:'', range:'90', day:'2026-08-15'},
+
+  // --- the three ways it declines to answer, which are different things ----
+  {id:'refusal', group:'Refused', label:'Abstains: no cause survives',
+   note:'Nothing in the operational record passes testing, so the engine returns UNKNOWN at 0.15, names the next check and asks a clarifying question.',
+   kpi:'net_revenue', region:'West', range:'90', day:'2026-07-27'},
+
+  {id:'contradiction', group:'Refused', label:'Two systems disagree',
+   note:'A large, clean, regionally specific fall that every later stage would have explained confidently. Only the second posting catches it, and it is caught before anything is explained.',
+   kpi:'net_revenue', region:'North', range:'180', day:'2026-06-10'},
+
+  {id:'hourly', group:'Refused', label:'Detected, not diagnosed',
+   note:'Checkout conversion is a rate on an hourly grain. Detection stands; the price/volume/mix identity does not apply to a ratio, and the page says which.',
+   // 25 Aug, not 29 Aug: the 29th was flagged only because East orders were
+   // read 5.5 hours off their sessions, and went when that was fixed (B-058).
+   kpi:'checkout_conversion', region:'', range:'90', day:'2026-08-25'},
+
+  // --- who is asking, and what they may see --------------------------------
+  {id:'cfo', group:'Reader', label:'As the finance director',
+   note:'Size, decision, and how much to believe it. Method detail withheld, and the page says it was withheld.',
+   kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15', persona:'cfo'},
+
+  {id:'ops', group:'Reader', label:'As the area sales manager',
+   note:'The lever this reader holds and who signs it off. Nothing executes; a card is a draft awaiting approval.',
+   kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15', persona:'ops'},
+
+  {id:'entitled', group:'Reader', label:'Scoped to South',
+   note:'The series, the queue and the answer are restricted before assembly, and the heading says whose regions these are.',
+   kpi:'net_revenue', region:'', range:'90', day:'2026-07-31', entitled:'South'},
+
+  {id:'blanked', group:'Reader', label:'That reader, asking about the West',
+   note:'Refused before anything is computed, so no West figure exists to leak into a chart or a sentence.',
+   kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15', entitled:'South'},
+
+  // --- that none of this is wired to one dataset ---------------------------
+  // Net revenue rather than on-time delivery. The signal gap is computed inside a
+  // full diagnosis, and a ratio metric has none, so this entry used to land on
+  // "Detected, not diagnosed" with no gap on the page at all (B-039).
+  {id:'gap', group:'Reach', label:'Why nobody saw it coming',
+   note:'Net revenue in the West. Severe weather warnings were published up to 72 hours ahead, no step in the planning cycle consumes that class of signal, and the finding names who owns the gap.',
+   kpi:'net_revenue', region:'West', range:'90', day:'2026-08-15', focus:/not anticipated/i},
+
+  {id:'petroleum', group:'Reach', label:'Another industry, tests failing',
+   note:'Petroleum marketing: four candidates, two verified, two rejected on placebo and difference-in-differences. Same engine, different vocabulary.',
+   industry:'petroleum', kpi:'net_realisation', region:'', range:'90', day:'2026-08-14'},
+];
+
+// Published for /uat, which reads the list rather than evaluating code.
+window.WHYCHAIN_DEMOS = DEMOS;
+/* "pii:phone x1" -> "1 phone number". What was masked, or that the scan ran
+   and found nothing: both are results, and saying neither would leave a reader
+   unsure the check happened. */
+const PII_NAME = {email:'email address', phone:'phone number', card:'card number', 'id-number':'ID number',
+  upi:'UPI ID', pan:'PAN', address:'street address'};
+function piiLine(pd){
+  if(!pd || !pd.scanned_for || !pd.scanned_for.length) return '';
+  if(!pd.masked.length) return 'Scanned for personal data: none found.';
+  return 'Personal data masked: ' + pd.masked.map(m => { const [, kind, n] = m.match(/^[^:]+:(.+) x(\d+)$/) || [null, m, '1'];
+    return `${n} ${PII_NAME[kind] || kind}${n === '1' ? '' : 's'}`; }).join(', ') + '. The model never saw them either.';
+}
+
+function renderDemos(){
+  const box = document.querySelector('#demos');
+  if(!box) return;
+  const groups = [];
+  DEMOS.forEach(d => {
+    let g = groups.find(x => x.name === d.group);
+    if(!g){ g = {name:d.group, items:[]}; groups.push(g); }
+    g.items.push(d);
+  });
+  box.innerHTML = groups.map(g =>
+    `<div class="demogroup"><span class="demohead">${escapeHtml(g.name)}</span>` +
+    g.items.map(d =>
+      `<button class="demo" data-demo="${d.id}" title="${escapeHtml(d.note)}">${escapeHtml(d.label)}</button>`
+    ).join('') + `</div>`).join('');
+  box.addEventListener('click', e => {
+    const b = e.target.closest('button[data-demo]'); if(!b) return;
+    const d = DEMOS.find(x => x.id === b.dataset.demo);
+    if(d) applyDemo(d);
+  });
+}
+
+function markDemo(id){
+  document.querySelectorAll('#demos button[data-demo]').forEach(b =>
+    b.setAttribute('aria-pressed', String(b.dataset.demo === id)));
+}
+
+/* Switching industry reloads by design -- the metrics, regions and contracts all
+   change together -- so a cross-industry scenario cannot be applied in place.
+   It hands the rest of the scenario to the next page load through the query
+   string, which is the same path a shared link takes. */
+function applyDemo(d, booting){
+  const want = d.industry || 'retail';
+  if(want !== STATE.industry){
+    try{ localStorage.setItem('whychain-industry', want); }catch{ /* ignore */ }
+    location.href = '/kpi/' + d.kpi + '?demo=' + encodeURIComponent(d.id);
+    return;
+  }
+  setScope('region', d.region || '');
+  SLICE_DIMS.forEach(dim => setScope(dim, d[dim] || ''));
+  $('#range').value  = d.range  || '90';
+  $('#entitled').value = d.entitled || '';
+  STATE.entitled = d.entitled || null;
+  STATE.persona = PERSONAS.includes(d.persona) ? d.persona : 'analyst';
+  // Consumed by the next render, once. A scenario about one section should open
+  // on it rather than leave the presenter scrolling for it in front of people.
+  STATE.focus = d.focus || null;
+  markPersona();
+  markDemo(d.id);
+  // Read by `go` on the next line, which is the one place a chosen day is
+  // allowed to survive a route change.
+  STATE.pending = {day:d.day, region:d.region || ''};
+  const q = new URLSearchParams();
+  q.set('demo', d.id);
+  history[booting ? 'replaceState' : 'pushState'](booting ? history.state : {wb:true}, '', '/kpi/' + d.kpi + '?' + q);
+  STATE.kpi = d.kpi;
+  STATE.pick = d.day;
+  STATE.pending = null;
+  load();
 }
 
 /* ---------- persona ----------
@@ -1016,7 +1553,10 @@ function initPersona(){
     STATE.persona = b.dataset.persona;
     try{ localStorage.setItem('whychain-persona',STATE.persona); }catch{ /* ignore */ }
     markPersona();
-    if(STATE.kpi) load();
+    // The queue is a persona projection too. Switching reader on the overview
+    // used to re-render nothing at all, so a CFO stood looking at a column of
+    // robust z-scores -- the one number the switch exists to take away.
+    if(STATE.kpi) load(); else showOverview();
   });
 }
 function markPersona(){
@@ -1029,8 +1569,8 @@ const THEMES=['auto','light','dark'];
 function applyTheme(t){
   if(t==='auto') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme',t);
-  document.querySelectorAll('#theme button').forEach(b=>
-    b.setAttribute('aria-pressed', String(b.dataset.theme===t)));
+  const btn = document.getElementById('theme');
+  if(btn){ btn.textContent = t.charAt(0).toUpperCase() + t.slice(1); btn.setAttribute('aria-label', 'Appearance: ' + t); }
   if(STATE.series) drawChart();
   if(STATE.overview) drawSparks();
 }
@@ -1038,17 +1578,39 @@ function initTheme(){
   let saved='auto';
   try{ saved = localStorage.getItem('whychain-theme') || 'auto'; }catch{ /* private mode */ }
   applyTheme(THEMES.includes(saved)?saved:'auto');
-  $('#theme').addEventListener('click',e=>{
-    const b=e.target.closest('button[data-theme]'); if(!b) return;
-    try{ localStorage.setItem('whychain-theme',b.dataset.theme); }catch{ /* ignore */ }
-    applyTheme(b.dataset.theme);
+  // One button stepping Auto, Light, Dark, as on the decision view.
+  let cur = THEMES.includes(saved) ? saved : 'auto';
+  $('#theme').addEventListener('click',()=>{
+    cur = THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length];
+    try{ localStorage.setItem('whychain-theme',cur); }catch{ /* ignore */ }
+    applyTheme(cur);
   });
 }
 
 /* ---------- data ---------- */
+/* Who is signed in. The same control as the decision view: a named demo user
+   unless single sign-on is in front, and the choice is shared between pages. */
+async function whoami(){
+  const box = document.getElementById('whoami'); if(!box) return;
+  let user = 'fpa.analyst'; try{ user = localStorage.getItem('whychain-user') || user; }catch{ /* private */ }
+  let me; try{ me = await (await fetch('/api/me', {headers:{'X-WhyChain-User': user}})).json(); }catch{ return; }
+  if(me.mode === 'demo'){
+    box.innerHTML = `<span class="toollabel">Signed in</span><select id="wb-user" aria-label="Signed in as">${me.demo_users.map(u =>
+      `<option value="${escapeHtml(u.id)}"${u.id === me.identity.id ? ' selected' : ''}>${escapeHtml(u.name.replace(' (demo)', ''))}</option>`).join('')}</select>
+      <span class="demo-chip" title="No single sign-on is connected; records made here are marked as a demo identity">Demo</span>`;
+    document.getElementById('wb-user').onchange = e => { try{ localStorage.setItem('whychain-user', e.target.value); }catch{ /* ignore */ } };
+  }else{
+    box.innerHTML = `<span class="toollabel">Signed in</span><span>${escapeHtml(me.identity.name)}</span>`;
+  }
+}
+
 async function boot(){
+  whoami();
   initTheme();
   initPersona();
+  // The rail's sticky offset reads this, so it has to exist before first paint
+  // and not only once a diagnosis has rendered.
+  syncMastheadHeight();
   initIndustry();
   try{
     const inds = await (await fetch('/api/industries')).json();
@@ -1068,16 +1630,23 @@ async function boot(){
     STATE.drivenBy = active.driven_by || '';
     renderIndustries(STATE.industries);
   }catch(e){ /* single-industry deployment; the switcher stays empty */ }
-  STATE.kpis = await (await fetch('/api/kpis')).json();
-  const regionLabel = STATE.dimensions && STATE.dimensions.region;
-  if(regionLabel){
-    const lab = document.querySelector('label[for="region"]');
-    if(lab) lab.textContent = regionLabel;
-    const opt = document.querySelector('#region option[value=""]');
-    if(opt) opt.textContent = 'All ' + regionLabel.toLowerCase() + 's';
+  try{
+    STATE.kpis = await (await fetch('/api/kpis')).json();
+  }catch(e){
+    $('#main').setAttribute('aria-busy','false');
+    $('#overview').hidden = false;
+    $('#overview').innerHTML = `<div class="overview" style="padding:var(--sp-6) 0">
+      <div style="background:var(--surface);border:1px solid var(--down);border-left:4px solid var(--down);border-radius:var(--r-md);padding:var(--sp-5);max-width:680px">
+        <h2 style="font-size:var(--t-lg);color:var(--down);margin-bottom:var(--sp-2)">Unable to connect to WhyChain server</h2>
+        <p style="font-size:var(--t-base);color:var(--ink-2);margin-bottom:var(--sp-3)">The browser cannot reach <code>/api/kpis</code>. If you opened this file directly from the filesystem (<code>file://</code>), browser security prevents loading data via fetch.</p>
+        <p style="font-size:var(--t-sm);color:var(--ink-3)">Please run the local server using <code>./run.sh</code> or <code>make serve</code> and open <a href="http://127.0.0.1:8000" style="color:var(--accent);font-weight:600">http://127.0.0.1:8000</a>.</p>
+      </div></div>`;
+    return;
   }
-  $('#region').innerHTML += ['North','South','East','West']
-    .map(r=>`<option>${r}</option>`).join('');
+  // Values arrive with the first overview response, which reads them from this
+  // deployment's own warehouse. Until then the controls hold only their "all"
+  // option, which is the state the page opens in anyway.
+  renderScopeControls(STATE.dimensionValues, STATE.dimensions);
   // Every industry opens on the whole estate rather than on one region: the
   // watchlist below is national, and a scope control disagreeing with the
   // table under it is the first thing a reader notices. Narrowing is then a
@@ -1092,8 +1661,11 @@ async function boot(){
     });
   }
   const params = new URLSearchParams(location.search);
-  if(params.get('region')) $('#region').value = params.get('region');
+  if(params.get('region')) setScope('region', params.get('region'));
   if(params.get('range')) $('#range').value = params.get('range');
+  SLICE_DIMS.forEach(d=>{ if(params.get(d)) setScope(d, params.get(d)); });
+  // A day in the link is the finding the decision view was showing: open on it.
+  if(/^\d{4}-\d{2}-\d{2}$/.test(params.get('day') || '')) STATE.pick = params.get('day');
   // The backend list is fetched rather than hard-coded, so what the console
   // offers is what the server can actually reach.
   try{
@@ -1106,10 +1678,10 @@ async function boot(){
     // choice demonstrable; leaving it on Auto is what a deployment actually
     // does, and the two should not be the same control setting.
     $('#backend').innerHTML =
-      `<option value="">Auto \u2014 routed by task requirement</option>` +
+      `<option value="">Auto: routed by task requirement</option>` +
       STATE.backends.map(b=>
         `<option value="${b.id}" ${b.available?'':'disabled'}>${escapeHtml(b.label)}${
-          b.available?'':' \u2014 not reachable'}</option>`).join('');
+          b.available?'':' (not reachable)'}</option>`).join('');
     // Deterministic by default, and this is a latency decision rather than a
     // statement about the model. Objective 8 names latency as a constraint the
     // engine has to work inside; a diagnosis makes one constrained call per
@@ -1140,19 +1712,30 @@ async function boot(){
   });
   // Changing the metric, region or period invalidates the chosen day: it may
   // not be flagged in the new series, or may not exist in it at all.
-  ['region','range'].forEach(id=>$('#'+id).addEventListener('change',()=>{
-    STATE.pick = null;
-    const q = new URLSearchParams();
-    if($('#region').value) q.set('region',$('#region').value);
-    if($('#range').value !== '90') q.set('range',$('#range').value);
-    history.replaceState({}, '', location.pathname + (q.toString()?'?'+q:''));
-    route();
-  }));
-  addEventListener('popstate',route);
-  document.querySelector('.masthead .mark').addEventListener('click',e=>{
-    e.preventDefault(); go('/');
+  ['region','range', ...SLICE_DIMS].forEach(id=>{
+    const el = $('#'+id); if(!el) return;
+    el.addEventListener('change',()=>{
+      STATE.pick = null;
+      const q = new URLSearchParams();
+      if($('#region').value) q.set('region',$('#region').value);
+      Object.entries(currentSlice()).forEach(([d,v])=>q.set(d,v));
+      if($('#range').value !== '90') q.set('range',$('#range').value);
+      history.replaceState(history.state, '', location.pathname + (q.toString()?'?'+q:''));
+      route();
+    });
   });
-  route();
+  addEventListener('popstate',route);
+  // The mark goes home, to the findings, as it does on every page. The
+  // workbench's own overview is the Workbench tab.
+  renderDemos();
+  // A `?demo=` link is the same thing the rail buttons do, so it is applied
+  // through the same function rather than through a second code path that
+  // would drift from it. Unknown ids fall through to ordinary routing instead
+  // of erroring: a stale link should still land somewhere useful.
+  const wanted = params.get('demo');
+  const demo = wanted && DEMOS.find(d => d.id === wanted);
+  if(demo){ markDemo(demo.id); applyDemo(demo, true); }
+  else route();
 }
 
 /* What the chosen backend means, in the two terms that decide it: what the
@@ -1190,10 +1773,10 @@ function go(path, replace=false){
     // Set by the triage queue a moment ago: the reader asked about a specific
     // finding, and clearing it here would silently answer a different question.
     STATE.pick = STATE.pending.day;
-    if(STATE.pending.region){ $('#region').value = STATE.pending.region; }
+    if(STATE.pending.region){ setScope('region', STATE.pending.region); }
     STATE.pending = null;
   }
-  history[replace?'replaceState':'pushState']({}, '', path + location.search);
+  history[replace?'replaceState':'pushState'](replace ? history.state : {wb:true}, '', path + location.search);
   route();
 }
 
@@ -1215,7 +1798,7 @@ function renderNav(){
   const byId = Object.fromEntries(data.kpis.map(k=>[k.kpi_id,k]));
   const rows=[]; const walk=(id,depth)=>{ const k=byId[id]; if(!k) return;
     rows.push({k,depth}); k.children.forEach(c=>walk(c,depth+1)); };
-  data.roots.forEach(r=>walk(r,0));
+  (data.roots || []).forEach(r=>walk(r,0));
   $('#nav').innerHTML = rows.map(({k,depth})=>`
     <button class="navitem d${depth}" data-kpi="${k.kpi_id}"
       aria-current="${STATE.kpi===k.kpi_id}"><span class="label">${title(k.kpi_id)}</span>${
@@ -1237,10 +1820,9 @@ async function showOverview(){
   // findings below still listed South, and Period re-routed the page and
   // changed nothing at all. A control that visibly does nothing teaches a
   // reader that none of them mean anything.
-  const q=new URLSearchParams(); if(region) q.set('region',region);
+  const q=scoped(new URLSearchParams());
   if(days) q.set('days',days);
-  if(STATE.entitled) q.set('entitled',STATE.entitled);
-  const tq=new URLSearchParams(); if(region) tq.set('region',region);
+  const tq=scoped(new URLSearchParams());
   if(days) tq.set('days',days);
   tq.set('limit','8');
   if(STATE.entitled) tq.set('entitled',STATE.entitled);
@@ -1259,6 +1841,7 @@ async function showOverview(){
   const data = await ores.json();
   STATE.overview = data;
   STATE.queue = queue;
+  adoptDimensionValues(data);
   renderNav();
 
   const byId = Object.fromEntries(data.kpis.map(k=>[k.kpi_id,k]));
@@ -1268,7 +1851,7 @@ async function showOverview(){
     rows.push({k,depth});
     k.children.forEach(c=>walk(c,depth+1));
   };
-  data.roots.forEach(r=>walk(r,0));
+  (data.roots || []).forEach(r=>walk(r,0));
 
   const fmt=(k,v)=>fmtValue(v, k.unit);
   const flagged = rows.reduce((n,{k})=>n+(k.material_drops||0),0);
@@ -1278,43 +1861,61 @@ async function showOverview(){
   // hierarchy is carried by indentation inside the first column, and the
   // header row tells a reader what each column is, all three of which a grid
   // of cards gives up in exchange for looking designed.
+  // The page opened on a search box above an empty canvas, with the queue
+  // below the fold. A reader arriving for the first time -- or a jury watching
+  // the first ten seconds of a demo -- was told nothing about what this is or
+  // what it is for. One sentence, then the counts, then the work.
   $('#overview').innerHTML = `<div class="overview">
     <h1>${region||'All regions'}</h1>
+    <p class="purpose">Every material movement, ranked by daily cost, traced to a
+      cause that survived testing or refused where the evidence would not carry
+      one.</p>
     <p class="sub">${STATE.graphSummary || ''}</p>
     ${STATE.drivenBy ? `<p class="drivenby"><span>What moves it</span>
       ${escapeHtml(STATE.drivenBy)}</p>` : ''}
 
     <dl class="figures">
-      <div><dt>Metrics tracked</dt><dd>${rows.length}</dd></div>
-      <div><dt>Carrying flags</dt><dd>${withFlags}<small>of ${rows.length}</small></dd></div>
-      <div><dt>Material movements</dt><dd class="${flagged?'down':''}">${flagged.toLocaleString()}</dd></div>
-      <div><dt>Scope</dt><dd style="font-size:var(--t-md)">${region||'All regions'}</dd></div>
+      <div><dt><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg>Metrics tracked</dt>
+        <dd>${rows.length}</dd></div>
+      <div><dt><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg>Carrying flags</dt>
+        <dd>${withFlags}<small>of ${rows.length}</small></dd></div>
+      <div><dt><svg class="ico" aria-hidden="true"><use href="#i-movement"/></svg>Material movements</dt>
+        <dd class="${flagged?'down':''}">${flagged.toLocaleString()}</dd></div>
+      <div><dt><svg class="ico" aria-hidden="true"><use href="#i-foresight"/></svg>Scope</dt>
+        <dd style="font-size:var(--t-md)">${region||'All regions'}</dd></div>
     </dl>
+
+    ${kpiCards(rows, fmt)}
 
     ${triageMarkup()}
 
-    <span class="label" style="margin-top:var(--sp-7)">All metrics</span>
+    <details class="alldetail"><summary><span class="label">All five metrics, and how they connect</span></summary>
     <table class="watch"><thead><tr>
       <th>Metric</th>
       <th class="n">Latest</th>
       <th class="n hide-sm">7-day</th>
-      <th class="hide-sm">Trend</th>
       <th class="n">Flagged</th>
     </tr></thead><tbody>
     ${rows.map(({k,depth})=>`
       <tr class="kpi d${depth}" data-kpi="${k.kpi_id}" tabindex="0">
         <td><span class="name">${title(k.kpi_id)}</span>
-            <span class="owner">${escapeHtml(role(k.owner_role))} · ${k.grain.split(' by ')[0]}</span></td>
+            <span class="owner">${escapeHtml(role(k.owner_role))}${k.grain ? ' · ' + escapeHtml(k.grain.split(' by ')[0]) : ''}</span></td>
         <td class="n"><span class="val">${fmt(k,k.latest)}</span></td>
         <td class="n hide-sm"><span class="chg ${k.period_change<0?'down':'up'}">${
           k.period_change==null?'–':(k.period_change>0?'+':'')+pct(k.period_change)}</span></td>
-        <td class="hide-sm"><canvas class="spark" data-kpi="${k.kpi_id}"></canvas></td>
         <td class="n"><span class="flagcount">${k.material_drops
-            ? `<b>${k.material_drops}</b>` : '<span class="na">none</span>'}</span></td>
+            ? `<b>${k.material_drops}</b>` : '<span class="na">none</span>'}${
+          /* Say when a filter could not reach this metric. Checkout conversion
+             is measured by region and device, so a channel filter leaves its
+             count where it was, and an unexplained still number reads as a
+             broken control. */
+          (k.not_narrowed && k.not_narrowed.length)
+            ? `<span class="na" title="This metric's grain is ${escapeHtml(k.grain || '')}">
+                 no ${escapeHtml(k.not_narrowed.join('/'))}</span>` : ''}</span></td>
       </tr>`).join('')}
     </tbody></table>
-    <p class="sub" style="margin-top:var(--sp-5);font-size:var(--t-sm);font-family:var(--sans)">Select a metric to see what moved it,
-      what was ruled out, and whether anything warned about it first.</p></div>`;
+    <p class="sub" style="margin-top:var(--sp-4);font-size:var(--t-sm);font-family:var(--sans)">Select a metric to see what moved it.</p>
+    </details></div>`;
 
   $('#margin').innerHTML = marginBlock(null);
   document.querySelectorAll('tr.triage').forEach(row=>{
@@ -1334,7 +1935,10 @@ async function showOverview(){
   });
   document.querySelectorAll('.kpi').forEach(b=>
     b.addEventListener('click',()=>go('/kpi/'+b.dataset.kpi)));
+  document.querySelectorAll('.kcard').forEach(b=>
+    b.addEventListener('click',()=>go('/kpi/'+b.dataset.kpi)));
   drawSparks();
+  requestAnimationFrame(drawSparks);
   $('#main').setAttribute('aria-busy','false');
 }
 
@@ -1350,6 +1954,53 @@ async function showOverview(){
    four-point fall in checkout conversion and a two-lakh fall in revenue are not
    otherwise comparable, and each contract already declares the conversion for
    its own materiality test, so no new assumption is introduced to do it. */
+/* A robust z in words. The thresholds are the detector's own: a contract
+   flags past 3, so 3 is the floor of "outside normal" rather than a rounding
+   of it, and the bands above it are multiples of that same floor. */
+function zWords(z){
+  const a = Math.abs(Number(z) || 0);
+  if(a >= 9) return 'far outside normal';
+  if(a >= 6) return 'well outside normal';
+  if(a >= 3) return 'outside normal';
+  return 'near normal';
+}
+
+/* The picture, then the work.
+
+   The page is an analytical list page in the Fiori sense rather than a
+   dashboard: the cards exist to be drilled through, not to be watched. That
+   distinction is the product's whole argument and it is worth making
+   structurally rather than in a caption. A dashboard shows five numbers and
+   stops; every card here carries the count of movements that still need
+   explaining, and every row underneath it carries an owner and an action.
+
+   Which is also why the cards are not the page. They are the half a BI tool
+   already gives you, placed directly above the half it does not. */
+function kpiCards(rows, fmt){
+  if(!rows || !rows.length) return '';
+  const cards = rows.map(({k}) => {
+    const ch = k.period_change;
+    const dir = ch == null ? '' : (ch < 0 ? 'down' : 'up');
+    const flags = k.material_drops || 0;
+    return `<button class="kcard ${flags ? 'flagged' : ''}" data-kpi="${k.kpi_id}">
+      <span class="kname">${escapeHtml(title(k.kpi_id))}</span>
+      <span class="kval">${fmt(k, k.latest)}</span>
+      <span class="kchg ${dir}">${ch == null ? '\u2013'
+        : (ch > 0 ? '+' : '') + pct(ch)}<small>vs prior period</small></span>
+      <canvas class="spark" data-kpi="${k.kpi_id}"></canvas>
+      <span class="kflag">${flags
+        ? `<svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg>
+           ${plural(flags, 'movement')} to explain`
+        : '<span class="na">nothing to explain</span>'}</span>
+    </button>`;
+  }).join('');
+  return `<span class="label">The picture, as any dashboard would show it</span>
+    <div class="kcards">${cards}</div>
+    <p class="handoff"><span>Your dashboard stops here.</span> Below is what
+      those flags actually were, ranked by what they cost per day, each with the
+      role accountable for it.</p>`;
+}
+
 function triageMarkup(){
   const q = STATE.queue;
   if(!q || !q.findings || !q.findings.length) return '';
@@ -1372,7 +2023,14 @@ function triageMarkup(){
               : ''}</span></td>
       <td class="n hide-sm"><span class="chg down">${
         f.pct != null ? pct(f.pct) : '–'}</span>
-          <span class="owner">z ${f.robust_z}</span></td>
+          ${/* The robust z is the detector's own unit and it means nothing to
+               anyone outside this team -- a CFO reading "z -10.64" learns that
+               the page is not for them. The analyst keeps it, because for an
+               analyst it is the number that says how far outside normal this
+               sat; everyone else gets the severity in words. */
+            STATE.persona === 'analyst'
+              ? `<span class="owner">z ${f.robust_z}</span>`
+              : `<span class="owner">${zWords(f.robust_z)}</span>`}</td>
       <td class="hide-sm"><span class="owner">${
         escapeHtml(role(f.owner_role))}</span></td>
       <td class="n">${f.diagnosable
@@ -1393,31 +2051,29 @@ function triageMarkup(){
       ${q.total} open findings in total${
         q.folded ? `, after folding ${plural(q.folded,'child-metric movement')} into the parent event they belong to` : ''}.
       ${escapeHtml(q.basis)}
-      Metrics with no price/volume/mix identity are detected and prioritised but
-      not decomposed, and are marked accordingly.</p></details>`;
+      Metrics with no price/volume/mix identity are ranked but not decomposed,
+      and marked so.</p></details>`;
 }
 
 function drawSparks(){
-  if(!STATE.overview) return;
+  if(!STATE.overview || !STATE.overview.kpis) return;
   const css=getComputedStyle(document.documentElement), col=n=>css.getPropertyValue(n).trim();
   const byId=Object.fromEntries(STATE.overview.kpis.map(k=>[k.kpi_id,k]));
   document.querySelectorAll('canvas.spark').forEach(c=>{
-    const k=byId[c.dataset.kpi]; if(!k||!k.spark.length) return;
-    // Measure the box rather than assuming it. The width was hardcoded to 120
-    // while the CSS track was wider, so every sparkline was drawn small and
-    // then stretched to fit, which is why they read slightly soft.
-    // Same rule as the main chart: measure the box. 38 against a 34px CSS
-    // track squashed every sparkline by a tenth.
-    const dpr=devicePixelRatio||1, w=c.clientWidth||132, h=c.clientHeight||34;
-    c.width=w*dpr; c.height=h*dpr;
+    const k=byId[c.dataset.kpi]; if(!k||!k.spark||k.spark.length<2) return;
+    const dpr=window.devicePixelRatio||1, w=c.clientWidth||160, h=c.clientHeight||32;
+    if(!w || !h) return;
+    c.width=Math.round(w*dpr); c.height=Math.round(h*dpr);
     const x=c.getContext('2d'); x.scale(dpr,dpr); x.clearRect(0,0,w,h);
-    const all=[...k.spark,...k.spark_expected];
+    const all=[...k.spark,...(k.spark_expected||[])];
     let lo=Math.min(...all), hi=Math.max(...all); if(hi===lo) hi=lo+1;
     const X=i=>(i/(k.spark.length-1))*(w-2)+1, Y=v=>h-2-((v-lo)/(hi-lo))*(h-4);
-    x.strokeStyle=col('--ink-3'); x.lineWidth=1; x.setLineDash([2,2]); x.beginPath();
-    k.spark_expected.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v))); x.stroke();
-    x.setLineDash([]);
-    x.strokeStyle=col(k.material_drops?'--down':'--ink'); x.lineWidth=1.3; x.beginPath();
+    if(k.spark_expected && k.spark_expected.length){
+      x.strokeStyle=col('--ink-4') || '#94a3b8'; x.lineWidth=1; x.setLineDash([2,2]); x.beginPath();
+      k.spark_expected.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v))); x.stroke();
+      x.setLineDash([]);
+    }
+    x.strokeStyle=col(k.material_drops?'--down':'--ink') || '#0f172a'; x.lineWidth=1.3; x.beginPath();
     k.spark.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v))); x.stroke();
   });
 }
@@ -1458,6 +2114,31 @@ function stage(text){
   if(el) el.innerHTML = `<span class="working">${text}</span>`;
 }
 
+async function showRefusal(res){
+  $('#eyebrow').textContent='';
+  // Everything the previous slice put on the page goes with it. A refusal
+  // that only rewrites the headline leaves the refused region's own figures
+  // underneath it: the breadcrumb naming the region, the observed and
+  // expected rupees, the impact, the confidence, the run's telemetry and a
+  // twelve-item index into sections that are no longer there. That is the
+  // leak this branch exists to prevent, and it reappears the moment a band is
+  // added to the page and not added here, which is exactly what happened.
+  clearFindingChrome();
+  // A refusal is its own answer. Rendering it as "no data" would tell a reader
+  // the region is empty rather than that they may not see it, and leaving the
+  // previous page in place is how a refused region's figures stayed on screen.
+  const why = res.status === 403
+    ? ((await res.json().catch(()=>({}))).detail || {}) : null;
+  $('#headline').textContent = why ? 'Outside your entitlement' : 'No data for that slice';
+  $('#story').innerHTML = why
+    ? `<p>${escapeHtml(why.detail || 'This region is outside what you may see.')}</p>
+       <p class="q">The refusal happens before anything is computed, so no
+       figure for this region exists to leak into a chart or a sentence.</p>`
+    : '';
+  $('#rest').innerHTML = '';
+  $('#main').setAttribute('aria-busy','false');
+}
+
 async function load(){
   $('#main').setAttribute('aria-busy','true');
   stage('Reading the contract'); $('#headline').textContent='';
@@ -1466,52 +2147,55 @@ async function load(){
   $('#diagnosis').hidden = false;
   $('#overview').hidden = true;
   if(!STATE.overview){
+    // Deliberately region-only: the rail's own option lists must not narrow
+    // themselves to whatever the reader last picked, or choosing one channel
+    // removes every other channel from the control that chose it.
     const oq=new URLSearchParams(); if($('#region').value) oq.set('region',$('#region').value);
     if(STATE.entitled) oq.set('entitled',STATE.entitled);
-    const ores = await fetch('/api/overview?'+oq);
-    STATE.overview = ores.ok ? await ores.json() : {kpis: []};
+    let ores = await fetch('/api/overview?'+oq);
+    // A region outside the reader's scope is refused here, before the series is
+    // ever asked for, and the page used to die on the refusal instead of showing
+    // it (B-041). The rail still needs its metric list, which does not depend on
+    // the region, so it is asked for again without one; the server applies the
+    // entitlement to that too. The dimension lists from that second answer are
+    // not adopted: they hold only the reader's own regions, and adopting them
+    // would quietly reset the refused region to "all" and answer a different
+    // question from the one asked.
+    let refused = null;
+    if(ores.status === 403 && oq.has('region')){
+      refused = ores; oq.delete('region'); ores = await fetch('/api/overview?'+oq);
+    }
+    STATE.overview = ores.ok ? await ores.json() : {kpis: [], roots: []};
+    if(!refused) adoptDimensionValues(STATE.overview);
+    else { renderNav(); await showRefusal(refused); STATE.overview = null; return; }
   }
   renderNav();
   const kpi=STATE.kpi, region=$('#region').value, days=+$('#range').value;
-  const q=new URLSearchParams({kpi}); if(region) q.set('region',region);
-  if(STATE.entitled) q.set('entitled',STATE.entitled);
+  const q=scoped(new URLSearchParams({kpi}));
   if(days){ const to=new Date('2026-08-31'); const from=new Date(to);
     from.setDate(to.getDate()-days);
     q.set('from',from.toISOString().slice(0,10)); q.set('to',to.toISOString().slice(0,10)); }
 
   stage('Separating trend and seasonality');
   const seriesRes = await fetch('/api/series?'+q);
-  if(!seriesRes.ok){
-    $('#eyebrow').textContent='';
-    // A refusal is its own answer. Rendering it as "no data" would tell a reader
-    // the region is empty rather than that they may not see it, and leaving the
-    // previous page in place is how a refused region's figures stayed on screen.
-    const why = seriesRes.status === 403
-      ? ((await seriesRes.json().catch(()=>({}))).detail || {}) : null;
-    $('#headline').textContent = why ? 'Outside your entitlement' : 'No data for that slice';
-    $('#story').innerHTML = why
-      ? `<p>${escapeHtml(why.detail || 'This region is outside what you may see.')}</p>
-         <p class="q">The refusal happens before anything is computed, so no figure
-         for this region was produced to leak through a chart, a table or a sentence.</p>`
-      : '';
-    $('#rest').innerHTML = '';
-    $('#main').setAttribute('aria-busy','false');
-    return;
-  }
+  if(!seriesRes.ok){ await showRefusal(seriesRes); return; }
   const series = await seriesRes.json();
-  const drops = series.anomalies.filter(a=>a.direction==='drop');
+  // Every material movement, not only the falls. The detector labels both
+  // directions and `rank_exact` already sorts by the direction the total moved,
+  // but this line discarded half of what it found, so a metric that beat
+  // expectation produced no finding anywhere in the product. Objective 1 of the
+  // brief says movements, and a rise is one. See B-027.
+  const drops = series.anomalies.slice();
 
   let diagnosis=null, decomposition=null, candidates=null, win=null, declined=null;
   if(drops.length){
     win = windowFor(drops);
-    const p=new URLSearchParams({kpi,start:win.start,end:win.end});
-    if(region) p.set('region',region);
+    const p=scoped(new URLSearchParams({kpi,start:win.start,end:win.end}));
     p.set('persona', STATE.persona || 'analyst');
-    // Entitlement travels with the request and is enforced server-side at the
-    // projection. The control exists so the refusal can be *seen*: without it
-    // the row filter is a claim in a README rather than something a reader can
-    // trigger and watch happen.
-    if(STATE.entitled) p.set('entitled', STATE.entitled);
+    // Entitlement travels with the request (set by `scoped`) and is enforced
+    // server-side at the projection. The control exists so the refusal can be
+    // *seen*: without it the row filter is a claim in a README rather than
+    // something a reader can trigger and watch happen.
     // The first pass is always deterministic, whatever backend is pinned.
     //
     // Every number on the page is computed without a model, so there is no
@@ -1553,10 +2237,8 @@ async function load(){
   const wantsModel = STATE.backend !== 'none'
     && (STATE.activeBackend && STATE.activeBackend !== 'none');
   if(wantsModel && diagnosis && win){
-    const q2 = new URLSearchParams({kpi, start: win.start, end: win.end});
-    if(region) q2.set('region', region);
+    const q2 = scoped(new URLSearchParams({kpi, start: win.start, end: win.end}));
     q2.set('persona', STATE.persona || 'analyst');
-    if(STATE.entitled) q2.set('entitled', STATE.entitled);
     if(STATE.backend) q2.set('backend', STATE.backend);
     refineWithModel(q2);
   }
@@ -1603,7 +2285,7 @@ async function refineWithModel(params){
 
    The section above it asks what the *company* wrote down, and for a retailer
    that is usually the whole answer: the cause was something it did to itself.
-   For a fuel marketer or a generator it is not — those businesses move because
+   For a fuel marketer or a generator it is not; those businesses move because
    of port closures, refinery turnarounds and tariff orders, and the record of
    those is external, public, and carries a publisher and a lead time. Leaving
    it off the card meant the two verticals chosen to demonstrate external
@@ -1672,34 +2354,62 @@ async function askQuestion(question){
   }
   submit.disabled = false;
 
+  // The model writes metric ids into its sentences ("aov, checkout_conversion");
+  // the reader sees the names the rest of the page uses, and whole sentences.
+  const said = t => {
+    let x = String(t || '');
+    (d.available_metrics || []).forEach(id => { x = x.split(id).join(title(id)); });
+    x = x.trim().replace(/^./, c => c.toUpperCase());
+    return x && !/[.?!]$/.test(x) ? x + '.' : x;
+  };
   if(d.problem){
-    out.innerHTML = `<div class="askread"><p>${escapeHtml(d.problem)}</p>
+    out.innerHTML = `<div class="askread"><p>${escapeHtml(said(d.problem))}</p>
       <p class="q">Choose a metric and window from the rail instead.</p></div>`;
     return;
   }
   if(d.clarification){
     out.innerHTML = `<div class="askread">
-      <p><strong>${escapeHtml(d.clarification)}</strong></p>
-      <p class="q">${escapeHtml(d.reading || '')}</p>
-      <p class="q">Nothing was run. The engine asks rather than choosing for you
-        when a question could mean two different metrics.</p></div>`;
+      <p><strong>${escapeHtml(said(d.clarification))}</strong></p>
+      <p class="q">${escapeHtml(said(d.reading))}</p>
+      <p class="q">Nothing was run. When a question is unclear, or asks for
+        something outside your access, the engine asks rather than choosing for you.</p></div>`;
     return;
   }
 
   const rejected = (d.rejected || []).length
     ? `<p class="q">${(d.rejected).map(escapeHtml).join('. ')}.</p>` : '';
   out.innerHTML = `<div class="askread">
-    <p>${escapeHtml(d.reading || '')}</p>
-    <p class="q">Running <strong>${escapeHtml(d.kpi_id)}</strong>
+    <p>${escapeHtml(said(d.reading))}</p>
+    <p class="q">Running <strong>${escapeHtml(title(d.kpi_id))}</strong>
       ${d.region ? '· ' + escapeHtml(d.region) : '· all regions'}
       · ${escapeHtml(d.start)} to ${escapeHtml(d.end)}
       · read by ${escapeHtml(d.model)}, ${d.tokens_in + d.tokens_out} tokens.
       Everything after this point is deterministic.</p>${rejected}</div>`;
 
+  // A question names a window ("in June"), and the finding is a day inside
+  // it. Opening on the window's last day answered about 30 June when the fall
+  // was on the 10th. The day is the largest flagged move the engine itself
+  // found in that window, falls first; with none, the window's end, where the
+  // page says nothing moved enough to explain.
+  let day = d.end;
+  try{
+    const sp = new URLSearchParams({kpi: d.kpi_id, from: d.start, to: d.end});
+    if(d.region) sp.set('region', d.region);
+    if(STATE.industry) sp.set('industry', STATE.industry);
+    if(STATE.entitled) sp.set('entitled', STATE.entitled);
+    const ser = await (await fetch('/api/series?' + sp)).json();
+    const inWin = (ser.anomalies || []).filter(a => a.day >= d.start && a.day <= d.end + 'T99');
+    const falls = inWin.filter(a => a.delta < 0), pool = falls.length ? falls : inWin;
+    if(pool.length){
+      day = pool.reduce((w, a) => Math.abs(a.delta) > Math.abs(w.delta) ? a : w).day;
+      out.insertAdjacentHTML('beforeend', `<p class="q askread" style="margin-top:0">The largest flagged ${falls.length ? 'fall' : 'move'} in that window is on ${escapeHtml(String(day).slice(0, 10))}; opening it.</p>`);
+    }
+  }catch(e){ /* the window's end still opens the metric */ }
+
   // Hand over to the ordinary path. The engine cannot tell that the query came
   // from a sentence, which is the point: there is no second code path to keep
   // correct.
-  STATE.pending = {region: d.region || '', day: d.end};
+  STATE.pending = {region: d.region || '', day};
   if(d.region !== null && d.region !== undefined) $('#region').value = d.region || '';
   go('/kpi/' + d.kpi_id);
 }
@@ -1715,6 +2425,7 @@ async function askQuestion(question){
 const READABLE_POINTS = 400;
 
 function openingView(series){
+  if(!series || !series.days || !series.days.length) return null;
   const n = series.days.length;
   if(n <= READABLE_POINTS) return null;          // the whole span is legible
   // Prefer ending on the anomaly if there is one, so the opening view contains
@@ -1737,12 +2448,29 @@ function render(){
   const where = region || (scoped ? `${scoped} (your regions)` : 'all regions');
 
   resetSections();
-  $('#eyebrow').textContent =
-    `${title(kpi)} · ${where} · ${series.days[0]} to ${series.days.at(-1)}`;
+  // The eyebrow said "Net revenue · West · 2026-06-02 to 2026-08-31" directly
+  // under a breadcrumb reading Open findings / Net revenue / West. Two lines,
+  // one fact. The window is the only part the crumb did not carry, so it joins
+  // the crumb and the eyebrow goes.
+  $('#eyebrow').hidden = true;
+  // Where the reader is, and the way back. An object page without a trail is
+  // the one thing every enterprise reader notices is missing.
+  // The slice rides in the trail, because it changes the answer. The app in
+  // the West and the West are different movements with different causes, and a
+  // reader who has to check the rail to tell which one they are reading is one
+  // screenshot away from quoting the wrong figure.
+  const slice = Object.values(currentSlice()).map(sentence);
+  const crumbs = [escapeHtml(title(kpi)), escapeHtml(where), ...slice.map(escapeHtml)];
+  $('#crumb').innerHTML =
+    `<button type="button" class="back" id="crumbback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</button>`
+    + `<a href="/workbench" id="crumbhome">Open findings</a>`
+    + crumbs.map(c => `<i>/</i><span>${c}</span>`).join('')
+    + `<i>/</i><span class="crumbwin">${escapeHtml(series.days[0])} to ${
+        escapeHtml(series.days.at(-1))}</span>`;
   // The masthead carries the current context so a reader always knows what
   // they are looking at without scrolling back to the top of the document.
   $('#context').innerHTML =
-    `${escapeHtml(title(kpi))} <em>/</em> ${escapeHtml(where)} <em>/</em> ${
+    crumbs.join(' <em>/</em> ') + ` <em>/</em> ${
       escapeHtml(series.days[0])}\u2009\u2013\u2009${escapeHtml(series.days.at(-1))}`;
   $('#margin').innerHTML = marginBlock(diagnosis);
 
@@ -1753,8 +2481,11 @@ function render(){
       ${grain}, no movement in ${name} passed both the statistical and the
       financial test. Ordinary variation, weekly rhythm and the retail calendar
       account for what happened.</p>`;
+    $('#basis').innerHTML = '';
+    $('#objhead').hidden = true; $('#objhead').innerHTML = '';
+    $('#defbar').hidden = true; $('#defbar').innerHTML = '';
     $('#rest').innerHTML = section('The movement', chartMarkup(), true) + freshnessBlock();
-    drawChart(); bindChart(); return;
+    buildAnchorBar(); drawChart(); bindChart(); return;
   }
 
   const w = win.worst;
@@ -1763,9 +2494,27 @@ function render(){
   // not have happened -- and a reader who reads only the headline, which is
   // most of them, takes away the opposite of the finding.
   const contradicted = diagnosis && diagnosis.verdict === 'contradicted';
+  // The verb and the preposition both follow the movement. "Fell below" was
+  // hardcoded, so on the day a metric beat expectation the page would have said
+  // it fell by a positive amount.
+  const rose = w.delta > 0;
+  const verb = rose ? 'rose' : 'fell';
+  const against = rose ? 'above expected' : 'below expected';
   $('#headline').textContent = contradicted
-    ? `${title(kpi)} appears to fall ${pct(Math.abs(w.pct))} below expected in ${where} on ${w.day} — unconfirmed`
-    : `${title(kpi)} fell ${pct(Math.abs(w.pct))} below expected in ${where} on ${w.day}`;
+    ? `${title(kpi)} appears to ${rose ? 'rise' : 'fall'} ${pct(Math.abs(w.pct))} ${against} in ${where} on ${w.day}, unconfirmed`
+    : `${title(kpi)} ${verb} ${pct(Math.abs(w.pct))} ${against} in ${where} on ${w.day}`;
+
+  // The basis for the word "fell", said in the sentence a reader would have
+  // used. Contradicted runs are the exception: the two systems do not agree the
+  // movement happened, so stating what a normal Wednesday does would dress a
+  // disputed figure as a settled one.
+  $('#basis').innerHTML = basisLine(w, where, contradicted, series.unit);
+  const oh = objectHeader(diagnosis, w, series.unit);
+  $('#objhead').innerHTML = oh;
+  $('#objhead').hidden = !oh;
+  const db = defensibilityBar(diagnosis);
+  $('#defbar').innerHTML = db;
+  $('#defbar').hidden = !db;
 
   if(diagnosis && diagnosis.verdict === 'contradicted'){
     // Its own answer, not an abstention with a footnote. "We could not tell
@@ -1795,28 +2544,36 @@ function render(){
     + reconciliationBlock()
     + madeByBlock()
     + group('The answer',
-        'What moved, what caused it, whether anything warned first, and what to do about it.',
+        'What moved, what caused it, what warned, and what to do.',
         section('The movement', chartMarkup(), true)
         + narrativeBlock()
         + signalGapBlock()
         + decisionsBlock()
         + simulatorBlock())
     + group('The working',
-        'Every step between the movement and the answer above, in the order it ran.',
+        'Each step from movement to answer, in the order it ran.',
         movementsBlock()
         + (persona === 'analyst'
             ? rankingBlock() + decompositionBlock() + candidatesBlock() : ''))
     + group('Provenance and review',
-        'Where the numbers came from, what the run cost, and how to tell the engine it was wrong.',
+        'Where the numbers came from, what the run cost, how to correct it.',
         freshnessBlock()
         + (persona === 'analyst' ? receiptBlock() : '')
         + feedbackBlock())
     + withheldBlock();
+  buildAnchorBar();
   drawChart();
   bindChart();
   wireClaims();
   wireFeedback();
   wirePicks();
+  if(STATE.focus){
+    const want = STATE.focus;
+    STATE.focus = null;
+    const sec = [...document.querySelectorAll('#rest .sec')]
+      .find(s => want.test(s.querySelector('.name')?.textContent || ''));
+    if(sec){ sec.open = true; sec.scrollIntoView({block:'start'}); }
+  }
 }
 
 function explainedStory(d){
@@ -1846,13 +2603,13 @@ function contradictedStory(d){
   return `
     <p><strong>The two systems that post this number do not agree that it
     moved.</strong> ${escapeHtml(title(d.kpi_id))} and
-    <code>${escapeHtml(r.source || 'the second system')}</code> are
+    the ${escapeHtml(String(r.source || 'second system').replace(/_/g, ' '))} are
     ${r.worst_residual != null ? `<strong>${pct(Math.abs(r.worst_residual))}</strong> apart` : 'far apart'}
     over this window, against a ${r.tolerance_pct != null ? pct(r.tolerance_pct) : ''} tolerance
     their posting policies account for.</p>
     <p>No cause is proposed. A movement one source reports and another does not
-    is not a movement with lower confidence: it may not have happened, and every
-    test below would have passed on it.</p>
+    is not a lower-confidence movement: it may not have happened at all, and
+    every test below would still have passed.</p>
     <p class="q"><strong>The next check.</strong>
       ${escapeHtml(a.next_check || '')}</p>
     ${a.question ? `<p><strong>Question.</strong> ${escapeHtml(a.question)}</p>` : ''}`;
@@ -1944,8 +2701,8 @@ function unknownStory(d){
     return `<p>The movement is real and detection stands. A causal diagnosis is
       not available for this metric.</p>
       ${reason ? `<p class="q">${escapeHtml(reason)}</p>` : ''}
-      <p class="q">The chart, the material movements and source freshness below
-      are unaffected.</p>`;
+      <p class="q">The chart, the movements and source freshness below are
+      unaffected.</p>`;
   }
   const a = d.abstention, m = d.movement;
   return `
@@ -2078,7 +2835,16 @@ function signalGapBlock(){
 /* ═══ two-track ranking ══════════════════════════════════════════════════ */
 function rankingBlock(){
   const r = STATE.diagnosis && STATE.diagnosis.ranking;
-  if(!r || (!r.exact.length && !r.associational.length)) return '';
+  if(!r) return '';
+  // A reader scoped to some regions gets the ranking withheld whole, because it
+  // is computed across slices they may not see. Reading `.exact` off that
+  // notice threw, and the throw took every section below the headline with it
+  // (B-042). The refusal is the answer, so it is shown as one.
+  if(r.withheld){
+    return section('How we chose between explanations',
+      `<p>Withheld: ${escapeHtml(r.reason || 'outside your entitlement')}.</p>`, false, 'withheld');
+  }
+  if(!(r.exact||[]).length && !(r.associational||[]).length) return '';
   const rowsOf = list => list.length
     ? `<table><tbody>${list.map(x=>`<tr>
          <td>${escapeHtml(x.label)}</td>
@@ -2088,24 +2854,22 @@ function rankingBlock(){
        </tr>`).join('')}</tbody></table>`
     : '<p class="muted">Not run for this window.</p>';
 
-  return section('Ranking, in two tracks', `
-    <p>These are never merged. A strong correlation topping a weak identity is
-    the exact substitution this engine exists to prevent, so the two rankings
-    are computed separately and rendered side by side.</p>
+  return section('How we chose between explanations', `
+    <p>Never merged. A strong correlation topping a weak identity is the
+    substitution this engine exists to prevent, so the two are computed
+    separately.</p>
     <div class="tracks">
       <div>
         <h4 class="exactly">Track A · exact</h4>
-        <p class="caption">From the price/volume/mix identity. These sum to the
-          movement with no residual, so they are arithmetic about what happened
-          rather than a hypothesis about it.</p>
+        <p class="caption">From the price/volume/mix identity. They sum to the
+          movement with no residual: arithmetic, not a hypothesis.</p>
         ${rowsOf(r.exact)}
       </div>
       <div>
         <h4 class="merely">Track B · correlational</h4>
-        <p class="caption">A standardised ridge fit over the driver series. Useful
-          for generating candidates nobody thought to look at; worthless as an
-          answer. No row here may be stated as a cause until a causal test
-          promotes it.</p>
+        <p class="caption">A standardised ridge fit over the driver series. It
+          generates candidates nobody thought to look at; it answers nothing. No
+          row here is a cause until a causal test promotes it.</p>
         ${rowsOf(r.associational)}
       </div>
     </div>
@@ -2124,10 +2888,10 @@ function narrativeBlock(){
     `<span class="s" title="cites ${escapeHtml((x.cites||[]).join(', '))}">${
       escapeHtml(prose(x.text))}<span class="cites">\u25AA${(x.cites||[]).length}</span></span> `).join('');
 
-  return section('Summary, and the checks it passed', `
-    <p>Written from a flat table of already-computed facts and nothing else.
-    Every sentence carries the evidence ids it rests on, and a deterministic
-    validator checks each one before a reader sees it.</p>
+  return section('What we found, and what we checked', `
+    <p>Written from a flat table of computed facts and nothing else. Every
+    sentence carries its evidence ids, and a deterministic validator checks each
+    one before it is shown.</p>
     <div class="written">${sentences || '<span class="muted">No sentence survived validation.</span>'}</div>
     <div class="gate">
       <div><b>${(n.sentences||[]).length}</b>sentences accepted</div>
@@ -2146,7 +2910,7 @@ function narrativeBlock(){
     ${contrastMarkup()}
     <p class="muted" style="margin-top:var(--sp-4)">Checks run:
       ${(v.checks_run||[]).map(c=>escapeHtml(c.replace(/_/g,' '))).join(' · ')}.</p>`,
-    false, `${rejected.length} rejected`);
+    false, rejected.length ? `${plural(rejected.length, 'sentence')} rejected` : 'no sentence rejected');
 }
 
 /* Which model did which job. Each task is routed to the cheapest tier that can
@@ -2173,9 +2937,10 @@ function contrastMarkup(){
   const c = STATE.contrast;
   if(!c) return '';
   if(!c.captured){
-    return `<p class="muted" style="margin-top:var(--sp-5)">${escapeHtml(c.note)}</p>`;
+    return c.note ? `<p class="muted" style="margin-top:var(--sp-5)">${escapeHtml(c.note)}</p>` : '';
   }
   const a = c.with_model, b = c.without_model;
+  if(!a || !b) return '';
   // Name the case. This panel is a capture, not a rerun of whatever is on
   // screen, and it was rendered with no indication of that -- so a reader
   // comparing its figures against the page above found two sets that did not
@@ -2186,33 +2951,33 @@ function contrastMarkup(){
   // Reading is where the model does its work here, so it is counted rather than
   // left to be inferred from the prose. Sentence counts alone were the whole
   // caption, which measured the least interesting difference.
-  const read = v => `${plural(v.documents_found,'document')} read, ${plural(v.citations,'span')} cited`;
+  const read = v => `${plural(v.documents_found || 0,'document')} read, ${plural(v.citations || 0,'span')} cited`;
   return `
     <h4 class="label" style="margin-top:var(--sp-5)">With the model, and without</h4>
-    <p class="muted">${escapeHtml(prose(c.note))}</p>
+    <p class="muted">${escapeHtml(prose(c.note || ''))}</p>
     <p class="muted">A captured run of <b>${which}</b>, not the diagnosis above:
-      ${escapeHtml((c.captured_at||'').slice(0,10))} against ${escapeHtml(c.backend)}.
+      ${escapeHtml((c.captured_at||'').slice(0,10))} against ${escapeHtml(c.backend || '')}.
       Its figures belong to that case.</p>
     <div class="tracks" style="margin-top:var(--sp-4)">
       <div>
         <h4 class="exactly">Model on</h4>
-        <p class="caption">${plural(a.model_calls,'call')} · ${a.tokens} tokens ·
-          ${read(a)} · ${plural(a.sentences,'sentence')}, ${a.rejected} rejected</p>
-        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(prose(a.narrative))}</p>
+        <p class="caption">${plural(a.model_calls || 0,'call')} · ${a.tokens || 0} tokens ·
+          ${read(a)} · ${plural(a.sentences || 0,'sentence')}, ${a.rejected || 0} rejected</p>
+        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(prose(a.narrative || ''))}</p>
       </div>
       <div>
         <h4 class="merely">Model off</h4>
-        <p class="caption">${plural(b.model_calls,'call')} · ${read(b)} ·
-          ${plural(b.sentences,'sentence')}, ${b.rejected} rejected</p>
-        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(prose(b.narrative))}</p>
+        <p class="caption">${plural(b.model_calls || 0,'call')} · ${read(b)} ·
+          ${plural(b.sentences || 0,'sentence')}, ${b.rejected || 0} rejected</p>
+        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(prose(b.narrative || ''))}</p>
       </div>
     </div>
     <div class="gate" style="margin-top:var(--sp-4)">
-      ${Object.entries(a.figures).map(([k,v])=>`<div><b>${
+      ${Object.entries(a.figures || {}).map(([k,v])=>`<div><b>${
         escapeHtml(String(Array.isArray(v)?v.length:v))}</b>${escapeHtml(k.replace(/_/g,' '))}</div>`).join('')}
     </div>
-    <p class="muted">Every figure above is identical in both columns. That is the
-      architecture's central claim, shown rather than asserted.</p>`;
+    <p class="muted">Every figure is identical in both columns. That is the
+      central claim, shown rather than asserted.</p>`;
 }
 
 /* ═══ feedback ═══════════════════════════════════════════════════════════ */
@@ -2228,9 +2993,10 @@ function feedbackBlock(){
   const d = STATE.diagnosis;
   if(!d || !d.run_id) return '';
   return section('Analyst review and corrections', `
-    <p>A correction never edits this run and never moves a computed number.
-    What it can change are the inputs the business owns, which candidates are
-    worth surfacing, which driver a description maps to, where a threshold sits: and only once two independent readers agree.</p>
+    <p>A correction never edits this run and never moves a computed number. It
+    changes inputs the business owns: which candidates surface, which driver a
+    description maps to, where a threshold sits. Two independent readers must
+    agree first.</p>
     <div class="fb" id="fb">
       ${JUDGEMENTS.map(([k,lab])=>
         `<button data-j="${k}" aria-pressed="false">${lab}</button>`).join('')}
@@ -2276,7 +3042,7 @@ async function renderProposals(){
       <td class="n">${p.applicable && p.consumable
         ? `<button class="linkback" data-apply="${escapeHtml(p.target)}"
              data-subject="${escapeHtml(p.subject)}">apply</button>`
-        : '<span class="na">&mdash;</span>'}</td>
+        : '<span class="na">–</span>'}</td>
     </tr>`;
   }).join('');
 
@@ -2407,11 +3173,246 @@ function group(name, why, body){
       <p>${escapeHtml(why)}</p>
     </div>${body}</section>`;
 }
+/* ---------- object header, basis line, anchor bar ----------
+
+   None of this is new information: every figure below is already somewhere on
+   the page. What changes is where it sits. The three key facts a reader needs
+   to decide anything were inside section four; the basis for the word "fell"
+   was only ever implicit in a chart axis; and twelve sections had no index.
+
+   The basis line exists because the engine's answer to "on what basis did it
+   drop" is rigorous and invisible. Detection runs on the residual after MSTL
+   removes trend, weekly rhythm and the festival calendar, and scores it on the
+   median and MAD rather than the mean. A reader saw "-32.5%" and a z-score.
+   This says it in the sentence they would have said it in. */
+
+const WEEKDAY = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+/* Every band the diagnosis renders above its narrative, cleared together.
+
+   Kept as one function rather than as a list repeated at each exit, because
+   the failure mode is not writing the clear-down wrong, it is adding a band
+   later and updating only the exit you happened to be looking at. */
+function clearFindingChrome(){
+  $('#crumb').innerHTML = '';
+  $('#basis').innerHTML = '';
+  $('#objhead').innerHTML = ''; $('#objhead').hidden = true;
+  $('#defbar').innerHTML = ''; $('#defbar').hidden = true;
+  $('#anchorbar').innerHTML = ''; $('#anchorbar').hidden = true;
+}
+
+function basisLine(w, where, disputed, unit){
+  if(!w || w.expected == null || w.observed == null) return '';
+  const day = new Date(w.day + 'T00:00:00');
+  const wd = isNaN(day) ? 'that day' : WEEKDAY[day.getDay()];
+  const short = where && where !== 'All regions' ? ` in ${escapeHtml(where)}` : '';
+  // Both sides of the comparison, then what the right-hand side actually is.
+  // "17.2% below expected" is the headline and "expected" is the word carrying
+  // the whole claim: a finance reader reads it as budget or as the same week
+  // last year, and it is neither. Saying what it is not is the part that stops
+  // the misreading, so it is in the sentence rather than in a tooltip.
+  // On a contradicted run the shortfall is the thing in dispute, so stating it
+  // as a measured fact would contradict the finding two lines below. What the
+  // reader still needs is the definition: the headline says "below expected"
+  // either way, and leaving "expected" undefined is worst exactly here, where
+  // they are already being asked to doubt the number.
+  // In the metric's own unit, not in rupees. Checkout conversion sits around
+  // 0.05 and on-time delivery around 0.94, so `inr` rendered this whole
+  // sentence as "Observed 0 against an expected 0, short by 0 (36.8%)" --
+  // three figures that say nothing, under a headline that says 36.8%. The
+  // formatters already existed for the chart; this line never used them.
+  const gap = w.delta > 0 ? 'ahead by' : 'short by';
+  const sum = disputed ? '' : `Observed <b>${fmtValue(w.observed, unit)}</b> against an expected
+    <b>${fmtValue(w.expected, unit)}</b>, ${gap} <b>${fmtDelta(Math.abs(w.delta), unit)}</b>${
+      w.pct != null ? ` (${pct(Math.abs(w.pct))})` : ''}.`;
+  return `${sum}
+    <span class="basisnote">\u201cExpected\u201d is what a ${wd}${short} normally
+      does at this point in the year, from this metric\u2019s own trend, weekday
+      pattern and festival calendar. Not a plan figure, and not last year.</span>`;
+}
+
+/* Confidence as a word. A CFO was being shown "0.273", which is a number that
+   cannot be acted on and does not mean what a reader assumes it means. The
+   score stays -- on hover, and in full in the analyst's own section. */
+const BAND_WORDS = {
+  // The decision view's words, so the same finding reads the same on both.
+  high:'High', moderate:'Moderate', medium:'Moderate',
+  low:'Low', unknown:'Not enough evidence', none:'Not enough evidence',
+};
+function bandWord(band){
+  const k = String(band || '').toLowerCase();
+  return BAND_WORDS[k] || sentence(k || 'Unknown');
+}
+
+/* The restraint strip.
+
+   Everything here was already on the page and all of it was below the fold:
+   the deterministic share sat in the run receipt at section eleven, the
+   validator's rejection count inside section two, the set-aside candidates in
+   section nine. Those five numbers are the argument this product makes, so
+   they belong where the argument is made rather than at the end of it.
+
+   Nothing here is computed for display. A zero is shown as a zero -- a run
+   that rejected no sentences says so, because a counter that only ever appears
+   when it is flattering is not evidence of anything. */
+function defensibilityBar(d){
+  if(!d || !d.telemetry || !d.telemetry.totals) return '';
+  const t = d.telemetry.totals;
+  const v = (d.narrative && d.narrative.validation) || {};
+  const acc = (v.accepted || []).length, rej = (v.rejected || []).length;
+  const verified = (d.verified || []).length, aside = (d.set_aside || []).length;
+  const calls = t.model_calls || 0, cached = t.cache_hits || 0;
+
+  const cell = (icon, k, val, note) => `<div class="dcell">
+      <svg class="ico" aria-hidden="true"><use href="#i-${icon}"/></svg>
+      <div><span class="dk">${k}</span>
+        <span class="dv">${val}${note ? `<small>${note}</small>` : ''}</span></div>
+    </div>`;
+
+  const out = [];
+  if(t.deterministic_share != null)
+    out.push(cell('calc', 'Computed', (t.deterministic_share*100).toFixed(1) + '%',
+                  'without a model'));
+  out.push(cell('model', 'Model calls', calls,
+                cached ? `${cached} cached` : 'none cached'));
+  if(v.accepted || v.rejected)
+    out.push(cell('sentence', 'Sentences', `${acc}<i>/</i>${acc + rej}`,
+                  rej ? `${rej} rejected` : 'none rejected'));
+  // A contradicted finding proposes no cause: the two systems disagree about
+  // the movement itself, so a candidate that passed its tests is not one.
+  if(d.verdict === 'contradicted') out.push(cell('ruled', 'Causes', '0', 'none proposed'));
+  else out.push(cell('ruled', 'Causes', `${verified}<i>/</i>${verified + aside}`,
+                aside ? `${aside} set aside` : 'none set aside'));
+  if(t.cost_inr != null)
+    out.push(cell('cost', 'Cost', '\u20b9' + Number(t.cost_inr).toFixed(2), 'at a reference rate'));
+  return out.join('');
+}
+
+function objectHeader(d, w, unit){
+  const cells = [];
+  // No diagnosis means nothing was verified. A ratio metric cannot be run
+  // through the price/volume/mix identity at all, so the engine refuses a full
+  // diagnosis for it and this header was left rendering "Verified" over a
+  // detection the causal tests had never seen. Saying so is the whole point of
+  // the pill; a detection is a real state and has its own word.
+  const verdict = (d && d.verdict) || (w ? 'detected' : '');
+  const rising = w && w.delta > 0;
+  // The pill states what happened to the *finding*, never which way the money
+  // went. "Verified" in red reads as a failure; the loss is red one cell to the
+  // right, where it belongs, and the two stop competing for the same meaning.
+  const S = {contradicted:['warn','Unconfirmed'], unknown:['neutral','No cause proposed'],
+             detected:[rising ? 'ok' : 'neutral',
+                       rising ? 'Detected, above expected' : 'Detected, not diagnosed'],
+             explained:['ok','Verified']}[verdict] || ['neutral', sentence(verdict||'Open')];
+  cells.push(`<span class="status ${S[0]}">${escapeHtml(S[1])}</span>`);
+
+  // Always the worst day's shortfall, never `headline.change_inr_per_day`.
+  // That field is the window average and it is only present on some persona
+  // projections, so reading it where it exists and falling back where it does
+  // not put a different Impact figure in front of a CFO and an analyst looking
+  // at the same finding -- ₹36,381 against ₹52,952. The evidence is identical
+  // across personas by construction and the header has to show that, so it
+  // takes the one figure every projection carries and says which day it is.
+  const impact = (w && w.delta != null) ? Math.abs(w.delta) : null;
+  // The gap between two rates is percentage points, never rupees. `fmtDelta`
+  // carries that distinction; `inr` printed a 1.66-point conversion collapse as
+  // an impact of zero rupees. Colour and label follow the direction too: a
+  // metric that beat expectation showed its gain in the fall colour under the
+  // word Impact, which reads as a loss of that size.
+  if(impact != null){
+    const up = w.delta > 0;
+    cells.push(`<div class="kpi"><span class="k">${up ? 'Upside' : 'Impact'}</span>
+      <span class="v ${up ? 'up' : 'down'}">${fmtDelta(impact, unit)}<small>on the ${
+        up ? 'best' : 'worst'} day</small></span></div>`);
+  }
+
+  if(d && d.confidence && d.confidence.band){
+    const score = d.confidence.probability != null
+      ? `calibrated to ${d.confidence.probability}`
+      : `score ${d.confidence.score}`;
+    cells.push(`<div class="kpi"><span class="k">Confidence</span>
+      <span class="v words" title="${escapeHtml(score)}">${escapeHtml(bandWord(d.confidence.band))}</span></div>`);
+  }
+
+  const owner = (d && d.decision && d.decision.owner)
+    || (d && d.signal_gap && d.signal_gap.owner_role);
+  if(owner)
+    cells.push(`<div class="kpi"><span class="k">Accountable</span>
+      <span class="v words">${escapeHtml(role(owner))}</span></div>`);
+
+  if(w && w.day)
+    cells.push(`<div class="kpi"><span class="k">${rising ? 'Best day' : 'Worst day'}</span>
+      <span class="v words">${escapeHtml(w.day)}</span></div>`);
+
+  return cells.length > 1 ? cells.join('') : '';
+}
+
+/* The section index, built from what was actually rendered rather than from a
+   list kept in step by hand -- a list like that goes stale the first time a
+   persona hides a section, and a persona hiding sections is the whole point. */
+function syncMastheadHeight(){
+  const m = document.querySelector('.masthead');
+  if(!m) return;
+  document.documentElement.style.setProperty('--masthead-h', m.offsetHeight + 'px');
+}
+addEventListener('resize', syncMastheadHeight);
+
+function buildAnchorBar(){
+  syncMastheadHeight();
+  const bar = $('#anchorbar');
+  const secs = [...document.querySelectorAll('#rest .sec')];
+  if(!bar) return;
+  if(secs.length < 3){ bar.hidden = true; bar.innerHTML = ''; return; }
+  bar.innerHTML = secs.map(sec => {
+    const num = sec.querySelector('.num')?.textContent || '';
+    const name = sec.querySelector('.name')?.textContent || '';
+    return `<a href="#${sec.id}" data-sec="${sec.id}"><em>${escapeHtml(num)}</em>${escapeHtml(name)}</a>`;
+  }).join('');
+  bar.hidden = false;
+  bar.querySelectorAll('a').forEach(a => a.addEventListener('click', ev => {
+    ev.preventDefault();
+    const sec = document.getElementById(a.dataset.sec);
+    if(!sec) return;
+    sec.open = true;                       // jumping to a closed section is a dead link
+    sec.scrollIntoView({behavior:'smooth', block:'start'});
+    bar.querySelectorAll('a').forEach(x => x.classList.toggle('on', x === a));
+  }));
+}
+
+/* Which mark belongs to which section. Keyed on the title rather than passed
+   at each of the fifteen call sites, so adding a section cannot silently ship
+   without one and the titles stay the single source of what a section is. */
+const SEC_ICON = [
+  [/^the movement/i,          'movement'],
+  [/what we found/i,          'check'],
+  [/not anticipated/i,        'foresight'],
+  [/^the decision/i,          'decision'],
+  [/^monitoring/i,            'monitor'],
+  [/changes if you act/i,     'lever'],
+  [/else moved/i,             'list'],
+  [/chose between/i,          'rank'],
+  [/money went/i,             'split'],
+  [/what failed/i,            'ruled'],
+  [/data came from/i,         'source'],
+  [/receipt/i,                'receipt'],
+  [/review and corrections/i, 'review'],
+  [/not shown/i,              'hidden'],
+];
+function secIcon(title){
+  const hit = SEC_ICON.find(([re]) => re.test(title));
+  return `<svg class="ico" aria-hidden="true"><use href="#i-${hit ? hit[1] : 'list'}"/></svg>`;
+}
+
 function section(title, body, open=false, count=''){
   const n = String(++SECTION_N).padStart(2,'0');
-  return `<details class="sec" ${open?'open':''}><summary>
-      <span class="num">${n}</span><span class="name">${title}</span>
-      ${count?`<span class="count">${count}</span>`:''}</summary>
+  // A stable id per section. The anchor bar is built from these, so a reader
+  // can jump rather than scroll-hunt through twelve of them -- the Fiori object
+  // page convention, and the reason that floorplan survives long documents.
+  const id = 'sec-' + n;
+  return `<details class="sec" id="${id}" ${open?'open':''}><summary>
+      <span class="num">${n}</span>${secIcon(title)}<span class="name">${title}</span>
+      ${count?`<span class="count">${count}</span>`:''}
+      <svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></summary>
     <div class="body">${body}</div></details>`;
 }
 
@@ -2421,9 +3422,9 @@ function section(title, body, open=false, count=''){
 function marginBlock(d){
   if(!d){
     return `<section><span class="label">About</span>
-      <p>Every figure on this page resolves to the query or document behind it.
-         The quantitative layer is deterministic; a model reads, ranks and
-         writes, and never calculates.</p></section>`;
+      <p>Every figure resolves to the query or document behind it. The
+         quantitative layer is deterministic; the model reads, ranks and writes,
+         and never calculates.</p></section>`;
   }
   const t = d.telemetry || {};
   const gap = d.signal_gap || {};
@@ -2443,7 +3444,7 @@ function marginBlock(d){
         ${d.region?`<dt>Region</dt><dd>${escapeHtml(d.region)}</dd>`:''}
       </dl>
     </section>
-    ${rows.length?`<hr class="rule"><section><span class="label">Cost of this run</span>
+    ${rows.length?`<hr class="rule"><section><span class="label">Cost, at a reference rate</span>
       <dl>${rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></section>`:''}
     ${(d.confidence||{}).probability!=null?`<hr class="rule"><section><span class="label">Confidence</span>
       <dl>
@@ -2498,8 +3499,8 @@ function cfoStory(d){
     Confidence is ${escapeHtml(h.confidence)}.</p>`;
 }
 
-/* A regional or channel manager needs the lever they personally hold, and needs
-   to know about the movement they do not hold so they are not surprised by it. */
+/* An area sales manager needs the lever they personally hold, and needs to know
+   about the movement they do not hold so they are not surprised by it. */
 function opsStory(d){
   const mine = d.my_actions, watch = d.watch_only;
   return `
@@ -2577,10 +3578,9 @@ function simulatorBlock(){
         ${s.bounded_by ? `<p class="q bounded">Bounded by ${escapeHtml(s.bounded_by)}.</p>` : ''}
       </article>`;
   }).join('');
-  return section('Impact if the lever is applied', `
-    <p>Projections, not measurements. Each rests on a quantity already measured
-    or a coefficient the contract declares, and every assumption is stated so it
-    can be argued with.</p>${rows}`, false,
+  return section('What changes if you act', `
+    <p>Projections, not measurements. Each rests on a measured quantity or a
+    coefficient the contract declares, with every assumption stated.</p>${rows}`, false,
     `${list.filter(s=>s.available).length} of ${list.length} available`);
 }
 
@@ -2680,7 +3680,15 @@ function receiptBlock(){
         <td class="num">${s.model_calls}</td>
         <td class="q">${s.note ? escapeHtml(prose(s.note)) : ''}</td></tr>`).join('');
   const tot = t.totals;
-  return section('Run receipt', `
+  // Named for the question it answers. A surveyed 10% of Indian finance leaders
+  // say they could not give a regulator or auditor a clear account of what an AI
+  // agent did; this table is that account, and it is produced on every run
+  // rather than assembled afterwards. The heading used to be "Run receipt",
+  // which is accurate and tells a reader nothing about what it is for.
+  return section('What ran, and what the model touched', `
+    <p class="q">Every stage of this diagnosis, in order, with the method class
+    each used and whether a model was called. This is the record an auditor
+    would ask for.</p>
     <table>
       <thead><tr><th>Stage</th><th>Method</th><th class="num">ms</th>
         <th class="num">Model calls</th><th>Note</th></tr></thead>
@@ -2711,7 +3719,13 @@ function chartMarkup(){
       <span style="color:var(--ink)"><i></i>Observed</span>
       <span style="color:var(--ink-3)"><i></i>Expected</span>
       <span style="color:var(--ink-3)"><i class="bandkey"></i>Normal range</span>
-      <span style="color:var(--down)"><i></i>Flagged</span>
+      <!-- Two entries, because the chart draws two things. The dot for a
+           flagged day takes its colour from the direction the day moved, so a
+           single red key told a reader that every flagged point is a fall. On a
+           metric whose only flagged days are rises, that key matched nothing on
+           the chart it was describing. -->
+      <span style="color:var(--down)"><i class="dotkey"></i>Flagged fall</span>
+      <span style="color:var(--up)"><i class="dotkey"></i>Flagged rise</span>
       <span style="margin-left:auto">Scroll to zoom · shift-scroll or drag to move · hover to read</span>
     </div></div>`;
 }
@@ -2720,29 +3734,25 @@ function movementsBlock(){
   const rows = STATE.series.anomalies.slice().sort((a,b)=>a.day<b.day?1:-1).map(a=>`
     <tr class="pickable ${a.day===((STATE.win||{}).worst||{}).day?'picked':''}"
         data-pick="${a.day}" tabindex="0"
-        title="${a.direction==='drop'?'Diagnose this movement':'Rises are not diagnosed'}">
+        title="Diagnose this movement">
       <td><code>${a.day}</code></td>
       <td><span class="pill ${a.direction==='drop'?'no':'ok'}">${a.direction}</span></td>
       <td class="n ${a.delta<0?'down':'up'}">${a.delta<0?'\u2212':'+'}${
         fmtDelta(a.delta, STATE.series.unit)}</td>
       <td class="n ${a.delta<0?'down':'up'}">${pct(a.pct)}</td>
       <td class="n">${a.robust_z>0?'+':''}${a.robust_z.toFixed(2)}</td>
-      <td class="n">${a.direction==='drop'
-        ? (a.day===((STATE.win||{}).worst||{}).day
-            ? '<span class="state ok">diagnosed</span>'
-            : '<span class="linkback">diagnose</span>')
-        : '<span class="na">—</span>'}</td></tr>`).join('');
-  return section('Movements that cleared both materiality tests',
-    `<p>The series is split by MSTL into trend, weekly rhythm and the retail
-     calendar, and anomalies are measured on what is left over using the median
-     and MAD rather than the mean, so an earlier shock does not raise the bar for
-     the next one. A day appears here only if it is statistically unusual
-     <em>and</em> the movement is large enough in rupees to be worth acting on.
-     Both tests must pass: significance alone surfaces movements too small to act
-     on, and size alone surfaces noise that happens to be large.</p>
-     <p>The largest movement is diagnosed by default. Select any other to ask
-     the same question of it; consecutive flagged days are diagnosed together as
-     one event.</p>
+      <td class="n">${a.day===((STATE.win||{}).worst||{}).day
+        ? '<span class="state ok">diagnosed</span>'
+        : '<span class="linkback">diagnose</span>'}</td></tr>`).join('');
+  return section('What else moved that week',
+    `<p>MSTL splits the series into trend, weekly rhythm and the retail calendar.
+     Anomalies are measured on the remainder using the median and MAD rather than
+     the mean, so an earlier shock does not raise the bar for the next one.</p>
+     <p>A day appears only if it is statistically unusual <em>and</em> large
+     enough in rupees to act on. Both tests must pass: significance alone
+     surfaces movements too small to matter, size alone surfaces large noise.</p>
+     <p>The largest movement is diagnosed by default. Select another to ask the
+     same question of it. Consecutive flagged days are diagnosed as one event.</p>
      <div class="scroll"><table><thead><tr><th>Day</th><th>Direction</th>
      <th class="n">Shortfall</th><th class="n">Change</th><th class="n">Robust z</th>
      <th class="n">Diagnosis</th></tr></thead>
@@ -2769,9 +3779,9 @@ function decompositionBlock(){
       <tbody>${rows}</tbody></table></div>`;
   }).join('');
 
-  return section('How the movement breaks down',
-    `<p>Revenue is units times price, so only three things can move it. These are
-     arithmetic rather than estimates, and they add back to the total exactly.</p>
+  return section('Where the money went',
+    `<p>Revenue is units times price, so only three things can move it. These
+     are arithmetic, not estimates, and they add back to the total exactly.</p>
      <div class="scroll"><table><thead><tr><th>Effect</th><th></th>
      <th class="n">Per day</th><th class="n">Share</th></tr></thead><tbody>${legs}
      <tr><td><strong>total</strong></td><td class="muted">observed movement</td>
@@ -2799,11 +3809,22 @@ function candidatesBlock(){
       <p style="margin-bottom:10px"><strong>${x.reason}</strong></p>
       <div class="scroll"><table><tbody>${tests}</tbody></table></div></div>`;
   })).join('');
-  return section('Candidates considered and ruled out',
+  // Nothing considered is a real answer and it used to render as an empty card
+  // under a paragraph about testing, which reads as a section that failed to
+  // load. It happens when no event in the operational record overlaps the
+  // window at all, and that is worth saying rather than leaving blank.
+  const empty = `<p class="emptystate">No candidate causes were generated for
+    this movement. Nothing in the release log, the planning extract or the
+    support record overlaps this window and slice, so there was nothing to
+    test. That is not the same as testing something and finding nothing:
+    the operational record is simply silent here.</p>`;
+  return section('What we tested, and what failed',
     `<p>Candidates come from the operational record with nothing marking which are
-     real. One becomes a claim only by surviving every test that could be run, and
-     a test that could not run is not a test that passed.</p>${items}`,
-    false, `${c.counts.verified} verified · ${c.counts.rejected} rejected`);
+     real. One becomes a claim only by surviving every test that could run, and a
+     test that could not run is not a test that passed.</p>${items || empty}`,
+    false, c.counts.considered
+      ? `${c.counts.verified} verified · ${c.counts.rejected} rejected`
+      : 'none considered');
 }
 
 function freshnessBlock(){
@@ -2813,7 +3834,7 @@ function freshnessBlock(){
     <td>${f.sla_met?'<span class="pill ok">within SLA</span>':'<span class="pill no">breached</span>'}</td></tr>`).join('');
   return section('Where the data came from',
     `<p>When each source last landed, against what it promised. A breach reduces
-     confidence and is stated in the finding rather than hidden here.</p>
+     confidence and is stated in the finding, not just here.</p>
      <div class="scroll"><table><thead><tr><th>Source</th><th>Last landed</th>
      <th class="n">Lag</th><th class="n">SLA</th><th>Status</th></tr></thead>
      <tbody>${rows}</tbody></table></div>`);
@@ -2853,8 +3874,8 @@ function openDrawer({cause,panel}){
       + externalSignals(c);
   } else if(panel==='confidence'){
     html = `<h3>How the score was reached</h3>
-      <p class="muted">Arithmetic over evidence already established. Not a judgement,
-      and not written by a model.</p>
+      <p class="muted">Arithmetic over established evidence. Not a judgement, and
+      not written by a model.</p>
       <table class="components"><tbody>${d.confidence.components.map(x=>`<tr>
         <td class="cname">${sentence(x.name)}</td>
         <td class="cval">${(x.value*100).toFixed(0)}%</td>
@@ -2865,12 +3886,12 @@ function openDrawer({cause,panel}){
           <div><b>${d.confidence.probability}</b>calibrated probability</div>
           <div><b>${d.confidence.calibrated_on}</b>cases fitted on</div>
         </div>
-        <p class="muted">The raw score orders diagnoses; it is a weighted sum and
-        each term is above. The probability is that score passed through an
-        isotonic curve fitted on a held-out half of the benchmark population and
-        never refitted after the test half was scored. Both are shown because a
-        calibrated number that cannot be traced to the arithmetic under it is the
-        opaque figure this engine objects to elsewhere.</p>`
+        <p class="muted">The raw score orders diagnoses: a weighted sum, each
+        term above. The probability is that score through an isotonic curve
+        fitted on a held-out half of the benchmark and never refitted after the
+        test half was scored. Both are shown because a calibrated number you
+        cannot trace to its arithmetic is the opaque figure this engine objects
+        to elsewhere.</p>`
       : `<p class="muted" style="margin-top:var(--sp-5)">This is a score, not a
         probability, and it is labelled as one. No calibration curve is fitted, so
         the engine will not claim that a 0.86 means right 86 times in a hundred.
@@ -2911,14 +3932,13 @@ async function showDocument(docId){
       ${d.ts.slice(0,16).replace('T',' ')} · ${d.length} characters</p>
     ${d.injection_flags.length ? `<p class="pill na" style="margin-top:14px;display:inline-block">
       Contains instruction-like text: ${d.injection_flags.join(', ')}. Read as data.</p>` : ''}
-    <dl class="field"><dt>Full record, exactly as written</dt>
+    ${d.personal_data ? `<p class="muted">${escapeHtml(piiLine(d.personal_data))}</p>` : ''}
+    <dl class="field"><dt>Full record${d.personal_data && d.personal_data.masked.length ? ', personal data masked' : ', exactly as written'}</dt>
       <dd><pre style="white-space:pre-wrap">${escapeHtml(d.text)}</pre></dd></dl>
-    <p class="muted">This is the untrusted source. Nothing inside it is treated as
-      an instruction, and the engine quotes from it rather than paraphrasing.</p>`;
+    <p class="muted">An untrusted source. Nothing inside it is treated as an
+      instruction, and the engine quotes rather than paraphrases.</p>`;
   $('#docback').addEventListener('click',()=>{ $('#dbody').innerHTML = back; wireDocLinks(); });
 }
-
-const escapeHtml = t => t.replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
 
 function closeDrawer(){
   $('#drawer').classList.remove('on'); $('#scrim').classList.remove('on');
@@ -3143,8 +4163,16 @@ function showTip(mouseY){
   t.classList.add('on');
 }
 
-addEventListener('resize',()=>STATE.series&&drawChart());
+addEventListener('resize',()=>{ if(STATE.series) drawChart(); if(STATE.overview) drawSparks(); });
 boot();
+// Back goes to whatever page came before: an entry this page pushed (marked
+// wb, since the first entry also carries a state), or the
+// decision view that opened it. Opened from a link, it goes to the findings.
+document.addEventListener('click', e => {
+  if(!e.target.closest('#crumbback')) return;
+  const fromApp = document.referrer.startsWith(location.origin + '/');
+  if((history.state && history.state.wb) || fromApp) history.back(); else location.href = '/';
+});
 </script>
 </body>
 </html>

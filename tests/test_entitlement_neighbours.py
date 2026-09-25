@@ -36,6 +36,7 @@ def _urls(vertical, region: str) -> list[str]:
         f"/api/candidates?{base}&region={region}&{WINDOW}",
         f"/api/diagnose?{base}&region={region}&{WINDOW}&backend=none",
         f"/api/overview?industry={vertical.id}&region={region}",
+        f"/api/calendar?{base}&region={region}",
     ]
 
 

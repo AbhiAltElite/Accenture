@@ -47,8 +47,13 @@ jobs:
       # developer's `make test` does. Generating the dataset is the repository's
       # own documented first step; running it here means the suite CI reports on
       # is the suite that was written.
-      - name: Generate the warehouse
-        run: PYTHONPATH=. python -m datagen.build
+      # All three industries, and their lineage prepared, as the app ships
+      # them. Retail alone left the petroleum scenario and cache-warmer tests
+      # with no warehouse to read, so CI failed on a demo that works.
+      - name: Generate the warehouses
+        run: |
+          PYTHONPATH=. python -m datagen.build all
+          PYTHONPATH=. python scripts/prepare.py
 
       - name: Test
         run: pytest -q
@@ -57,6 +62,99 @@ jobs:
         # Called out separately so a break here is obvious in the checks list.
         # These must never be skipped or relaxed to pass, see CONTRIBUTING.
         run: pytest -m invariant -q
+
+  desktop-app:
+    name: Desktop app (${{ matrix.os }})
+    # The launcher is what runs on a teammate's laptop at the finale. This is a
+    # clean machine of each kind: no virtualenv, no warehouse, no key. The
+    # launcher builds all of it from nothing, starts the engine and runs its
+    # own check. The model checks are skipped because CI has no key; everything
+    # else, including the entitlement refusal, must pass.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: First run, then the self-check
+        env:
+          WHYCHAIN_APP_QUIET: "1"
+          WHYCHAIN_CHECK_NO_AI: "1"
+          WHYCHAIN_LLM_BACKEND: none
+          # Through the file a person double-clicks on each system, not
+          # launch.py directly: the Windows batch file's Python discovery is
+          # where a transfer to a fresh laptop used to fail.
+          WHYCHAIN_APP_CHECK: "1"
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            Windows) cmd //c 'app\WhyChain.bat' ;;
+            macOS)   ./app/whychain.command ;;
+            Linux)   ./app/whychain.sh ;;
+          esac
+      - name: A second start reuses the installation
+        env:
+          WHYCHAIN_APP_QUIET: "1"
+          WHYCHAIN_CHECK_NO_AI: "1"
+          WHYCHAIN_LLM_BACKEND: none
+        run: python app/launch.py --check
+      - name: An interrupted install is repaired
+        env:
+          WHYCHAIN_APP_QUIET: "1"
+          WHYCHAIN_CHECK_NO_AI: "1"
+          WHYCHAIN_LLM_BACKEND: none
+        shell: bash
+        run: |
+          PYV=.venv/bin/python; [ -x "$PYV" ] || PYV=.venv/Scripts/python.exe
+          rm -f .venv/whychain-ready.json
+          "$PYV" -m pip uninstall -y uvicorn
+          python app/launch.py --check
+
+  offline-package:
+    name: Offline package, Python inside (${{ matrix.target }})
+    # What a team laptop receives from `make package-offline`: its own Python
+    # and every dependency, nothing installed on the machine, no internet. The
+    # runner's own Python only stages the files; the index is pointed at a dead
+    # address so any download fails; and the job fails unless the environment
+    # was built from the bundled interpreter.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: windows-latest, target: win}
+          - {os: macos-latest, target: mac-arm}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Stage the bundled Python and every wheel, as the package carries them
+        run: |
+          python -m pip install -q certifi
+          python app/package.py --stage ${{ matrix.target }}
+      - name: First run through the double-click file, offline
+        env:
+          WHYCHAIN_APP_QUIET: "1"
+          WHYCHAIN_APP_CHECK: "1"
+          WHYCHAIN_CHECK_NO_AI: "1"
+          WHYCHAIN_LLM_BACKEND: none
+          PIP_INDEX_URL: http://127.0.0.1:9/simple
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            Windows) cmd //c 'app\WhyChain.bat' ;;
+            macOS)   ./app/whychain.command ;;
+          esac
+      - name: The environment was built from the bundled Python
+        shell: bash
+        run: |
+          cat .venv/pyvenv.cfg
+          grep -iE "^home = .*runtime" .venv/pyvenv.cfg
 
   attribution:
     name: Attribution

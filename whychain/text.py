@@ -12,6 +12,8 @@ The identifiers themselves stay in the structured fields (`owner`, `driver`,
 
 from __future__ import annotations
 
+import re
+
 
 def plural(n: int, one: str, many: str | None = None) -> str:
     """`1 warning`, `9 warnings`. Never `9 warning(s)`."""
@@ -51,3 +53,17 @@ def sentence_case(text: str) -> str:
     into "the response".
     """
     return text[:1].upper() + text[1:] if text else text
+
+
+def action_text(action: str | None) -> str:
+    """The engine's action as a reader says it.
+
+    "Apply release rollback for channel app, device mobile" is how the card
+    addresses the slice, and it reached the written summary unchanged, as did
+    "for device tank_truck" in petroleum. One wording, used by the prose, the
+    Teams card and the page alike.
+    """
+    text = re.sub(r"for channel (\w+), device (\w+)", r"for the \1 channel on \2 devices", action or "")
+    text = re.sub(r"for device (\w+)", r"for \1", text)
+    text = re.sub(r"for channel (\w+)", r"for the \1 channel", text).replace("_", " ")
+    return sentence_case(text)

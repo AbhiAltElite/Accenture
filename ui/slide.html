@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WhyChain · board-pack slide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* One finding, laid out as a 16:9 board-pack slide and printed to PDF from the
+   browser. It is always light: a board pack is paper. Every figure is read
+   from the same endpoints as the decision view; nothing is typed here. */
+:root{
+  --r-sm:3px; --r-md:5px;--ink:#131c19;--ink-2:#39453f;--ink-3:#5a6661;--line:#d6ddd9;--accent:#0f5a6b;--soft:#dbeaee;
+  --ok:#17644a;--ok-soft:#dcefe5;--unk:#475467;--unk-soft:#e5e9ef;--bad:#a3261d;--bad-soft:#f7e0dd;--warn:#855a0b;--warn-soft:#f7ebd0;
+  --serif:"IBM Plex Serif",Georgia,serif;--sans:"IBM Plex Sans","Segoe UI",sans-serif;--mono:"IBM Plex Mono",Menlo,monospace;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:#e9edeb;font-family:var(--sans);color:var(--ink)}
+.bar{max-width:1280px;margin:16px auto 0;display:flex;gap:10px;align-items:center;padding:0 16px;font-size:14px;color:var(--ink-3)}
+.bar button{font:inherit;border:1px solid #b9c3be;background:#fff;border-radius:var(--r-md);padding:6px 14px;cursor:pointer}
+.bar button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.slide{width:min(1280px,calc(100vw - 32px));aspect-ratio:16/9;margin:14px auto 24px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.12);
+  padding:3.2% 4%;display:grid;grid-template-rows:auto auto 1fr auto;gap:2.2%;overflow:hidden;font-size:clamp(9px,1.1vw,14.5px)}
+.top{display:flex;justify-content:space-between;align-items:center;font-size:.9em;color:var(--ink-3);border-bottom:2px solid var(--ink);padding-bottom:.6em}
+.top b{color:var(--ink);letter-spacing:-.01em}
+h1{font-family:var(--serif);font-size:2.05em;line-height:1.2;margin:.2em 0 0;max-width:36ch}
+.pill{display:inline-flex;align-items:center;gap:.4em;font-size:.85em;font-weight:600;padding:.3em .7em .3em .5em;border-radius:var(--r-sm);border:1px solid currentColor}
+.pill svg{width:1.1em;height:1.1em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}.pill.unk{background:var(--unk-soft);color:var(--unk)}.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.body{display:grid;grid-template-columns:1.45fr 1fr;gap:4%;min-height:0}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:1em;margin-bottom:1.2em}
+.facts div{border-top:1px solid var(--line);padding-top:.4em}
+.facts span{display:block;font-size:.72em;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.facts b{font-family:var(--mono);font-size:1.45em;font-weight:500}
+h2{font-size:.72em;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin:0 0 .5em}
+.cause{display:grid;grid-template-columns:1fr auto;gap:.2em 1em;margin-bottom:.7em}
+.cause .w{font-family:var(--mono)}
+.cause .b{grid-column:1/-1;height:.45em;background:#eef1f0;border-radius:var(--r-sm);overflow:hidden}
+.cause .b i{display:block;height:100%;background:var(--accent)}
+.side p{margin:0 0 .9em;font-size:.95em;line-height:1.45}
+.side b{font-weight:600}
+.foot{display:grid;grid-template-columns:1fr auto;gap:2em;align-items:end;border-top:1px solid var(--line);padding-top:.7em;font-size:.8em;color:var(--ink-3)}
+.sig{text-align:right}
+.sig b{color:var(--ink);font-size:1.15em}
+.sig .changed{color:var(--warn);font-weight:600}
+.mono{font-family:var(--mono)}
+.msg{max-width:720px;margin:40px auto;background:#fff;padding:24px;border-radius:var(--r-md)}
+@page{size:13.333in 7.5in;margin:0}
+@media print{
+  body{background:#fff}
+  .bar{display:none}
+  .slide{width:13.333in;height:7.5in;aspect-ratio:auto;margin:0;box-shadow:none;font-size:13.5px}
+}
+</style>
+</head>
+<body>
+<div class="bar"><button type="button" class="primary" id="print">Print or save as PDF</button><span>Landscape, 16:9. Every figure is read from the engine when this page opens.</span></div>
+<div id="out"><div class="msg">Reading the finding…</div></div>
+<script>
+'use strict';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inr = (n, sign) => { if(n == null || !isFinite(n)) return '–'; const a = Math.abs(n), s = sign ? (n < 0 ? '−' : '+') : '';
+  return a >= 1e7 ? `${s}₹${(a/1e7).toFixed(2)} cr` : `${s}₹${Math.round(a).toLocaleString('en-IN')}`; };
+const pct = x => x == null ? '–' : `${(Math.abs(x)*100).toFixed(1)}%`;
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const dt = s => { const [y,m,d] = String(s).slice(0,10).split('-').map(Number); return `${d} ${MON[m-1]} ${y}`; };
+// "13 to 15 Aug 2026", as the decision view writes a window.
+const span = (a, b) => { if(a === b) return dt(b); const [ya, ma, da] = a.split('-').map(Number), [yb, mb] = b.split('-').map(Number);
+  return ya === yb && ma === mb ? `${da} to ${dt(b)}` : ya === yb ? `${da} ${MON[ma-1]} to ${dt(b)}` : `${dt(a)} to ${dt(b)}`; };
+const human = s => { s = String(s||'').replace(/_/g,' '); return s.charAt(0).toUpperCase() + s.slice(1); };
+const causeText = c => String(c||'').replace(/^[\w.-]+:\s*/, '').replace(/\.$/, '')
+  .replace(/^Promotion ([\w-]+) active in (.+)$/, (m, id, where) => `The ${id.replace(/^promo-/, '').replace(/-/g, ' ')} promotion, running in ${where}`);
+const actionText = a => String(a || '').replace(/for channel (\w+), device (\w+)/, 'for the $1 channel on $2 devices')
+  .replace(/for device (\w+)/, 'for $1').replace(/for channel (\w+)/, 'for the $1 channel').replace(/_/g, ' ');
+let user = 'fpa.analyst'; try{ user = localStorage.getItem('whychain-user') || user; }catch{}
+const get = async p => { const r = await fetch(p, {headers:{'X-WhyChain-User': user}}); return {ok:r.ok, status:r.status, data: await r.json().catch(() => null)}; };
+document.getElementById('print').onclick = () => window.print();
+
+(async () => {
+  const p = new URLSearchParams(location.search);
+  const f = Object.fromEntries(['kpi','region','channel','device','category','start','end','entitled','industry'].map(k => [k, p.get(k) || '']));
+  const q = new URLSearchParams(Object.entries(f).filter(([,v]) => v)).toString();
+  const [d, s, c] = await Promise.all([
+    get(`/api/diagnose?${q}&persona=cfo&backend=none`),
+    get(`/api/series?${new URLSearchParams(Object.entries({kpi:f.kpi, region:f.region, channel:f.channel, device:f.device, category:f.category, industry:f.industry, entitled:f.entitled, from:f.start, to:f.end}).filter(([,v]) => v))}`),
+    get(`/api/candidates?${q}&persona=analyst&backend=none`),
+  ]);
+  const sig = d.ok ? await get(`/api/signoff?${q}&evidence=${encodeURIComponent(d.data.evidence_fingerprint)}`) : {ok:false};
+  // Decision status comes from the audit trail, never from the draft: a slide
+  // that says "awaiting approval" over an accepted decision contradicts the
+  // record it is meant to summarise.
+  const aud = await get(`/api/audit?${new URLSearchParams(Object.entries({kpi:f.kpi, region:f.region, industry:f.industry}).filter(([,v]) => v))}`);
+  const decidedBy = id => ((aud.data && aud.data.entries) || []).find(e => e.event.startsWith('decision_') && e.payload.action_id === id
+    && e.subject.window && e.subject.window.from === f.start && e.subject.window.to === f.end);
+  const out = document.getElementById('out');
+  if(!d.ok){ out.innerHTML = `<div class="msg"><b>No slide for this finding.</b><p>${esc((d.data && (d.data.detail.detail || d.data.detail)) || 'It could not be read.')}</p></div>`; return; }
+  const x = d.data, all = (s.data && s.data.anomalies) || [], drops = all.filter(a => a.delta < 0);
+  const an = (drops.length ? drops : all).reduce((w,a) => !w || Math.abs(a.delta) > Math.abs(w.delta) ? a : w, null);
+  const scope = [f.region || (f.entitled ? `${f.entitled} (your regions)` : 'all regions'), f.channel && `${f.channel} channel`].filter(Boolean).join(', ');
+  const verdict = {explained:['ok','Verified'], unknown:['unk','Unknown'], contradicted:['bad','Contradicted']}[x.verdict] || ['unk', human(x.verdict)];
+  const causes = (x.causes || []).slice().sort((a, b) => Math.abs(b.contribution || 0) - Math.abs(a.contribution || 0));
+  const max = Math.max(1, ...causes.map(k => Math.abs(k.contribution||0)));
+  const n = causes.length;
+  const title = `${human(f.kpi)} in ${scope} ${an ? `${an.delta < 0 ? 'fell' : 'rose'} ${inr(Math.abs(an.delta))} ${an.delta < 0 ? 'short of' : 'above'} expected on ${dt(an.day)}` : 'moved'}. ` +
+    ({explained: `${['No','One','Two','Three','Four','Five'][n] || n} tested cause${n===1?' explains':'s explain'} it.`, unknown: (x.causes || []).length ? 'Causes passed testing but do not explain enough of it; none is proposed.' : 'No cause survived testing; none is proposed.', contradicted:'The two systems disagree; the movement is in question.'}[x.verdict] || '');
+  const g = x.signal_gap || {};
+  const ro = x.recovery_outlook;
+  const signed = sig.ok && sig.data.signed;
+  const rejected = c.ok ? c.data.rejected.length : null;
+  out.innerHTML = `<section class="slide">
+    <div class="top"><span><b>WhyChain</b> · ${esc({retail:'Retail', petroleum:'Petroleum', power:'Power'}[f.industry || 'retail'] || human(f.industry))} · ${esc(human(f.kpi))}, ${esc(scope)} · ${span(f.start, f.end)}</span><span class="pill ${verdict[0]}"><svg viewBox="0 0 24 24" aria-hidden="true">${{ok:'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/>', unk:'<circle cx="12" cy="12" r="9"/><path d="M9.7 9.5a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5v.4"/><path d="M12 16.6v.1"/>', bad:'<path d="M12 3.8 21 19.5H3z"/><path d="M12 10v4"/><path d="M12 16.9v.1"/>'}[verdict[0]] || ''}</svg>${esc(verdict[1])}</span></div>
+    <h1>${esc(title)}</h1>
+    <div class="body">
+      <div>
+        <div class="facts">
+          <div><span>${an && an.delta < 0 ? 'Short of expected' : 'Against expected'}</span><b>${an ? inr(Math.abs(an.delta)) : '–'}</b></div>
+          <div><span>Observed</span><b>${an ? inr(an.observed) : '–'}</b></div>
+          <div><span>Confidence</span><b style="font-family:var(--sans)">${esc(human((x.headline && x.headline.confidence) || '–'))}</b></div>
+        </div>
+        ${causes.length ? `<h2>Verified causes · ₹ a day against the fortnight before, overlapping</h2>
+          ${causes.map(k => `<div class="cause"><span>${esc(causeText(k.cause))}</span><span class="w">${inr(k.contribution, true)}</span><span class="b"><i style="width:${Math.round(Math.abs(k.contribution)/max*100)}%"></i></span></div>`).join('')}` : ''}
+      </div>
+      <div class="side">
+        ${rejected !== null ? `<p><b>Ruled out:</b> ${rejected} alternative${rejected===1?'':'s'} tested and rejected.</p>` : ''}
+        ${x.decision ? (() => { const id = ((x.decisions || [])[0] || {}).approval ? x.decisions[0].approval.action_id : null; const done = id && decidedBy(id);
+          return `<p><b>Decision:</b> ${esc(actionText(x.decision.action))}. Owner: ${esc(human(x.decision.owner).toLowerCase().replace('ecommerce', 'e-commerce'))}. Expected recovery ${inr(x.decision.expected_recovery_inr_per_day)} a day. ${done ? `${esc(human(done.event.replace('decision_', '')))} by ${esc(done.actor.name)}, ${dt(done.at)}.` : 'Awaiting approval; nothing executes.'}</p>`; })() : ''}
+        ${ro ? `<p><b>Recoverable:</b> ${inr(ro.recoverable_inr_per_day)} a day. Monitor only: ${inr(ro.not_actionable_inr_per_day)} a day.</p>` : ''}
+        ${g.verdict === 'gap_found' ? `<p><b>Foreseeable:</b> ${g.actionable_count} public warnings, up to ${Math.round(g.best_lead_time_hours)} hours ahead. The planning process has no step that reads them. Owner of the gap: ${esc(human(g.owner_role).toLowerCase())}.</p>` : ''}
+        ${x.verdict === 'contradicted' ? `<p><b>Next step:</b> data engineering checks the extract before any commercial explanation.</p>` : ''}
+      </div>
+    </div>
+    <div class="foot">
+      <span>Every figure resolves to the query, rows or document behind it. The model calculates no numbers; each one it writes is checked against the evidence. Run <span class="mono">${esc(String(x.run_id).replace(/^run-/, ''))}</span>.</span>
+      <span class="sig">${signed ? `Signed by <b>${esc(signed.actor.name)}</b><br>${dt(signed.at)}, ${esc(signed.at.slice(11,16))} UTC · evidence <span class="mono">${esc(signed.payload.evidence.slice(0,12))}</span>${sig.data.unchanged ? '' : '<br><span class="changed">Evidence has changed since signing</span>'}`
+        : `<b>Not signed</b><br>Awaiting the ${esc(human((sig.ok && sig.data.accountable) || 'finance_director').toLowerCase())}`}</span>
+    </div></section>`;
+})();
+</script>
+</body>
+</html>

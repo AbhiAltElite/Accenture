@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WhyChain · acceptance checks</title>
+<style>
+/* Acceptance checks that run in whatever browser is open, on whatever PC.
+   Each scenario is loaded into the frame below exactly as a presenter would
+   open it, and what the page rendered is compared with what the engine
+   answers for the same request. Nothing here writes: no signature, no
+   decision, no feedback. Those are covered by tests/test_accountability.py. */
+:root{--ink:#131c19;--ink-3:#5a6661;--line:#dbe1de;--ok:#17644a;--ok-soft:#dcefe5;--bad:#a3261d;--bad-soft:#f7e0dd;--warn:#855a0b;--warn-soft:#f7ebd0;--accent:#0f5a6b;--ground:#f2f4f3;--paper:#fff}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;--ink:#e8eeeb;--ink-3:#8d9994;--line:#26302d;--ok:#77c9a1;--ok-soft:#132a20;--bad:#ee8c83;--bad-soft:#331c19;--warn:#dbb066;--warn-soft:#2e2510;--accent:#6cc3d6;--ground:#0e1312;--paper:#151c1a}}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 "IBM Plex Sans",-apple-system,"Segoe UI",sans-serif}
+main{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
+h1{font-size:26px;margin:0 0 4px}
+p{margin:0 0 12px;color:var(--ink-3);max-width:75ch}
+.top{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:14px 0}
+button{font:inherit;font-weight:600;background:var(--accent);color:#fff;border:0;border-radius:5px;padding:8px 16px;cursor:pointer}
+button:disabled{opacity:.5}
+#summary{font-size:18px;font-weight:600}
+.frame{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--paper);height:330px}
+iframe{width:200%;height:660px;border:0;transform:scale(.5);transform-origin:0 0}
+table{border-collapse:collapse;width:100%;background:var(--paper);border:1px solid var(--line);border-radius:6px;margin-top:14px;font-size:14px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+td.r{white-space:nowrap;font-weight:600}
+.pass{color:var(--ok)} .fail{color:var(--bad)} .warn{color:var(--warn)}
+tr.fail td{background:var(--bad-soft)} tr.warn td{background:var(--warn-soft)}
+.ms{font-family:ui-monospace,Menlo,monospace;color:var(--ink-3);font-size:12.5px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Acceptance checks</h1>
+  <p>Every scenario a presenter can open, loaded here the way they would open it, and checked against what the engine answers. Read-only: nothing is signed, decided or recorded. Run it on each laptop before the demo.</p>
+  <div class="top"><button type="button" id="run">Run all checks</button><span id="summary">Not run yet.</span></div>
+  <div class="frame"><iframe id="f" title="Page under test" src="about:blank"></iframe></div>
+  <table><thead><tr><th>Area</th><th>Check</th><th>Result</th><th>Detail</th><th>Time</th></tr></thead><tbody id="rows"></tbody></table>
+</main>
+<script>
+'use strict';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const frame = document.getElementById('f');
+const results = [];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function record(area, check, state, detail, ms){
+  results.push(state);
+  const tr = document.createElement('tr'); tr.className = state;
+  tr.innerHTML = `<td>${esc(area)}</td><td>${esc(check)}</td><td class="r ${state}">${state === 'pass' ? 'Pass' : state === 'warn' ? 'Warning' : 'Fail'}</td><td>${esc(detail)}</td><td class="ms">${ms === undefined ? '' : Math.round(ms) + ' ms'}</td>`;
+  document.getElementById('rows').appendChild(tr);
+  const p = results.filter(x => x === 'pass').length, f = results.filter(x => x === 'fail').length, w = results.filter(x => x === 'warn').length;
+  document.getElementById('summary').textContent = `${p} of ${results.length} pass${f ? `, ${f} failing` : ''}${w ? `, ${w} warning${w === 1 ? '' : 's'}` : ''}`;
+}
+const J = async u => { const r = await fetch(u, {headers:{'X-WhyChain-User':'fpa.analyst'}}); return {status:r.status, d: await r.json().catch(() => null)}; };
+const num = t => Number(String(t).replace(/[^0-9.]/g, ''));
+
+/* Load a page into the frame and wait until it says it is done. */
+let loads = 0;
+async function open(url, ready, limit = 20000){
+  const errors = [];
+  // A unique parameter on every load. Two scenarios can differ only by their
+  // #fragment, and a fragment change is not a navigation: no load event fires
+  // and the wait below never starts. The pages ignore parameters they do not read.
+  const [path, hash] = url.split('#');
+  const fresh = `${path}${path.includes('?') ? '&' : '?'}uat=${++loads}${hash ? '#' + hash : ''}`;
+  await new Promise(res => { frame.onload = res; frame.src = fresh; });
+  const w = frame.contentWindow;
+  w.addEventListener('error', e => errors.push(String(e.message)));
+  w.addEventListener('unhandledrejection', e => errors.push(String(e.reason && (e.reason.message || e.reason))));
+  const t0 = performance.now();
+  while(performance.now() - t0 < limit){
+    try{ if(ready(frame.contentDocument, w)) break; }catch{ /* not yet */ }
+    await sleep(100);
+  }
+  await sleep(300);
+  return {doc: frame.contentDocument, win: w, errors, ms: performance.now() - t0, timedOut: performance.now() - t0 >= limit};
+}
+const SUSPECT = /\bundefined\b|\bNaN\b|\[object Object\]/;
+/* What a reader should never see: engine ids and column names, the house
+   style's banned words, and the slips that make a page look unchecked. */
+const LINT = [
+  [/\bundefined\b|\bNaN\b|\[object Object\]/, 'a broken value'],
+  [/\b[a-z]+_[a-z][a-z_]*\b/, 'a column name'],
+  [/\b(?:rel|wx|promo|comp|pc\d+)-[\w.-]+/, 'an engine id'],
+  [/—/, 'an em dash'],
+  [/root cause/i, '"root cause"'],
+  [/\bnobody\b|\bthe only\b/i, 'an absolute claim'],
+  [/\b(\w+) \1\b/i, 'a doubled word'],
+  [/\b1 (?:alternatives|causes|days|entries|findings|quotes|sentences)\b/, 'a plural after 1'],
+  [/[.!?] [a-z]/, 'a sentence starting in lower case'],
+];
+function lint(text){
+  const found = [];
+  for(const [re, what] of LINT){ const m = text.match(re); if(m) found.push(`${what}: "${text.slice(Math.max(0, m.index - 25), m.index + m[0].length + 25).replace(/\s+/g, ' ')}"`); }
+  return found;
+}
+
+async function service(){
+  const t0 = performance.now();
+  const h = await J('/api/health');
+  record('Service', 'Engine and warehouse', h.d && h.d.status === 'ok' ? 'pass' : 'fail', h.d ? `${h.d.status}, warehouse ${h.d.warehouse}` : `HTTP ${h.status}`, performance.now() - t0);
+  const m = await J('/api/models');
+  const live = (m.d && m.d.backends || []).filter(b => b.available && b.id !== 'none');
+  record('Service', 'Model backend reachable', live.length ? 'pass' : 'warn', live.length ? live.map(b => `${b.label}: ${b.model}`).join('; ') : 'None. Figures are unaffected; prose falls back to templates and the receipt says so.');
+  const t = await J('/api/trackrecord');
+  record('Service', 'Track record from the benchmark', t.d && t.d.cases ? 'pass' : 'fail', t.d ? `${t.d.cases} cases, measured ${t.d.measured_at}` : `HTTP ${t.status}`);
+  const a = await J('/api/audit');
+  record('Service', 'Audit chain intact', a.d && a.d.chain.intact ? 'pass' : 'fail', a.d ? `${a.d.chain.entries} entries${a.d.chain.intact ? '' : `, broken at ${a.d.chain.broken_at}`}` : `HTTP ${a.status}`);
+  for(const ind of ['retail', 'petroleum', 'power']){
+    const o = await J(`/api/overview?industry=${ind}`);
+    record('Service', `Industry: ${ind}`, o.status === 200 && o.d.kpis.length ? 'pass' : 'fail', o.status === 200 ? `${o.d.kpis.length} metrics` : `HTTP ${o.status}`);
+  }
+}
+
+async function decisionView(){
+  const probe = await open('/', (d, w) => Array.isArray(w.WHYCHAIN_SCENARIOS));
+  const SCEN = probe.win.WHYCHAIN_SCENARIOS, link = probe.win.WHYCHAIN_SCENARIO_LINK;
+  const rows = await open('/', d => d.querySelectorAll('.row').length && ![...d.querySelectorAll('.pill')].some(p => p.textContent === 'Checking'));
+  const inboxText = rows.doc.getElementById('view').innerText, inboxLint = lint(inboxText);
+  record('Decision view', 'Findings inbox fills its verdicts, and reads cleanly', rows.doc.querySelectorAll('.row').length && !rows.timedOut && !inboxLint.length ? 'pass' : 'fail',
+    `${rows.doc.querySelectorAll('.row').length} findings${rows.timedOut ? ', verdicts still checking after 20 s' : ''}${inboxLint.length ? '; ' + inboxLint.join('; ') : ''}`, rows.ms);
+  const aud = await open('/?tab=audit', d => d.querySelector('.chain'));
+  const audLint = lint(aud.doc.getElementById('view').innerText);
+  record('Decision view', 'Audit trail reads cleanly', audLint.length ? 'fail' : 'pass', audLint.join('; ') || 'No problems in the text.', aud.ms);
+  for(const persona of ['analyst', 'cfo', 'ops']){
+    for(const s of SCEN){
+      try{ frame.contentWindow.localStorage.setItem('whychain-persona', persona); }catch{}
+      const url = link(s);
+      const q = new URLSearchParams(url.split('?')[1].split('#')[0]);
+      const api = await J(`/api/diagnose?${q}&persona=${persona}&backend=none`);
+      const want = api.status === 403 ? 'Outside your access' : api.status === 422 ? 'Detected, not diagnosed'
+        : {explained:'Verified', unknown:'Unknown', contradicted:'Contradicted'}[api.d.verdict];
+      const pg = await open(url, d => d.querySelector('.pill.big') && !d.querySelector('.loading'));
+      const got = (pg.doc.querySelector('.pill.big') || {}).textContent || 'nothing rendered';
+      const text = pg.doc.getElementById('view').innerText;
+      const problems = [];
+      if(!got.startsWith(want)) problems.push(`shows "${got}", engine says "${want}"`);
+      problems.push(...lint(text));
+      if(pg.errors.length) problems.push(`script error: ${pg.errors[0]}`);
+      if(api.status === 200 && api.d.verdict !== 'contradicted'){
+        const causes = (api.d.verified || api.d.causes || []).map(v => Math.abs(v.contribution)).sort((a, b) => b - a);
+        const shown = [...pg.doc.querySelectorAll('.cause .w')].map(e => e.textContent.includes('cr') ? num(e.textContent) * 1e7 : num(e.textContent));
+        const tol = causes.some(c => c >= 1e7) ? 6e4 : 1;
+        if(causes.length !== shown.length || causes.some((c, i) => Math.abs(Math.round(c) - shown[i]) > tol))
+          problems.push(`causes on screen ${shown.map(Math.round).join(', ') || 'none'} vs engine ${causes.map(Math.round).join(', ')}`);
+      }
+      record(`Decision view · ${({cfo:'finance director', ops:'area sales'})[persona] || 'analyst'}`, s.t, problems.length ? 'fail' : 'pass',
+        problems.join('; ') || `${got}. Figures match the engine.`, pg.ms);
+    }
+  }
+  try{ frame.contentWindow.localStorage.removeItem('whychain-persona'); }catch{}
+}
+
+async function fairTarget(){
+  // The panel's figures against the engine's, on one finding where the only
+  // uncontrollable cause was warned in time and one where it is the whole fall.
+  try{ frame.contentWindow.localStorage.setItem('whychain-persona', 'cfo'); }catch{}
+  for(const [label, w] of [['West, 13 to 15 Aug: one warned condition', {start:'2026-08-13', end:'2026-08-15'}],
+                           ['West, 8 to 12 Jul: the flood is the whole fall', {start:'2026-07-08', end:'2026-07-12'}]]){
+    const q = new URLSearchParams({kpi:'net_revenue', region:'West', industry:'retail', ...w});
+    const ft = (await J(`/api/diagnose?${q}&persona=cfo&backend=none`)).d.fair_target;
+    const pg = await open(`/finding?${q}`, d => d.getElementById('fair') && !d.querySelector('.loading'));
+    const panel = pg.doc.getElementById('fair'), problems = [];
+    if(!panel){ record('Fair target', label, 'fail', 'no panel rendered', pg.ms); continue; }
+    const sums = [...panel.querySelectorAll('.fair-sum b')].map(b => num(b.textContent));
+    const amts = [...panel.querySelectorAll('.fair-amt')].map(e => num(e.textContent));
+    if(sums[0] !== Math.round(Math.abs(ft.net_inr_per_day))) problems.push(`movement ${sums[0]} vs engine ${ft.net_inr_per_day}`);
+    const adjusted = /as adjusted/i.test(panel.innerText);
+    if(!adjusted && sums[1] !== Math.round(Math.abs(ft.policy_inr_per_day))) problems.push(`judged on ${sums[1]} vs engine ${ft.policy_inr_per_day}`);
+    ft.factors.forEach((f, i) => { if(amts[i] !== Math.round(Math.abs(f.amount_inr_per_day))) problems.push(`factor ${amts[i]} vs engine ${f.amount_inr_per_day}`); });
+    if(ft.factors.some(f => f.warned) && !/Warned \d+ h ahead/.test(panel.innerText)) problems.push('a warned condition is not flagged');
+    problems.push(...lint(panel.innerText));
+    if(pg.errors.length) problems.push(`script error: ${pg.errors[0]}`);
+    record('Fair target', label, problems.length ? 'fail' : 'pass',
+      problems.join('; ') || `${ft.factors.length} condition${ft.factors.length === 1 ? '' : 's'}${adjusted ? ', adjusted on the record' : ''}. Figures match the engine.`, pg.ms);
+  }
+  try{ frame.contentWindow.localStorage.removeItem('whychain-persona'); }catch{}
+}
+
+async function queryRows(){
+  // The rows behind the headline figure, in its drawer, and the statement that made them.
+  const pg = await open('/finding?kpi=net_revenue&region=West&start=2026-08-13&end=2026-08-15&industry=retail',
+    d => d.querySelector('[data-ev="movement"]') && !d.querySelector('.loading'));
+  const problems = [];
+  const fig = pg.doc.querySelector('[data-ev="movement"]');
+  if(!fig) problems.push('the headline figure opens nothing');
+  else {
+    const mark = pg.doc.querySelector('.facts .trend');
+    if(!mark || !/below expected/.test(mark.textContent) || !mark.classList.contains('bad')) problems.push('the headline has no unfavourable down mark');
+    fig.click();
+    const t0 = performance.now();
+    while(performance.now() - t0 < 15000 && !pg.doc.querySelector('#rowsbody table') && !pg.doc.querySelector('#rowsbody .err')) await sleep(100);
+    const box = pg.doc.getElementById('rowsbody'), text = box ? box.innerText : '';
+    if(!/Reproduced/.test(text)) problems.push(`not reproduced: "${text.slice(0, 120)}"`);
+    const here = box && box.querySelector('tr.here td.n');
+    const observed = (pg.doc.querySelectorAll('.facts > div')[1] || {}).textContent || '';
+    if(!here) problems.push('the figure on the page is not marked in the rows');
+    else if(num(here.textContent) !== num(observed)) problems.push(`the marked row ${here.textContent} is not the observed figure`);
+    if(box && !box.querySelector('.trend')) problems.push('no against-expected marks in the rows');
+    problems.push(...lint(text));
+  }
+  const refused = await J('/api/rows?kpi=net_revenue&region=West&start=2026-08-13&end=2026-08-15&industry=retail&entitled=South');
+  if(refused.status !== 403) problems.push(`a South reader asking for West got ${refused.status}`);
+  if(pg.errors.length) problems.push(`script error: ${pg.errors[0]}`);
+  record('Query and rows', 'The figure opens its rows; the query reproduces them; entitlement holds', problems.length ? 'fail' : 'pass',
+    problems.join('; ') || 'Reproduced, the observed figure is its own row, and West is refused to a South reader.', pg.ms);
+
+  const mp = await open('/?tab=metrics&kpi=net_revenue', d => d.querySelector('.mlist'));
+  const mt = mp.doc.getElementById('view').innerText, mprob = [];
+  for(const want of ['Definition', 'Where it comes from', 'Who may see it', 'Freshness', 'The query', 'Up is good'])
+    if(!mt.toLowerCase().includes(want.toLowerCase())) mprob.push(`missing "${want}"`);  // headings render in capitals
+  if(mp.doc.querySelectorAll('.mlist nav a').length < 5) mprob.push('fewer than five metrics listed');
+  if(mp.errors.length) mprob.push(`script error: ${mp.errors[0]}`);
+  record('Metrics', 'Net revenue: definition, lineage, access, freshness and query', mprob.length ? 'fail' : 'pass',
+    mprob.join('; ') || `${mp.doc.querySelectorAll('.mlist nav a').length} metrics, each from its contract.`, mp.ms);
+
+  const fl = await open('/?dir=spike', d => d.querySelectorAll('.row').length || d.querySelector('.empty'));
+  const rows = [...fl.doc.querySelectorAll('.row')], fprob = [];
+  if(!rows.length) fprob.push('no rises listed');
+  if(rows.some(r => !r.querySelector('.trend.good'))) fprob.push('a rise without a favourable up mark');
+  if(!fl.doc.querySelector('[data-filter="dir"]') || fl.doc.querySelector('[data-filter="dir"]').value !== 'spike') fprob.push('the filter does not show the choice');
+  const fall = await open('/', d => d.querySelectorAll('.row').length);
+  if([...fall.doc.querySelectorAll('.row')].some(r => !r.querySelector('.trend.bad'))) fprob.push('a fall without an unfavourable down mark');
+  record('Findings filters', 'Rises and falls are marked by direction and by good or bad', fprob.length ? 'fail' : 'pass',
+    fprob.join('; ') || `${rows.length} rises marked up and favourable; falls marked down and unfavourable.`, fl.ms);
+}
+
+async function navigation(){
+  // Back returns to the page before; the workbench link keeps the finding.
+  // "All", not the default tab: a finding someone has signed leaves "Needs a
+  // decision", and the check is about navigation, not about the demo's state.
+  const inbox = await open('/?tab=all', d => d.querySelectorAll('.row').length);
+  const row = [...inbox.doc.querySelectorAll('.row')].find(r => /13 to 15 Aug/.test(r.textContent));
+  const problems = [];
+  if(!row) problems.push('the West 13 to 15 Aug finding is not in the inbox');
+  else {
+    (row.closest('a') || row.querySelector('a') || row).click();
+    const t0 = performance.now();
+    while(performance.now() - t0 < 15000 && !inbox.doc.querySelector('.back')) await sleep(100);
+    const link = [...inbox.doc.querySelectorAll('a.btn')].find(a => /workbench/i.test(a.textContent));
+    const href = link ? link.getAttribute('href') : '';
+    if(!/region=West/.test(href) || !/day=2026-08-15/.test(href)) problems.push(`workbench link "${href}" drops the finding`);
+    const back = inbox.doc.querySelector('.back');
+    if(!back) problems.push('no Back button on the finding');
+    else {
+      back.click(); await sleep(1500);
+      const at = inbox.win.location.pathname;
+      if(at !== '/') problems.push(`Back went to ${at}, not the inbox`);
+    }
+  }
+  if(inbox.errors.length) problems.push(`script error: ${inbox.errors[0]}`);
+  record('Navigation', 'Back returns to the inbox; the workbench opens on the finding', problems.length ? 'fail' : 'pass',
+    problems.join('; ') || 'Back to the inbox, and the workbench link carries West and 15 Aug.');
+}
+
+/* ---------- value sweep ----------
+   Every figure the decision view shows, on every finding in every industry,
+   compared with the engine's own response. The formatter is written out again
+   here rather than borrowed from the page, so a page that formats the wrong
+   number cannot pass by formatting it consistently. */
+const MON_U = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const dtU = x => { const [y,m,d] = String(x).slice(0,10).split('-').map(Number); return `${d} ${MON_U[m-1]} ${y}`; };
+const inrU = (n, sign=false) => { const a = Math.abs(n), sg = sign ? (n < 0 ? '−' : '+') : '';
+  return a >= 1e7 ? `${sg}₹${(a/1e7).toFixed(2)} cr` : `${sg}₹${Math.round(a).toLocaleString('en-IN')}`; };
+const pctU = x => `${(Math.abs(x)*100).toFixed(1)}%`;
+const qsU = o => new URLSearchParams(Object.entries(o).filter(([,v]) => v !== null && v !== undefined && v !== '')).toString();
+function worstU(ser, f){
+  const inWin = (ser.anomalies || []).filter(a => a.day >= f.start && a.day <= f.end);
+  if(!inWin.length) return null;
+  const drops = inWin.filter(a => a.delta < 0), pool = drops.length ? drops : inWin;
+  return pool.reduce((w, a) => Math.abs(a.delta) > Math.abs(w.delta) ? a : w);
+}
+function shift(day, n){ const d = new Date(day); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+
+async function valueSweep(){
+  for(const ind of ['retail', 'petroleum', 'power']){
+    try{ frame.contentWindow.localStorage.setItem('whychain-industry', ind); frame.contentWindow.localStorage.setItem('whychain-persona', 'cfo'); }catch{}
+    const tri = (await J(`/api/triage?industry=${ind}&limit=12&days=365`)).d;
+    const inb = await open('/?tab=all', d => d.querySelectorAll('.row').length && ![...d.querySelectorAll('.pill')].some(x => x.textContent === 'Checking'), 30000);
+    const itext = inb.doc.getElementById('view').innerText, ip = [];
+    tri.findings.forEach(f => {
+      if(!itext.includes(inrU(f.impact_inr_per_day))) ip.push(`${f.region} ${f.start}: amount ${inrU(f.impact_inr_per_day)} not shown`);
+      if(!itext.includes(`${pctU(f.pct)} ${f.delta < 0 ? 'below' : 'above'} expected`)) ip.push(`${f.region} ${f.start}: ${pctU(f.pct)} not shown`);
+    });
+    // The headline is revenue short, and only that (B-060): a finding the
+    // ledger disputes and a metric priced at a declared rate are shown beside
+    // it, not inside it. Verdicts are read the way the page reads them.
+    const falls = tri.findings.filter(f => f.direction !== 'rise');
+    const verdictOf = {};
+    for(const f of falls.filter(x => x.diagnosable))
+      verdictOf[f.region + f.start + f.kpi_id] = ((await J(`/api/diagnose?${qsU({kpi: f.kpi_id, region: f.region, start: f.start, end: f.end, industry: ind, persona: 'cfo', backend: 'none'})}`)).d || {}).verdict;
+    const sum = fs => fs.reduce((a, f) => a + f.impact_inr_per_day * (f.days || 1), 0);
+    const disputed = falls.filter(f => verdictOf[f.region + f.start + f.kpi_id] === 'contradicted');
+    const money = falls.filter(f => f.unit === 'INR' && !disputed.includes(f)), rated = falls.filter(f => f.unit !== 'INR' && !disputed.includes(f));
+    const days = money.reduce((a, f) => a + (f.days || 1), 0);
+    if(!itext.includes(inrU(sum(money)))) ip.push(`revenue shortfall ${inrU(sum(money))} not shown`);
+    if(!itext.includes(`over ${days} flagged days`)) ip.push(`${days} flagged days not shown`);
+    if(disputed.length && !itext.includes(`${inrU(sum(disputed))} more the ledger disputes`)) ip.push(`disputed ${inrU(sum(disputed))} not shown beside the total`);
+    if(rated.length && !itext.includes(`${inrU(sum(rated))} more at contract rates`)) ip.push(`${inrU(sum(rated))} at contract rates not shown beside the total`);
+    if(!itext.includes(`of ${tri.total} detected`)) ip.push(`${tri.total} detected not shown`);
+    record(`Values · ${ind}`, `Findings list: ${tri.findings.length} amounts, directions and the totals`, ip.length ? 'fail' : 'pass', ip.join('; ') || 'Every amount, percentage and total equals the engine.', inb.ms);
+
+    for(const persona of ['cfo', 'analyst', 'ops'])
+    for(const f of tri.findings.filter(x => x.diagnosable)){
+      try{ frame.contentWindow.localStorage.setItem('whychain-persona', persona); }catch{}
+      const who = {cfo: 'finance director', analyst: 'analyst', ops: 'area sales'}[persona];
+      const q = {kpi: f.kpi_id, region: f.region, start: f.start, end: f.end, industry: ind};
+      const [dg, se] = await Promise.all([
+        J(`/api/diagnose?${qsU({...q, persona, backend: 'none'})}`),
+        J(`/api/series?${qsU({kpi: f.kpi_id, region: f.region, industry: ind, from: shift(f.start, -45), to: shift(f.end, 10)})}`)]);
+      const pg = await open(`/finding?${qsU(q)}`, d => d.querySelector('.pill.big') && !d.querySelector('.loading'), 30000);
+      const view = pg.doc.getElementById('view'), text = view ? view.innerText : '', facts = (pg.doc.querySelector('.facts') || {}).innerText || '';
+      const pr = [], d = dg.d || {};
+      if(dg.status !== 200) pr.push(`engine answered ${dg.status}`);
+      const w = se.d ? worstU(se.d, f) : null;
+      if(w){
+        const h1 = (pg.doc.querySelector('h1') || {}).textContent || '';
+        if(!h1.includes(inrU(Math.abs(w.delta))) || !h1.includes(dtU(w.day))) pr.push(`headline "${h1.slice(0, 80)}" is not ${inrU(Math.abs(w.delta))} on ${dtU(w.day)}`);
+        for(const [label, v] of [['shortfall', Math.abs(w.delta)], ['observed', w.observed], ['expected', w.expected]])
+          if(!facts.includes(inrU(v))) pr.push(`${label} ${inrU(v)} missing from the facts`);
+        if(!facts.includes(`${pctU(w.pct)} ${w.delta < 0 ? 'below' : 'above'} expected`)) pr.push(`${pctU(w.pct)} mark missing`);
+      }
+      const mv = d.movement || {};
+      if(isFinite(mv.total_change) && !facts.includes(inrU(mv.total_change, true))) pr.push(`across the window ${inrU(mv.total_change, true)} missing`);
+      const rc = d.reconciliation;
+      if(rc && rc.state && rc.state !== 'not_reconciled' && !facts.includes(pctU(rc.worst_residual))) pr.push(`ledger ${pctU(rc.worst_residual)} missing`);
+      const g = d.signal_gap;
+      if(g && g.verdict === 'gap_found' && !text.includes(`${g.actionable_count} actionable, up to ${Math.round(g.best_lead_time_hours || 0)} hours ahead`)) pr.push(`gap ${g.actionable_count} warnings, ${Math.round(g.best_lead_time_hours || 0)} h missing`);
+      (d.decisions || []).filter(c => c.approval && c.expected_recovery_inr_per_day).forEach(c => {
+        if(!text.includes(inrU(c.expected_recovery_inr_per_day))) pr.push(`recovery ${inrU(c.expected_recovery_inr_per_day)} missing`);
+      });
+      const ft = d.fair_target;
+      if(ft && ft.factors && ft.factors.length && !text.includes(inrU(ft.policy_inr_per_day, true))) pr.push(`fair target ${inrU(ft.policy_inr_per_day, true)} missing`);
+      // Inside the drawers, on the analyst's view where every one is present.
+      const drawer = async (key) => { const b = pg.doc.querySelector(`[data-ev="${CSS.escape(key)}"]`); if(!b) return null;
+        // Dispatched rather than .click(): a bar in the bridge is an SVG group,
+        // which has no click() method, and is wired the same way as a button.
+        b.dispatchEvent(new MouseEvent('click', {bubbles: true})); await sleep(250); const box = pg.doc.querySelector('#layer .drawer'); const found = box ? box.cloneNode(true) : null;
+        const x = pg.doc.querySelector('#layer [data-close]'); if(x) x.click(); await sleep(100); return found; };
+      if(persona === 'analyst' && d.verdict === 'explained'){
+        for(const v of d.verified || []){
+          const t = await drawer(`cause:${v.candidate_id}`);
+          if(!t) pr.push(`no tests drawer for ${v.candidate_id}`);
+          else if(t.querySelectorAll('table.t tbody tr').length !== (v.tests || []).length) pr.push(`${v.candidate_id}: ${t.querySelectorAll('table.t tbody tr').length} tests shown of ${(v.tests || []).length}`);
+          if((v.citations || []).length){
+            const c = await drawer(`quotes:${v.candidate_id}`);
+            if(!c || c.querySelectorAll('.quote').length !== v.citations.length) pr.push(`${v.candidate_id}: quotes shown ${c ? c.querySelectorAll('.quote').length : 0} of ${v.citations.length}`);
+          }
+        }
+        if(g && g.verdict === 'gap_found'){
+          const sg = await drawer('signals');
+          if(!sg || sg.querySelectorAll('table.t tbody tr').length !== (g.signals || []).length) pr.push(`warnings drawer shows ${sg ? sg.querySelectorAll('table.t tbody tr').length : 0} of ${(g.signals || []).length}`);
+        }
+      }
+      if(persona === 'cfo'){
+        const cal = (await J(`/api/calendar?${qsU({kpi: f.kpi_id, region: f.region, industry: ind, from: shift(f.start, -14), to: f.end, ahead: 45})}`)).d;
+        const summ = [...pg.doc.querySelectorAll('#calendar summary')].map(x => x.textContent).join(' ');
+        if(cal){
+          const total = cal.behind.filter(e => e.day <= f.end).length + cal.ahead.length;
+          if(!new RegExp(`\\b${total} events`).test(summ)) pr.push(`calendar says "${summ}", engine has ${total} events`);
+        }
+      }
+      if(d.verdict === 'explained' && persona === 'cfo'){
+        const sl = await open(`/slide?${qsU(q)}`, x => x.querySelector('.slide h1') || x.querySelector('.msg b'), 20000);
+        const st = sl.doc.querySelector('.slide') ? sl.doc.querySelector('.slide').innerText : '';
+        if(w && !st.includes(inrU(Math.abs(w.delta)))) pr.push(`slide does not show ${inrU(Math.abs(w.delta))}`);
+        (d.verified || d.causes || []).forEach(v => { if(!st.includes(inrU(v.contribution, true))) pr.push(`slide missing cause ${inrU(v.contribution, true)}`); });
+      }
+      pr.push(...lint(text));
+      if(pg.errors.length) pr.push(`script error: ${pg.errors[0]}`);
+      record(`Values · ${ind} · ${who}`, `${f.kpi_id}, ${f.region}, ${dtU(f.start)} to ${dtU(f.end)} (${d.verdict || dg.status})`, pr.length ? 'fail' : 'pass',
+        pr.join('; ') || 'Headline, facts, ledger, gap, recoveries, fair target and slide equal the engine.', pg.ms);
+    }
+
+    const cat = (await J(`/api/catalog?industry=${ind}`)).d, mp = [];
+    for(const m of cat.metrics){
+      const pg = await open(`/?tab=metrics&kpi=${m.kpi_id}`, x => x.querySelector('.mlist'));
+      const t = pg.doc.getElementById('view').innerText;
+      if(!t.includes(m.definition.slice(0, 40))) mp.push(`${m.kpi_id}: definition not shown`);
+      if(!t.toLowerCase().includes(`version ${m.version}`)) mp.push(`${m.kpi_id}: version ${m.version} not shown`);
+      m.freshness.forEach(x => { if(!t.includes(`${x.sla_hours} h`) || !t.includes(`${x.lag_hours} h`)) mp.push(`${m.kpi_id}: ${x.source} freshness not shown`); });
+      if(!t.includes(inrU(m.materiality.min_abs_delta_inr))) mp.push(`${m.kpi_id}: materiality floor not shown`);
+      m.lineage.forEach(l => { if(!t.includes(l.name)) mp.push(`${m.kpi_id}: lineage step ${l.name} missing`); });
+    }
+    record(`Values · ${ind}`, `Metrics page: ${cat.metrics.length} definitions against their contracts`, mp.length ? 'fail' : 'pass', mp.join('; ') || 'Definition, version, freshness, materiality and lineage equal the contracts.');
+  }
+  try{ frame.contentWindow.localStorage.setItem('whychain-industry', 'retail'); frame.contentWindow.localStorage.removeItem('whychain-persona'); }catch{}
+}
+
+async function workbench(){
+  const probe = await open('/workbench', (d, w) => Array.isArray(w.WHYCHAIN_DEMOS));
+  const DEMOS = probe.win.WHYCHAIN_DEMOS;
+  const expect = {blanked: 'Outside your entitlement'};
+  for(const d of DEMOS){
+    const pg = await open(`/kpi/${d.kpi}?demo=${d.id}`, doc => {
+      const h = doc.getElementById('headline');
+      return h && h.textContent.trim() && doc.getElementById('main').getAttribute('aria-busy') === 'false';
+    });
+    const h = (pg.doc.getElementById('headline') || {}).textContent || '';
+    const secs = pg.doc.querySelectorAll('#rest .sec').length;
+    const problems = [];
+    if(!h.trim()) problems.push('no headline rendered');
+    if(expect[d.id] && !h.includes(expect[d.id])) problems.push(`headline "${h}"`);
+    if(!expect[d.id] && secs < 3) problems.push(`only ${secs} sections rendered`);
+    if(d.id === 'gap' && ![...pg.doc.querySelectorAll('#rest .sec')].some(s => /not anticipated/i.test(s.textContent) && /gap found/i.test(s.textContent)))
+      problems.push('the signal gap section is not on the page');
+    const day = (h.match(/\d{4}-\d{2}-\d{2}/) || [])[0];
+    if(day && !expect[d.id]){
+      // The workbench prints exact rupees for the analyst, never crores, and
+      // withholds observed against expected when the two systems disagree.
+      const exact = n => `₹${Math.round(Math.abs(n)).toLocaleString('en-IN')}`;
+      const sq = qsU({kpi: d.kpi, region: d.region, channel: d.channel, device: d.device, category: d.category, industry: d.industry, entitled: d.entitled, from: day, to: day});
+      const sr = (await J(`/api/series?${sq}`)).d;
+      const i = sr && sr.days ? sr.days.findIndex(x => x.startsWith(day)) : -1;
+      const lede = pg.doc.getElementById('main').innerText;
+      if(i >= 0 && sr.unit === 'INR'){
+        const gap = exact(sr.observed[i] - sr.expected[i]);
+        if(/unconfirmed/.test(h)){ if(!lede.includes(gap)) problems.push(`impact ${gap} on ${day} not shown`); }
+        else if(!lede.includes(exact(sr.observed[i])) || !lede.includes(exact(sr.expected[i])))
+          problems.push(`observed ${exact(sr.observed[i])} or expected ${exact(sr.expected[i])} on ${day} not shown`);
+      }
+    }
+    if(pg.errors.length) problems.push(`script error: ${pg.errors[0]}`);
+    record('Workbench', d.label, problems.length ? 'fail' : 'pass', problems.join('; ') || `${h.slice(0, 90)} · ${secs} sections`, pg.ms);
+  }
+  try{ frame.contentWindow.localStorage.setItem('whychain-industry', 'retail'); }catch{}
+}
+
+async function slide(){
+  const pg = await open('/slide?kpi=net_revenue&region=West&start=2026-08-13&end=2026-08-15&industry=retail', d => d.querySelector('.slide h1') || d.querySelector('.msg b'));
+  const h = pg.doc.querySelector('.slide h1');
+  const sl = h ? lint(pg.doc.querySelector('.slide').innerText) : ['no slide rendered'];
+  record('Board-pack slide', 'West, 13 to 15 Aug', h && !pg.errors.length && !sl.length ? 'pass' : 'fail',
+    sl.join('; ') || h.textContent.slice(0, 100), pg.ms);
+}
+
+document.getElementById('run').onclick = async e => {
+  e.target.disabled = true; results.length = 0; document.getElementById('rows').innerHTML = '';
+  const t0 = performance.now();
+  for(const step of [service, decisionView, fairTarget, queryRows, navigation, valueSweep, workbench, slide]){
+    try{ await step(); }catch(err){ record('Harness', step.name, 'fail', String(err && err.message || err)); }
+  }
+  frame.src = 'about:blank';
+  document.getElementById('summary').textContent += ` · ${Math.round((performance.now() - t0) / 1000)} s`;
+  e.target.disabled = false;
+};
+if(new URLSearchParams(location.search).get('run') === '1') document.getElementById('run').click();
+</script>
+</body>
+</html>

@@ -1,0 +1,1835 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WhyChain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* The decision view. The workbench (/workbench) is the analyst's full method
+   page; this is the page a finance reader acts from. It is built around one
+   question per screen: what needs a decision, and can I sign this one.
+
+   Colour carries meaning and nothing else. Evergreen: verified, and the one
+   primary action. Ochre: a figure that opens its evidence. Slate: unknown.
+   Red: contradicted or refused. A refusal gets the same visual weight as a
+   verified answer, because it is an answer. */
+:root{
+  --r-sm:3px; --r-md:5px; --r-lg:8px;
+  --ground:#f2f4f3; --paper:#ffffff; --raised:#f7f9f8; --sunk:#e8ecea;
+  --ink:#131c19; --ink-2:#39453f; --ink-3:#5a6661; --ink-4:#7f8a85;
+  --line:#dbe1de; --line-2:#c1cac6;
+ 
+  --accent:#0f5a6b; --accent-ink:#0a4250; --accent-soft:#dbeaee;
+  --evidence:#8a5712; --evidence-soft:#f6ebd9;
+  --ok:#17644a; --ok-soft:#dcefe5; --unk:#475467; --unk-soft:#e5e9ef;
+  --bad:#a3261d; --bad-soft:#f7e0dd; --warn:#855a0b; --warn-soft:#f7ebd0;
+  --serif:"IBM Plex Serif",Georgia,serif; --sans:"IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --ground:#0e1312; --paper:#151c1a; --raised:#1a2220; --sunk:#202a27;
+  --ink:#e8eeeb; --ink-2:#b8c3be; --ink-3:#8d9994; --ink-4:#6a7571;
+  --line:#26302d; --line-2:#36423e;
+  --accent:#6cc3d6; --accent-ink:#9adbe8; --accent-soft:#10292f;
+  --evidence:#dcaa66; --evidence-soft:#2e2313;
+  --ok:#77c9a1; --ok-soft:#132a20; --unk:#aab5c5; --unk-soft:#1f2530;
+  --bad:#ee8c83; --bad-soft:#331c19; --warn:#dbb066; --warn-soft:#2e2510;
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#0e1312; --paper:#151c1a; --raised:#1a2220; --sunk:#202a27;
+  --ink:#e8eeeb; --ink-2:#b8c3be; --ink-3:#8d9994; --ink-4:#6a7571;
+  --line:#26302d; --line-2:#36423e;
+  --accent:#6cc3d6; --accent-ink:#9adbe8; --accent-soft:#10292f;
+  --evidence:#dcaa66; --evidence-soft:#2e2313;
+  --ok:#77c9a1; --ok-soft:#132a20; --unk:#aab5c5; --unk-soft:#1f2530;
+  --bad:#ee8c83; --bad-soft:#331c19; --warn:#dbb066; --warn-soft:#2e2510;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6}
+button,select,input,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* The masthead, shared with the workbench: the same three destinations, the
+   same controls in the same order, on every page. */
+.shell{position:sticky;top:0;z-index:20;background:var(--ground);color:var(--ink);
+  display:flex;align-items:stretch;gap:12px;padding:0 20px;min-height:54px;flex-wrap:wrap;
+  border-bottom:1px solid var(--line-2)}
+.shell .brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;
+  padding-right:18px;border-right:1px solid var(--line)}
+.shell .brand b{font-size:18px;font-weight:600;letter-spacing:-.015em}
+.shell .brand span{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.shell nav{display:flex;gap:2px}
+.shell nav a{display:flex;align-items:center;color:var(--ink-3);text-decoration:none;font-size:14px;padding:0 10px;border-bottom:2px solid transparent;margin-bottom:-1px}
+.shell nav a[aria-current="page"]{color:var(--ink);font-weight:600;border-bottom-color:var(--accent)}
+.shell nav a:hover{color:var(--ink)}
+.shell .sp{flex:1}
+/* Four destinations and four controls: the subtitle and a label give way
+   before anything wraps onto a second line. */
+@media (max-width:1560px){.shell .brand span{display:none}.shell .brand{padding-right:12px}}
+@media (max-width:1320px){.shell .lab{display:none}}
+.shell .grp{display:flex;align-items:center;gap:8px}
+.shell .lab{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.shell select{background:var(--paper);border:1px solid var(--line-2);color:var(--ink);border-radius:var(--r-sm);padding:3px 8px;font-size:13px}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:var(--r-sm);overflow:hidden;background:var(--paper)}
+.seg button{border:0;background:transparent;color:var(--ink-3);font-size:13px;padding:4px 10px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);font-weight:500}
+.themebtn{border:1px solid var(--line-2);background:var(--paper);color:var(--ink-3);border-radius:var(--r-sm);font-size:13px;padding:4px 10px;cursor:pointer;min-width:58px}
+.themebtn:hover{color:var(--ink)}
+.onpage{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;margin:18px 2px 0;font-size:14px}
+.onpage span{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.onpage a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}
+.onpage a:hover{border-bottom-color:var(--accent)}
+#why,#gap,#calendar,#decide,#fair{scroll-margin-top:72px}
+.viewnote{font-size:14px;color:var(--ink-3);margin:10px 0 0}
+/* The chain. Links are rounded like a chain's, joined by a ring; a broken one
+   is red and dashed, and the ring into it is broken too. Every state carries a
+   word and an icon as well as a colour. */
+#chain,#fishbone{scroll-margin-top:72px}
+.fbd > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
+.fbd > summary::-webkit-details-marker{display:none}
+.fbd > summary::after{content:'Show';font-size:12px;color:var(--accent);margin-left:auto}
+.fbd[open] > summary::after{content:'Hide'}
+.fbd > summary h2{margin:0}
+.fbd[open] > summary{margin-bottom:14px}
+.chain-lede{margin:0 0 14px;font-size:15px;line-height:1.55;color:var(--ink-2)}
+.whychain{display:flex;list-style:none;margin:0;padding:6px 2px 4px;overflow-x:auto}
+.whychain li{flex:1 1 0;min-width:112px;display:flex}
+.whychain li + li{margin-left:16px;position:relative}
+.whychain li + li::before{content:'';position:absolute;left:-24px;top:50%;width:30px;height:12px;transform:translateY(-50%);
+  border:2.5px solid var(--line-2);border-radius:var(--r-lg);z-index:0}
+.whychain li:has(.held) + li:has(.held)::before{border-color:var(--ok)}
+.whychain li + li:has(.broken)::before{border-color:var(--bad);border-style:dashed}
+.whychain .link{position:relative;z-index:1;flex:1;text-align:left;cursor:pointer;font:inherit;color:var(--ink);
+  background:var(--paper);border:2.5px solid var(--line-2);border-radius:var(--r-lg);padding:10px 12px 12px;min-width:0;overflow-wrap:anywhere;display:flex;flex-direction:column;gap:3px}
+.whychain .link:disabled{cursor:default}
+.whychain .link:not(:disabled):hover{background:var(--raised)}
+.whychain .link .k{display:flex;align-items:center;gap:5px;font-size:10.5px;letter-spacing:.05em;white-space:nowrap;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.whychain .link .k svg{width:13px;height:13px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.whychain .link b{font-size:14px;line-height:1.3;font-weight:600}
+.whychain .link small{font-size:12.5px;line-height:1.35;color:var(--ink-3)}
+.whychain .link.held{border-color:var(--ok)}
+.whychain .link.held .k{color:var(--ok)}
+.whychain .link.open,.whychain .link.withheld{border-style:dashed;border-color:var(--ink-4)}
+.whychain .link.broken{border-color:var(--bad);border-style:dashed;background:var(--bad-soft)}
+.whychain .link.broken .k{color:var(--bad)}
+.whychain .link.skipped{border-style:dotted;border-color:var(--line-2);opacity:.55}
+@media (max-width:760px){
+  .whychain{flex-direction:column;overflow:visible}
+  .whychain li + li{margin:18px 0 0}
+  .whychain li + li::before{left:28px;top:-26px;width:14px;height:34px;transform:none}
+}
+/* The bridge. Totals in the ink, a step against the metric's good direction in
+   the bad tone and with it in the good one, the unexplained remainder hatched
+   and neutral: the colour carries direction and the label carries the figure. */
+#bridge{scroll-margin-top:72px}
+.wf{display:block;width:100%;min-width:640px;height:auto;font-family:var(--sans)}
+.wf .wf-axis{stroke:var(--line-2);stroke-width:1.5}
+.wf .wf-link{stroke:var(--ink-4);stroke-width:1.2;stroke-dasharray:3 3}
+.wf .wf-break{stroke:var(--paper);stroke-width:3;fill:none}
+.wf .wf-bar rect{rx:var(--r-sm)}
+.wf .total rect{fill:var(--ink-3)}
+.wf .bad rect{fill:var(--bad)}
+.wf .good rect{fill:var(--ok)}
+.wf .rest rect{fill:var(--unk-soft);stroke:var(--unk);stroke-width:1.5;stroke-dasharray:4 3}
+.wf .wf-v{fill:var(--ink);font-size:13px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.wf .wf-l{fill:var(--ink-3);font-size:12px}
+.wf [data-ev]{cursor:pointer}
+.wf [data-ev]:hover rect,.wf [data-ev]:focus rect{opacity:.82}
+.wf [data-ev]:focus{outline:none}
+.wf [data-ev]:focus-visible rect{stroke:var(--accent);stroke-width:2.5}
+/* The fishbone. Drawn in the page's own tokens so it follows the theme; wide
+   content scrolls in its own box rather than the page. */
+.fishwrap{overflow-x:auto}
+.fish{display:block;width:100%;min-width:760px;height:auto;font-family:var(--sans)}
+.fish .fb-spine{stroke:var(--ink-3);stroke-width:3.5;stroke-linecap:round}
+.fish .fb-tail{stroke:var(--ink-3);stroke-width:3;fill:none;stroke-linecap:round}
+.fish .fb-bone{stroke:var(--line-2);stroke-width:2.2}
+.fish .fb-cat{fill:var(--ink-3);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.fish .fb-empty{fill:var(--ink-4);font-size:12px;font-style:italic}
+.fish .fb-head{fill:var(--raised);stroke:var(--ink-3);stroke-width:2}
+.fish .fb-h1{fill:var(--ink);font-size:14px;font-weight:600}
+.fish .fb-h2{fill:var(--ink);font-size:17px;font-family:var(--mono)}
+.fish .fb-h3{fill:var(--ink-3);font-size:12px}
+.fish .fb-e line{stroke:var(--line-2);stroke-width:1.5}
+.fish .fb-e text{fill:var(--ink-2);font-size:12.5px}
+.fish .fb-e .fb-note{fill:var(--ink-3);font-size:11.5px}
+.fish .fb-e .fb-m{font-weight:700}
+.fish .fb-e.verified text:first-of-type{fill:var(--ink);font-weight:600}
+.fish .fb-e.verified .fb-m{fill:var(--ok)}
+.fish .fb-e.untestable .fb-m{fill:var(--unk)}
+.fish .fb-e.rejected text:first-of-type{text-decoration:line-through;text-decoration-color:var(--bad)}
+.fish .fb-e.rejected .fb-m{fill:var(--bad)}
+.fish .fb-e.aside text{fill:var(--ink-4)}
+.fishkey{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 0}
+.fb-k.verified{color:var(--ok)}.fb-k.rejected{color:var(--bad)}.fb-k.untestable{color:var(--unk)}
+.demo-chip{font-family:var(--mono);font-size:11px;color:var(--warn);border:1px solid var(--warn);border-radius:var(--r-sm);padding:0 5px}
+
+main{max-width:1240px;margin:0 auto;padding:28px 24px 96px}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(23px,2.2vw,29px);line-height:1.3;margin:14px 0 6px;text-wrap:balance;max-width:48ch}
+h2{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin:0 0 16px}
+.muted{color:var(--ink-3)}
+.small{font-size:14.5px;line-height:1.55}
+
+/* Status: an icon and a word in a squared tag. The icon carries the meaning
+   as well as the colour, so the state reads for a colour-blind reader and in a
+   greyscale print, and nothing here is decoration. */
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;line-height:1;
+  padding:4px 8px 4px 6px;border-radius:var(--r-sm);white-space:nowrap;border:1px solid transparent}
+.pill svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pill.ok{background:var(--ok-soft);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 28%,transparent)}
+.pill.unk{background:var(--unk-soft);color:var(--unk);border-color:color-mix(in srgb,var(--unk) 28%,transparent)}
+.pill.bad{background:var(--bad-soft);color:var(--bad);border-color:color-mix(in srgb,var(--bad) 28%,transparent)}
+.pill.warn{background:var(--warn-soft);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 28%,transparent)}
+.pill.idle{background:var(--sunk);color:var(--ink-3);border-color:var(--line-2)}
+.pill.big{font-size:14.5px;padding:6px 12px 6px 9px;gap:8px}
+.pill.big svg{width:17px;height:17px}
+.ev{color:var(--evidence);background:none;border:0;padding:0;border-bottom:1.5px dotted var(--evidence);cursor:pointer}
+.ev:hover{background:var(--evidence-soft)}
+.ailabel{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--ink-3);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:0 6px;margin-left:4px;white-space:nowrap}
+
+/* buttons */
+.btn{border:1px solid var(--line-2);background:var(--paper);color:var(--ink);border-radius:var(--r-md);padding:7px 14px;font-size:14px;font-weight:500;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn.primary:hover{background:var(--accent-ink)}
+.btn.sm{font-size:12.5px;padding:3px 10px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+/* panels */
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:24px 26px}
+.stack{display:grid;gap:20px;align-content:start}
+
+/* inbox */
+.track{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 22px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 20px;font-size:14.5px;color:var(--ink-2)}
+.track b{font-family:var(--mono);color:var(--ink)}
+.track .t{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:20px 0 28px}
+.summary div{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:18px 20px}
+.summary dt{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.summary dd{margin:3px 0 0;font-size:22px;font-weight:600}
+.summary dd small{font-size:13px;color:var(--ink-3);font-weight:400}
+.bar-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:0}
+.trend{display:inline-flex;align-items:center;gap:3px;font-weight:600;white-space:nowrap}
+.trend svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.trend.good{color:var(--ok)}.trend.bad{color:var(--bad)}.trend.neutral{color:var(--unk)}
+.filters{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:12px 0 14px;font-size:14px;color:var(--ink-3)}
+.filters label{display:inline-flex;align-items:center;gap:6px}
+.filters select{border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--paper);color:var(--ink);padding:3px 6px;font:inherit}
+.filters .clear{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;padding:0}
+.mlist{display:grid;grid-template-columns:260px minmax(0,1fr);gap:20px;align-items:start;margin-top:14px}
+.mlist > *{min-width:0}
+.mlist nav{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.mlist nav a{display:block;padding:12px 16px;border-bottom:1px solid var(--line);color:var(--ink-2);text-decoration:none}
+.mlist nav a[aria-current="true"]{background:var(--accent-soft);color:var(--ink);font-weight:600;box-shadow:inset 3px 0 0 var(--accent)}
+.mlist nav a small{display:block;color:var(--ink-3);font-weight:400;font-size:13px}
+.chain{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0 0}
+.chain code{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-sm);padding:3px 8px;font-size:13px}
+.chain i{font-style:normal;color:var(--ink-4)}
+.kv2{display:grid;grid-template-columns:200px minmax(0,1fr);gap:10px 20px;margin:0;font-size:14.5px}
+.kv2 dt{color:var(--ink-3)}.kv2 dd{margin:0}
+.rowsbox{margin-top:12px}
+.rowsbox .tabs{border-bottom:1px solid var(--line);margin:14px 0 12px}
+.rowsbox table{width:100%;border-collapse:collapse;font-size:14px}
+.rowsbox th{text-align:left;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line-2)}
+.rowsbox td{padding:6px 10px;border-bottom:1px solid var(--line)}
+.rowsbox td.num,.rowsbox th.num{text-align:right}
+.rowsbox tr.base td{color:var(--ink-3)}
+.rowsbox tr.here td{background:var(--evidence-soft)}
+.rowsbox .scroll{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:var(--r-sm)}
+.rowsbox .scroll thead th{position:sticky;top:0;background:var(--paper);z-index:1}
+.rowsbox .scroll td,.rowsbox .scroll th{white-space:nowrap}
+.sqlbox{margin:0;padding:14px 16px;font:13px/1.55 var(--mono);color:var(--ink);background:var(--raised);white-space:pre;overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:var(--r-sm)}
+.rowsbox pre{margin:0;padding:14px 16px;font:13px/1.55 var(--mono);color:var(--ink);background:var(--raised);white-space:pre;overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:var(--r-sm)}
+.rowsbox .bar2{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
+.tabs{display:flex;gap:20px}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 0;color:var(--ink-3);cursor:pointer;font-size:14.5px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink);font-weight:600}
+details.scen{position:relative}
+details.scen summary{list-style:none;cursor:pointer;font-size:13.5px;color:var(--accent);padding:8px 0}
+details.scen summary::-webkit-details-marker{display:none}
+details.scen .menu{position:absolute;right:0;top:100%;z-index:10;background:var(--paper);border:1px solid var(--line-2);border-radius:var(--r-md);box-shadow:0 8px 28px rgba(0,0,0,.14);padding:6px;width:min(380px,90vw)}
+details.scen .menu a{display:block;text-decoration:none;color:var(--ink);padding:7px 10px;border-radius:var(--r-md);font-size:14px}
+details.scen .menu a:hover{background:var(--raised)}
+details.scen .menu small{display:block;color:var(--ink-3);font-size:12.5px}
+.list{background:var(--paper);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--r-md) var(--r-md);overflow:hidden}
+.row{display:grid;grid-template-columns:160px minmax(0,1fr) 140px 220px;gap:20px;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+.row:last-child{border-bottom:0}
+.row:hover{background:var(--raised)}
+.row .t{font-weight:600}
+.row .t{font-size:16px}
+.row .s{font-size:14px;line-height:1.5;color:var(--ink-3)}
+.row .status{font-size:14.5px;line-height:1.45;color:var(--ink-2)}
+.row .status b{font-weight:600;color:var(--ink)}
+.row .r{text-align:right}
+.empty{padding:28px 16px;color:var(--ink-3);text-align:center}
+.audit-row{display:grid;grid-template-columns:170px 190px minmax(0,1fr) 110px;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);font-size:13.5px;align-items:start}
+.audit-row:last-child{border-bottom:0}
+.chain{display:flex;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);font-size:13.5px}
+
+/* finding */
+.crumbs{font-size:14px;color:var(--ink-3);display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.back{display:inline-flex;align-items:center;gap:4px;margin-right:12px;padding:5px 11px 5px 7px;font:inherit;font-size:14px;font-weight:600;
+  color:var(--ink-2);background:var(--paper);border:1px solid var(--line-2);border-radius:var(--r-sm);cursor:pointer}
+.back:hover{color:var(--ink);border-color:var(--ink-3)}
+.back svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.crumbs a{color:var(--ink-3)}
+.head{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:32px;align-items:start}
+/* Three by two, aligned: facts in a wrapping row jagged into four and two,
+   and the row with the longest caption set the width of the rest. */
+.facts{display:grid;grid-template-columns:repeat(3,minmax(0,max-content));column-gap:56px;row-gap:22px;margin-top:24px}
+.facts small.cap{display:block;font-size:13px;color:var(--ink-3);font-weight:400;font-family:var(--sans);margin-top:2px}
+.facts div{display:grid}
+.facts > div > span{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.facts > div{gap:4px;align-content:start}
+.facts b{font-size:19px;font-weight:600}
+.facts b.lead{font-size:24px}
+.actions{display:grid;gap:8px}
+.actions{gap:10px;align-content:start}
+.actions .who{font-size:13px;line-height:1.4;color:var(--ink-3);margin:-2px 0 6px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.signed-bar{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin-top:20px;padding:12px 16px;border-radius:var(--r-md);background:var(--ok-soft);color:var(--ok);font-size:14.5px}
+.signed-bar.changed{background:var(--warn-soft);color:var(--warn)}
+.grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:20px;margin-top:20px;align-items:start}
+.cause{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 16px;padding:18px 0;border-bottom:1px solid var(--line)}
+.cause:first-of-type{padding-top:0}
+.cause .d{font-weight:600}
+.cause .w{text-align:right;font-size:15px}
+.cause .bar{grid-column:1/-1;height:7px;border-radius:var(--r-sm);background:var(--sunk);overflow:hidden}
+.cause .bar i{display:block;height:100%;background:var(--accent)}
+.cause .meta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:14px;color:var(--ink-3)}
+.cause .fb{margin-left:auto;display:flex;gap:6px;align-items:center}
+.fblab{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-4);margin-right:4px}
+.note{font-size:14.5px;line-height:1.6;color:var(--ink-2);margin:16px 0 0;max-width:68ch}
+.narr{margin:18px 0 0;padding-top:14px;border-top:1px dashed var(--line-2);font-size:15.5px;line-height:1.65}
+.narr summary{cursor:pointer;color:var(--ink-2)}
+.ruled li{margin:0 0 16px;font-size:15px;line-height:1.55}
+.ruled li:last-child{margin-bottom:0}
+.ruled li s{color:var(--ink-3)}
+.gapline{font-weight:600;margin:0 0 16px}
+details.more{margin-top:16px}
+details.more summary{cursor:pointer;font-size:14px;color:var(--accent)}
+details.more p{margin:10px 0 0}
+.dcard{border:1px solid var(--line);border-radius:var(--r-md);padding:16px 18px;background:var(--raised)}
+.dcard + .dcard{margin-top:14px}
+.dcard .t{font-weight:600}
+.dcard .t{font-size:16px}
+.dcard .m{font-size:14.5px;line-height:1.55;color:var(--ink-2);margin-top:6px}
+.dcard .done-note{border-left:3px solid var(--ok, #3fa46a);padding-left:10px}
+.dcard .row2{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center}
+.dcard .state{font-size:13px;font-weight:600;color:var(--ok)}
+.withheld{font-size:14.5px;color:var(--ink-3);border:1px dashed var(--line-2);border-radius:var(--r-md);padding:14px 18px}
+.refusal{max-width:680px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:10px 18px;font-size:15px;line-height:1.5}
+.kv dt{color:var(--ink-3)}
+.kv dd{margin:0}
+table.t{border-collapse:collapse;width:100%;font-size:14.5px}
+table.t th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding:6px 8px;border-bottom:1px solid var(--line-2)}
+table.t td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t th.n{text-align:right}
+table.t td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.loading{color:var(--ink-3);padding:30px 0}
+.fair-sum{display:grid;grid-template-columns:repeat(3,minmax(0,max-content));column-gap:56px;row-gap:16px;margin:0 0 18px}
+.fair-sum > div{display:grid;gap:4px;align-content:start}
+.fair-sum span{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.fair-sum b{font-size:19px;font-weight:600}
+.fair-sum small.cap{display:block;font-size:13px;color:var(--ink-3)}
+.fair-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:18px;align-items:center;padding:14px 0;border-top:1px solid var(--line)}
+.fair-amt{font-size:15px;text-align:right}
+.cal{width:100%;height:auto;display:block}
+.cal .tk{stroke:var(--line);stroke-width:1}
+.cal text{font-family:var(--mono);font-size:11px;fill:var(--ink-3)}
+.cal .al{font-family:var(--sans);font-size:11px;fill:var(--ink-3)}
+.cal .win{fill:var(--evidence-soft)}
+.cal .ahead{fill:var(--raised)}
+.cal .m.warn{fill:var(--warn)} .cal .m.ok{fill:var(--ok)} .cal .m.unk{fill:var(--unk)}
+.cal-list{list-style:none;padding:0;margin:0}
+.cal-list li{padding:12px 0;border-bottom:1px solid var(--line);font-size:15px;line-height:1.5}
+.cal-list li:last-child{border-bottom:0}
+.callout{border-left:3px solid var(--evidence);background:var(--evidence-soft);padding:14px 18px;border-radius:0 var(--r-md) var(--r-md) 0;font-size:15px;line-height:1.6;margin:8px 0 14px;max-width:80ch}
+
+/* drawer and modal */
+.scrim{position:fixed;inset:0;background:rgba(8,14,12,.36);z-index:40}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(500px,100%);background:var(--paper);border-left:1px solid var(--line-2);z-index:41;padding:28px;overflow-y:auto;box-shadow:-10px 0 30px rgba(0,0,0,.12);font-size:15px;line-height:1.6}
+.drawer .x{position:absolute;top:14px;right:14px}
+.drawer h3{font-family:var(--serif);font-size:19px;margin:0 36px 10px 0}
+.drawer blockquote{margin:8px 0;padding:10px 12px;background:var(--evidence-soft);border-radius:var(--r-md);font-size:14px}
+.drawer mark{background:transparent;color:var(--evidence);font-weight:600;border-bottom:2px solid var(--evidence)}
+.quote{display:block;width:100%;text-align:left;background:var(--raised);border:1px solid var(--line);border-radius:var(--r-md);padding:8px 10px;margin:0 0 8px;cursor:pointer;font-size:14px}
+.quote:hover{border-color:var(--evidence)}
+.quote .id{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+.modal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:rgba(8,14,12,.45)}
+.modal .box{background:var(--paper);border-radius:var(--r-md);border:1px solid var(--line-2);width:min(580px,100%);max-height:90vh;overflow-y:auto;padding:28px 30px;line-height:1.6}
+.modal h3{font-family:var(--serif);font-size:21px;margin:0 0 10px}
+.modal ul{padding-left:20px;margin:8px 0}
+.modal li{margin-bottom:10px;font-size:15px}
+.modal textarea{width:100%;min-height:64px;border:1px solid var(--line-2);border-radius:var(--r-md);padding:8px;background:var(--raised)}
+.modal .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+.err{color:var(--bad);font-size:14px;margin-top:8px}
+.ac{border:1px solid var(--line-2);border-radius:var(--r-md);padding:12px 14px;background:var(--raised)}
+.ac .h{font-weight:600}
+.spark{width:100%;height:auto;display:block}
+.spark .obs{fill:none;stroke:var(--ink);stroke-width:1.6}
+.spark .exp{fill:none;stroke:var(--accent);stroke-width:1.2;stroke-dasharray:4 3}
+.spark .band{fill:var(--accent-soft)}
+.spark .win{fill:var(--evidence-soft)}
+.spark text{font-family:var(--mono);font-size:10px;fill:var(--ink-3)}
+
+@media (max-width:900px){
+  .facts{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}
+  .head,.grid{grid-template-columns:1fr}
+  .row{grid-template-columns:1fr auto}
+  .row .hide-s{display:none}
+  .audit-row{grid-template-columns:1fr}
+  .mlist,.kv2{grid-template-columns:minmax(0,1fr)}
+  .kv2 dd{margin-bottom:8px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<header class="shell">
+  <a class="brand" href="/" data-nav><b>WhyChain</b><span>Diagnostic engine</span></a>
+  <nav aria-label="Primary">
+    <a href="/" data-nav id="nav-findings">Findings</a>
+    <a href="/?tab=audit" data-nav id="nav-audit">Audit trail</a>
+    <a href="/?tab=metrics" data-nav id="nav-metrics">Metrics</a>
+    <a href="/workbench" id="nav-workbench">Workbench</a>
+  </nav>
+  <span class="sp"></span>
+  <div class="grp"><div class="seg" id="industry" role="group" aria-label="Industry"></div></div>
+  <div class="grp"><span class="lab">View as</span>
+    <div class="seg" role="group" aria-label="View as">
+      <button type="button" data-persona="cfo">Finance director</button>
+      <button type="button" data-persona="analyst">Analyst</button>
+      <button type="button" data-persona="ops">Area sales</button>
+    </div></div>
+  <div class="grp"><button type="button" class="themebtn" id="theme" title="Appearance: follows the system, light or dark">Auto</button></div>
+  <div class="grp" id="actor"></div>
+</header>
+<main id="view" aria-live="polite"></main>
+<div id="layer"></div>
+
+<script>
+'use strict';
+/* ---------- state ---------- */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v === null ? d : v; }catch{ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, v); }catch{ /* private window */ } },
+};
+const S = {
+  industry: store.get('whychain-industry', 'retail'),
+  persona: store.get('whychain-persona', 'cfo'),
+  user: store.get('whychain-user', 'finance.director'),
+  me: null, industries: [], kpis: {}, track: null,
+  verdicts: new Map(), token: 0,
+};
+const PERSONA_NAME = {cfo:'Finance director', analyst:'Analyst', ops:'Area sales manager'};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- formatting ---------- */
+function inr(n, {sign=false, exact=false}={}){
+  if(n === null || n === undefined || !isFinite(n)) return '–';
+  const a = Math.abs(n), s = sign ? (n < 0 ? '−' : '+') : '';
+  if(!exact && a >= 1e7) return `${s}₹${(a/1e7).toFixed(2)} cr`;
+  return `${s}₹${Math.round(a).toLocaleString('en-IN')}`;
+}
+const pct = (x, d=1) => (x === null || x === undefined || !isFinite(x)) ? '–' : `${(Math.abs(x)*100).toFixed(d)}%`;
+/* Direction by the arrow's shape, good or bad by its colour: the IBCS
+   convention, and what a metric layer asks a definition to declare. A rise in
+   a metric where down is good is a red up-arrow. Within the expected range is
+   a flat line in neutral grey, not green: nothing happened. */
+const TREND_PATH = {up:'<path d="M12 19V5M6 11l6-6 6 6"/>', down:'<path d="M12 5v14M6 13l6 6 6-6"/>', flat:'<path d="M5 12h14"/>'};
+function trend(dir, favourable, text){
+  const tone = dir === 'flat' || favourable === 'neutral' ? 'neutral' : (dir === 'up') === (favourable !== 'down') ? 'good' : 'bad';
+  const said = {up:'Up', down:'Down', flat:'Within the expected range'}[dir] + (tone === 'neutral' ? '' : tone === 'good' ? ', favourable' : ', unfavourable');
+  return `<span class="trend ${tone}" title="${said}"><svg viewBox="0 0 24 24" role="img" aria-label="${said}">${TREND_PATH[dir]}</svg>${text}</span>`;
+}
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const when = iso => `${dt(iso)}, ${String(iso).slice(11,16)} UTC`;
+function dt(s){ const [y,m,d] = String(s).slice(0,10).split('-').map(Number); return `${d} ${MON[m-1]} ${y}`; }
+function span(a, b){
+  if(!b || a === b) return dt(a);
+  const [ya,ma] = a.split('-'), [yb,mb] = b.split('-');
+  const da = Number(a.slice(8,10));
+  if(ya === yb && ma === mb) return `${da} to ${dt(b)}`;
+  if(ya === yb) return `${da} ${MON[Number(ma)-1]} to ${dt(b)}`;
+  return `${dt(a)} to ${dt(b)}`;
+}
+const human = id => { const s = String(id||'').replace(/_/g,' '); return s.charAt(0).toUpperCase() + s.slice(1); };
+const ROLE = {ecommerce_lead:'E-commerce lead', fpa_analyst:'FP&A analyst'};
+const roleName = r => ROLE[r] || human(r);
+const KPI = {aov:'Average order value', on_time_delivery:'On-time delivery'};
+const kpiName = k => KPI[k] || human(k);
+const causeText = c => String(c||'').replace(/^[\w.-]+:\s*/, '').replace(/\.$/, '')
+  // "Promotion promo-monsoon-sale active in East, South, West"
+  .replace(/^Promotion ([\w-]+) active in (.+)$/, (m, id, where) => `The ${id.replace(/^promo-/, '').replace(/-/g, ' ')} promotion, running in ${where}`);
+const cap = t => { t = String(t || ''); return t.charAt(0).toUpperCase() + t.slice(1); };
+// Engine sentences name things by id. Each id the run knows is replaced with
+// the words a reader knows it by, longest first so "rel-4.05" wins over "4.05".
+function plain(text, d){
+  let t = String(text || '');
+  const names = [];
+  const short = t => causeText(t).split(/[:;]/)[0].split(' ').slice(0, 5).join(' ');
+  (d && d.verified || []).forEach(v => names.push([v.candidate_id, short(v.description)]));
+  (d && d.set_aside || []).forEach(v => names.push([v.candidate_id, causeText(v.description || v.candidate_id)]));
+  // One pass, whole ids only, any case: the engine capitalises an id that
+  // starts its sentence, and a shorter id must never match inside a longer one
+  // or inside a name already put in its place.
+  if(names.length){
+    const byId = new Map(names.map(([id, name]) => [id.toLowerCase(), name]));
+    const alt = names.map(([id]) => id).sort((a, b) => b.length - a.length)
+      .map(id => id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    t = t.replace(new RegExp(`(?<![\\w.-])(${alt})(?![\\w-]|\\.\\w)`, 'gi'), m => byId.get(m.toLowerCase()) || m);
+  }
+  return cap(t.replace(/\bfinance_ledger\b/g, 'the finance ledger').replace(/\bchannel (store|app|web)\b/g, 'the $1 channel')
+    .replace(/(\d[\d,]*) rupees per day/g, (m, n) => `${inr(Number(n.replace(/,/g, '')))} a day`));
+}
+const actionText = a => cap(String(a || '')
+  .replace(/for channel (\w+), device (\w+)/, 'for the $1 channel on $2 devices')
+  .replace(/for device (\w+)/, 'for $1').replace(/for channel (\w+)/, 'for the $1 channel').replace(/_/g, ' '));
+const REASON = {'failed placebo': 'Failed the placebo test: no larger than on ordinary weeks',
+  'failed difference in differences': 'Failed the comparison with regions it did not touch',
+  'failed event time isolation': 'Failed the timing test: the movement began before it did',
+  'failed exposure consistency': 'Failed consistency: not every exposed region moved'};
+const reasonText = r => REASON[String(r).toLowerCase()] || cap(r);
+function confidence(p){
+  if(p === null || p === undefined) return '–';
+  // Isotonic calibration returns 1.0 in its top bin. Nothing here is certain,
+  // so the page never says it is.
+  return p >= 0.95 ? 'above 0.95' : p.toFixed(2);
+}
+const VERDICT = {
+  explained:['ok','Verified'], unknown:['unk','Unknown'], contradicted:['bad','Contradicted'],
+  cannot_verify:['warn','Cannot verify'], detected:['idle','Detected, not diagnosed'],
+  refused:['bad','Outside your access'],
+};
+const ICON = {
+  explained:'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/>',
+  unknown:'<circle cx="12" cy="12" r="9"/><path d="M9.7 9.5a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5v.4"/><path d="M12 16.6v.1"/>',
+  contradicted:'<path d="M12 3.8 21 19.5H3z"/><path d="M12 10v4"/><path d="M12 16.9v.1"/>',
+  cannot_verify:'<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>',
+  refused:'<rect x="5.5" y="10.5" width="13" height="9.5" rx="1.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
+  detected:'<path d="M3 12h4l2.5-6 5 12 2.5-6h4"/>',
+  checking:'<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>',
+  signed:'<path d="M4 17.5c3-.2 4.5-3.5 6-7 1 3.5 2.2 5 3.5 5 1.2 0 1.8-1.5 3-1.5 1 0 1.5.8 3.5 1"/><path d="M4 20.5h16"/>',
+};
+const svg = k => ICON[k] ? `<svg viewBox="0 0 24 24" aria-hidden="true">${ICON[k]}</svg>` : '';
+const pill = (v, big, text) => { const [c,t] = VERDICT[v] || ['idle', human(v)]; return `<span class="pill ${c}${big?' big':''}">${svg(v)}${esc(text || t)}</span>`; };
+
+/* ---------- api ---------- */
+async function api(path, opts={}){
+  const headers = {'X-WhyChain-User': S.user, ...(opts.body ? {'Content-Type':'application/json'} : {})};
+  try{
+    const res = await fetch(path, {...opts, headers});
+    const data = await res.json().catch(() => null);
+    return {ok: res.ok, status: res.status, data};
+  }catch(e){ return {ok:false, status:0, data:null}; }
+}
+const qs = o => new URLSearchParams(Object.entries(o).filter(([,v]) => v !== null && v !== undefined && v !== '')).toString();
+const detail = r => { const d = r.data && r.data.detail; return typeof d === 'string' ? d : (d && (d.refused || d.detail)) || `request failed (${r.status})`; };
+
+/* ---------- shell ---------- */
+async function shell(){
+  const [ind, me, track] = await Promise.all([api('/api/industries'), api('/api/me'), api('/api/trackrecord')]);
+  S.industries = (ind.data && ind.data.industries) || [];
+  if(!S.industries.some(i => i.id === S.industry)) S.industry = (ind.data && ind.data.default) || 'retail';
+  renderIndustry();
+  initTheme();
+  S.me = me.data; S.track = track.ok ? track.data : null;
+  renderActor(); markPersona();
+  document.querySelectorAll('[data-persona]').forEach(b => b.onclick = () => {
+    S.persona = b.dataset.persona; store.set('whychain-persona', S.persona); markPersona(); route();
+  });
+}
+function renderIndustry(){
+  // Short names in the bar, the full one on hover: three industries at full
+  // length pushed the reader's own name onto a second line.
+  $('#industry').innerHTML = S.industries.map(i => `<button type="button" data-industry="${esc(i.id)}" title="${esc(i.label)}" aria-pressed="${i.id === S.industry}">${esc(i.label.split(' ')[0])}</button>`).join('');
+  $('#industry').querySelectorAll('button').forEach(b => b.onclick = () => {
+    if(b.dataset.industry === S.industry) return;
+    S.industry = b.dataset.industry; store.set('whychain-industry', S.industry); S.verdicts.clear(); renderIndustry(); go('/');
+  });
+}
+// One button that steps Auto, Light, Dark: the same setting the workbench
+// offers, in a third of the space.
+function initTheme(){
+  const order = ['auto', 'light', 'dark'], btn = $('#theme');
+  const apply = t => { if(t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+    btn.textContent = cap(t); btn.setAttribute('aria-label', `Appearance: ${t}`); };
+  let cur = store.get('whychain-theme', 'auto'); apply(cur);
+  btn.onclick = () => { cur = order[(order.indexOf(cur) + 1) % 3]; store.set('whychain-theme', cur); apply(cur); };
+}
+// The perspective each seat reads from. Signing in as someone opens their view;
+// "View as" can still override it, and the page says when it has been.
+// A decision owner needs to see the card they own. The finance director's view
+// shows the one decision being backed, so the category manager signed in there
+// could not see, let alone accept, the pricing decision assigned to them.
+const ROLE_VIEW = {finance_director:'cfo', fpa_analyst:'analyst', area_sales_manager:'ops',
+  ecommerce_lead:'analyst', category_manager:'analyst'};
+function renderActor(){
+  const me = S.me; if(!me) return;
+  const who = me.identity;
+  if(me.mode === 'demo'){
+    $('#actor').innerHTML = `<select id="user" aria-label="Signed in as" title="Signed in as (demo identity: no single sign-on is connected)">${me.demo_users.map(u => `<option value="${esc(u.id)}"${u.id===who.id?' selected':''}>${esc(u.name.replace(' (demo)',''))}</option>`).join('')}</select>
+      <span class="demo-chip" title="No single sign-on is connected. Every record made here is marked as a demo identity.">Demo</span>`;
+    $('#user').onchange = async e => { S.user = e.target.value; store.set('whychain-user', S.user); S.me = (await api('/api/me')).data;
+      const v = ROLE_VIEW[S.me.identity.role]; if(v){ S.persona = v; store.set('whychain-persona', v); markPersona(); }
+      renderActor(); route(); };
+  }else{
+    $('#actor').innerHTML = `<span class="lab">Signed in</span><span>${esc(who.name)}</span><span class="demo-chip" style="color:var(--ok);border-color:var(--ok)">SSO</span>`;
+  }
+}
+function markPersona(){ document.querySelectorAll('[data-persona]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.persona === S.persona))); }
+const myRole = () => S.me && S.me.identity ? S.me.identity.role : null;
+const myName = () => S.me && S.me.identity ? S.me.identity.name : '';
+
+/* ---------- routing ---------- */
+// Marked so Back knows an app page is behind this one. A finding opened from a
+// shared link has none, and Back then goes to the inbox rather than off the app.
+function go(url){ history.pushState({inapp:true}, '', url); route(); }
+function back(fallback){ if(history.state && history.state.inapp) history.back(); else go(fallback); }
+const backBtn = fallback => `<button type="button" class="back" data-back="${esc(fallback)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</button>`;
+let routed = location.pathname + location.search;
+addEventListener('popstate', () => {
+  // A fragment-only change is a scroll within the page, never a new page.
+  if(location.pathname + location.search === routed) return;
+  route();
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-back]');
+  if(b){ back(b.dataset.back); return; }
+  const a = e.target.closest('a[data-nav]');
+  if(!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  e.preventDefault(); go(a.getAttribute('href'));
+});
+function route(){
+  routed = location.pathname + location.search;
+  closeLayer();
+  const p = new URLSearchParams(location.search);
+  const onFinding = location.pathname === '/finding';
+  $('#nav-findings').setAttribute('aria-current', !onFinding && !['audit', 'metrics'].includes(p.get('tab')) ? 'page' : 'false');
+  $('#nav-audit').setAttribute('aria-current', p.get('tab') === 'audit' ? 'page' : 'false');
+  $('#nav-metrics').setAttribute('aria-current', p.get('tab') === 'metrics' ? 'page' : 'false');
+  // `?demo=` is the link the rehearsal uses. It opened the plain inbox here
+  // and only worked on the workbench (B-061). A scenario this view has opens
+  // its finding; one only the workbench has goes there.
+  const demo = p.get('demo');
+  if(demo){
+    const s = SCEN.find(x => x.id === demo);
+    if(s){ history.replaceState(history.state, '', scenarioLink(s)); route(); }
+    else location.replace(`/workbench?demo=${encodeURIComponent(demo)}`);
+    return;
+  }
+  S.token++;
+  if(onFinding) finding(p, S.token); else inbox(p, S.token);
+}
+
+/* ---------- scenarios: every coordinate read off the warehouse ---------- */
+const SCEN = [
+  {id:'trap', g:'Explained', t:'Two causes, and a trap', d:'West revenue, 13 to 15 Aug. Release and rain verified, a correlated promotion rejected, a three-week-old SKU that cannot be verified yet.', q:{kpi:'net_revenue', region:'West', start:'2026-08-13', end:'2026-08-15'}},
+  {id:'gap', g:'Explained', t:'Why nobody saw it coming', d:'Same finding, opened at the signal gap.', q:{kpi:'net_revenue', region:'West', start:'2026-08-13', end:'2026-08-15'}, h:'gap'},
+  {id:'channel', g:'Explained', t:'The same finding, asked about the app', d:'The store-only weather cause is set aside as impossible.', q:{kpi:'net_revenue', region:'West', channel:'app', start:'2026-08-13', end:'2026-08-15'}},
+  {id:'refusal', g:'Refused', t:'Abstains: no cause survives', d:'West, 27 to 28 Jul. Unknown, with the next check named.', q:{kpi:'net_revenue', region:'West', start:'2026-07-27', end:'2026-07-28'}},
+  {id:'contradiction', g:'Refused', t:'Two systems disagree', d:'North, 10 to 12 Jun. Caught before anything is explained.', q:{kpi:'net_revenue', region:'North', start:'2026-06-10', end:'2026-06-12'}},
+  {id:'hourly', g:'Refused', t:'Detected, not diagnosed', d:'Checkout conversion is a rate; the identity does not apply.', q:{kpi:'checkout_conversion', start:'2026-08-25', end:'2026-08-25'}},
+  {id:'entitled', g:'Access', t:'Scoped to South', d:'A reader entitled to one region sees only its findings.', q:{kpi:'net_revenue', start:'2026-07-30', end:'2026-08-04', entitled:'South'}},
+  {id:'blanked', g:'Access', t:'South reader asks about the West', d:'Refused before anything is computed.', q:{kpi:'net_revenue', region:'West', start:'2026-08-13', end:'2026-08-15', entitled:'South'}},
+  {id:'petroleum', g:'Reach', t:'Another industry', d:'Petroleum marketing: two candidates verified, two rejected.', q:{kpi:'net_realisation', start:'2026-08-14', end:'2026-08-15'}, industry:'petroleum'},
+];
+function scenarioLink(s){ return `/finding?${qs({...s.q, industry: s.industry || 'retail'})}${s.h ? '#'+s.h : ''}`; }
+// Published for /uat, which reads them rather than evaluating code: the page's
+// content security policy forbids eval, and should.
+window.WHYCHAIN_SCENARIOS = SCEN; window.WHYCHAIN_SCENARIO_LINK = scenarioLink;
+
+/* ---------- inbox ---------- */
+const keyOf = f => [S.industry, f.kpi_id, f.region||'', f.start, f.end].join('|');
+function signedFor(entries, f){
+  return entries.find(e => e.event === 'finding_signed' && e.subject.industry === S.industry
+    && e.subject.kpi_id === f.kpi_id && (e.subject.region||null) === (f.region||null)
+    && e.subject.window && e.subject.window.from === f.start && e.subject.window.to === f.end);
+}
+/* Filters live in the URL, so a filtered queue can be shared and Back
+   restores it. Metric, region and direction are applied by the server, over
+   every finding rather than the twelve on screen; status is known only once
+   each verdict is read, so it is applied here as they arrive. */
+const FILTERS = ['metric', 'region', 'dir', 'status'];
+function inboxLink(p, over){
+  const cur = Object.fromEntries(['tab', 'entitled', 'days', ...FILTERS].map(k => [k, p.get(k) || '']));
+  const next = {...cur, ...over};
+  if(next.tab === 'open') next.tab = '';
+  if(next.days === '365') next.days = '';
+  if(next.dir === 'drop') next.dir = '';
+  return '/?' + qs(next);
+}
+async function inbox(p, token){
+  const tab = p.get('tab') || 'open';
+  const entitled = p.get('entitled') || '';
+  const days = p.get('days') || '365';
+  const metric = p.get('metric') || '', region = p.get('region') || '', dirf = p.get('dir') || 'drop', status = p.get('status') || '';
+  const view = $('#view');
+  if(tab === 'metrics'){ metricsView(p, token); return; }
+  view.innerHTML = `${trackStrip()}<div class="loading">Reading the queue…</div>`;
+  const [tri, aud] = await Promise.all([
+    api('/api/triage?' + qs({industry:S.industry, limit:12, entitled, days: days === 'all' ? '' : days, kpi: metric, region, direction: dirf})),
+    api('/api/audit?' + qs({industry:S.industry})),
+  ]);
+  if(token !== S.token) return;
+  const entries = (aud.data && aud.data.entries) || [];
+  if(tab === 'audit'){ view.innerHTML = trackStrip() + auditView(aud.data); return; }
+  if(!tri.ok){ view.innerHTML = trackStrip() + `<div class="panel refusal"><h1>Outside your access</h1><p>${esc(detail(tri))}</p></div>`; return; }
+  const rows = tri.data.findings || [];
+  S.inboxRows = rows;
+  // A total over the flagged days, not a sum of daily rates: these findings
+  // sit in different months, and adding their per-day figures reads as a
+  // loss running every day right now.
+  const signed = rows.filter(f => signedFor(entries, f));
+  const shown = tab === 'signed' ? signed : tab === 'all' ? rows : rows.filter(f => !signedFor(entries, f));
+  const scope = tri.data.scope ? ` · scoped to ${esc(tri.data.scope.join(', '))}` : '';
+  view.innerHTML = `${trackStrip()}
+    <dl class="summary">
+      <div><dt>Largest open findings</dt><dd>${rows.length - signed.length}<small> shown, of ${tri.data.total} detected${scope}</small></dd></div>
+      <div><dt>Revenue shortfall in these findings</dt><dd class="num" id="stake">${stakeHtml(rows, verdictFor(entries))}</dd></div>
+      <div><dt>Awaiting a signature</dt><dd id="awaiting">…</dd></div>
+    </dl>
+    <div class="bar-row">
+      <div class="tabs" role="tablist">
+        ${[['open','Needs a decision'],['signed',`Signed (${signed.length})`],['all','All']].map(([id,t]) =>
+          `<button type="button" role="tab" aria-selected="${tab===id}" data-tab="${id}">${t}</button>`).join('')}
+      </div>
+      <label class="small muted" style="margin-left:auto">Period
+        <select id="days" style="margin-left:6px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--paper);padding:2px 6px">
+          ${[['90','Last 90 days'],['365','Last year'],['all','All history']].map(([v,t]) => `<option value="${v}"${v===days?' selected':''}>${t}</option>`).join('')}
+        </select></label>
+      <details class="scen"><summary>Scenarios ▾</summary><div class="menu">
+        ${SCEN.map(s => `<a href="${scenarioLink(s)}" data-nav><b>${esc(s.t)}</b><small>${esc(s.g)} · ${esc(s.d)}</small></a>`).join('')}
+      </div></details>
+    </div>
+    ${filterBar(tri.data, {metric, region, dirf, status})}
+    <div class="list" id="rows">${shown.length ? shown.map(f => rowHtml(f, signedFor(entries, f))).join('')
+      : `<div class="empty">${tab === 'signed' ? 'Nothing has been signed yet.' : 'Nothing is waiting for a decision.'}</div>`}</div>`;
+  view.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => go(inboxLink(p, {tab: b.dataset.tab})));
+  $('#days').onchange = e => go(inboxLink(p, {days: e.target.value}));
+  view.querySelectorAll('[data-filter]').forEach(el => el.onchange = () => go(inboxLink(p, {[el.dataset.filter]: el.value})));
+  const clear = $('#fclear'); if(clear) clear.onclick = () => go(inboxLink(p, {metric:'', region:'', dir:'', status:''}));
+  fillVerdicts(shown, entries, entitled, token, status);
+}
+/* ---------- metrics ----------
+   The governed definitions, readable. "How exactly do you define revenue" is
+   the first question a finance reader asks of any number, and the answer
+   should not live only in a YAML file. Everything is read from the contracts
+   and the warehouse by /api/catalog. */
+const AGG = {sum:'Summed', mean:'Averaged', ratio_of_sums:'A ratio of sums'};
+async function metricsView(p, token){
+  const view = $('#view');
+  view.innerHTML = `<h1 style="margin-top:18px">Metrics</h1><div class="loading">Reading the definitions…</div>`;
+  const r = await api('/api/catalog?' + qs({industry:S.industry}));
+  if(token !== S.token) return;
+  if(!r.ok){ view.innerHTML = `<h1 style="margin-top:18px">Metrics</h1><p class="err">${esc(detail(r))}</p>`; return; }
+  const all = r.data.metrics, pick = all.find(m => m.kpi_id === p.get('kpi')) || all.find(m => m.diagnosable) || all[0];
+  const m = pick, good = {up:'Up is good', down:'Down is good', neutral:'Neither way is good or bad'}[m.favourable];
+  const agg = m.ratio_of ? `${AGG[m.aggregation]}: ${esc(human(m.ratio_of[0]).toLowerCase())} over ${esc(human(m.ratio_of[1]).toLowerCase())}, summed first and then divided` : AGG[m.aggregation] || human(m.aggregation);
+  const link = k => `<a href="/?tab=metrics&${qs({kpi:k})}" data-nav>${esc(kpiName(k))}</a>`;
+  const chain = [...new Set(m.sources.map(x => x.split('.')[0]))].map(x => `<code>${esc(x)}</code>`).join(' ')
+    + m.lineage.map(l => ` <i>→</i> <code title="${esc(l.sql)}">${esc(l.name)}</code>`).join('') + ` <i>→</i> <code>${esc(m.kpi_id)}</code>`;
+  const masks = m.column_masks.length ? m.column_masks.map(c => `<code>${esc(c)}</code>${m.masks_absent_from_source.includes(c) ? ' <span class="muted small">(not in this source)</span>' : ''}`).join(', ') : 'None declared';
+  const fresh = m.freshness.map(f => `<tr><td><code>${esc(f.source)}</code></td><td class="n">${f.sla_hours} h</td><td class="n">${f.lag_hours} h</td><td>${f.met ? `<span class="pill ok">${svg('explained')}Within</span>` : `<span class="pill bad">${svg('contradicted')}Late</span>`}</td></tr>`).join('');
+  view.innerHTML = `<h1 style="margin-top:18px">Metrics</h1>
+    <p class="muted" style="max-width:72ch;margin:0">The governed definition behind every figure: what it means, who owns it, where it comes from and who may see it. Read from the contracts, versioned, and the same for every reader.</p>
+    <div class="mlist">
+      <nav aria-label="Metrics">${all.map(x => `<a href="/?tab=metrics&${qs({kpi:x.kpi_id})}" data-nav aria-current="${x.kpi_id === m.kpi_id}">${esc(kpiName(x.kpi_id))}<small>${esc(roleName(x.owner_role))} · ${x.diagnosable ? 'Diagnosed' : 'Detected only'}</small></a>`).join('')}</nav>
+      <div>
+        <section class="panel"><h2>Definition · version ${esc(m.version)}</h2>
+          <p style="font-size:17px;margin:0 0 16px;max-width:70ch">${esc(m.definition)}</p>
+          <dl class="kv2">
+            <dt>Owner</dt><dd>${esc(roleName(m.owner_role))}. The only role that can sign a finding on it.</dd>
+            <dt>Measured in</dt><dd>${esc({INR:'Rupees', ratio:'A rate', count:'A count'}[m.unit] || human(m.unit))}, by the ${esc(m.grain)}</dd>
+            <dt>How it rolls up</dt><dd>${agg}</dd>
+            <dt>Which way is good</dt><dd>${esc(good)}</dd>
+            <dt>Break it down by</dt><dd>${m.dims.map(d => esc(human(d))).join(', ')}</dd>
+            <dt>Material when</dt><dd>Unusual beyond a robust z of ${m.materiality.min_abs_robust_z}, and worth at least ${inr(m.materiality.min_abs_delta_inr)} a day. Both must hold.</dd>
+            ${m.parents.length || m.children.length ? `<dt>Connected to</dt><dd>${m.parents.length ? `Part of ${m.parents.map(link).join(', ')}. ` : ''}${m.children.length ? `Made of ${m.children.map(link).join(', ')}.` : ''}</dd>` : ''}
+            <dt>Diagnosis</dt><dd>${m.diagnosable ? 'Full diagnosis: it declares a price, volume and mix identity.' : 'Detected and prioritised. It declares no decomposition, so the page says so rather than implying a cause.'}</dd>
+          </dl></section>
+        <section class="panel" style="margin-top:16px"><h2>Where it comes from</h2>
+          <div class="chain">${chain}</div>
+          <p class="small muted" style="margin:10px 0 0">Each step is declared in the contract and applied by the query, not described beside it. ${m.served_from === 'materialised at ingest' ? 'The lineage is computed once at ingest, and a test holds the stored table equal to the declared steps.' : 'The lineage is applied on every read.'} Hover a step for its SQL.</p></section>
+        <section class="panel" style="margin-top:16px"><h2>Who may see it</h2>
+          <dl class="kv2">
+            <dt>Row filter</dt><dd><code>${esc(m.row_filter)}</code>, bound to each reader's regions. A reader never receives another region's rows.</dd>
+            <dt>Masked columns</dt><dd>${masks}</dd>
+            <dt>Personal data</dt><dd>${m.personal_data.length ? `Text is scanned for ${esc(m.personal_data.map(x => ({pii:'personal data such as emails, phone numbers, card, PAN and UPI IDs'})[x] || human(x).toLowerCase()).join(', '))} and masked before any reader or model sees it.` : 'No personal data class declared.'}</dd>
+          </dl></section>
+        <section class="panel" style="margin-top:16px"><h2>Freshness</h2>
+          <div style="overflow-x:auto"><table class="t"><thead><tr><th>Source</th><th class="n">Allowed lag</th><th class="n">Lag now</th><th>State</th></tr></thead><tbody>${fresh}</tbody></table></div></section>
+        <section class="panel" style="margin-top:16px"><h2>The query</h2>
+          <pre class="sqlbox">${esc(m.sql)}</pre>
+          <div class="bar2"><button type="button" class="btn sm" id="mcopy">Copy the query</button><span class="small muted">Declared for ${m.dialect_targets.map(esc).join(', ')}. A finding's own query, with its region and dates, is behind each figure on the finding.</span></div></section>
+      </div>
+    </div>`;
+  $('#mcopy').onclick = async () => {
+    try{ await navigator.clipboard.writeText(m.sql); toast('Query copied.'); }catch{ toast('Copy is blocked here; select the query to copy it.'); }
+  };
+}
+function filterBar(t, f){
+  const offer = t.offer || {metrics: [], regions: []};
+  const sel = (key, label, opts, cur) => `<label>${label}<select data-filter="${key}">${opts.map(([v, txt]) =>
+    `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(txt)}</option>`).join('')}</select></label>`;
+  const any = f.metric || f.region || f.status || f.dirf !== 'drop';
+  return `<div class="filters" role="group" aria-label="Filter the findings">
+    ${sel('metric', 'Metric', [['', 'All metrics'], ...offer.metrics.map(k => [k, kpiName(k)])], f.metric)}
+    ${sel('region', 'Region', [['', offer.regions.length > 1 ? 'All regions' : 'Your regions'], ...offer.regions.map(r => [r, r])], f.region)}
+    ${sel('dir', 'Movement', [['drop', 'Falls'], ['spike', 'Rises'], ['both', 'Falls and rises']], f.dirf)}
+    ${sel('status', 'Status', [['', 'Any status'], ['explained', 'Verified'], ['unknown', 'Unknown'], ['contradicted', 'Contradicted'], ['detected', 'Detected only']], f.status)}
+    ${any ? '<button type="button" class="clear" id="fclear">Clear filters</button>' : ''}
+  </div>`;
+}
+function trackStrip(){
+  const t = S.track; if(!t) return '';
+  // Exact counts from the benchmark, stated the strict way: an audience should
+  // never have to ask what a percentage was a percentage of.
+  const exact = t.named_a_cause ? Math.round(t.exactly_right / t.named_a_cause * 100) : null;
+  return `<div class="track"><span class="t">Track record</span>
+    <span>Named a cause in <b>${t.named_a_cause}</b> of ${t.cases} test cases</span>
+    <span>Exactly the true cause, nothing else, in <b>${t.exactly_right}</b> of those (${exact}%)</span>
+    <span>A planted decoy got through in <b>${t.decoy_let_through}</b></span>
+    <span><b>${t.noise_cases_explained}</b> of ${t.noise_cases} noise-only cases explained</span>
+    <span>Abstentions correct: <b>${pct(t.abstention_precision)}</b></span>
+    <span class="muted small">Synthetic test cases, benchmark run of ${dt(t.measured_at)}</span></div>`;
+}
+function rowHtml(f, sig){
+  // A list row has room for a word, not a sentence: short labels here, the
+  // full wording on the finding page and in the tooltip.
+  const valued = f.unit === 'INR' ? '' : ' · ₹ at the contract’s rate';
+  const link = `/finding?${qs({kpi:f.kpi_id, region:f.region, start:f.start, end:f.end, industry:S.industry})}`;
+  const dir = f.delta < 0 ? 'below' : 'above';
+  const mark = trend(f.delta < 0 ? 'down' : 'up', f.favourable || 'up', `${pct(f.pct)} ${dir} expected`);
+  const status = sig ? `<b>Signed</b><br><span class="s">${esc(sig.actor.name.replace(' (demo)', ''))}</span>` : `<span data-status="${esc(keyOf(f))}">…</span>`;
+  return `<a class="row" href="${link}" data-nav data-key="${esc(keyOf(f))}">
+    <span data-pill="${esc(keyOf(f))}">${sig ? `<span class="pill ok">${svg('signed')}Signed</span>` : f.diagnosable ? `<span class="pill idle">${svg('checking')}Checking</span>` : pill('detected', false, 'Detected')}</span>
+    <span><span class="t">${esc(kpiName(f.kpi_id))}, ${esc(f.region || 'all regions')}</span><br>
+      <span class="s">${span(f.start, f.end)} · ${mark}${f.also_moved && f.also_moved.length ? ` · ${esc(f.also_moved.map(kpiName).join(', '))} moved too` : ''}${valued}</span></span>
+    <span class="r"><span class="num">${inr(f.impact_inr_per_day)}</span><br><span class="s">per day</span></span>
+    <span class="r hide-s status">${status}</span></a>`;
+}
+async function fillVerdicts(rows, entries, entitled, token, status=''){
+  let awaiting = 0, kept = 0;
+  for(const f of rows){
+    if(token !== S.token) return;
+    const k = keyOf(f);
+    const sig = signedFor(entries, f);
+    let v = S.verdicts.get(k);
+    if(!v && f.diagnosable){
+      const r = await api('/api/diagnose?' + qs({kpi:f.kpi_id, region:f.region, start:f.start, end:f.end, industry:S.industry, persona:'cfo', backend:'none', entitled}));
+      v = r.ok ? r.data.verdict : (r.status === 403 ? 'refused' : 'detected');
+      S.verdicts.set(k, v);
+    }
+    if(token !== S.token) return;
+    if(!f.diagnosable) v = 'detected';
+    const cell = document.querySelector(`[data-pill="${CSS.escape(k)}"]`);
+    if(cell && !sig) cell.innerHTML = pill(v, false, {detected:'Detected', refused:'No access'}[v]);
+    const st = document.querySelector(`[data-status="${CSS.escape(k)}"]`);
+    if(st) st.innerHTML = ({explained:`<b>Awaiting signature</b><br><span class="s">${esc(roleName(f.owner_role))}</span>`,
+      unknown:'Next check named', contradicted:'<b>Data check first</b><br><span class="s">Data engineering</span>',
+      refused:'Outside your access', detected:'Detection only'})[v] || '';
+    if(v === 'explained' && !sig) awaiting++;
+    const row = document.querySelector(`.row[data-key="${CSS.escape(k)}"]`);
+    if(row && status){ row.hidden = v !== status; }
+    if(!status || v === status) kept++;
+  }
+  if(token === S.token && status && !kept && $('#rows')) $('#rows').innerHTML = `<div class="empty">No finding here has that status. Try another, or clear the filters.</div>`;
+  if(token === S.token && $('#awaiting')) $('#awaiting').innerHTML = `${awaiting}<small> verified, unsigned</small>`;
+  // Over every finding in the queue, signed or not, so the figure does not
+  // change when the verdicts arrive for only the rows on this tab.
+  if(token === S.token && $('#stake') && S.inboxRows) $('#stake').innerHTML = stakeHtml(S.inboxRows, verdictFor(entries));
+}
+/* What the business is short, and only that (B-060). The headline counted a
+   finding the ledger disputes, whose "shortfall" may be an incomplete extract,
+   and added on-time delivery priced at a declared rate to real revenue. Both
+   are still shown, beside the figure rather than inside it. A total over the
+   flagged days, not a sum of daily rates: these findings sit in different
+   months, and adding per-day figures reads as a loss running every day now. */
+// A verdict read on this page, or the one recorded when the finding was signed.
+const verdictFor = entries => f => S.verdicts.get(keyOf(f))
+  || (((signedFor(entries, f) || {}).payload) || {}).verdict;
+function stakeHtml(rows, verdictOf){
+  const falls = rows.filter(f => f.direction !== 'rise');
+  const total = fs => fs.reduce((a,f) => a + (f.impact_inr_per_day||0) * (f.days||1), 0);
+  const disputed = falls.filter(f => verdictOf(f) === 'contradicted');
+  const money = falls.filter(f => f.unit === 'INR' && !disputed.includes(f));
+  const rated = falls.filter(f => f.unit !== 'INR' && !disputed.includes(f));
+  const days = money.reduce((a,f) => a + (f.days||1), 0);
+  const aside = [
+    disputed.length && `${inr(total(disputed))} more the ledger disputes`,
+    rated.length && `${inr(total(rated))} more at contract rates`,
+  ].filter(Boolean);
+  return `${inr(total(money))}<small> over ${days} flagged days${aside.length ? `<br>${aside.join(' · ')}` : ''}</small>`;
+}
+function auditView(d){
+  if(!d) return `<div class="panel">The audit trail could not be read.</div>`;
+  const c = d.chain;
+  const chain = c.intact
+    ? `<span class="pill ok">${svg('explained')}Chain intact</span><span>${c.entries} entr${c.entries===1?'y':'ies'}. Every entry carries the hash of the one before it, so an edit to any past line is detected.</span>`
+    : `<span class="pill bad">${svg('contradicted')}Chain broken</span><span>Entry ${c.broken_at}: ${esc(c.reason)}.</span>`;
+  const rows = d.entries.map(e => `<div class="audit-row">
+      <span class="num small">${esc(when(e.at))}</span>
+      <span><b>${esc(human(e.event.replace('finding_','').replace('decision_','decision ')))}</b><br><span class="small muted">${esc(e.actor.name)} · ${esc(e.actor.source === 'demo' ? 'demo identity' : 'single sign-on')}</span></span>
+      <span class="small">${esc(kpiName(e.subject.kpi_id))}, ${esc(e.subject.region || 'all regions')}, ${e.subject.window ? span(e.subject.window.from, e.subject.window.to) : ''}<br>
+        <span class="muted">${esc(e.payload.statement || actionText(e.payload.action || ''))}${e.payload.note ? ' · “' + esc(e.payload.note) + '”' : ''}</span></span>
+      <span class="num small muted" title="${esc(e.hash)}">${esc(e.hash.slice(0,10))}…</span></div>`).join('');
+  return `<h1 style="margin-top:18px">Audit trail</h1>
+    <p class="muted" style="max-width:70ch;margin:0 0 14px">Signatures, decisions, target adjustments and exports, newest first. Recording a decision never executes it.</p>
+    <div class="list" style="border-top:1px solid var(--line);border-radius:var(--r-md)"><div class="chain">${chain}</div>${rows || '<div class="empty">No signatures or decisions yet.</div>'}</div>`;
+}
+
+/* ---------- finding ---------- */
+async function finding(p, token){
+  const f = Object.fromEntries(['kpi','region','channel','device','category','start','end','entitled'].map(k => [k, p.get(k) || '']));
+  f.industry = p.get('industry') || S.industry;
+  if(f.industry !== S.industry){ S.industry = f.industry; store.set('whychain-industry', S.industry); renderIndustry(); }
+  const view = $('#view');
+  if(!f.kpi || !f.start || !f.end){ view.innerHTML = `<div class="panel">This link is missing its metric or dates. <a href="/" data-nav>Back to findings</a></div>`; return; }
+  view.innerHTML = `<div class="loading">Testing candidate causes…</div>`;
+  // Empty fields are dropped, not sent as "". The server reads a present but
+  // empty `entitled` as "entitled to nothing", on purpose, so sending the empty
+  // value in a POST body refused every sign-off.
+  const base = Object.fromEntries(Object.entries({kpi:f.kpi, region:f.region, channel:f.channel, device:f.device, category:f.category, start:f.start, end:f.end, industry:f.industry, entitled:f.entitled}).filter(([,v]) => v));
+  const d0 = new Date(f.start); d0.setDate(d0.getDate() - 45);
+  const d1 = new Date(f.end); d1.setDate(d1.getDate() + 10);
+  const c0 = new Date(f.start); c0.setDate(c0.getDate() - 14);
+  const [diag, ser, cand, aud, cal] = await Promise.all([
+    api('/api/diagnose?' + qs({...base, persona:S.persona, backend:'none'})),
+    api('/api/series?' + qs({kpi:f.kpi, region:f.region, channel:f.channel, device:f.device, category:f.category, industry:f.industry, entitled:f.entitled, from:d0.toISOString().slice(0,10), to:d1.toISOString().slice(0,10)})),
+    S.persona === 'analyst' ? api('/api/candidates?' + qs({...base, persona:'analyst', backend:'none'})) : Promise.resolve(null),
+    api('/api/audit?' + qs({kpi:f.kpi, region:f.region, industry:f.industry})),
+    api('/api/calendar?' + qs({kpi:f.kpi, region:f.region, category:f.category, industry:f.industry, entitled:f.entitled,
+      from:c0.toISOString().slice(0,10), to:f.end, ahead:45})),
+  ]);
+  if(token !== S.token) return;
+  // After the diagnosis, because it carries the evidence fingerprint the
+  // signature is checked against. A log read, not a second diagnosis.
+  const sig = diag.ok ? await api('/api/signoff?' + qs({...base, evidence: diag.data.evidence_fingerprint})) : {ok:false};
+  if(token !== S.token) return;
+  const worst = worstDay(ser.data, f);
+  const ctx = {f, base, diag, ser: ser.data, worst, sig: sig.ok ? sig.data : null, cand: cand && cand.ok ? cand.data : null,
+               audit: (aud.data && aud.data.entries) || [], cal: cal.ok ? cal.data : null};
+  S.ctx = ctx;
+  if(diag.status === 403){ view.innerHTML = refusalView(ctx); return; }
+  if(diag.status === 422){
+    view.innerHTML = detectedView(ctx);
+    view.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => evidence(ctx, b.dataset.ev));
+    return;
+  }
+  if(!diag.ok){ view.innerHTML = `<div class="panel refusal"><h1>Nothing to diagnose here</h1><p>${esc(detail(diag))}</p><p><a href="/" data-nav>Back to findings</a></p></div>`; return; }
+  view.innerHTML = findingView(ctx);
+  wireFinding(ctx);
+  if(location.hash){ const el = document.getElementById(location.hash.slice(1)); if(el) el.scrollIntoView({block:'start'}); }
+  refine(ctx, token);
+}
+/* The workbench opened on this finding: same region, slice and day, and a year
+   of series so a finding from months ago is still on the chart. */
+const benchLink = (f, worst) => `/kpi/${encodeURIComponent(f.kpi)}?${qs({region:f.region, channel:f.channel,
+  category:f.category, device:f.device, range:'365', day:(worst && worst.day) || f.end})}`;
+function worstDay(ser, f){
+  if(!ser || !ser.anomalies) return null;
+  const inWin = ser.anomalies.filter(a => a.day >= f.start && a.day <= f.end);
+  if(!inWin.length) return null;
+  // The worst fall when the window has one, as the workbench and the queue
+  // headline it. A window can hold flagged days in both directions, and the
+  // largest absolute move is then a rise the queue never listed.
+  const drops = inWin.filter(a => a.delta < 0);
+  const pool = drops.length ? drops : inWin;
+  return pool.reduce((w,a) => Math.abs(a.delta) > Math.abs(w.delta) ? a : w);
+}
+/* The figure the queue ranked this finding on, so the number a reader clicked
+   is on the page it opened (B-060): the mean gap to expected over the flagged
+   days in the window, in the worst day's direction. Shown only when there is
+   more than one day, where it differs from the worst day above it. */
+function flaggedMean(ctx){
+  const {ser, f, worst} = ctx;
+  if(!ser || !ser.anomalies || !worst) return '';
+  const days = ser.anomalies.filter(a => a.day >= f.start && a.day <= f.end && Math.sign(a.delta) === Math.sign(worst.delta));
+  if(days.length < 2) return '';
+  const mean = days.reduce((a,x) => a + Math.abs(x.delta), 0) / days.length;
+  return `<small class="cap">Worst day. ${inr(mean)} a day across the ${days.length} flagged days</small>`;
+}
+/* The model-written prose arrives second. Every figure is already on the page
+   and stays put; only the paragraph changes. */
+async function refine(ctx, token){
+  const r = await api('/api/diagnose?' + qs({...ctx.base, persona:S.persona}));
+  if(token !== S.token || !r.ok) return;
+  // Only the prose is swapped. Replacing the whole diagnosis left a button
+  // saying "6 customer quotes" over a drawer reading the model's pass, where a
+  // quote that failed the character check had been dropped: two answers on one
+  // page. The figures and evidence stay those the page was drawn from.
+  ctx.diag.data.narrative = r.data.narrative;
+  const el = $('#narr'); if(el) el.outerHTML = narrativeHtml(ctx.diag.data);
+}
+function scopeText(f){
+  const bits = [f.channel && `${f.channel} channel`, f.device && `${f.device} devices`, f.category && human(f.category)].filter(Boolean);
+  const where = f.region || (f.entitled ? `${f.entitled.split(',').join(', ')} (your regions)` : 'all regions');
+  return `${where}${bits.length ? ', ' + bits.join(', ') : ''}`;
+}
+function headline(ctx){
+  const {f, worst, diag} = ctx, d = diag.data;
+  const who = `${kpiName(f.kpi)} in ${scopeText(f)}`;
+  const n = (d.verified || d.causes || []).length;
+  const fell = worst ? (worst.delta < 0 ? 'fell' : 'rose') : 'moved';
+  const size = worst ? `${inr(Math.abs(worst.delta))} ${worst.delta < 0 ? 'short of' : 'above'} expected on ${dt(worst.day)}` : `between ${span(f.start, f.end)}`;
+  const tail = {
+    explained: `${n === 1 ? 'One tested cause explains it' : `${['','','Two','Three','Four','Five'][n] || n} tested causes explain it`}.`,
+    unknown: n
+      ? `${n === 1 ? 'One cause passed testing' : `${['','','Two','Three','Four','Five'][n] || n} causes passed testing`}, but ${n === 1 ? 'it explains' : 'together they explain'} ${(d.abstention || {}).coverage !== undefined ? `only ${pct(d.abstention.coverage, 0)}` : 'too little'} of it, so none is proposed.`
+      : 'No cause survived testing, so none is proposed.',
+    contradicted: 'The two systems that post this number disagree, so the movement itself is in question.',
+  }[d.verdict] || '';
+  return `${who} ${fell} ${size}. ${tail}`;
+}
+function findingView(ctx){
+  const {f, worst, diag, sig} = ctx, d = diag.data, persona = S.persona;
+  const conf = d.confidence;
+  const prob = conf && typeof conf === 'object' ? conf.probability : null;
+  const band = conf && typeof conf === 'object' ? conf.band : (d.headline && d.headline.confidence) || conf;
+  const recon = d.reconciliation;
+  const facts = [
+    worst && `<div><span>${worst.delta < 0 ? 'Short of expected' : 'Above expected'}</span><b class="lead num"><button type="button" class="ev" data-ev="movement" title="The rows behind this figure, and the query that produces them">${inr(Math.abs(worst.delta))}</button></b><small class="cap">${trend(worst.delta < 0 ? 'down' : 'up', (ctx.ser && ctx.ser.favourable) || 'up', `${pct(worst.pct)} ${worst.delta < 0 ? 'below' : 'above'} expected`)}</small>${flaggedMean(ctx)}</div>`,
+    worst && `<div><span>Observed</span><b class="num">${inr(worst.observed)}</b></div>`,
+    worst && `<div><span>Expected</span><b class="num">${inr(worst.expected)}</b></div>`,
+    // The calibrated probability belongs to a reported answer. On a refusal it
+    // reads as a contradiction ("Unknown, 0.62"), so only the band is shown.
+    d.movement && isFinite(d.movement.total_change) && `<div><span>Across the window</span><b class="num">${inr(d.movement.total_change, {sign:true})}</b><small class="cap">a day, against the fortnight before</small></div>`,
+    band && `<div><span>Confidence</span><b>${esc(human(band))}${d.verdict === 'explained' && prob !== null && prob !== undefined ? `, <span class="num">${confidence(prob)}</span>` : ''}</b></div>`,
+    recon && recon.state && `<div title="The finance ledger posts the same revenue independently, standing in for the ERP. The two are compared before anything is explained."><span>Finance ledger</span><b>${esc({agreed:'Agrees', contradicted:'Disagrees', not_reconciled:'Cannot compare'}[recon.state] || human(recon.state))}${recon.worst_residual !== undefined && recon.state !== 'not_reconciled' ? `, ${recon.state === 'agreed' ? 'within' : 'by up to'} ${pct(recon.worst_residual)}` : ''}</b></div>`,
+  ].filter(Boolean).join('');
+  const owner = (sig && sig.accountable) || 'finance_director';
+  const canSign = myRole() === owner;
+  const signed = sig && sig.signed;
+  const signLabel = {explained:'Sign this finding', unknown:'Accept as unknown', contradicted:'Acknowledge'}[d.verdict] || 'Sign';
+  const actions = `<div class="actions">
+      ${signed ? `<button type="button" class="btn primary" data-sign>Sign again</button>`
+               : `<button type="button" class="btn primary" data-sign>${signLabel}</button>`}
+      <div class="who">${canSign ? 'You are the accountable owner.' : `Signed by the ${esc(roleName(owner).toLowerCase())} only.`}</div>
+      <a class="btn" href="/slide?${qs(ctx.base)}" target="_blank" rel="noopener">Board-pack slide</a>
+      <a class="btn" href="${esc(benchLink(f, worst))}">Open in workbench</a>
+    </div>`;
+  const signedBar = signed ? `<div class="signed-bar${sig.unchanged ? '' : ' changed'}">
+      <b>${sig.unchanged ? 'Signed' : 'Signed, but the evidence has changed'}</b>
+      <span>${esc(signed.actor.name)} · ${esc(when(signed.at))}</span>
+      <span class="num" title="evidence fingerprint">${esc(signed.payload.evidence.slice(0,12))}…</span>
+      <span>${sig.unchanged ? 'The data under this finding is unchanged since it was signed.' : 'Re-run and re-sign before this goes into a pack.'}</span></div>` : '';
+  const scoped = d.entitlement && d.entitlement.regions ? `<span class="pill idle">Scoped to ${esc(d.entitlement.regions.join(', '))}</span> ` : '';
+  const main = d.verdict === 'explained' ? explainedBody(ctx) : d.verdict === 'contradicted' ? contradictedBody(ctx) : unknownBody(ctx);
+  const withheld = (d.withheld || []).length && persona !== 'analyst'
+    ? `<div class="withheld" style="margin-top:14px">Withheld for the ${esc(PERSONA_NAME[persona].toLowerCase())}: ${esc(d.withheld.join(', '))}. The evidence underneath is the same for every reader.</div>` : '';
+  const own = S.me && ROLE_VIEW[S.me.identity.role];
+  const note = own && own !== persona ? `<p class="viewnote" title="What you may sign or decide follows who you are signed in as, not the view.">Viewing as the ${esc(PERSONA_NAME[persona].toLowerCase())} · signed in as ${esc(myName().replace(' (demo)', ''))}</p>` : '';
+  return `<div class="crumbs">${backBtn('/?' + qs({entitled:f.entitled}))}<a href="/?${qs({entitled:f.entitled})}" data-nav>Findings</a> / ${esc(kpiName(f.kpi))} / ${esc(scopeText(f))} / ${span(f.start, f.end)}</div>
+    ${note}<section class="panel head" style="margin-top:10px">
+      <div>${pill(d.verdict, true)} ${scoped}
+        <h1>${esc(headline(ctx))}</h1>
+        <div class="facts">${facts}</div>
+        ${signedBar}
+      </div>
+      ${actions}
+    </section>
+    <nav class="onpage" id="onpage" aria-label="On this page"></nav>
+    ${chainHtml(ctx)}
+    ${main}
+    ${calendarHtml(ctx)}
+    ${withheld}
+    ${recordHtml(ctx)}`;
+}
+function causesOf(d){
+  const out = d.verified
+    ? d.verified.map(v => ({id:v.candidate_id, text:causeText(v.description), w:v.contribution, v}))
+    : (d.causes || []).map(c => ({id:(String(c.cause).match(/^([\w.-]+):/)||[])[1] || c.cause, text:causeText(c.cause), w:c.contribution, v:null}));
+  return out.sort((a, b) => Math.abs(b.w || 0) - Math.abs(a.w || 0));
+}
+function testsLine(v){
+  const t = v.tests || []; const pass = t.filter(x => x.outcome === 'pass').length, un = t.filter(x => x.outcome === 'unavailable').length;
+  return `${pass} of ${t.length - un} tests passed${un ? `, ${un} could not run` : ''}`;
+}
+function explainedBody(ctx){
+  const d = ctx.diag.data, persona = S.persona;
+  const causes = causesOf(d);
+  const max = Math.max(1, ...causes.map(c => Math.abs(c.w || 0)));
+  const mv = d.movement || {};
+  const fb = ctx.fb || {};
+  const causeRows = causes.map(c => `<div class="cause">
+      <span class="d">${esc(c.text)}</span>
+      <span class="w num">${inr(c.w, {sign:true})}<span class="muted small"> /day</span></span>
+      <span class="bar"><i style="width:${Math.round(Math.abs(c.w||0)/max*100)}%"></i></span>
+      <span class="meta">
+        ${c.v ? `<button type="button" class="ev" data-ev="cause:${esc(c.id)}">${esc(testsLine(c.v))}</button>` : ''}
+        ${c.v && c.v.citations && c.v.citations.length ? `<button type="button" class="ev" data-ev="quotes:${esc(c.id)}">${c.v.citations.length} customer quote${c.v.citations.length===1?'':'s'}</button>` : ''}
+        ${c.v && c.v.effect_pct !== undefined ? `<span>${pct(c.v.effect_pct)} measured effect</span>` : ''}
+        ${persona !== 'ops' ? `<span class="fb" role="group" aria-label="Your review of this cause"><span class="fblab">Your review</span>
+          <button type="button" class="btn sm" data-fb="${esc(c.id)}:confirmed" aria-pressed="${fb[c.id]==='confirmed'}" title="Record that you agree with this cause. Kept with this run as your review; it changes no figure.">Agree</button>
+          <button type="button" class="btn sm" data-fb="${esc(c.id)}:wrong_cause" aria-pressed="${fb[c.id]==='wrong_cause'}" title="Record that you think this cause is wrong. When two different people dispute it, it becomes a proposal for the analysts to review. It never changes this run's figures.">Dispute</button></span>` : ''}
+      </span></div>`).join('');
+  const overlap = mv.overlap && mv.overlap > 1.05
+    // Two reasons the sizes can exceed the fall, and both are true here: causes
+    // can touch the same sales, and each is measured against regions it did not
+    // touch, while the net fall is measured against the fortnight before. Naming
+    // only "overlap" undersold the second, which is the larger effect.
+    ? `<p class="note">Measured one at a time, these add up to ${Math.round(mv.overlap*100)}% of the net ${inr(Math.abs(mv.total_change))}-a-day fall, so they are not shares of it. Causes can touch the same sales, and each is measured against regions it did not touch rather than against the fortnight before.</p>` : '';
+  const ro = d.recovery_outlook;
+  const rest = ro ? Math.abs(mv.explained || mv.total_change || 0) - ro.recoverable_inr_per_day - ro.not_actionable_inr_per_day : 0;
+  const outlook = ro ? `<p class="note">If every lever is pulled, about <b class="num">${inr(ro.recoverable_inr_per_day)}</b> a day comes back.${ro.not_actionable_inr_per_day >= 1 ? ` <b class="num">${inr(ro.not_actionable_inr_per_day)}</b> a day has no lever and can only be monitored.` : ''}${rest >= 1 ? ` The other <b class="num">${inr(rest)}</b> a day is not expected back.` : ''}${ro.overlap_adjusted ? ' These are scaled back for the overlap.' : ''}</p>` : '';
+  const ruled = ctx.cand && ctx.cand.rejected ? `<section class="panel"><h2>Ruled out</h2>${ctx.cand.rejected.length ? `<ul class="ruled" style="padding-left:18px;margin:0">${ctx.cand.rejected.map(r => `<li><s>${esc(causeText(r.description))}</s><br><span class="small">${esc(reasonText(r.reason))}.${r.per_region && Object.keys(r.per_region).length > 1 ? ' Where it ran: ' + Object.entries(r.per_region).map(([k,v]) => `${esc(k)} ${v<0?'−':'+'}${pct(v)}`).join(', ') + '.' : ''}</span></li>`).join('')}</ul>` : '<p class="small muted">No candidate was rejected.</p>'}</section>`
+    : persona === 'analyst' ? '' : '';
+  return `${waterfallHtml(ctx)}<div class="grid">
+      <section class="panel" id="why"><h2>Why it moved · ₹ a day against the fortnight before</h2>${causeRows}${overlap}${outlook}${narrativeHtml(d)}</section>
+      <div class="stack">${setAsideHtml(d)}${ruled}${gapHtml(d)}${reconHtml(d)}</div>
+    </div>
+    ${fishboneHtml(ctx)}
+    ${decisionsHtml(ctx)}
+    ${fairHtml(ctx)}`;
+}
+/* What the team is judged on: the movement less the conditions beyond its
+   control, computed by the server from the tested causes. A condition that was
+   warned in time is flagged, not excused; only the accountable owner can excuse
+   it, and that is recorded. */
+function fairHtml(ctx){
+  const d = ctx.diag.data, ft = d.fair_target;
+  if(!ft) return '';
+  const owner = (ctx.sig && ctx.sig.accountable) || 'finance_director';
+  const mine = myRole() === owner;
+  const done = ctx.audit.find(e => e.event === 'target_adjusted' && e.subject.window
+    && e.subject.window.from === ctx.f.start && e.subject.window.to === ctx.f.end);
+  if(!ft.factors.length) return `<section class="panel" id="fair" style="margin-top:20px"><h2>Fair target</h2>
+    <p class="small" style="margin:0">${esc(ft.note)}</p></section>`;
+  const excused = new Set(done ? (done.payload.excused || []).map(x => x.candidate_id) : []);
+  const rows = ft.factors.map(f => `<div class="fair-row">
+      <div><b>${esc(causeText(f.cause))}</b><br><span class="small muted">Beyond the team's control · ${f.direction === 'headwind' ? 'worked against it' : 'worked in its favour'}${ft.scaled_for_overlap ? ' · scaled for the overlap' : ''}</span></div>
+      <div class="num fair-amt">${inr(f.amount_inr_per_day, {sign:true})}<span class="muted small"> /day</span></div>
+      <div>${f.warned && excused.has(f.candidate_id) ? `<span class="pill ok">${svg('explained')}Warned ${Math.round(f.lead_time_hours)} h ahead · excused by the owner</span>`
+           : f.warned ? `<span class="pill warn">${svg('contradicted')}Warned ${Math.round(f.lead_time_hours)} h ahead · not excused</span>`
+                      : `<span class="pill ok">${svg('explained')}Unforeseeable · excused</span>`}</div></div>`).join('');
+  const differs = ft.all_excused_inr_per_day !== ft.policy_inr_per_day;
+  const action = done
+    ? `<p class="signed-bar" style="margin-top:16px"><b>Adjusted</b><span>${esc(done.actor.name)} · ${esc(when(done.at))}</span><span>The team is judged on <b class="num">${inr(done.payload.team_inr_per_day, {sign:true})}</b> a day.</span></p>
+       ${done.payload.note ? `<p class="small" style="margin:8px 0 0"><span class="muted">Reason on the record:</span> ${esc(done.payload.note)}</p>` : ''}`
+    : differs ? (mine
+      ? `<button type="button" class="btn" id="excuse" style="margin-top:14px">Excuse the warned conditions anyway</button>`
+      : `<p class="small muted" style="margin:14px 0 0">Only the ${esc(roleName(owner).toLowerCase())} can excuse a condition, and it is recorded.</p>`) : '';
+  return `<section class="panel" id="fair" style="margin-top:20px"><h2>Fair target · what the team is judged on</h2>
+    <div class="fair-sum">
+      <div><span>Movement</span><b class="num">${inr(ft.net_inr_per_day, {sign:true})}</b><small class="cap">a day, against the fortnight before</small></div>
+      ${done ? `<div><span>Team judged on, as adjusted</span><b class="num">${inr(done.payload.team_inr_per_day, {sign:true})}</b><small class="cap">a day · by policy ${inr(ft.policy_inr_per_day, {sign:true})}</small></div>`
+             : `<div><span>Team judged on, by policy</span><b class="num">${inr(ft.policy_inr_per_day, {sign:true})}</b><small class="cap">a day</small></div>`}
+      ${differs && !done ? `<div><span>If every condition were excused</span><b class="num">${inr(ft.all_excused_inr_per_day, {sign:true})}</b><small class="cap">a day</small></div>` : ''}
+    </div>
+    ${rows}
+    <p class="note">${esc(ft.note)} A condition in the team's favour raises the bar the same way.</p>
+    ${action}</section>`;
+}
+function setAsideHtml(d){
+  const s = d.set_aside || [];
+  if(!s.length) return '';
+  return `<section class="panel"><h2>Set aside for this slice</h2><ul class="ruled" style="padding-left:18px;margin:0">${s.map(x =>
+    `<li><s>${esc(causeText(x.description || x.candidate_id))}</s><br><span class="small">${esc(plain(x.reason, d))}. It cannot have caused a movement it did not touch, so it was not tested.</span></li>`).join('')}</ul></section>`;
+}
+function unknownBody(ctx){
+  const d = ctx.diag.data, a = d.abstention || {}, c = d.confidence || {};
+  const reasons = (typeof c === 'object' && c.reasons) || [];
+  // Causes can pass every test and still not add up to an answer: here they
+  // cover too little of the movement, or pull in opposite directions. They are
+  // shown, sized, because hiding evidence the engine found is its own error.
+  const partial = causesOf(d);
+  const max = Math.max(1, ...partial.map(x => Math.abs(x.w || 0)));
+  const partialHtml = partial.length ? `<h2 style="margin-top:4px">Passed testing, but not enough to explain it</h2>
+      ${partial.map(x => `<div class="cause"><span class="d">${esc(x.text)}</span><span class="w num">${inr(x.w, {sign:true})}<span class="muted small"> /day</span></span>
+        <span class="bar"><i style="width:${Math.round(Math.abs(x.w||0)/max*100)}%"></i></span>
+        ${x.v ? `<span class="meta"><button type="button" class="ev" data-ev="cause:${esc(x.id)}">${esc(testsLine(x.v))}</button></span>` : ''}</div>`).join('')}
+      ${a.coverage !== undefined ? `<p class="note">Together they account for ${pct(a.coverage, 0)} of the movement.</p>` : ''}` : '';
+  return `${waterfallHtml(ctx)}<div class="grid">
+      <section class="panel" id="why">${partialHtml}<h2${partial.length ? ' style="margin-top:14px"' : ''}>${reasons.length ? 'What we checked' : 'What happens next'}</h2>
+        ${reasons.length ? `<ul style="padding-left:18px;margin:0 0 10px">${reasons.map(r => `<li>${esc(plain(r, d))}.</li>`).join('')}</ul>` : ''}
+        ${a.next_check ? `<p><b>Next check:</b> ${esc(a.next_check.charAt(0).toUpperCase()+a.next_check.slice(1))}.</p>` : ''}
+        ${a.question ? `<p><b>A question for you:</b> ${esc(a.question)}</p>` : ''}
+        ${narrativeHtml(d)}</section>
+      <div class="stack">${setAsideHtml(d)}${ctx.cand && ctx.cand.rejected && ctx.cand.rejected.length ? `<section class="panel"><h2>Ruled out</h2><ul class="ruled" style="padding-left:18px;margin:0">${ctx.cand.rejected.map(r => `<li><s>${esc(causeText(r.description))}</s><br><span class="small">${esc(reasonText(r.reason))}.</span></li>`).join('')}</ul></section>` : ''}
+        ${reconHtml(d)}</div>
+    </div>
+    ${fishboneHtml(ctx)}
+    ${decisionsHtml(ctx)}`;
+}
+function contradictedBody(ctx){
+  const d = ctx.diag.data, r = d.reconciliation || {};
+  return `<div class="grid">
+      <section class="panel" id="why"><h2>Why nothing is explained</h2><p>${esc(r.reason || ((d.abstention || {}).blocking || [])[0] || 'The two systems that post this number disagree beyond their tolerance.')}</p>
+        ${(r.breaches||[]).length ? `<table class="t"><thead><tr><th>Day</th><th class="n">This system</th><th class="n">Finance ledger</th><th class="n">Gap</th></tr></thead><tbody>
+          ${r.breaches.map(b => `<tr><td>${dt(b.day)}</td><td class="n">${inr(b.primary)}</td><td class="n">${inr(b.secondary)}</td><td class="n">${pct(b.residual)}</td></tr>`).join('')}</tbody></table>` : ''}
+        ${narrativeHtml(d)}</section>
+      <div class="stack"><section class="panel"><h2>Next step</h2><p><b>Data engineering</b> checks whether the extract is complete. No commercial explanation is proposed until the two systems agree.</p></section></div>
+    </div>`;
+}
+/* What was known before the movement, and what is already dated after it.
+   Only published or committed events: warnings with their lead time, planned
+   promotions, and the public calendar the expected line is fitted to. Nothing
+   ahead is a forecast, and no warning is shown ahead, because a warning
+   recorded after the window is hindsight. */
+const CAL_KIND = {signal:['Warning','warn'], promotion:['Promotion','ok'], calendar:['Holiday','unk']};
+/* The rows behind a figure, inside its drawer. Aggregates only: at warehouse
+   scale the aggregation runs where the data lives and only the rows a figure is
+   made of come back. The statement is run too, and its result compared with
+   the engine's, so "reproduced" is a check made now, not a claim. */
+async function loadRows(ctx){
+  const box = $('#rowsbody'); if(!box) return;
+  const r = await api('/api/rows?' + qs(ctx.base));
+  if(!$('#rowsbody')) return;
+  if(!r.ok){ box.innerHTML = `<p class="err">${esc(detail(r))}</p>`; return; }
+  const d = r.data, ratio = d.aggregation === 'ratio_of_sums', hourly = d.grain === 'hour', s = ctx.ser || {days:[]};
+  const fav = s.favourable || 'up';
+  const unit = v => d.unit === 'INR' ? inr(v) : d.unit === 'ratio' ? `${(v*100).toFixed(2)}%` : Math.round(v).toLocaleString('en-IN');
+  const at = Object.fromEntries((s.days || []).map((day, i) => [day, i]));
+  const here = ctx.worst && ctx.worst.day;
+  const against = x => {
+    const i = at[x.d]; if(i === undefined) return '';
+    const lo = s.band_low[i], hi = s.band_high[i], e = s.expected[i], gap = e ? (x.value - e) / e : null;
+    if(x.value >= lo && x.value <= hi) return trend('flat', fav, 'Within range');
+    return trend(x.value < lo ? 'down' : 'up', fav, `${pct(gap)} ${x.value < lo ? 'below' : 'above'}`);
+  };
+  const when = t => hourly ? `${dt(t.slice(0, 10))}, ${t.slice(11, 16)}` : dt(t);
+  box.innerHTML = `
+    <p class="small" style="margin:0 0 10px">${d.reproduced.match
+      ? `<span class="pill ok">${svg('explained')}Reproduced</span> Run in the warehouse as you opened this, the query returns these ${d.rows.length} rows exactly.`
+      : `<span class="pill bad">${svg('contradicted')}Not reproduced</span> The query returned ${d.reproduced.rows} rows against the engine's ${d.rows.length}. Treat it as indicative, and tell the analysts.`}</p>
+    <div class="scroll"><table class="t"><thead><tr><th>${hourly ? 'Hour' : 'Day'}</th><th class="n">Observed</th>${hourly ? '' : '<th class="n">Expected</th><th>Against expected</th>'}${ratio ? '<th class="n">Base</th>' : ''}</tr></thead><tbody>
+      ${d.rows.map((x, i) => `<tr class="${x.in_window ? '' : 'base'}${!hourly && x.d === here ? ' here' : ''}"${i && x.in_window && !d.rows[i-1].in_window ? ' style="border-top:2px solid var(--line-2)"' : ''}><td>${esc(when(x.d))}</td><td class="n">${unit(x.value)}</td>${hourly ? '' : `<td class="n">${at[x.d] !== undefined ? unit(s.expected[at[x.d]]) : ''}</td><td>${against(x)}</td>`}${ratio ? `<td class="n">${Math.round(x.n).toLocaleString('en-IN')}</td>` : ''}</tr>`).join('')}
+    </tbody></table></div>
+    <p class="small muted" style="margin:8px 0 0">Rows above the line are the fortnight before, the baseline. ${here && !hourly ? 'The highlighted row is the figure on the page.' : ''} Expected is the metric's own seasonal pattern, not a plan.</p>
+    <details style="margin-top:12px"><summary class="small">The query for these rows</summary><pre id="rowsql">${esc(d.sql)}</pre>
+      <p class="small muted" style="margin:8px 0 0">Written for DuckDB, the engine this warehouse runs on. ${d.entitlement ? `Your entitlement is applied as the contract's row filter.` : ''}</p></details>
+    <div class="bar2"><button type="button" class="btn sm" id="rowcopy">Copy the query</button><button type="button" class="btn sm" id="rowcsv">Download these rows (CSV)</button>
+      <a class="small" href="/?tab=metrics&${qs({kpi: d.kpi_id})}" data-nav>How ${esc(kpiName(d.kpi_id).toLowerCase())} is defined</a></div>
+    <p class="small muted" style="margin:6px 0 0">A download is recorded on the audit trail.</p>`;
+  const sc = box.querySelector('.scroll'); if(sc) sc.scrollTop = sc.scrollHeight;
+  $('#rowcopy').onclick = async () => {
+    try{ await navigator.clipboard.writeText(d.sql); toast('Query copied. It runs as written in the warehouse.'); }
+    catch{ box.querySelector('details').open = true; toast('Copy is blocked here; the query is open to select.'); }
+  };
+  $('#rowcsv').onclick = async () => {
+    const res = await fetch('/api/rows/export', {method:'POST', headers:{'X-WhyChain-User': S.user, 'Content-Type':'application/json'}, body: JSON.stringify(ctx.base)});
+    if(!res.ok){ toast('Export refused: ' + ((await res.json().catch(() => ({}))).detail || res.status)); return; }
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement('a'); a.href = url;
+    a.download = (res.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'whychain-rows.csv';
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    toast('Downloaded, and recorded on the audit trail.');
+  };
+}
+function calendarHtml(ctx){
+  const c = ctx.cal, f = ctx.f, d = ctx.diag.data;
+  if(!c || (!c.behind.length && !c.ahead.length)) return '';
+  const day = x => new Date(x + 'T00:00:00Z').getTime() / 864e5;
+  const lo = day(c.window.from), hi = day(c.horizon), ws = day(f.start), we = day(f.end);
+  const W = 1000, X = t => 16 + (t - lo) / Math.max(1, hi - lo) * (W - 32);
+  const rows = {signal:22, promotion:44, calendar:66};
+  const marks = [...c.behind, ...c.ahead].map(e => {
+    const x = X(day(e.day)), y = rows[e.kind] || 66, k = CAL_KIND[e.kind] || ['Event','idle'];
+    const shape = e.kind === 'signal' ? `<path d="M${x} ${y-6} L${x+6} ${y+5} L${x-6} ${y+5} Z"/>`
+      : e.kind === 'promotion' ? `<rect x="${x-5}" y="${y-5}" width="10" height="10" rx="1.5"/>`
+      : `<circle cx="${x}" cy="${y}" r="5"/>`;
+    return `<g class="m ${k[1]}"><title>${esc(dt(e.day))} · ${esc(k[0])}: ${esc(e.label)}</title>${shape}</g>`;
+  }).join('');
+  const ticks = [];
+  for(let t = Math.ceil(lo); t <= hi; t += 7){ const iso = new Date(t * 864e5).toISOString().slice(0,10);
+    ticks.push(`<line x1="${X(t)}" x2="${X(t)}" y1="8" y2="78" class="tk"/><text x="${X(t)}" y="94" text-anchor="middle">${esc(dt(iso).replace(/ \d{4}$/, ''))}</text>`); }
+  const strip = `<svg class="cal" viewBox="0 0 ${W} 100" role="img" aria-label="Events around the finding">
+    <rect x="${X(ws)-4}" y="6" width="${Math.max(8, X(we)-X(ws)+8)}" height="74" class="win"/>
+    <rect x="${X(day(c.window.to))+6}" y="6" width="${W-16-X(day(c.window.to))-6}" height="74" class="ahead"/>
+    ${ticks.join('')}${marks}
+    <text x="${X(day(c.window.to))+12}" y="16" class="al">Already dated or committed</text></svg>`;
+  const item = e => { const k = CAL_KIND[e.kind] || ['Event','idle'];
+    const detail = e.kind === 'signal'
+      ? `${String(e.detail).split('. ')[0]} · up to ${Math.round(e.lead_time_hours)} h ahead · ${e.publisher}`
+      : plain(e.detail, d);
+    return `<li><span class="num small">${esc(dt(e.day).replace(/ \d{4}$/, ''))}</span> <span class="pill ${k[1]}">${esc(k[0])}</span> <b>${esc(cap(e.label))}</b>${e.count > 1 ? ` <span class="small muted">· ${e.count} warnings</span>` : ''}<br><span class="small muted">${esc(detail)}</span></li>`; };
+  // A public holiday inside the window is the question a reader in India asks
+  // first, so it is answered here rather than left for Q&A.
+  const hol = c.behind.filter(e => e.kind === 'calendar' && e.day >= f.start && e.day <= f.end);
+  const holNote = hol.length ? `<p class="callout">${esc(dt(hol[0].day))} is ${esc(hol[0].label)}. ${hol[0].modelled
+      ? `The expected line already carries ${esc(pct(hol[0].uplift, 0))} for it.`
+      : 'The expected line does not model it.'} ${f.region && d.verdict === 'explained'
+      ? 'A public holiday falls on every region alike, and each cause here passed a comparison with regions that had the same day, so the holiday cannot explain the difference.'
+      : 'Read the gap on that day with that in mind.'}</p>` : '';
+  const allBehind = c.behind.filter(e => e.day <= f.end);
+  const behind = allBehind.slice(-8), ahead = c.ahead.slice(0, 6);
+  // Capped so the list stays readable, and said so: "All 11" over 13 was false.
+  const total = allBehind.length + c.ahead.length, shown = behind.length + ahead.length;
+  return `<section class="panel" id="calendar" style="margin-top:14px"><h2>What was known, and what is coming</h2>
+    ${strip}
+    <p class="small muted" style="margin:2px 0 10px">▲ Warning · ■ Promotion · ● Holiday · Shaded: the window under review</p>
+    ${holNote}
+    <details class="more"><summary>${shown === total ? `All ${total} events` : `The ${shown} nearest of ${total} events`}</summary>
+    <div class="grid" style="margin-top:12px">
+      <div><h2>Before and during</h2><ul class="cal-list">${behind.map(item).join('') || '<li class="muted">Nothing was published or planned.</li>'}</ul></div>
+      <div><h2>Coming up, already dated</h2><ul class="cal-list">${ahead.map(item).join('') || '<li class="muted">Nothing dated in the next 45 days.</li>'}</ul>
+        <p class="small muted">${esc(c.note)}</p></div>
+    </div></details></section>`;
+}
+function narrativeHtml(d){
+  const n = d.narrative; if(!n) return '<div id="narr"></div>';
+  const v = n.validation || {};
+  const acc = (v.accepted || n.sentences || []).length, rej = (v.rejected || []).length;
+  const by = n.writer === 'template' ? 'From a template, no model' : `By the model · ${acc} of ${acc + rej} sentences validated`;
+  const text = plain((n.sentences && n.sentences.length ? n.sentences.map(s => s.text).join(' ') : n.text) || '', d);
+  // Collapsed: the table above already says it, and a reader who wants it in
+  // sentences can open it. The label says who wrote it and how it was checked.
+  return `<details class="narr" id="narr"><summary class="small">Written summary <span class="ailabel" title="Every figure in this paragraph is checked against the evidence table after it is written. A sentence whose figures are not in the table is dropped.">${esc(by)}</span></summary><p style="margin:8px 0 0">${esc(text)}</p></details>`;
+}
+function gapHtml(d){
+  const g = d.signal_gap; if(!g) return '';
+  // A heading per verdict, and always the engine's own reason under it:
+  // `no_gap` has three different causes, one of which is that a warning was
+  // received and not acted on, so no fixed sentence is true for all of them.
+  const head = {gap_found:'Yes. A warning existed and nothing read it.', no_gap:'No gap in what the planning process reads.',
+    not_foreseeable:'Not in time to act.', coverage_unknown:'Not assessed.'}[g.verdict] || human(g.verdict);
+  return `<section class="panel" id="gap"><h2>Could we have seen it coming?</h2>
+    <p class="gapline">${esc(head)}</p>
+    ${g.verdict === 'gap_found' ? '' : `<p class="small" style="margin:0">${esc(plain(g.reason, d))}</p>`}
+    ${g.verdict === 'gap_found' ? `
+      <dl class="kv"><dt>Warnings</dt><dd><button type="button" class="ev" data-ev="signals">${g.actionable_count} actionable, up to ${Math.round(g.best_lead_time_hours||0)} hours ahead</button></dd>
+      <dt>Owner of the gap</dt><dd>${esc(roleName(g.owner_role))}</dd>
+      ${g.monitoring ? `<dt>Proposed rule</dt><dd>${esc(cap(g.monitoring.watch))}, ${esc(g.monitoring.threshold)}</dd>` : ''}</dl>
+      <details class="more"><summary>Why this is a gap</summary><p class="small">${esc(plain(g.reason, d))}</p></details>` : ''}
+  </section>`;
+}
+function reconHtml(d){
+  const r = d.reconciliation; if(!r || r.state === 'contradicted') return '';
+  return `<section class="panel"><h2>${r.state === 'agreed' ? 'Checked against the finance ledger' : 'Finance ledger'}</h2><p class="small" style="margin:0">${esc(plain(r.reason || human(r.state), d))}</p></section>`;
+}
+function decisionsHtml(ctx){
+  const d = ctx.diag.data;
+  let cards = d.decisions || [];
+  if(S.persona === 'ops' && d.my_actions) cards = cards.filter(c => c.approval);
+  if(!cards.length) return '';
+  const decided = id => ctx.audit.find(e => e.event.startsWith('decision_') && e.payload.action_id === id);
+  const body = cards.map(c => {
+    if(!c.controllable || !c.approval) return `<div class="dcard"><div class="t">No lever: monitor instead</div>
+      <div class="m">${esc(causeText(c.cause))}. ${c.monitoring ? `Watch ${esc(c.monitoring.watch)}; alert on ${esc(c.monitoring.threshold)}.` : ''}</div></div>`;
+    const a = c.approval, done = decided(a.action_id), mine = myRole() === a.assigned_to;
+    return `<div class="dcard">
+      <div class="t">${esc(actionText(c.action))}</div>
+      <div class="m">Because: ${esc(causeText(c.cause))} · owner ${esc(roleName(a.assigned_to).toLowerCase())} · expected recovery <b class="num">${inr(c.expected_recovery_inr_per_day)}</b> a day${c.recovery_basis ? ` (${esc(plain(c.recovery_basis, d).replace(/^./, x => x.toLowerCase()))})` : ''}</div>
+      ${c.monitoring ? `<div class="m">Then watch ${esc(c.monitoring.watch)}.</div>` : ''}
+      ${c.already_actioned ? `<div class="m done-note">Already done on ${esc(dt(c.already_actioned.on))}, per ${esc(c.already_actioned.doc_id)}: ${esc(c.already_actioned.text)} What is left to decide is whether it worked.</div>` : ''}
+      <div class="row2">
+        ${done ? `<span class="state">${esc(human(done.event.replace('decision_','')))} by ${esc(done.actor.name)}</span>` :
+          mine ? `<button type="button" class="btn sm primary" data-decide="${esc(a.action_id)}:accept">Accept</button>
+                  <button type="button" class="btn sm" data-decide="${esc(a.action_id)}:modify">Modify</button>
+                  <button type="button" class="btn sm" data-decide="${esc(a.action_id)}:reject">Reject</button>`
+               : `<span class="small muted">Awaiting the ${esc(roleName(a.assigned_to).toLowerCase())}. Nothing executes until they decide.</span>`}
+        <button type="button" class="btn sm" data-teams="${esc(a.action_id)}" style="margin-left:auto">Send to Teams</button>
+      </div></div>`;
+  }).join('');
+  // On an unknown, a tested cause with a lever is still worth acting on, and
+  // hiding its card while the engine would accept a decision on it made the
+  // page and the service disagree. It is shown for what it is: part of the
+  // movement, not the explanation of it.
+  const partial = d.verdict !== 'explained'
+    ? (cards.length === 1
+      ? `<p class="note" style="margin-top:0">This cause passed its tests but does not explain the movement. Acting on it recovers what it accounts for; the rest is still unknown.</p>`
+      : `<p class="note" style="margin-top:0">These causes passed their tests but do not explain the movement. Acting on them recovers what they account for; the rest is still unknown.</p>`) : '';
+  return `<section class="panel" id="decide" style="margin-top:20px"><h2>${S.persona === 'ops' ? 'Actions in your territory' : d.verdict === 'explained' ? 'What to do' : 'What can be done now'}</h2>${partial}${body}</section>`;
+}
+function recordHtml(ctx){
+  if(!ctx.audit.length) return '';
+  const mine = ctx.audit.filter(e => e.subject.window && e.subject.window.from === ctx.f.start && e.subject.window.to === ctx.f.end);
+  if(!mine.length) return '';
+  return `<section class="panel" style="margin-top:14px"><h2>Record</h2>${mine.map(e => `<div class="small" style="padding:4px 0">${esc(when(e.at))} · <b>${esc(human(e.event.replace('finding_','').replace('decision_','decision ')))}</b> by ${esc(e.actor.name)}${e.payload.note ? ` · “${esc(e.payload.note)}”` : ''}</div>`).join('')}
+    <p class="note"><a href="/?tab=audit" data-nav>Full audit trail</a></p></section>`;
+}
+function refusalView(ctx){
+  const d = (ctx.diag.data && ctx.diag.data.detail) || {};
+  const msg = typeof d === 'string' ? d : (d.detail || 'This region is outside what you may see.');
+  return `<div class="crumbs">${backBtn('/?' + qs({entitled:ctx.f.entitled}))}<a href="/?${qs({entitled:ctx.f.entitled})}" data-nav>Findings</a> / ${esc(kpiName(ctx.f.kpi))} / ${esc(scopeText(ctx.f))}</div>
+    <section class="panel refusal" style="margin-top:10px">${pill('refused', true)}
+      <h1>Outside your entitlement</h1><p>${esc(msg)}</p>
+      <p class="muted">The refusal happens before anything is computed, so no figure for this region exists to leak into a chart, a sentence or a slide.</p></section>`;
+}
+function detectedView(ctx){
+  const {f, worst} = ctx;
+  return `<div class="crumbs">${backBtn('/')}<a href="/" data-nav>Findings</a> / ${esc(kpiName(f.kpi))} / ${esc(scopeText(f))} / ${span(f.start, f.end)}</div>
+    <section class="panel" style="margin-top:10px">${pill('detected', true)}
+      <h1>${esc(kpiName(f.kpi))} in ${esc(scopeText(f))} ${worst ? `moved ${pct(worst.pct)} ${worst.delta < 0 ? 'below' : 'above'} expected on ${dt(worst.day)}` : 'moved'}. The movement is real; a causal diagnosis is not available for this metric.</h1>
+      <p class="muted" style="max-width:70ch">${esc(kpiName(f.kpi))} is ${({ratio:'a rate', count:'a count'})[(ctx.ser && ctx.ser.unit)] || 'not measured in rupees'}. The test that separates price, volume and mix applies to rupee metrics, so this movement is detected and prioritised, but its cause is not diagnosed here.</p>
+      ${worst ? `<div class="facts"><div><span>Observed</span><b class="num">${fmtUnit(worst.observed, ctx.ser.unit)}</b></div><div><span>Expected</span><b class="num">${fmtUnit(worst.expected, ctx.ser.unit)}</b></div></div>` : ''}
+      <p style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">${worst ? '<button type="button" class="btn" data-ev="movement">The rows behind this</button>' : ''}<a class="btn" href="${esc(benchLink(f, worst))}">See detection and freshness in the workbench</a></p></section>`;
+}
+const fmtUnit = (v, u) => u === 'INR' ? inr(v) : u === 'ratio' ? `${(v*100).toFixed(1)}%` : Math.round(v).toLocaleString('en-IN');
+
+/* ---------- interaction ---------- */
+/* ---------- the chain: every link from the movement to the decision ----------
+   The product's name, drawn. A finding is a chain of claims, each resting on
+   the one before: the metric moved, the second system agrees it moved, the
+   movement adds back exactly to its slices, a cause survived testing, the
+   record corroborates it, it has a lever, someone owns the decision, the owner
+   signs. A refusal is a chain that breaks, and the page shows where, which is
+   the design's claim made visible rather than asserted. Links after a break are
+   drawn as not reached: nothing downstream of a broken link is attempted. */
+function chainLinks(ctx){
+  const d = ctx.diag.data, v = d.verdict, w = ctx.worst, r = d.reconciliation || {};
+  const causes = causesOf(d);
+  const cards = d.decisions || [];
+  const card = cards.find(c => c.controllable && c.approval);
+  const L = [];
+  const add = (name, state, main, sub, go) => L.push({name, state, main, sub, go});
+
+  add('Moved', w ? 'held' : 'open', w ? `${inr(Math.abs(w.delta))} ${w.delta < 0 ? 'below' : 'above'} expected` : 'Not flagged',
+      w && isFinite(w.robust_z) ? `unusual at z ${w.robust_z.toFixed(1).replace('-', '−')} and over the rupee floor` : '', 'ev:movement');
+
+  if(r.state === 'agreed') add('Confirmed', 'held', 'Ledger agrees', `within ${pct(r.worst_residual)}`, 'why');
+  else if(r.state === 'contradicted') add('Confirmed', 'broken', 'Ledger disagrees', `by up to ${pct(r.worst_residual)}: check the extract first`, 'why');
+  else add('Confirmed', 'open', 'Not compared', 'no second posting for this slice', 'why');
+
+  const top = d.ranking && d.ranking.exact && d.ranking.exact[0];
+  add('Located', 'held', top ? cap(top.label.replace(' · ', ': ')) : 'Adds back exactly',
+      top ? `${pct(top.share, 0)} of the movement, exactly` : 'price, volume and mix sum to the total', 'why');
+
+  const rej = ctx.cand ? ctx.cand.rejected.length : null, unt = ctx.cand ? ctx.cand.cannot_verify.length : null;
+  const tested = rej === null ? 'passed every test' : `passed every test; ${rej} rejected${unt ? `, ${unt} untestable` : ''}`;
+  if(v === 'explained') add('Caused', 'held', `${causes.length} cause${causes.length === 1 ? '' : 's'} verified`, tested, 'why');
+  else if(v === 'unknown') add('Caused', 'broken', causes.length ? 'Explains too little' : 'No cause survived',
+      ((d.abstention || {}).next_check ? 'the next check is named' : 'unknown is the answer'), 'why');
+  else add('Caused', 'skipped', 'Not attempted', 'data first', 'why');
+
+  const docs = (d.verified || []).reduce((a, x) => a + (x.supporting_documents || 0), 0);
+  if(!causes.length) add('Evidence', 'skipped', 'Nothing to corroborate', '', 'why');
+  else if(!d.verified) add('Evidence', 'withheld', 'Withheld here', 'citations are in the analyst view', 'why');
+  else add('Evidence', docs ? 'held' : 'open', docs ? `${docs} document${docs === 1 ? '' : 's'}` : 'None found',
+      docs ? 'quoted to the character' : 'the tests stand alone', 'why');
+
+  if(!causes.length) add('Lever', 'skipped', 'No cause, no lever', '', 'decide');
+  else if(card) add('Lever', 'held', cap(String(card.lever || '').replace(/_/g, ' ')), `owned by the ${roleName(card.owner).toLowerCase()}`, 'decide');
+  else add('Lever', 'open', 'No lever', 'monitor instead', 'decide');
+
+  const decided = card && ctx.audit.find(e => e.event.startsWith('decision_') && e.payload.action_id === card.approval.action_id);
+  if(!card) add('Decided', 'skipped', 'Nothing to decide', '', 'decide');
+  else if(decided) add('Decided', 'held', cap(human(decided.event.replace('decision_', ''))), `by ${decided.actor.name.replace(' (demo)', '')}`, 'decide');
+  else if(card.already_actioned) add('Decided', 'held', 'Already done', `${dt(card.already_actioned.on)}, per ${card.already_actioned.doc_id}`, 'decide');
+  else add('Decided', 'open', `Awaiting the ${roleName(card.approval.assigned_to).toLowerCase()}`, 'nothing executes until then', 'decide');
+
+  const owner = (ctx.sig && ctx.sig.accountable) || 'finance_director';
+  const signed = ctx.sig && ctx.sig.signed;
+  // A signature over evidence that has since changed holds nothing: the page
+  // asks for a re-sign, and so does the chain.
+  if(signed && ctx.sig.unchanged) add('Signed', 'held', 'Signed', signed.actor.name.replace(' (demo)', ''), null);
+  else if(signed) add('Signed', 'open', 'Re-sign needed', 'the evidence changed after signing', null);
+  else add('Signed', 'open', `Awaiting the ${roleName(owner).toLowerCase()}`, 'the accountable owner', null);
+
+  // Past a break nothing is attempted, and the chain says so rather than
+  // drawing links that would read as held.
+  const at = L.findIndex(x => x.state === 'broken');
+  if(at >= 0) L.slice(at + 1).forEach(x => { x.state = 'skipped'; x.main = 'Not reached'; x.sub = ''; });
+  return L;
+}
+// How each link reads mid-sentence: "breaks at the cause", not "at caused".
+const NOUN = {Moved: 'the movement', Confirmed: 'the second system', Located: 'the breakdown', Caused: 'the cause',
+  Evidence: 'the evidence', Lever: 'the lever', Decided: 'the decision', Signed: 'the signature'};
+function chainHtml(ctx){
+  const L = chainLinks(ctx);
+  const broke = L.find(x => x.state === 'broken');
+  const waiting = L.filter(x => x.state === 'open');
+  const lede = broke
+    ? `The chain breaks at <b>${esc(NOUN[broke.name] || broke.name.toLowerCase())}</b>: ${esc(broke.main.toLowerCase())}. Nothing after it is attempted, and that is the answer rather than a gap in it.`
+    : `Every link from the movement to its cause holds.${waiting.length ? ` ${waiting.length === 1 ? 'One is' : `${waiting.length} are`} still open: ${esc(waiting.map(x => x.name.toLowerCase()).join(', '))}.` : ''}`;
+  const glyph = {held: 'explained', broken: 'contradicted', open: 'checking', withheld: 'refused', skipped: 'cannot_verify'};
+  const word = {held: 'holds', broken: 'broken', open: 'open', withheld: 'withheld', skipped: 'not reached'};
+  return `<section class="panel" id="chain" style="margin-top:20px"><h2>The chain · every link has to hold</h2>
+    <p class="chain-lede">${lede}</p>
+    <ol class="whychain">${L.map((x, i) => `<li><button type="button" class="link ${x.state}" ${x.go && x.go.startsWith('ev:') ? `data-ev="${x.go.slice(3)}"` : x.go ? `data-jump="${x.go}"` : 'disabled'}
+        aria-label="${esc(`${i + 1}. ${x.name}, ${word[x.state]}: ${x.main}. ${x.sub}`)}">
+        <span class="k">${svg(glyph[x.state])}${i + 1} · ${esc(x.name)}</span>
+        <b>${esc(x.main)}</b>${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</button></li>`).join('')}</ol>
+    <p class="small muted" style="margin:10px 0 0">Solid: the link holds. Dashed: open, waiting on a person or not checkable here. Red: broken, where the engine stopped.</p>
+  </section>`;
+}
+
+/* ---------- the variance bridge ----------
+   The finance reader's own picture of a variance: where the day started, one
+   signed bar per tested cause, what is left unexplained, where it ended. Every
+   figure is the server's (whychain/decompose/waterfall.py), which checks that
+   the steps add up before it returns a bridge at all; this only draws it.
+   The axis starts above zero so the steps are visible, and the chart says so. */
+function waterfallHtml(ctx){
+  const d = ctx.diag.data, w = d.waterfall;
+  if(!w || !w.steps || !w.steps.length) return '';
+  const fav = (ctx.ser && ctx.ser.favourable) || 'up';
+  const cols = [{kind: 'start', label: w.start.label, value: w.start.value}, ...w.steps, {kind: 'end', label: w.end.label, value: w.end.value}];
+  // Running totals: each step floats from where the last one ended.
+  let run = w.start.value;
+  const bars = cols.map(c => {
+    if(c.kind === 'start' || c.kind === 'end') return {...c, lo: 0, hi: c.value};
+    const from = run; run += c.value;
+    return {...c, lo: Math.min(from, run), hi: Math.max(from, run), from, to: run};
+  });
+  const tops = bars.flatMap(b => b.kind === 'start' || b.kind === 'end' ? [b.hi] : [b.lo, b.hi]);
+  const hiV = Math.max(...tops), loV = Math.min(...tops.filter(v => v > 0));
+  const span = Math.max(hiV - loV, 1);
+  // A round floor well below the lowest step, so no bar is drawn from nothing.
+  const mag = Math.pow(10, Math.floor(Math.log10(span)));
+  const floor = Math.max(0, Math.floor((loV - span * 0.6) / mag) * mag);
+  const W = 980, H = 330, top = 36, base = 250, left = 18, right = 18;
+  const y = v => base - (Math.max(v, floor) - floor) / (hiV - floor) * (base - top);
+  const n = bars.length, slot = (W - left - right) / n, bw = Math.min(96, slot * 0.56);
+  const chars = Math.max(10, Math.floor(slot / 7.2));
+  const lines = s => { const words = String(s).split(' '); const out = ['']; for(const t of words){
+    if((out[out.length - 1] + ' ' + t).trim().length > chars && out.length < 3) out.push(t); else out[out.length - 1] = (out[out.length - 1] + ' ' + t).trim(); }
+    if(out.length === 3 && out[2].length > chars) out[2] = out[2].slice(0, chars - 1) + '…'; return out; };
+  const tone = b => b.kind === 'rest' ? 'rest' : b.kind === 'cause'
+    ? ((b.value < 0) === (fav === 'up') ? 'bad' : 'good') : 'total';
+  const clickable = id => d.verified && id ? ` data-ev="cause:${esc(id)}" tabindex="0" role="button"` : '';
+  let g = '';
+  bars.forEach((b, i) => {
+    const x = left + slot * i + (slot - bw) / 2, yt = y(b.hi), yb = y(b.lo), h = Math.max(yb - yt, 2);
+    const total = b.kind === 'start' || b.kind === 'end';
+    const label = total ? inr(b.value) : inr(b.value, {sign: true});
+    const tip = total ? `${b.label}: ${inr(b.value)} a day`
+      : `${b.label}: ${inr(b.value, {sign: true})} a day${b.measured !== null && b.measured !== undefined && Math.abs(b.measured - b.value) >= 1 ? `, measured alone at ${inr(b.measured, {sign: true})}` : ''}`;
+    g += `<g class="wf-bar ${tone(b)}"${b.kind === 'cause' ? clickable(b.id) : ''}><title>${esc(tip)}</title>
+      <rect x="${x}" y="${yt}" width="${bw}" height="${h}"/>
+      <text class="wf-v" x="${x + bw / 2}" y="${(b.kind === 'cause' || b.kind === 'rest') && b.value < 0 ? yb + 16 : yt - 8}" text-anchor="middle">${esc(label)}</text>
+      ${lines(b.label).map((t, k) => `<text class="wf-l" x="${x + bw / 2}" y="${base + 22 + k * 15}" text-anchor="middle">${esc(t)}</text>`).join('')}
+    </g>`;
+    // The connector: where this bar ended is where the next one starts.
+    if(i < n - 1){
+      const endV = total ? b.value : b.to, xe = x + bw, xn = left + slot * (i + 1) + (slot - bw) / 2;
+      g += `<line class="wf-link" x1="${xe}" y1="${y(endV)}" x2="${xn}" y2="${y(endV)}"/>`;
+    }
+    if(total && floor > 0) g += `<path class="wf-break" d="M${x - 3} ${base - 9} l${bw + 6} -6 M${x - 3} ${base - 3} l${bw + 6} -6"/>`;
+  });
+  const moved = w.end.value - w.start.value;
+  const causes = w.steps.filter(s => s.kind === 'cause'), rest = w.steps.find(s => s.kind === 'rest');
+  const lede = causes.length
+    ? `${inr(w.start.value)} a day in the fortnight before, ${inr(w.end.value)} in this window: ${inr(moved, {sign: true})} a day. ${causes.length === 1 ? 'One tested cause accounts' : `${causes.length} tested causes account`} for ${inr(causes.reduce((a, s) => a + s.value, 0), {sign: true})}${rest ? `, and ${inr(rest.value, {sign: true})} is ${w.withheld ? 'not shown to you or not explained' : 'not explained by anything tested'}` : ''}.`
+    : `${inr(w.start.value)} a day in the fortnight before, ${inr(w.end.value)} in this window. ${w.withheld ? 'The causes of this movement are outside what you may see, or untested.' : 'No tested cause accounts for any of it, which is why the answer is unknown.'}`;
+  const notes = [
+    w.scaled_for_overlap && `Measured one at a time, the causes add to ${Math.round(w.overlap * 100)}% of the movement, because they touch some of the same sales. Each is scaled by the same factor so the bridge adds up; hover a bar for its measured figure.`,
+    floor > 0 && `The axis starts at ${inr(floor)}, not zero, so the steps are visible; the first and last bars are cut where marked.`,
+  ].filter(Boolean);
+  return `<section class="panel" id="bridge" style="margin-top:20px"><h2>The bridge · ₹ a day, the fortnight before to this window</h2>
+    <p class="chain-lede">${lede}</p>
+    <div class="fishwrap"><svg class="wf" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(`Bridge: ${cols.map(c => `${c.label} ${inr(c.value, {sign: c.kind !== 'start' && c.kind !== 'end'})}`).join(', ')}`)}">
+      <line class="wf-axis" x1="${left}" y1="${base}" x2="${W - right}" y2="${base}"/>
+      ${g}
+    </svg></div>
+    ${notes.map(t => `<p class="small muted" style="margin:6px 0 0">${esc(t)}</p>`).join('')}
+  </section>`;
+}
+/* ---------- the fishbone: every hypothesis, on its bone, with its verdict ----------
+   The cause-and-effect diagram quality and operations teams already draw, with
+   one difference: each entry on a bone has been through the tests, so the
+   diagram separates what survived from what was rejected and why, and shows
+   the bones where the record held nothing at all. Placement is the server's
+   (whychain/verify/fishbone.py), deterministic and explained per entry. */
+function fishEntries(ctx){
+  const d = ctx.diag.data, out = new Map();
+  const idOf = s => (String(s).match(/^([\w.-]+):/) || [])[1] || String(s);
+  const put = (id, state, text, bone, note) => { if(bone && !out.has(id)) out.set(id, {id, state, text, bone: bone.id, because: bone.because, note}); };
+  (d.verified || []).forEach(x => put(x.candidate_id, 'verified', causeText(x.description), x.bone, `${inr(x.contribution, {sign: true})} a day`));
+  (d.causes || []).forEach(x => put(idOf(x.cause), 'verified', causeText(x.cause), x.bone, `${inr(x.contribution, {sign: true})} a day`));
+  if(ctx.cand){
+    (ctx.cand.cannot_verify || []).forEach(x => put(x.candidate_id, 'untestable', causeText(x.description), x.bone, 'Could not be tested yet'));
+    (ctx.cand.rejected || []).forEach(x => put(x.candidate_id, 'rejected', causeText(x.description), x.bone, cap(String(x.reason || 'rejected').toLowerCase())));
+  }
+  (d.set_aside || []).forEach(x => put(x.candidate_id, 'aside', causeText(x.description), x.bone, 'Set aside: could not touch this slice'));
+  return [...out.values()];
+}
+function fishboneHtml(ctx){
+  const d = ctx.diag.data, all = d.bones || [];
+  if(!all.length) return '';
+  const entries = fishEntries(ctx);
+  // A reader who is not shown rejected hypotheses must not be told a bone is
+  // empty: it may hold one they cannot see.
+  const partial = !ctx.cand && (d.withheld || []).includes('rejected candidates');
+  const order = {verified: 0, untestable: 1, rejected: 2, aside: 3};
+  const shown = all.filter(b => b.id !== 'other' || entries.some(e => e.bone === 'other'));
+  const n = shown.length, k = Math.ceil(n / 2);
+  const W = 980, H = 420, spine = H / 2, x0 = 18, headX = 760;
+  const gap = (headX - x0 - 20) / k, slant = Math.min(120, gap * 0.5);
+  const chars = Math.max(14, Math.floor((gap - 34) / 6.4));
+  const clip = s => s.length > chars ? s.slice(0, chars - 1) + '…' : s;
+  // Two lines at most, broken at a word, the second clipped: a cause is read
+  // more often than it is hovered.
+  const wrap = s => {
+    if(s.length <= chars) return [s];
+    const cut = s.lastIndexOf(' ', chars);
+    const at = cut > chars * 0.5 ? cut : chars;
+    return [s.slice(0, at), clip(s.slice(at).trim())];
+  };
+  const mark = {verified: '✓', untestable: '◌', rejected: '✕', aside: '–'};
+  let svgs = '';
+  shown.forEach((b, i) => {
+    const top = i < k, j = top ? i : i - k;
+    // Top and bottom bones meet the spine at the same points, as the diagram
+    // is drawn by hand; the last pair stops short of the head.
+    const ax = x0 + 8 + gap * (j + 1), ay = spine;
+    const ex = ax - slant, ey = top ? 58 : H - 58;
+    svgs += `<line class="fb-bone" x1="${ax}" y1="${ay}" x2="${ex}" y2="${ey}"/>
+      <text class="fb-cat" x="${ex}" y="${top ? ey - 16 : ey + 26}" text-anchor="middle">${esc(b.label)}</text>`;
+    const mine = entries.filter(e => e.bone === b.id).sort((p, q) => order[p.state] - order[q.state]);
+    const list = mine.length > 3 ? [...mine.slice(0, 2), {state: 'more', text: `and ${mine.length - 2} more`, note: '', id: ''}] : mine;
+    if(!list.length){
+      const t = 0.42, px = ex + t * (ax - ex), py = ey + t * (ay - ey);
+      svgs += `<text class="fb-empty" x="${px + 10}" y="${py + 4}">${partial ? 'Nothing verified' : 'Nothing in the record'}</text>`;
+    }
+    list.forEach((e, m) => {
+      // Fixed steps of 44px from the outer end on top and from the spine
+      // below, so each entry's three lines clear the next and the label.
+      const py = top ? ey + 14 + m * 44 : ay + 26 + m * 44;
+      const t = (py - ey) / (ay - ey), px = ex + t * (ax - ex);
+      const ls = wrap(e.text);
+      svgs += `<g class="fb-e ${e.state}"><title>${esc(`${e.text}${e.note ? '. ' + e.note : ''}${e.because ? `. On this bone because the record ${e.because}.` : ''}`)}</title>
+        <line x1="${px}" y1="${py}" x2="${px + 9}" y2="${py}"/>
+        <text x="${px + 13}" y="${py - 3}"><tspan class="fb-m">${mark[e.state] || ''}</tspan> ${esc(ls[0])}${ls[1] ? `<tspan x="${px + 24}" dy="14">${esc(ls[1])}</tspan>` : ''}</text>
+        ${e.note ? `<text class="fb-note" x="${px + 24}" y="${py + (ls[1] ? 25 : 11)}">${esc(clip(e.note))}</text>` : ''}</g>`;
+    });
+  });
+  const mv = d.movement || {};
+  const effect = `${kpiName(d.kpi_id)}${d.region ? ', ' + d.region : ''}`;
+  const amount = isFinite(mv.total_change) ? `${inr(mv.total_change, {sign: true})} a day` : '';
+  const count = st => entries.filter(e => e.state === st).length;
+  const tally = [[count('verified'), 'verified'], [count('rejected'), 'rejected by a test'],
+    [count('untestable'), 'could not be tested yet'], [count('aside'), 'set aside before testing']]
+    .filter(([n2]) => n2).map(([n2, t]) => `${n2} ${t}`).join(', ');
+  const lede = partial
+    ? `${tally || 'Nothing'} shown. Hypotheses tested and rejected are withheld for this reader; the analyst view places them on their bones.`
+    : entries.length
+    ? `${entries.length} hypothes${entries.length === 1 ? 'is' : 'es'} in the record for this window: ${tally}.`
+    : 'The operational record holds no hypothesis for this window on any bone. That is why the answer is unknown, and why the next check is to look further, not to guess.';
+  // The analyst's working map. Open for the analyst; one click away for the
+  // readers who act on the bridge instead.
+  return `<section class="panel" id="fishbone" style="margin-top:20px"><details class="fbd"${S.persona === 'analyst' ? ' open' : ''}>
+    <summary><h2>Cause and effect · every hypothesis, tested</h2></summary>
+    <p class="chain-lede">${lede}</p>
+    <div class="fishwrap"><svg class="fish" viewBox="0 0 ${W} ${H}" role="img" aria-label="Fishbone diagram: ${esc(effect)}. ${esc(entries.map(e => `${e.text}: ${e.state}`).join('; '))}">
+      <path class="fb-tail" d="M${x0} ${spine} l-14 -22 M${x0} ${spine} l-14 22"/>
+      <line class="fb-spine" x1="${x0}" y1="${spine}" x2="${headX}" y2="${spine}"/>
+      ${svgs}
+      <path class="fb-head" d="M${headX} ${spine - 58} H ${W - 70} Q ${W - 6} ${spine} ${W - 70} ${spine + 58} H ${headX} Z"/>
+      <text class="fb-h1" x="${headX + 14}" y="${spine - 18}">${esc(clip(effect))}</text>
+      <text class="fb-h2" x="${headX + 14}" y="${spine + 6}">${esc(amount)}</text>
+      <text class="fb-h3" x="${headX + 14}" y="${spine + 28}">${esc({explained: 'Explained', unknown: 'Unknown: not enough', contradicted: 'Data disputed'}[d.verdict] || d.verdict)}</text>
+    </svg></div>
+    <p class="small muted fishkey"><span class="fb-k verified">✓ Verified</span><span class="fb-k untestable">◌ Could not be tested yet</span><span class="fb-k rejected">✕ Rejected by a test</span><span class="fb-k aside">– Set aside before testing</span></p>
+  </details></section>`;
+}
+function wireFinding(ctx){
+  const view = $('#view');
+  // Built from what was rendered, so a link never points at a section this
+  // verdict does not have (a contradicted finding has no gap and no decisions).
+  const first = {explained:'Causes', contradicted:'Why nothing is explained'}[ctx.diag.data.verdict] || 'What we checked';
+  const links = [['chain', 'The chain'], ['bridge', 'The bridge'], ['why', first], ['fishbone', 'Fishbone'], ['gap', 'Signal gap'], ['calendar', 'Calendar'], ['decide', 'Decisions'], ['fair', 'Fair target']]
+    .filter(([id]) => document.getElementById(id));
+  const nav = $('#onpage');
+  if(nav){
+    nav.innerHTML = links.length > 1 ? '<span>On this page</span>' + links.map(([id, t]) => `<a href="#${id}" data-jump="${id}">${t}</a>`).join('') : '';
+    // Scrolled, not navigated: following a #fragment fires popstate, which the
+    // router reads as a new page and re-renders the whole finding.
+    nav.querySelectorAll('[data-jump]').forEach(a => a.onclick = e => {
+      e.preventDefault(); document.getElementById(a.dataset.jump).scrollIntoView({block:'start', behavior:'smooth'});
+    });
+  }
+  view.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => evidence(ctx, b.dataset.ev));
+  view.querySelectorAll('.whychain [data-jump]').forEach(b => b.onclick = () => {
+    const to = document.getElementById(b.dataset.jump); if(to) to.scrollIntoView({block:'start', behavior:'smooth'});
+  });
+  view.querySelectorAll('[data-fb]').forEach(b => b.onclick = () => feedback(ctx, b));
+  view.querySelectorAll('[data-decide]').forEach(b => b.onclick = () => decideModal(ctx, ...b.dataset.decide.split(':')));
+  view.querySelectorAll('[data-teams]').forEach(b => b.onclick = () => teams(ctx, b.dataset.teams));
+  const s = view.querySelector('[data-sign]'); if(s) s.onclick = () => signModal(ctx);
+  const x = view.querySelector('#excuse'); if(x) x.onclick = () => excuseModal(ctx);
+}
+async function feedback(ctx, b){
+  const [id, judgement] = b.dataset.fb.split(':');
+  const d = ctx.diag.data;
+  const r = await api('/api/feedback', {method:'POST', body: JSON.stringify({
+    run_id: d.run_id, kpi_id: d.kpi_id, judgement, submitted_by: S.me.identity.id,
+    candidate_id: id, persona: S.persona, region: d.region,
+    note: judgement === 'wrong_cause' ? 'Disputed from the decision view' : 'Agreed from the decision view'})});
+  if(!r.ok){ toast(detail(r)); return; }
+  ctx.fb = {...(ctx.fb||{}), [id]: judgement};
+  b.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  toast(judgement === 'confirmed' ? 'Recorded as reviewed and agreed. No figure changes.'
+    : 'Dispute recorded. If someone else disputes it too, it goes to the analysts as a proposal. No figure changes.');
+}
+function closeLayer(){ $('#layer').innerHTML = ''; }
+function layer(html){ $('#layer').innerHTML = html; const x = $('#layer [data-close]'); if(x) x.focus();
+  $('#layer').querySelectorAll('[data-close]').forEach(b => b.onclick = closeLayer); }
+addEventListener('keydown', e => { if(e.key === 'Escape') closeLayer(); });
+function toast(msg){
+  const t = document.createElement('div');
+  t.setAttribute('role','status');
+  t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:var(--r-md);font-size:14px;z-index:60;max-width:90vw';
+  t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3800);
+}
+async function evidence(ctx, what){
+  const d = ctx.diag.data;
+  let html = '';
+  if(what === 'movement'){
+    const w = ctx.worst, s = ctx.ser;
+    html = `<h3>The rows behind this figure</h3><p class="small">Read through the contract's own query. Expected is what this day normally does at this point in the year, from the metric's own trend, weekday pattern and festival calendar. Not a plan figure.</p>
+      ${spark(s, ctx.f)}
+      ${w ? `<p class="small muted">Flagged on ${dt(w.day)} at a robust z of ${w.robust_z}: unusual statistically and large enough in rupees to act on. Both tests must pass.</p>` : ''}
+      <div class="rowsbox" id="rowsbody"><p class="loading">Checking these rows against the warehouse…</p></div>`;
+  }else if(what.startsWith('cause:')){
+    const v = (d.verified||[]).find(x => x.candidate_id === what.slice(6));
+    html = `<h3>${esc(causeText(v.description))}</h3><p class="small">Every test must pass, and an untestable one leaves the cause unverified rather than verified by default.</p>
+      <table class="t"><thead><tr><th>Test</th><th>Result</th></tr></thead><tbody>
+      ${v.tests.map(t => `<tr><td>${esc(human(t.name))}</td><td><b>${esc(human(t.outcome))}</b><br><span class="small muted">${esc(t.detail)}</span></td></tr>`).join('')}</tbody></table>`;
+  }else if(what.startsWith('quotes:')){
+    const v = (d.verified||[]).find(x => x.candidate_id === what.slice(7));
+    html = `<h3>In customers' words</h3><p class="small">Each quote is checked character by character against the source ticket. Personal data is redacted before any model reads the text. Open one to see it in place.</p>
+      ${v.citations.map(c => `<button type="button" class="quote" data-doc="${esc(c.doc_id)}" data-span="${c.span.join(',')}"><span class="id">${esc(c.doc_id)} · characters ${c.span[0]} to ${c.span[1]}</span><br>“${esc(c.quote)}”</button>`).join('')}
+      <div id="doc"></div>`;
+  }else if(what === 'signals'){
+    const g = d.signal_gap;
+    html = `<h3>Warnings published before it happened</h3><p class="small">${esc(g.reason)}</p>
+      <table class="t"><thead><tr><th>Where</th><th>Severity</th><th class="n">Lead</th><th>Publisher</th></tr></thead><tbody>
+      ${(g.signals||[]).map(s => `<tr><td>${esc(s.city)}</td><td>${esc(s.severity)}</td><td class="n">${Math.round(s.lead_time_hours)} h</td><td class="small">${esc(s.publisher)}</td></tr>`).join('')}</tbody></table>
+      ${g.process_document ? `<p class="small muted">The planning process was read from <code>${esc(g.process_document)}</code>. It consumes: ${esc((g.consumed||[]).map(human).join(', '))}.</p>` : ''}`;
+  }
+  layer(`<div class="scrim" data-close></div><aside class="drawer" role="dialog" aria-label="Evidence"><button type="button" class="btn sm x" data-close>Close</button>${html}</aside>`);
+  if(what === 'movement') loadRows(ctx);
+  $('#layer').querySelectorAll('[data-doc]').forEach(b => b.onclick = async () => {
+    const r = await api(`/api/document/${encodeURIComponent(b.dataset.doc)}?` + qs({industry:ctx.f.industry, entitled:ctx.f.entitled}));
+    const box = $('#doc'); if(!box) return;
+    if(!r.ok){ box.innerHTML = `<p class="err">${esc(detail(r))}</p>`; return; }
+    const [a, z] = b.dataset.span.split(',').map(Number), t = r.data.text;
+    box.innerHTML = `<blockquote>${esc(t.slice(0,a))}<mark>${esc(t.slice(a,z))}</mark>${esc(t.slice(z))}</blockquote>
+      <p class="small muted">${esc(human(r.data.doc_type))} · ${esc(r.data.region)} · ${esc(dt(r.data.ts))}${r.data.injection_flags.length ? ` · contains instruction-like text (${esc(r.data.injection_flags.join(', '))}), read as data` : ''}</p>
+      <p class="small" style="color:var(--ok)">${esc(piiLine(r.data.personal_data))}</p>`;
+  });
+}
+/* "pii:phone x1" -> "1 phone number". What was masked, or that the scan ran
+   and found nothing: both are results, and saying neither would leave a reader
+   unsure the check happened. */
+const PII_NAME = {email:'email address', phone:'phone number', card:'card number', 'id-number':'ID number',
+  upi:'UPI ID', pan:'PAN', address:'street address'};
+function piiLine(pd){
+  if(!pd || !pd.scanned_for || !pd.scanned_for.length) return '';
+  if(!pd.masked.length) return 'Scanned for personal data: none found.';
+  return 'Personal data masked: ' + pd.masked.map(m => { const [, kind, n] = m.match(/^[^:]+:(.+) x(\d+)$/) || [null, m, '1'];
+    return `${n} ${PII_NAME[kind] || kind}${n === '1' ? '' : 's'}`; }).join(', ') + '. The model never saw them either.';
+}
+function spark(s, f){
+  if(!s || !s.days || !s.days.length) return '';
+  const W = 420, H = 130, P = 8, n = s.days.length;
+  const vals = [...s.observed, ...s.expected, ...(s.band_low||[]), ...(s.band_high||[])].filter(v => v !== null && isFinite(v));
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const x = i => P + i * (W - 2*P) / Math.max(1, n - 1), y = v => H - 16 - (v - lo) / (hi - lo || 1) * (H - 30);
+  const path = arr => arr.map((v,i) => `${i?'L':'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  const i0 = s.days.findIndex(d => d >= f.start), i1 = s.days.findLastIndex(d => d <= f.end);
+  const band = s.band_low && s.band_high ? `<path class="band" d="${path(s.band_high)}${s.band_low.slice().reverse().map((v,j) => `L${x(n-1-j).toFixed(1)},${y(v).toFixed(1)}`).join('')}Z"/>` : '';
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="Observed against expected">
+    ${i0 >= 0 && i1 >= i0 ? `<rect class="win" x="${x(i0)-3}" y="4" width="${x(i1)-x(i0)+6}" height="${H-20}"/>` : ''}
+    ${band}<path class="exp" d="${path(s.expected)}"/><path class="obs" d="${path(s.observed)}"/>
+    <text x="${P}" y="${H-3}">${dt(s.days[0])}</text><text x="${W-P}" y="${H-3}" text-anchor="end">${dt(s.days[n-1])}</text></svg>
+    <p class="small muted" style="margin:4px 0 10px">Solid: observed. Dashed: expected. Shaded: the normal range, and the window under review.</p>`;
+}
+function signModal(ctx){
+  const d = ctx.diag.data, owner = (ctx.sig && ctx.sig.accountable) || 'finance_director';
+  const mine = myRole() === owner;
+  const causes = causesOf(d);
+  const untested = (d.verified||[]).flatMap(v => (v.tests||[]).filter(t => t.outcome === 'unavailable').map(t => human(t.name))).filter((v,i,a) => a.indexOf(v) === i);
+  const overlap = d.movement && d.movement.overlap > 1.05;
+  const nRejected = ctx.cand && ctx.cand.rejected ? ctx.cand.rejected.length : null;
+  const statement = {explained:'You accept this movement and its verified causes for reporting.',
+    unknown:'You accept the movement as real and its cause as not yet established.',
+    contradicted:'You record that the two systems disagree and the movement is not accepted as real.'}[d.verdict];
+  const body = mine ? `<h3>What you are signing</h3>
+      <p>${esc(statement)}</p>
+      <ul>
+        <li>${esc(headline(ctx))}</li>
+        ${causes.length ? `<li>${causes.length} cause${causes.length===1?'':'s'} passed every test that could run.</li>` : ''}
+        ${untested.length ? `<li><b>Could not run:</b> ${esc(untested.join(', ').toLowerCase())}. Each cause was present in one place only.</li>` : ''}
+        ${overlap ? `<li>The causes overlap, so their sizes are not additive.</li>` : ''}
+        ${nRejected ? `<li>${nRejected} alternative${nRejected===1?' was':'s were'} tested and rejected.</li>` : ''}
+      </ul>
+      <label class="small" for="signnote">Note for the record (optional)</label>
+      <textarea id="signnote" maxlength="500"></textarea>
+      <p class="small muted">Your name, the time and a fingerprint of this evidence are recorded in the audit trail. If the data changes later, this page will say so. Nothing executes.</p>
+      <div class="err" id="signerr"></div>
+      <div class="foot"><button type="button" class="btn" data-close>Cancel</button><button type="button" class="btn primary" id="signgo">Sign</button></div>`
+    : `<h3>This needs the ${esc(roleName(owner).toLowerCase())}</h3>
+      <p>Only the accountable ${esc(roleName(owner).toLowerCase())} signs a ${esc(kpiName(d.kpi_id).toLowerCase())} finding. You are acting as ${esc(myName())}.</p>
+      <p class="small muted">That is the decision right the metric's contract declares, enforced by the server, not only hidden here.</p>
+      <div class="foot"><button type="button" class="btn" data-close>Close</button>
+      ${S.me.mode === 'demo' ? `<button type="button" class="btn primary" id="actas">Act as the ${esc(roleName(owner).toLowerCase())} (demo)</button>` : ''}</div>`;
+  layer(`<div class="modal" role="dialog" aria-modal="true" aria-label="Sign this finding"><div class="box">${body}</div></div>`);
+  const go2 = $('#signgo');
+  if(go2) go2.onclick = async () => {
+    go2.disabled = true;
+    const r = await api('/api/signoff', {method:'POST', body: JSON.stringify({...ctx.base, note: $('#signnote').value})});
+    if(!r.ok){ $('#signerr').textContent = detail(r); go2.disabled = false; return; }
+    closeLayer(); toast('Signed and recorded in the audit trail.'); route();
+  };
+  const act = $('#actas');
+  if(act) act.onclick = async () => {
+    const u = S.me.demo_users.find(x => x.role === owner); if(!u) return;
+    S.user = u.id; store.set('whychain-user', S.user); S.me = (await api('/api/me')).data; renderActor(); signModal(ctx);
+  };
+}
+function excuseModal(ctx){
+  const ft = ctx.diag.data.fair_target, warned = ft.factors.filter(f => f.warned);
+  layer(`<div class="modal" role="dialog" aria-modal="true" aria-label="Excuse conditions"><div class="box">
+    <h3>Excuse conditions the team was warned about</h3>
+    <ul>${warned.map(f => `<li><b>${esc(causeText(f.cause))}</b>, ${inr(f.amount_inr_per_day, {sign:true})} a day, warned ${Math.round(f.lead_time_hours)} hours ahead.</li>`).join('')}</ul>
+    <p class="small">The team would be judged on <b class="num">${inr(ft.all_excused_inr_per_day, {sign:true})}</b> a day instead of <b class="num">${inr(ft.policy_inr_per_day, {sign:true})}</b>. The policy holds a team accountable for preparing for a warned condition, so say why this one is excused.</p>
+    <label class="small" for="xnote">Why (required)</label><textarea id="xnote" maxlength="500"></textarea><div class="err" id="xerr"></div>
+    <div class="foot"><button type="button" class="btn" data-close>Cancel</button><button type="button" class="btn primary" id="xgo">Excuse and record</button></div></div></div>`);
+  $('#xgo').onclick = async () => {
+    if(!$('#xnote').value.trim()){ $('#xerr').textContent = 'Say why: a warned condition is excused only with a reason on the record.'; return; }
+    const r = await api('/api/adjustment', {method:'POST', body: JSON.stringify({...ctx.base, excuse: warned.map(f => f.candidate_id), note: $('#xnote').value})});
+    if(!r.ok){ $('#xerr').textContent = detail(r); return; }
+    closeLayer(); toast('Adjustment recorded in the audit trail.'); route();
+  };
+}
+function decideModal(ctx, actionId, choice){
+  const c = (ctx.diag.data.decisions||[]).find(x => x.approval && x.approval.action_id === actionId);
+  const verb = {accept:'Accept', modify:'Modify', reject:'Reject'}[choice];
+  layer(`<div class="modal" role="dialog" aria-modal="true" aria-label="${verb} decision"><div class="box">
+    <h3>${verb}: ${esc(actionText(c.action))}</h3>
+    <p class="small">Recording this decision does not execute it. The change itself happens in the system that owns it, by the people who own it.</p>
+    <label class="small" for="dnote">${choice === 'modify' ? 'What changes (required)' : 'Note for the record (optional)'}</label>
+    <textarea id="dnote" maxlength="500"></textarea><div class="err" id="derr"></div>
+    <div class="foot"><button type="button" class="btn" data-close>Cancel</button><button type="button" class="btn primary" id="dgo">${verb}</button></div></div></div>`);
+  $('#dgo').onclick = async () => {
+    const r = await api('/api/decision', {method:'POST', body: JSON.stringify({...ctx.base, action_id: actionId, decision: choice, note: $('#dnote').value})});
+    if(!r.ok){ $('#derr').textContent = detail(r); return; }
+    closeLayer(); toast(`${{accept:'Accepted', modify:'Modified', reject:'Rejected'}[choice]} and recorded. Nothing was executed.`); route();
+  };
+}
+async function teams(ctx, actionId){
+  layer(`<div class="modal" role="dialog" aria-modal="true" aria-label="Send to Teams"><div class="box"><h3>Send to Teams</h3><p class="loading">Building the card…</p></div></div>`);
+  const r = await api('/api/dispatch/teams', {method:'POST', body: JSON.stringify({...ctx.base, action_id: actionId})});
+  if(!r.ok){ layer(`<div class="modal"><div class="box"><h3>Send to Teams</h3><p class="err">${esc(detail(r))}</p><div class="foot"><button type="button" class="btn" data-close>Close</button></div></div></div>`); return; }
+  const card = r.data.card, facts = (card.body.find(b => b.type === 'FactSet')||{}).facts || [];
+  layer(`<div class="modal" role="dialog" aria-modal="true" aria-label="Send to Teams"><div class="box">
+    <h3>${r.data.sent ? 'Sent to Teams' : 'Not sent: Teams is not connected'}</h3>
+    <p class="small">${esc(r.data.detail)} ${r.data.sent ? '' : 'Set WHYCHAIN_TEAMS_WEBHOOK to a Teams incoming webhook and this exact card is posted to the owner’s channel.'}</p>
+    <div class="ac"><div class="h">${esc(card.body[0].text)}</div><p style="margin:6px 0">${esc(card.body[1].text)}</p>
+      <dl class="kv">${facts.map(x => `<dt>${esc(x.title)}</dt><dd>${esc(x.value)}</dd>`).join('')}</dl>
+      <p class="small muted" style="margin:8px 0 0">${esc(card.body[3].text)}</p></div>
+    <details style="margin-top:10px"><summary class="small">Adaptive Card JSON</summary><pre style="font-size:11.5px;overflow:auto;max-height:220px">${esc(JSON.stringify(card, null, 2))}</pre></details>
+    <div class="foot"><button type="button" class="btn" data-close>Close</button></div></div></div>`);
+}
+
+/* ---------- boot ---------- */
+shell().then(route);
+</script>
+</body>
+</html>

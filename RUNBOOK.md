@@ -11,8 +11,12 @@ built so far.
 make setup
 ```
 
-Creates `.venv` and installs pinned dependencies. Python 3.12+ required; the pins
-are verified against 3.14.6.
+Runs the app's own installer (`app/launch.py --setup`): builds `.venv`, installs
+the pinned dependencies with progress shown, checks every one imports, and
+generates any missing warehouse. Re-running it repairs an interrupted install or
+updates one after `requirements.txt` changes, and takes seconds otherwise.
+Python 3.12, 3.13 or 3.14; the pins resolve to wheels on Windows, macOS (Apple
+silicon and Intel) and Linux for all three.
 
 ## Step 2, Generate the dataset
 
