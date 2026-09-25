@@ -26,10 +26,8 @@ demo-reset:       ## start the demo clean: archive signatures, decisions and fee
 	if [ $$moved = 1 ]; then echo "Archived to $$dest. The audit trail and feedback start empty."; \
 	else echo "Nothing to archive; already clean."; fi
 
-setup:            ## create venv and install dependencies
-	python3 -m venv .venv
-	.venv/bin/pip install --upgrade pip
-	.venv/bin/pip install -r requirements.txt
+setup:            ## install and verify everything this folder needs (the app's own installer)
+	WHYCHAIN_APP_QUIET=1 python3 app/launch.py --setup
 
 gen-all:          ## generate every industry's dataset + ground truth
 	PYTHONPATH=. .venv/bin/python -m datagen.build all
@@ -43,10 +41,10 @@ prepare:          ## compute each contract's lineage once, at ingest, not per re
 	PYTHONPATH=. .venv/bin/python scripts/prepare.py $(ARGS)
 
 demo:             ## run the console at http://localhost:8000
-	.venv/bin/uvicorn api.main:app --reload --port 8000
+	.venv/bin/python -m uvicorn api.main:app --reload --port 8000
 
 test:             ## run the test suite (includes the invariant tests)
-	.venv/bin/pytest -q
+	.venv/bin/python -m pytest -q
 
 bench:            ## run the benchmark harness and print the report
 	PYTHONPATH=. .venv/bin/python -m bench.run --report
@@ -88,7 +86,7 @@ audit:            ## run the security and logic checklists
 	PYTHONPATH=. .venv/bin/python scripts/audit.py
 
 lint:             ## static checks, the same ones CI runs
-	.venv/bin/ruff check .
+	.venv/bin/python -m ruff check .
 
 check-attribution: ## the guard CI runs over the commit history
 	./.github/scripts/check-attribution.sh
@@ -97,7 +95,7 @@ ci:               ## everything CI runs, in CI's order
 	$(MAKE) lint
 	$(MAKE) gen
 	$(MAKE) test
-	.venv/bin/pytest -m invariant -q
+	.venv/bin/python -m pytest -m invariant -q
 	$(MAKE) check-attribution
 
 clean:            ## remove generated data and caches

@@ -94,32 +94,21 @@ check_model() {
 bold "WhyChain"
 echo
 
-# 1. Python environment -------------------------------------------------------
-step "environment"
-if [ ! -x .venv/bin/uvicorn ]; then
-  command -v python3 >/dev/null 2>&1 || { echo "python3 is not installed" >&2; exit 1; }
-  warn "building the virtualenv and installing dependencies, about two minutes"
-  make setup >/dev/null
-fi
-good "$("$PY" -V)"
-
-# 2. Configuration ------------------------------------------------------------
-if [ ! -f .env ]; then
-  cp .env.example .env
-  warn ".env created from .env.example; the engine runs deterministically until a backend is configured"
-fi
-
-# 3. Synthetic warehouse ------------------------------------------------------
-step "data"
-if [ ! -s data/warehouse/whychain.duckdb ]; then
-  warn "generating the synthetic warehouse, about forty seconds"
-  make gen >/dev/null
-fi
-# Idempotent, and skipped in a second when already done. A warehouse generated
-# before this step existed still reads correctly, just slower, so this is a
-# speed-up rather than a requirement.
-make prepare ARGS=retail >/dev/null 2>&1 || true
-good "warehouse present"
+# 1. Environment and data ---------------------------------------------------
+# One installer for every way in: the same one the double-click app uses. It
+# checks the environment is complete and matches requirements.txt, repairs or
+# updates it when not, generates any missing warehouse and prepares it. Seconds
+# when everything is already in place.
+step "environment and data"
+BOOT=""
+for CANDIDATE in .venv/bin/python python3.14 python3.13 python3.12 python3; do
+  if command -v "$CANDIDATE" >/dev/null 2>&1 && "$CANDIDATE" -c "import sys" >/dev/null 2>&1; then
+    BOOT="$CANDIDATE"; break
+  fi
+done
+[ -n "$BOOT" ] || { echo "python3 is not installed (3.12 to 3.14 is needed)" >&2; exit 1; }
+WHYCHAIN_APP_QUIET=1 "$BOOT" app/launch.py --setup || exit 1
+good "$("$PY" -V), dependencies verified, warehouses present"
 
 # 4. Server -------------------------------------------------------------------
 # Before the model check, so the console is on screen while a free tier is
@@ -134,13 +123,17 @@ if health; then
   exit 0
 fi
 
-.venv/bin/uvicorn api.main:app --port "$PORT" >/dev/null 2>&1 &
+# `python -m uvicorn`, not .venv/bin/uvicorn: that script's first line names the
+# folder the environment was built in, so it stopped working the moment the
+# folder was copied or moved. The log is kept so a failed start says why.
+mkdir -p data/app
+"$PY" -m uvicorn api.main:app --port "$PORT" >data/app/server.log 2>&1 &
 SERVER_PID=$!
 trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT INT TERM
 
 for _ in $(seq 1 60); do
   health && break
-  kill -0 "$SERVER_PID" 2>/dev/null || { echo "the server exited during start-up" >&2; exit 1; }
+  kill -0 "$SERVER_PID" 2>/dev/null || { echo "the server exited during start-up:" >&2; tail -15 data/app/server.log >&2; exit 1; }
   sleep 1
 done
 

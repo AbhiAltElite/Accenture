@@ -2,12 +2,14 @@
 
     python app/launch.py            what WhyChain.app, WhyChain.bat and whychain.sh run
     python app/launch.py --check    start the engine, prove it works on this PC, stop
+    python app/launch.py --setup    install and prepare only; what run.sh and make setup use
 
 Standard library only, so it runs under any Python 3.9+ before the virtualenv
 exists and builds it. In order:
 
-1. builds the virtualenv on first run, from bundled wheels when the portable
-   package carries them, so a venue with no internet still works
+1. makes sure the virtualenv is complete and matches requirements.txt, and
+   builds, repairs or updates it when it is not, from bundled wheels when the
+   portable package carries them, so a venue with no internet still works
 2. generates the warehouse only if it is missing (the portable package ships it)
 3. starts the engine hidden on its own port, and waits until it is healthy
 4. opens the console in an Edge, Chrome or Chromium app window: no address bar,
@@ -47,6 +49,16 @@ PORT_RANGE = 20
 APPDATA = ROOT / "data" / "app"
 STATE = APPDATA / "engine.json"
 LOG = APPDATA / "engine.log"
+INSTALL_LOG = APPDATA / "install.log"
+SETUP_LOCK = APPDATA / "setup.lock"
+# Written inside the virtualenv only after every dependency imports. Its
+# absence, or a requirements file that no longer matches it, means the
+# environment is incomplete or stale and is repaired, never trusted.
+READY = ROOT / ".venv" / "whychain-ready.json"
+# What the engine cannot start without. Imported, not merely listed, because
+# an interrupted install leaves a package's folder behind without its insides.
+IMPORTS = ("uvicorn", "fastapi", "duckdb", "pandas", "numpy", "scipy", "statsmodels",
+           "sklearn", "yaml", "holidays", "certifi")
 PROFILE = APPDATA / "window-profile"
 WINDOWS = os.name == "nt"
 VENV_PY = ROOT / ".venv" / ("Scripts/python.exe" if WINDOWS else "bin/python")
@@ -228,44 +240,146 @@ def base_python() -> str:
     )
 
 
-def ensure_environment() -> None:
-    """First run only: the virtualenv, then the warehouse. Seconds once done."""
+def _requirements_hash() -> str:
+    import hashlib
+    return hashlib.sha256((ROOT / "requirements.txt").read_bytes()).hexdigest()[:16]
+
+
+def _ready() -> bool:
+    """The environment is complete and was built from today's requirements."""
     if not VENV_PY.exists() or _version(str(VENV_PY)) not in SUPPORTED:
-        shutil.rmtree(ROOT / ".venv", ignore_errors=True)
-        python = base_python()
-        offline = WHEELS.is_dir() and any(WHEELS.glob("*.whl"))
-        say("First run: installing WhyChain" +
-            (" from the bundled files." if offline else ", about two minutes."))
-        subprocess.run([python, "-m", "venv", str(ROOT / ".venv")], check=True, **NOWIN)
-        pip = [str(VENV_PY), "-m", "pip", "install", "-q", "--disable-pip-version-check"]
-        requirements = ["-r", str(ROOT / "requirements.txt")]
-        done = False
-        if offline:
-            done = subprocess.run([*pip, "--no-index", "--find-links", str(WHEELS),
-                                   *requirements], env=CHILD_ENV, **NOWIN).returncode == 0
-        if not done:
-            result = subprocess.run([*pip, "--only-binary=:all:", *requirements],
-                                    env=CHILD_ENV, capture_output=True, text=True, **NOWIN)
-            if result.returncode != 0:
-                shutil.rmtree(ROOT / ".venv", ignore_errors=True)
+        return False
+    try:
+        marker = json.loads(READY.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return marker.get("requirements") == _requirements_hash() and _imports_ok()
+
+
+def _imports_ok() -> bool:
+    try:
+        probe = subprocess.run([str(VENV_PY), "-c", "import " + ", ".join(IMPORTS)],
+                               capture_output=True, env=CHILD_ENV, timeout=180, **NOWIN)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return probe.returncode == 0
+
+
+def _pip(args: list[str]) -> bool:
+    """Run pip, showing its progress and keeping all of it in install.log.
+
+    The first install takes minutes. Run silently it looked frozen, which is
+    exactly when people closed the window and left half an environment behind.
+    """
+    cmd = [str(VENV_PY), "-m", "pip", "install", "--disable-pip-version-check",
+           "--progress-bar", "off", *args]
+    with INSTALL_LOG.open("a", encoding="utf-8") as log:
+        log.write(f"\n$ {' '.join(cmd)}\n")
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, encoding="utf-8", errors="replace",
+                                env=CHILD_ENV, **NOWIN)
+        for line in proc.stdout:
+            log.write(line)
+            if line.startswith("Collecting"):
+                print("  " + line.split(" (from")[0].strip()[:90], flush=True)
+            elif line.startswith(("Installing collected", "Successfully installed", "ERROR")):
+                print("  " + (line.split(":")[0] if line.startswith("Installing") else line)
+                      .strip()[:110], flush=True)
+        return proc.wait() == 0
+
+
+def install() -> None:
+    """Build, repair or update the virtualenv until every dependency imports."""
+    APPDATA.mkdir(parents=True, exist_ok=True)
+    fresh = not VENV_PY.exists() or _version(str(VENV_PY)) not in SUPPORTED
+    for _attempt in (1, 2):
+        if fresh:
+            shutil.rmtree(ROOT / ".venv", ignore_errors=True)
+            python = base_python()
+            say("First run on this computer: installing WhyChain. This takes a few "
+                "minutes; keep this open.")
+            made = subprocess.run([python, "-m", "venv", str(ROOT / ".venv")],
+                                  capture_output=True, text=True, **NOWIN)
+            if made.returncode != 0:
                 raise Stop(
-                    "Installing WhyChain's dependencies failed. This needs an internet "
-                    "connection the first time, unless the portable package included "
-                    f"the wheels folder.\n\n{result.stderr.strip()[-600:]}"
-                )
+                    f"Python at {python} could not create an environment for WhyChain. "
+                    "On Debian or Ubuntu install python3-venv (sudo apt install "
+                    "python3-venv); elsewhere reinstall Python from python.org.\n\n"
+                    + made.stderr.strip()[-400:])
+        else:
+            say("Updating WhyChain's installation on this computer.")
+        requirements = ["-r", str(ROOT / "requirements.txt")]
+        offline = WHEELS.is_dir() and any(WHEELS.glob("*.whl"))
+        done = offline and _pip(["--no-index", "--find-links", str(WHEELS), *requirements])
+        done = done or _pip(["--only-binary=:all:", *requirements])
+        if done and _imports_ok():
+            READY.write_text(json.dumps({"requirements": _requirements_hash(),
+                                         "python": ".".join(map(str, _version(str(VENV_PY))))}),
+                             encoding="utf-8")
+            return
+        # A repair that did not take is retried once from nothing: a broken
+        # environment is cheaper to replace than to diagnose.
+        fresh = True
+    shutil.rmtree(ROOT / ".venv", ignore_errors=True)
+    tail = INSTALL_LOG.read_text(encoding="utf-8", errors="replace")[-700:]
+    raise Stop(
+        "Installing WhyChain's dependencies failed. The first run needs an internet "
+        "connection, unless the package was built with a wheels folder. Nothing "
+        "was left half-installed; fix the cause and open WhyChain again.\n\n"
+        f"Full log: {INSTALL_LOG}\n\n{tail}"
+    )
 
-    missing = [w for w in WAREHOUSES if not (ROOT / "data" / "warehouse" / w).exists()]
-    if missing:
-        say("First run: generating the warehouse, about two minutes.")
-        subprocess.run([str(VENV_PY), "-m", "datagen.build", "all"],
-                       cwd=ROOT, env=CHILD_ENV, check=True, **NOWIN)
-    # Idempotent and a second when already done. An unprepared warehouse still
-    # answers correctly, only slower, so a failure here does not stop anything.
-    subprocess.run([str(VENV_PY), "scripts/prepare.py"], cwd=ROOT, env=CHILD_ENV,
-                   check=False, capture_output=True, **NOWIN)
 
-    if not (ROOT / ".env").exists() and (ROOT / ".env.example").exists():
-        shutil.copy(ROOT / ".env.example", ROOT / ".env")
+def _lock() -> None:
+    """One setup at a time. Two double-clicks used to run two installs into one folder."""
+    APPDATA.mkdir(parents=True, exist_ok=True)
+    try:
+        holder = int(SETUP_LOCK.read_text(encoding="utf-8").strip() or 0)
+    except (OSError, ValueError):
+        holder = 0
+    if holder and holder != os.getpid() and alive(holder):
+        raise Stop("WhyChain is already setting up in another window. Wait for it to "
+                   "finish; it opens by itself when it is ready.")
+    SETUP_LOCK.write_text(str(os.getpid()), encoding="utf-8")
+
+
+def ensure_environment() -> None:
+    """The virtualenv, then the warehouse. Seconds once done."""
+    _lock()
+    try:
+        if not _ready():
+            install()
+
+        missing = [w for w in WAREHOUSES if not (ROOT / "data" / "warehouse" / w).exists()]
+        if missing:
+            say("First run: generating the data, about two minutes.")
+            subprocess.run([str(VENV_PY), "-m", "datagen.build", "all"],
+                           cwd=ROOT, env=CHILD_ENV, check=True, **NOWIN)
+        # Idempotent and a second when already done. An unprepared warehouse
+        # still answers correctly, only slower, so a failure here stops nothing.
+        subprocess.run([str(VENV_PY), "scripts/prepare.py"], cwd=ROOT, env=CHILD_ENV,
+                       check=False, capture_output=True, **NOWIN)
+
+        if not (ROOT / ".env").exists() and (ROOT / ".env.example").exists():
+            shutil.copy(ROOT / ".env.example", ROOT / ".env")
+        _unquarantine()
+    finally:
+        SETUP_LOCK.unlink(missing_ok=True)
+
+
+def _unquarantine() -> None:
+    """Let WhyChain.app open from where it is on this Mac.
+
+    A zip that arrived by AirDrop or download marks every file as quarantined,
+    and macOS then runs a quarantined app from a hidden temporary copy that
+    cannot see the folder around it, so the app found nothing and did nothing.
+    Reaching this line means the reader has already chosen to run WhyChain from
+    this folder, so the mark is cleared on this folder's own app bundle only.
+    """
+    bundle = ROOT / "WhyChain.app"
+    if sys.platform == "darwin" and bundle.is_dir():
+        subprocess.run(["xattr", "-dr", "com.apple.quarantine", str(bundle)],
+                       check=False, capture_output=True)
 
 
 # --- the engine ----------------------------------------------------------------
@@ -296,7 +410,11 @@ def start_engine() -> int:
 
     flags = ({"creationflags": subprocess.CREATE_NO_WINDOW} if WINDOWS
              else {"start_new_session": True})
-    with LOG.open("ab") as log:
+    # Fresh each start, the last one kept: an appended log showed an earlier
+    # day's lines as the reason this start failed.
+    if LOG.exists():
+        LOG.replace(APPDATA / "engine.previous.log")
+    with LOG.open("wb") as log:
         proc = subprocess.Popen(
             [str(VENV_PY), "-m", "uvicorn", "api.main:app",
              "--host", "127.0.0.1", "--port", str(PORT)],
@@ -336,6 +454,15 @@ def app_browser() -> str | None:
 
 # --- the self-check ----------------------------------------------------------
 
+def _has_key() -> bool:
+    try:
+        text = (ROOT / ".env").read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return any(line.split("=", 1)[0].strip() == "WHYCHAIN_LLM_API_KEY"
+               and line.split("=", 1)[1].strip() for line in text.splitlines() if "=" in line)
+
+
 def check() -> int:
     """Everything a demo depends on, asked of the running engine on this PC."""
     results: list[tuple[bool, str]] = []
@@ -358,8 +485,14 @@ def check() -> int:
     no_ai = os.environ.get("WHYCHAIN_CHECK_NO_AI") == "1"
     code, models = get("/api/models")
     hosted = [b for b in models.get("backends", []) if b.get("available") and b["id"] != "none"]
+    # A package built with --no-key runs with the model off by design. That is
+    # a state to report, not a failure: everything else must still pass.
+    if not no_ai and not hosted and not _has_key():
+        no_ai = True
+        print("  note  AI is off on this computer: no key in .env. The engine runs its "
+              "deterministic path; add a key to .env to switch the model on.", flush=True)
     if no_ai:
-        print("  skip  model backend (WHYCHAIN_CHECK_NO_AI=1)", flush=True)
+        print("  skip  model backend", flush=True)
     else:
         expect(bool(hosted), "model backend reachable: " +
                (", ".join(f"{b['id']} {b['model']}" for b in hosted) or "none (no key in .env?)"))
@@ -386,7 +519,8 @@ def check() -> int:
         expect(False, "console page served")
 
     failed = [w for ok, w in results if not ok]
-    print(f"\n{len(results) - len(failed)} of {len(results)} checks pass on this computer.")
+    print(f"\n{len(results) - len(failed)} of {len(results)} checks pass on this computer."
+          + ("" if failed else " Ready."))
     return 1 if failed else 0
 
 
@@ -394,15 +528,21 @@ def check() -> int:
 
 def main() -> int:
     os.chdir(ROOT)
-    checking = "--check" in sys.argv
+    # The variable lets CI run the self-check through each system's double-click
+    # entry (WhyChain.bat, whychain.command, whychain.sh), which take no arguments.
+    checking = "--check" in sys.argv or os.environ.get("WHYCHAIN_APP_CHECK") == "1"
     try:
         ensure_environment()
+        if "--setup" in sys.argv:
+            print("Ready. Installed and prepared in this folder.", flush=True)
+            return 0
         pid = start_engine()
     except Stop as exc:
         alert(str(exc))
         return 1
     except subprocess.CalledProcessError as exc:
-        alert(f"Setting up WhyChain failed at: {' '.join(map(str, exc.cmd))[:300]}")
+        alert(f"Setting up WhyChain failed at: {' '.join(map(str, exc.cmd))[:300]}\n\n"
+              f"Details are in {APPDATA}.")
         return 1
 
     if checking:

@@ -36,18 +36,41 @@ PLIST
 
 # Finder starts an app with a bare PATH, so the interpreter is looked for by
 # path: the project's own virtualenv first, then the usual Python installs.
-# The repository is found from the bundle's location, with the build-time path
-# as the fallback if the bundle has been moved.
-cat > "$APP/Contents/MacOS/WhyChain" <<SH
+# Each is run, not just found, because /usr/bin/python3 exists on every Mac
+# and may be a placeholder for tools that are not installed.
+#
+# The folder is found from the bundle's own location and nowhere else. It used
+# to fall back to the path of the machine that built it, which on any other Mac
+# does not exist, so the app did nothing at all. When it cannot see its folder
+# the reason is almost always that macOS is running a quarantined copy from a
+# hidden location, and the dialog says how to fix that once.
+cat > "$APP/Contents/MacOS/WhyChain" <<'SH'
 #!/bin/bash
-DIR="\$(cd "\$(dirname "\$0")/../../.." && pwd)"
-[ -f "\$DIR/app/launch.py" ] || DIR="$ROOT"
-mkdir -p "\$DIR/data/app"
-for PY in "\$DIR/.venv/bin/python" /opt/homebrew/bin/python3 /usr/local/bin/python3 \\
-          /Library/Frameworks/Python.framework/Versions/Current/bin/python3 /usr/bin/python3; do
-  [ -x "\$PY" ] && break
+DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+dialog() {
+  /usr/bin/osascript -e "display dialog \"$1\" with title \"WhyChain\" buttons {\"OK\"} default button 1 with icon stop" >/dev/null 2>&1
+}
+if [ ! -f "$DIR/app/launch.py" ]; then
+  case "$DIR" in
+    *AppTranslocation*)
+      dialog "macOS opened WhyChain from a protected temporary copy, so it cannot see the rest of its folder.\n\nFix, once: open the WhyChain folder, right-click 'Start WhyChain.command', choose Open, then Open again. After that WhyChain.app opens normally." ;;
+    *)
+      dialog "WhyChain.app has to stay inside its WhyChain folder, next to the 'app' and 'data' folders. Move it back and open it again." ;;
+  esac
+  exit 1
+fi
+mkdir -p "$DIR/data/app"
+PY=""
+for CANDIDATE in "$DIR/.venv/bin/python" /opt/homebrew/bin/python3 /usr/local/bin/python3 \
+                 /Library/Frameworks/Python.framework/Versions/Current/bin/python3 /usr/bin/python3; do
+  if [ -x "$CANDIDATE" ] && "$CANDIDATE" -c "import sys" >/dev/null 2>&1; then PY="$CANDIDATE"; break; fi
 done
-exec "\$PY" "\$DIR/app/launch.py" >> "\$DIR/data/app/launcher.log" 2>&1
+if [ -z "$PY" ]; then
+  dialog "WhyChain needs Python 3.12 or newer. Install it from python.org (the page opens now), then open WhyChain again."
+  /usr/bin/open "https://www.python.org/downloads/macos/"
+  exit 1
+fi
+exec "$PY" "$DIR/app/launch.py" >> "$DIR/data/app/launcher.log" 2>&1
 SH
 chmod +x "$APP/Contents/MacOS/WhyChain"
 

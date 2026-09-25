@@ -80,7 +80,34 @@ jobs:
           WHYCHAIN_APP_QUIET: "1"
           WHYCHAIN_CHECK_NO_AI: "1"
           WHYCHAIN_LLM_BACKEND: none
+          # Through the file a person double-clicks on each system, not
+          # launch.py directly: the Windows batch file's Python discovery is
+          # where a transfer to a fresh laptop used to fail.
+          WHYCHAIN_APP_CHECK: "1"
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            Windows) cmd //c 'app\WhyChain.bat' ;;
+            macOS)   ./app/whychain.command ;;
+            Linux)   ./app/whychain.sh ;;
+          esac
+      - name: A second start reuses the installation
+        env:
+          WHYCHAIN_APP_QUIET: "1"
+          WHYCHAIN_CHECK_NO_AI: "1"
+          WHYCHAIN_LLM_BACKEND: none
         run: python app/launch.py --check
+      - name: An interrupted install is repaired
+        env:
+          WHYCHAIN_APP_QUIET: "1"
+          WHYCHAIN_CHECK_NO_AI: "1"
+          WHYCHAIN_LLM_BACKEND: none
+        shell: bash
+        run: |
+          PYV=.venv/bin/python; [ -x "$PYV" ] || PYV=.venv/Scripts/python.exe
+          rm -f .venv/whychain-ready.json
+          "$PYV" -m pip uninstall -y uvicorn
+          python app/launch.py --check
 
   attribution:
     name: Attribution
