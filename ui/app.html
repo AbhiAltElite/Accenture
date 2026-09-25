@@ -4,9 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WhyChain</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" href="/static/mark.svg" type="image/svg+xml">
+<!-- Type, colour and the shared components, served locally so an offline
+     laptop renders what was rehearsed. The page's own rules follow. -->
+<link rel="stylesheet" href="/static/theme.css">
+<script>
+/* Light unless the reader chose otherwise, applied before first paint so the
+   page never flashes in the other theme. */
+try{ const t = localStorage.getItem('whychain-theme') || 'light';
+  if(t !== 'auto') document.documentElement.setAttribute('data-theme', t); }catch{ document.documentElement.setAttribute('data-theme', 'light'); }
+try{ if(localStorage.getItem('whychain-present') === 'on') document.documentElement.setAttribute('data-present', 'on'); }catch{}
+</script>
 <style>
 /* The decision view. The workbench (/workbench) is the analyst's full method
    page; this is the page a finance reader acts from. It is built around one
@@ -16,39 +24,6 @@
    primary action. Ochre: a figure that opens its evidence. Slate: unknown.
    Red: contradicted or refused. A refusal gets the same visual weight as a
    verified answer, because it is an answer. */
-:root{
-  --r-sm:3px; --r-md:5px; --r-lg:8px;
-  --ground:#f2f4f3; --paper:#ffffff; --raised:#f7f9f8; --sunk:#e8ecea;
-  --ink:#131c19; --ink-2:#39453f; --ink-3:#5a6661; --ink-4:#7f8a85;
-  --line:#dbe1de; --line-2:#c1cac6;
- 
-  --accent:#0f5a6b; --accent-ink:#0a4250; --accent-soft:#dbeaee;
-  --evidence:#8a5712; --evidence-soft:#f6ebd9;
-  --ok:#17644a; --ok-soft:#dcefe5; --unk:#475467; --unk-soft:#e5e9ef;
-  --bad:#a3261d; --bad-soft:#f7e0dd; --warn:#855a0b; --warn-soft:#f7ebd0;
-  --serif:"IBM Plex Serif",Georgia,serif; --sans:"IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  color-scheme:dark;
-  --ground:#0e1312; --paper:#151c1a; --raised:#1a2220; --sunk:#202a27;
-  --ink:#e8eeeb; --ink-2:#b8c3be; --ink-3:#8d9994; --ink-4:#6a7571;
-  --line:#26302d; --line-2:#36423e;
-  --accent:#6cc3d6; --accent-ink:#9adbe8; --accent-soft:#10292f;
-  --evidence:#dcaa66; --evidence-soft:#2e2313;
-  --ok:#77c9a1; --ok-soft:#132a20; --unk:#aab5c5; --unk-soft:#1f2530;
-  --bad:#ee8c83; --bad-soft:#331c19; --warn:#dbb066; --warn-soft:#2e2510;
-}}
-:root[data-theme="dark"]{
-  color-scheme:dark;
-  --ground:#0e1312; --paper:#151c1a; --raised:#1a2220; --sunk:#202a27;
-  --ink:#e8eeeb; --ink-2:#b8c3be; --ink-3:#8d9994; --ink-4:#6a7571;
-  --line:#26302d; --line-2:#36423e;
-  --accent:#6cc3d6; --accent-ink:#9adbe8; --accent-soft:#10292f;
-  --evidence:#dcaa66; --evidence-soft:#2e2313;
-  --ok:#77c9a1; --ok-soft:#132a20; --unk:#aab5c5; --unk-soft:#1f2530;
-  --bad:#ee8c83; --bad-soft:#331c19; --warn:#dbb066; --warn-soft:#2e2510;
-}
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6}
@@ -57,36 +32,8 @@ a{color:var(--accent)}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-/* The masthead, shared with the workbench: the same three destinations, the
-   same controls in the same order, on every page. */
-.shell{position:sticky;top:0;z-index:20;background:var(--ground);color:var(--ink);
-  display:flex;align-items:stretch;gap:12px;padding:0 20px;min-height:54px;flex-wrap:wrap;
-  border-bottom:1px solid var(--line-2)}
-.shell .brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;
-  padding-right:18px;border-right:1px solid var(--line)}
-.shell .brand b{font-size:18px;font-weight:600;letter-spacing:-.015em}
-.shell .brand span{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
-.shell nav{display:flex;gap:2px}
-.shell nav a{display:flex;align-items:center;color:var(--ink-3);text-decoration:none;font-size:14px;padding:0 10px;border-bottom:2px solid transparent;margin-bottom:-1px}
-.shell nav a[aria-current="page"]{color:var(--ink);font-weight:600;border-bottom-color:var(--accent)}
-.shell nav a:hover{color:var(--ink)}
-.shell .sp{flex:1}
-/* Four destinations and four controls: the subtitle and a label give way
-   before anything wraps onto a second line. */
-@media (max-width:1560px){.shell .brand span{display:none}.shell .brand{padding-right:12px}}
-@media (max-width:1320px){.shell .lab{display:none}}
-.shell .grp{display:flex;align-items:center;gap:8px}
-.shell .lab{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
-.shell select{background:var(--paper);border:1px solid var(--line-2);color:var(--ink);border-radius:var(--r-sm);padding:3px 8px;font-size:13px}
-.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:var(--r-sm);overflow:hidden;background:var(--paper)}
-.seg button{border:0;background:transparent;color:var(--ink-3);font-size:13px;padding:4px 10px;cursor:pointer;border-right:1px solid var(--line)}
-.seg button:last-child{border-right:0}
-.seg button:hover{color:var(--ink)}
-.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);font-weight:500}
-.themebtn{border:1px solid var(--line-2);background:var(--paper);color:var(--ink-3);border-radius:var(--r-sm);font-size:13px;padding:4px 10px;cursor:pointer;min-width:58px}
-.themebtn:hover{color:var(--ink)}
 .onpage{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;margin:18px 2px 0;font-size:14px}
-.onpage span{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.onpage span{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
 .onpage a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}
 .onpage a:hover{border-bottom-color:var(--accent)}
 #why,#gap,#calendar,#decide,#fair{scroll-margin-top:72px}
@@ -97,7 +44,7 @@ a{color:var(--accent)}
 #chain,#fishbone{scroll-margin-top:72px}
 .fbd > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
 .fbd > summary::-webkit-details-marker{display:none}
-.fbd > summary::after{content:'Show';font-size:12px;color:var(--accent);margin-left:auto}
+.fbd > summary::after{content:'Show';font-size:13px;color:var(--accent);margin-left:auto}
 .fbd[open] > summary::after{content:'Hide'}
 .fbd > summary h2{margin:0}
 .fbd[open] > summary{margin-bottom:14px}
@@ -113,10 +60,10 @@ a{color:var(--accent)}
   background:var(--paper);border:2.5px solid var(--line-2);border-radius:var(--r-lg);padding:10px 12px 12px;min-width:0;overflow-wrap:anywhere;display:flex;flex-direction:column;gap:3px}
 .whychain .link:disabled{cursor:default}
 .whychain .link:not(:disabled):hover{background:var(--raised)}
-.whychain .link .k{display:flex;align-items:center;gap:5px;font-size:10.5px;letter-spacing:.05em;white-space:nowrap;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.whychain .link .k{display:flex;align-items:center;gap:5px;font-size:13px;letter-spacing:.05em;white-space:nowrap;text-transform:uppercase;color:var(--ink-3);font-weight:600}
 .whychain .link .k svg{width:13px;height:13px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .whychain .link b{font-size:14px;line-height:1.3;font-weight:600}
-.whychain .link small{font-size:12.5px;line-height:1.35;color:var(--ink-3)}
+.whychain .link small{font-size:13px;line-height:1.35;color:var(--ink-3)}
 .whychain .link.held{border-color:var(--ok)}
 .whychain .link.held .k{color:var(--ok)}
 .whychain .link.open,.whychain .link.withheld{border-style:dashed;border-color:var(--ink-4)}
@@ -142,7 +89,7 @@ a{color:var(--accent)}
 .wf .good rect{fill:var(--ok)}
 .wf .rest rect{fill:var(--unk-soft);stroke:var(--unk);stroke-width:1.5;stroke-dasharray:4 3}
 .wf .wf-v{fill:var(--ink);font-size:13px;font-family:var(--mono);font-variant-numeric:tabular-nums}
-.wf .wf-l{fill:var(--ink-3);font-size:12px}
+.wf .wf-l{fill:var(--ink-3);font-size:13px}
 .wf [data-ev]{cursor:pointer}
 .wf [data-ev]:hover rect,.wf [data-ev]:focus rect{opacity:.82}
 .wf [data-ev]:focus{outline:none}
@@ -154,15 +101,15 @@ a{color:var(--accent)}
 .fish .fb-spine{stroke:var(--ink-3);stroke-width:3.5;stroke-linecap:round}
 .fish .fb-tail{stroke:var(--ink-3);stroke-width:3;fill:none;stroke-linecap:round}
 .fish .fb-bone{stroke:var(--line-2);stroke-width:2.2}
-.fish .fb-cat{fill:var(--ink-3);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
-.fish .fb-empty{fill:var(--ink-4);font-size:12px;font-style:italic}
+.fish .fb-cat{fill:var(--ink-3);font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.fish .fb-empty{fill:var(--ink-4);font-size:13px;font-style:italic}
 .fish .fb-head{fill:var(--raised);stroke:var(--ink-3);stroke-width:2}
 .fish .fb-h1{fill:var(--ink);font-size:14px;font-weight:600}
 .fish .fb-h2{fill:var(--ink);font-size:17px;font-family:var(--mono)}
-.fish .fb-h3{fill:var(--ink-3);font-size:12px}
+.fish .fb-h3{fill:var(--ink-3);font-size:13px}
 .fish .fb-e line{stroke:var(--line-2);stroke-width:1.5}
-.fish .fb-e text{fill:var(--ink-2);font-size:12.5px}
-.fish .fb-e .fb-note{fill:var(--ink-3);font-size:11.5px}
+.fish .fb-e text{fill:var(--ink-2);font-size:13px}
+.fish .fb-e .fb-note{fill:var(--ink-3);font-size:13px}
 .fish .fb-e .fb-m{font-weight:700}
 .fish .fb-e.verified text:first-of-type{fill:var(--ink);font-weight:600}
 .fish .fb-e.verified .fb-m{fill:var(--ok)}
@@ -172,18 +119,18 @@ a{color:var(--accent)}
 .fish .fb-e.aside text{fill:var(--ink-4)}
 .fishkey{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 0}
 .fb-k.verified{color:var(--ok)}.fb-k.rejected{color:var(--bad)}.fb-k.untestable{color:var(--unk)}
-.demo-chip{font-family:var(--mono);font-size:11px;color:var(--warn);border:1px solid var(--warn);border-radius:var(--r-sm);padding:0 5px}
+.demo-chip{font-family:var(--mono);font-size:13px;color:var(--warn);border:1px solid var(--warn);border-radius:var(--r-sm);padding:0 5px}
 
 main{max-width:1240px;margin:0 auto;padding:28px 24px 96px}
 h1{font-family:var(--serif);font-weight:600;font-size:clamp(23px,2.2vw,29px);line-height:1.3;margin:14px 0 6px;text-wrap:balance;max-width:48ch}
-h2{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin:0 0 16px}
+h2{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin:0 0 16px}
 .muted{color:var(--ink-3)}
 .small{font-size:14.5px;line-height:1.55}
 
 /* Status: an icon and a word in a squared tag. The icon carries the meaning
    as well as the colour, so the state reads for a colour-blind reader and in a
    greyscale print, and nothing here is decoration. */
-.pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;line-height:1;
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;line-height:1;
   padding:4px 8px 4px 6px;border-radius:var(--r-sm);white-space:nowrap;border:1px solid transparent}
 .pill svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .pill.ok{background:var(--ok-soft);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 28%,transparent)}
@@ -195,14 +142,14 @@ h2{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-
 .pill.big svg{width:17px;height:17px}
 .ev{color:var(--evidence);background:none;border:0;padding:0;border-bottom:1.5px dotted var(--evidence);cursor:pointer}
 .ev:hover{background:var(--evidence-soft)}
-.ailabel{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--ink-3);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:0 6px;margin-left:4px;white-space:nowrap}
+.ailabel{display:inline-block;font-family:var(--mono);font-size:13px;color:var(--ink-3);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:0 6px;margin-left:4px;white-space:nowrap}
 
 /* buttons */
 .btn{border:1px solid var(--line-2);background:var(--paper);color:var(--ink);border-radius:var(--r-md);padding:7px 14px;font-size:14px;font-weight:500;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .btn:hover{border-color:var(--ink-3)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
 .btn.primary:hover{background:var(--accent-ink)}
-.btn.sm{font-size:12.5px;padding:3px 10px}
+.btn.sm{font-size:13px;padding:3px 10px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .btn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 
@@ -213,10 +160,10 @@ h2{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-
 /* inbox */
 .track{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 22px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 20px;font-size:14.5px;color:var(--ink-2)}
 .track b{font-family:var(--mono);color:var(--ink)}
-.track .t{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.track .t{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
 .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:20px 0 28px}
 .summary div{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:18px 20px}
-.summary dt{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.summary dt{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
 .summary dd{margin:3px 0 0;font-size:22px;font-weight:600}
 .summary dd small{font-size:13px;color:var(--ink-3);font-weight:400}
 .bar-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:0}
@@ -241,7 +188,7 @@ h2{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-
 .rowsbox{margin-top:12px}
 .rowsbox .tabs{border-bottom:1px solid var(--line);margin:14px 0 12px}
 .rowsbox table{width:100%;border-collapse:collapse;font-size:14px}
-.rowsbox th{text-align:left;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line-2)}
+.rowsbox th{text-align:left;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line-2)}
 .rowsbox td{padding:6px 10px;border-bottom:1px solid var(--line)}
 .rowsbox td.num,.rowsbox th.num{text-align:right}
 .rowsbox tr.base td{color:var(--ink-3)}
@@ -261,7 +208,7 @@ details.scen summary::-webkit-details-marker{display:none}
 details.scen .menu{position:absolute;right:0;top:100%;z-index:10;background:var(--paper);border:1px solid var(--line-2);border-radius:var(--r-md);box-shadow:0 8px 28px rgba(0,0,0,.14);padding:6px;width:min(380px,90vw)}
 details.scen .menu a{display:block;text-decoration:none;color:var(--ink);padding:7px 10px;border-radius:var(--r-md);font-size:14px}
 details.scen .menu a:hover{background:var(--raised)}
-details.scen .menu small{display:block;color:var(--ink-3);font-size:12.5px}
+details.scen .menu small{display:block;color:var(--ink-3);font-size:13px}
 .list{background:var(--paper);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--r-md) var(--r-md);overflow:hidden}
 .row{display:grid;grid-template-columns:160px minmax(0,1fr) 140px 220px;gap:20px;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
 .row:last-child{border-bottom:0}
@@ -290,7 +237,7 @@ details.scen .menu small{display:block;color:var(--ink-3);font-size:12.5px}
 .facts{display:grid;grid-template-columns:repeat(3,minmax(0,max-content));column-gap:56px;row-gap:22px;margin-top:24px}
 .facts small.cap{display:block;font-size:13px;color:var(--ink-3);font-weight:400;font-family:var(--sans);margin-top:2px}
 .facts div{display:grid}
-.facts > div > span{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.facts > div > span{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
 .facts > div{gap:4px;align-content:start}
 .facts b{font-size:19px;font-weight:600}
 .facts b.lead{font-size:24px}
@@ -305,10 +252,10 @@ details.scen .menu small{display:block;color:var(--ink-3);font-size:12.5px}
 .cause .d{font-weight:600}
 .cause .w{text-align:right;font-size:15px}
 .cause .bar{grid-column:1/-1;height:7px;border-radius:var(--r-sm);background:var(--sunk);overflow:hidden}
-.cause .bar i{display:block;height:100%;background:var(--accent)}
+.cause .bar > i{display:block;height:100%;background:var(--accent)}
 .cause .meta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:14px;color:var(--ink-3)}
 .cause .fb{margin-left:auto;display:flex;gap:6px;align-items:center}
-.fblab{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-4);margin-right:4px}
+.fblab{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-4);margin-right:4px}
 .note{font-size:14.5px;line-height:1.6;color:var(--ink-2);margin:16px 0 0;max-width:68ch}
 .narr{margin:18px 0 0;padding-top:14px;border-top:1px dashed var(--line-2);font-size:15.5px;line-height:1.65}
 .narr summary{cursor:pointer;color:var(--ink-2)}
@@ -333,22 +280,22 @@ details.more p{margin:10px 0 0}
 .kv dt{color:var(--ink-3)}
 .kv dd{margin:0}
 table.t{border-collapse:collapse;width:100%;font-size:14.5px}
-table.t th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding:6px 8px;border-bottom:1px solid var(--line-2)}
+table.t th{text-align:left;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding:6px 8px;border-bottom:1px solid var(--line-2)}
 table.t td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
 table.t th.n{text-align:right}
 table.t td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .loading{color:var(--ink-3);padding:30px 0}
 .fair-sum{display:grid;grid-template-columns:repeat(3,minmax(0,max-content));column-gap:56px;row-gap:16px;margin:0 0 18px}
 .fair-sum > div{display:grid;gap:4px;align-content:start}
-.fair-sum span{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.fair-sum span{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
 .fair-sum b{font-size:19px;font-weight:600}
 .fair-sum small.cap{display:block;font-size:13px;color:var(--ink-3)}
 .fair-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:18px;align-items:center;padding:14px 0;border-top:1px solid var(--line)}
 .fair-amt{font-size:15px;text-align:right}
 .cal{width:100%;height:auto;display:block}
 .cal .tk{stroke:var(--line);stroke-width:1}
-.cal text{font-family:var(--mono);font-size:11px;fill:var(--ink-3)}
-.cal .al{font-family:var(--sans);font-size:11px;fill:var(--ink-3)}
+.cal text{font-family:var(--mono);font-size:13px;fill:var(--ink-3)}
+.cal .al{font-family:var(--sans);font-size:13px;fill:var(--ink-3)}
 .cal .win{fill:var(--evidence-soft)}
 .cal .ahead{fill:var(--raised)}
 .cal .m.warn{fill:var(--warn)} .cal .m.ok{fill:var(--ok)} .cal .m.unk{fill:var(--unk)}
@@ -366,7 +313,7 @@ table.t td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabul
 .drawer mark{background:transparent;color:var(--evidence);font-weight:600;border-bottom:2px solid var(--evidence)}
 .quote{display:block;width:100%;text-align:left;background:var(--raised);border:1px solid var(--line);border-radius:var(--r-md);padding:8px 10px;margin:0 0 8px;cursor:pointer;font-size:14px}
 .quote:hover{border-color:var(--evidence)}
-.quote .id{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+.quote .id{font-family:var(--mono);font-size:13px;color:var(--ink-3)}
 .modal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:rgba(8,14,12,.45)}
 .modal .box{background:var(--paper);border-radius:var(--r-md);border:1px solid var(--line-2);width:min(580px,100%);max-height:90vh;overflow-y:auto;padding:28px 30px;line-height:1.6}
 .modal h3{font-family:var(--serif);font-size:21px;margin:0 0 10px}
@@ -382,7 +329,163 @@ table.t td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabul
 .spark .exp{fill:none;stroke:var(--accent);stroke-width:1.2;stroke-dasharray:4 3}
 .spark .band{fill:var(--accent-soft)}
 .spark .win{fill:var(--evidence-soft)}
-.spark text{font-family:var(--mono);font-size:10px;fill:var(--ink-3)}
+.spark text{font-family:var(--mono);font-size:13px;fill:var(--ink-3)}
+
+/* ===== The redesign layer =====================================================
+   Same components, same class names (the acceptance page reads them), drawn
+   larger and softer: nothing below 12px, reading text 15.5 to 17px, figures in
+   the monospace with tabular numerals, cards on 16 to 24px corners, controls as
+   pills, the primary action in the brand purple. */
+body{font-size:16.5px;line-height:1.6}
+main{max-width:1300px;padding:30px 32px 110px}
+h1{font-family:var(--display);font-weight:800;letter-spacing:-.025em;font-size:clamp(27px,2.6vw,38px);line-height:1.15;max-width:40ch}
+h2{font-family:var(--sans);font-size:13px;font-weight:700;letter-spacing:.09em;color:var(--ink-3);margin:0 0 18px}
+.small{font-size:15.5px}
+.muted{color:var(--ink-3)}
+a{color:var(--accent-ink)}
+.hide-m{}
+.panel{border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-1);padding:28px 30px}
+.btn{border-radius:var(--r-sm);padding:9px 18px;font-size:15px;font-weight:600}
+.btn.sm{font-size:13.5px;padding:5px 13px}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.primary:hover{background:var(--brand-mid);border-color:var(--brand-mid)}
+.pill{border-radius:var(--r-pill);font-size:13px;padding:5px 12px 5px 9px}
+.pill.big{font-size:15px;padding:7px 15px 7px 11px}
+.ailabel,.demo-chip{border-radius:var(--r-pill);padding:1px 9px;font-size:13px}
+.ev{color:var(--evidence);border-bottom-color:var(--evidence)}
+.ev:hover{background:var(--evidence-soft)}
+.track{border-radius:var(--r-lg);box-shadow:var(--shadow-1);font-size:15.5px;padding:16px 24px}
+.track .t{font-size:13px;font-weight:700}
+.summary{gap:18px}
+.summary div{border-radius:var(--r-lg);box-shadow:var(--shadow-1);padding:22px 24px}
+.summary dt{font-size:13px;font-weight:700}
+.summary dd{font-family:var(--display);font-size:32px;font-weight:800;letter-spacing:-.02em;line-height:1.2;margin-top:6px}
+.summary dd.num{font-family:var(--mono);font-size:30px;font-weight:700;letter-spacing:-.01em}
+.summary dd small{font-family:var(--sans);font-size:14.5px;letter-spacing:0;font-weight:400}
+.bar-row{border-bottom:0;margin-bottom:10px;gap:14px}
+.tabs{gap:2px;padding:3px;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-sm)}
+.tabs button{border:0;border-radius:var(--r-sm);padding:7px 16px;font-size:15px;font-weight:600;color:var(--ink-3)}
+.tabs button[aria-selected="true"]{background:var(--paper);color:var(--ink);box-shadow:var(--shadow-1)}
+.rowsbox .tabs{display:inline-flex;border-bottom:1px solid var(--line)}
+.filters{font-size:15px;gap:10px 18px}
+.filters select,.bar-row select,#days{appearance:none;-webkit-appearance:none;border:1px solid var(--line-2)!important;border-radius:var(--r-sm)!important;
+  background:var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235a5a6b' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 11px center/14px!important;
+  padding:6px 32px 6px 14px!important;font-size:14.5px!important;color:var(--ink);cursor:pointer}
+.filters .clear{font-weight:600}
+details.scen summary{display:inline-flex;align-items:center;gap:6px;padding:7px 15px;border:1px solid var(--line-2);border-radius:var(--r-sm);
+  background:var(--paper);color:var(--ink);font-weight:600;font-size:14.5px}
+details.scen .menu{border-radius:var(--r-md);box-shadow:var(--shadow-2);padding:8px}
+details.scen .menu a{border-radius:var(--r-sm);font-size:15px;padding:9px 12px}
+details.scen .menu small{font-size:13.5px}
+.list{border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-1)}
+.row{padding:18px 24px}
+.row .t{font-size:17px}
+.row .s{font-size:15px}
+.row .status{font-size:15px}
+.row:hover{background:var(--raised)}
+.row .r .num{font-size:17px;font-weight:600}
+.audit-row{font-size:14.5px;padding:12px 20px}
+.mlist nav{border-radius:var(--r-lg);box-shadow:var(--shadow-1)}
+.mlist nav a{padding:14px 18px;font-size:15.5px}
+.mlist nav a[aria-current="true"]{box-shadow:inset 3px 0 0 var(--brand)}
+.mlist nav a small{font-size:13.5px}
+.kv2{font-size:15.5px}
+.chain code{border-radius:var(--r-sm);padding:4px 12px;font-size:13.5px}
+.rowsbox table,table.t{font-size:15px}
+.rowsbox th,table.t th{font-size:13px;font-weight:700}
+.rowsbox .scroll,.sqlbox,.rowsbox pre{border-radius:var(--r-md);font-size:13.5px}
+.crumbs{font-size:15px}
+.back{border-radius:var(--r-sm);padding:6px 15px 6px 10px;font-size:14.5px}
+.onpage{gap:8px;font-size:14.5px}
+.onpage a{padding:5px 13px;border-radius:var(--r-sm);background:var(--paper);border:1px solid var(--line);color:var(--ink-2);font-weight:600}
+.onpage a:hover{border-color:var(--brand);color:var(--brand-mid)}
+.facts{column-gap:48px;row-gap:24px}
+.facts > div > span{font-size:13px;font-weight:700}
+.facts b{font-family:var(--display);font-size:21px;font-weight:700;letter-spacing:-.01em}
+.facts b.num{font-family:var(--mono);font-size:22px;font-weight:600;letter-spacing:0}
+.facts b.lead{font-size:38px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.facts small.cap{font-size:14.5px}
+.actions .who{font-size:14px}
+.signed-bar{border-radius:var(--r-md);font-size:15px}
+.cause{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-md);padding:18px 22px;margin-bottom:12px}
+.cause:first-of-type{padding-top:18px}
+.cause .d{font-size:17px}
+.cause .w{font-size:19px;font-weight:600}
+.cause .bar{height:auto;background:none;overflow:visible;display:flex;align-items:center;gap:12px}
+.cause .bar small{font-size:13px;color:var(--ink-3)}
+.cause .meta{font-size:15px}
+.cause .tags{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;margin-top:-2px}
+.fblab{font-size:13px;font-weight:700}
+.note{font-size:15.5px;max-width:74ch}
+.narr{font-size:16px}
+.ruled li{font-size:15.5px}
+.dcard{border-radius:var(--r-md);padding:20px 22px;background:var(--raised)}
+.dcard .t{font-size:17.5px}
+.dcard .m{font-size:15.5px}
+.withheld{border-radius:var(--r-md);font-size:15px}
+.kv{font-size:15.5px}
+.callout{font-size:15.5px;border-left-color:var(--brand);border-radius:0 var(--r-md) var(--r-md) 0}
+.cal text{font-size:13px}
+.cal .al{font-size:13px}
+.cal-list li{font-size:15.5px}
+.fair-sum b{font-size:22px}
+.fair-sum b.num{font-family:var(--mono)}
+.fair-amt{font-size:16px}
+.scrim{background:rgba(12,6,24,.28);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.drawer{border-radius:var(--r-lg) 0 0 var(--r-lg);font-size:15.5px;padding:32px}
+.drawer h3,.modal h3{font-family:var(--display);font-weight:800;letter-spacing:-.02em}
+.drawer h3{font-size:22px}
+.quote{border-radius:var(--r-md);padding:10px 14px;font-size:15px}
+.quote .id{font-size:13px}
+.modal{background:rgba(12,6,24,.34);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.modal .box{border-radius:var(--r-lg);box-shadow:var(--shadow-2);padding:32px 34px;border-color:var(--line)}
+.modal h3{font-size:24px}
+.modal li{font-size:15.5px}
+.modal textarea{border-radius:var(--r-md);padding:10px 12px}
+.modal .foot{margin-top:18px}
+.ac{border-radius:var(--r-md)}
+.whychain .link b{font-size:15px}
+.whychain .link small{font-size:13px}
+.whychain .link .k{font-size:13px}
+.chain-lede{font-size:16px}
+.wf .wf-v{font-size:14.5px}
+.wf .wf-l{font-size:13.5px}
+.fish .fb-cat{font-size:13px}
+.fish .fb-e text{font-size:14px}
+.fish .fb-e .fb-note{font-size:13px}
+.fish .fb-h1{font-size:15px}
+.fish .fb-h2{font-size:18px}
+.fish .fb-h3,.fish .fb-empty{font-size:13px}
+.fishkey{font-size:15px}
+
+/* What-if analysis: projections from declared assumptions, set apart from the
+   measured findings above them by a dashed brand edge and a WHAT-IF tag. */
+.whatif{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.wi{border:1.5px dashed color-mix(in srgb,var(--brand) 45%,var(--line-2));border-radius:var(--r-md);padding:20px 22px;background:var(--paper);display:flex;flex-direction:column;gap:10px}
+.wi.off{border-color:var(--line-2);background:var(--raised)}
+.wi .q{font-family:var(--display);font-weight:700;font-size:17px;line-height:1.35}
+.wi .fig{font-family:var(--mono);font-size:28px;font-weight:700;letter-spacing:-.01em}
+.wi .fig small{font-family:var(--sans);font-size:14px;font-weight:400;color:var(--ink-3);letter-spacing:0}
+.wi .along{font-size:14.5px;color:var(--ink-2)}
+.wi .ctl{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.wi input[type=range]{flex:1;min-width:140px;accent-color:var(--brand)}
+.wi .ctl .num{min-width:58px;font-weight:600}
+.wi details{font-size:14.5px;color:var(--ink-2)}
+.wi details summary{cursor:pointer;color:var(--accent-ink);font-weight:600}
+.wi details li{margin:6px 0}
+.wi .why{font-size:15px;color:var(--ink-3)}
+.wi.busy .fig{opacity:.45}
+
+@media (max-width:1600px){.seat .who{padding:3px}.seat .who > span:not(.av){display:none}}
+@media (max-width:1180px){.topbar .tabsnav a{padding:0 9px;font-size:14.5px}.topbar{gap:12px}}
+@media (max-width:1020px){.topbar .segp button{padding:5px 9px;font-size:13px}}
+@media (max-width:760px){
+  main{padding:20px 16px 110px}
+  .topbar{padding:8px 16px;gap:8px}
+  .tabsnav{order:10;width:100%;margin:0;overflow-x:auto}
+  .hide-m{display:none!important}
+  .segp button{padding:5px 10px;font-size:13px}
+}
 
 @media (max-width:900px){
   .facts{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}
@@ -397,24 +500,33 @@ table.t td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabul
 </style>
 </head>
 <body>
-<header class="shell">
-  <a class="brand" href="/" data-nav><b>WhyChain</b><span>Diagnostic engine</span></a>
-  <nav aria-label="Primary">
+<!-- The top bar: the product, its destinations as named tabs, and the seat. -->
+<header class="topbar">
+  <a class="mark" href="/" data-nav aria-label="WhyChain, findings"><img src="/static/mark.svg" alt="" width="34" height="34"><b>Why<span>Chain</span></b></a>
+  <nav class="tabsnav" aria-label="Primary">
     <a href="/" data-nav id="nav-findings">Findings</a>
-    <a href="/?tab=audit" data-nav id="nav-audit">Audit trail</a>
     <a href="/?tab=metrics" data-nav id="nav-metrics">Metrics</a>
+    <a href="/?tab=audit" data-nav id="nav-audit">Audit trail</a>
     <a href="/workbench" id="nav-workbench">Workbench</a>
   </nav>
   <span class="sp"></span>
-  <div class="grp"><div class="seg" id="industry" role="group" aria-label="Industry"></div></div>
-  <div class="grp"><span class="lab">View as</span>
-    <div class="seg" role="group" aria-label="View as">
-      <button type="button" data-persona="cfo">Finance director</button>
-      <button type="button" data-persona="analyst">Analyst</button>
-      <button type="button" data-persona="ops">Area sales</button>
-    </div></div>
-  <div class="grp"><button type="button" class="themebtn" id="theme" title="Appearance: follows the system, light or dark">Auto</button></div>
-  <div class="grp" id="actor"></div>
+  <button type="button" class="iconbtn" data-palette title="Find a finding, metric, demo or page (press /)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span class="hide-m">Search</span><span class="kbd hide-m">/</span></button>
+  <div class="segp" id="industry" role="group" aria-label="Industry"></div>
+  <div class="segp" role="group" aria-label="View as">
+    <button type="button" data-persona="cfo">Finance director</button>
+    <button type="button" data-persona="analyst">Analyst</button>
+    <button type="button" data-persona="ops">Area sales</button>
+  </div>
+  <div class="seat">
+    <button type="button" class="who" id="actor" aria-haspopup="true" aria-expanded="false" aria-controls="seatmenu"></button>
+    <div class="seatmenu" id="seatmenu" hidden>
+      <div class="seatname" id="seatname"></div>
+      <div class="health" id="health"><i></i>Checking the engine…</div>
+      <button type="button" id="theme"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg><span id="theme-tip">Appearance</span></button>
+      <button type="button" id="present" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8"/></svg><span id="present-tip">Presenting in a room: off</span></button>
+      <a href="/login" id="nav-signout"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 16l-4-4 4-4M6 12h10"/></svg>Switch seat</a>
+    </div>
+  </div>
 </header>
 <main id="view" aria-live="polite"></main>
 <div id="layer"></div>
@@ -541,7 +653,19 @@ const detail = r => { const d = r.data && r.data.detail; return typeof d === 'st
 
 /* ---------- shell ---------- */
 async function shell(){
-  const [ind, me, track] = await Promise.all([api('/api/industries'), api('/api/me'), api('/api/trackrecord')]);
+  const began = performance.now();
+  const [ind, me, track, health] = await Promise.all([api('/api/industries'), api('/api/me'), api('/api/trackrecord'), api('/api/health')]);
+  // A demo reader chooses a seat first. With single sign-on the proxy has
+  // already decided, and the sign-in page only continues.
+  if(me.data && me.data.mode === 'demo' && !store.get('whychain-session', '')){
+    location.replace(`/login?next=${encodeURIComponent(location.pathname + location.search + location.hash)}`);
+    return new Promise(() => {});
+  }
+  const ms = Math.round(performance.now() - began);
+  const up = health.ok && health.data && health.data.warehouse === 'connected';
+  $('#health').className = 'health' + (up ? '' : ' bad');
+  $('#health').innerHTML = `<i></i>${up ? `Engine connected <span class="num">· ${ms} ms</span>` : 'Warehouse unavailable'}`;
+  initPalette(); initSeatMenu();
   S.industries = (ind.data && ind.data.industries) || [];
   if(!S.industries.some(i => i.id === S.industry)) S.industry = (ind.data && ind.data.default) || 'retail';
   renderIndustry();
@@ -566,8 +690,9 @@ function renderIndustry(){
 function initTheme(){
   const order = ['auto', 'light', 'dark'], btn = $('#theme');
   const apply = t => { if(t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
-    btn.textContent = cap(t); btn.setAttribute('aria-label', `Appearance: ${t}`); };
-  let cur = store.get('whychain-theme', 'auto'); apply(cur);
+    btn.setAttribute('aria-label', `Appearance: ${t}, change`); $('#theme-tip').textContent = `Appearance: ${cap(t)}`; };
+  // Light unless the reader chose otherwise: the product's look is a light one.
+  let cur = store.get('whychain-theme', 'light'); apply(cur);
   btn.onclick = () => { cur = order[(order.indexOf(cur) + 1) % 3]; store.set('whychain-theme', cur); apply(cur); };
 }
 // The perspective each seat reads from. Signing in as someone opens their view;
@@ -580,15 +705,14 @@ const ROLE_VIEW = {finance_director:'cfo', fpa_analyst:'analyst', area_sales_man
 function renderActor(){
   const me = S.me; if(!me) return;
   const who = me.identity;
-  if(me.mode === 'demo'){
-    $('#actor').innerHTML = `<select id="user" aria-label="Signed in as" title="Signed in as (demo identity: no single sign-on is connected)">${me.demo_users.map(u => `<option value="${esc(u.id)}"${u.id===who.id?' selected':''}>${esc(u.name.replace(' (demo)',''))}</option>`).join('')}</select>
-      <span class="demo-chip" title="No single sign-on is connected. Every record made here is marked as a demo identity.">Demo</span>`;
-    $('#user').onchange = async e => { S.user = e.target.value; store.set('whychain-user', S.user); S.me = (await api('/api/me')).data;
-      const v = ROLE_VIEW[S.me.identity.role]; if(v){ S.persona = v; store.set('whychain-persona', v); markPersona(); }
-      renderActor(); route(); };
-  }else{
-    $('#actor').innerHTML = `<span class="lab">Signed in</span><span>${esc(who.name)}</span><span class="demo-chip" style="color:var(--ok);border-color:var(--ok)">SSO</span>`;
-  }
+  const name = who.name.replace(' (demo)', '');
+  const initials = name.replace(/,.*$/, '').split(/[\s&]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  const next = encodeURIComponent(location.pathname + location.search);
+  $('#actor').title = me.mode === 'demo' ? 'Demo seat: no single sign-on is connected, and every record made here is marked as a demo identity' : 'Signed in through single sign-on';
+  $('#actor').innerHTML = `<span class="av" aria-hidden="true">${esc(initials)}</span><span class="hide-m"><b>${esc(name)}</b><small>${me.mode === 'demo' ? 'Demo seat' : 'Single sign-on'}</small></span>`;
+  $('#actor').setAttribute('aria-label', `${name}, ${me.mode === 'demo' ? 'demo seat' : 'single sign-on'}: menu`);
+  $('#seatname').innerHTML = `<b>${esc(name)}</b><small>${me.mode === 'demo' ? 'Demo seat. Records made here are marked as a demo identity.' : 'Signed in through single sign-on'}</small>`;
+  $('#nav-signout').href = `/login?next=${next}`;
 }
 function markPersona(){ document.querySelectorAll('[data-persona]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.persona === S.persona))); }
 const myRole = () => S.me && S.me.identity ? S.me.identity.role : null;
@@ -679,6 +803,14 @@ async function inbox(p, token){
   const metric = p.get('metric') || '', region = p.get('region') || '', dirf = p.get('dir') || 'drop', status = p.get('status') || '';
   const view = $('#view');
   if(tab === 'metrics'){ metricsView(p, token); return; }
+  // The audit trail needs the log and nothing else: waiting for the queue's
+  // detection run first made it the slowest page to open for no reason.
+  if(tab === 'audit'){
+    view.innerHTML = `${trackStrip()}<div class="loading">Reading the audit trail…</div>`;
+    const aud = await api('/api/audit?' + qs({industry:S.industry}));
+    if(token === S.token) view.innerHTML = trackStrip() + auditView(aud.data);
+    return;
+  }
   view.innerHTML = `${trackStrip()}<div class="loading">Reading the queue…</div>`;
   const [tri, aud] = await Promise.all([
     api('/api/triage?' + qs({industry:S.industry, limit:12, entitled, days: days === 'all' ? '' : days, kpi: metric, region, direction: dirf})),
@@ -711,7 +843,7 @@ async function inbox(p, token){
         <select id="days" style="margin-left:6px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--paper);padding:2px 6px">
           ${[['90','Last 90 days'],['365','Last year'],['all','All history']].map(([v,t]) => `<option value="${v}"${v===days?' selected':''}>${t}</option>`).join('')}
         </select></label>
-      <details class="scen"><summary>Scenarios ▾</summary><div class="menu">
+      <details class="scen"><summary>Demos ▾</summary><div class="menu">
         ${SCEN.map(s => `<a href="${scenarioLink(s)}" data-nav><b>${esc(s.t)}</b><small>${esc(s.g)} · ${esc(s.d)}</small></a>`).join('')}
       </div></details>
     </div>
@@ -787,7 +919,7 @@ function filterBar(t, f){
     `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(txt)}</option>`).join('')}</select></label>`;
   const any = f.metric || f.region || f.status || f.dirf !== 'drop';
   return `<div class="filters" role="group" aria-label="Filter the findings">
-    ${sel('metric', 'Metric', [['', 'All metrics'], ...offer.metrics.map(k => [k, kpiName(k)])], f.metric)}
+    ${(S.metricIds = offer.metrics, sel('metric', 'Metric', [['', 'All metrics'], ...offer.metrics.map(k => [k, kpiName(k)])], f.metric))}
     ${sel('region', 'Region', [['', offer.regions.length > 1 ? 'All regions' : 'Your regions'], ...offer.regions.map(r => [r, r])], f.region)}
     ${sel('dir', 'Movement', [['drop', 'Falls'], ['spike', 'Rises'], ['both', 'Falls and rises']], f.dirf)}
     ${sel('status', 'Status', [['', 'Any status'], ['explained', 'Verified'], ['unknown', 'Unknown'], ['contradicted', 'Contradicted'], ['detected', 'Detected only']], f.status)}
@@ -1052,7 +1184,7 @@ function findingView(ctx){
 function causesOf(d){
   const out = d.verified
     ? d.verified.map(v => ({id:v.candidate_id, text:causeText(v.description), w:v.contribution, v}))
-    : (d.causes || []).map(c => ({id:(String(c.cause).match(/^([\w.-]+):/)||[])[1] || c.cause, text:causeText(c.cause), w:c.contribution, v:null}));
+    : (d.causes || []).map(c => ({id:(String(c.cause).match(/^([\w.-]+):/)||[])[1] || c.cause, text:causeText(c.cause), w:c.contribution, v:null, bone:c.bone}));
   return out.sort((a, b) => Math.abs(b.w || 0) - Math.abs(a.w || 0));
 }
 function testsLine(v){
@@ -1068,7 +1200,8 @@ function explainedBody(ctx){
   const causeRows = causes.map(c => `<div class="cause">
       <span class="d">${esc(c.text)}</span>
       <span class="w num">${inr(c.w, {sign:true})}<span class="muted small"> /day</span></span>
-      <span class="bar"><i style="width:${Math.round(Math.abs(c.w||0)/max*100)}%"></i></span>
+      ${c.v && c.v.bone || c.bone ? `<span class="tags"><span class="tag ok">Verified</span><span class="tag">${esc((c.v && c.v.bone || c.bone).label)}</span></span>` : '<span class="tags"><span class="tag ok">Verified</span></span>'}
+      <span class="bar">${meter(Math.abs(c.w||0)/max, 'brand')}<small>relative size</small></span>
       <span class="meta">
         ${c.v ? `<button type="button" class="ev" data-ev="cause:${esc(c.id)}">${esc(testsLine(c.v))}</button>` : ''}
         ${c.v && c.v.citations && c.v.citations.length ? `<button type="button" class="ev" data-ev="quotes:${esc(c.id)}">${c.v.citations.length} customer quote${c.v.citations.length===1?'':'s'}</button>` : ''}
@@ -1094,6 +1227,7 @@ function explainedBody(ctx){
     </div>
     ${fishboneHtml(ctx)}
     ${decisionsHtml(ctx)}
+    ${whatIfHtml(ctx)}
     ${fairHtml(ctx)}`;
 }
 /* What the team is judged on: the movement less the conditions beyond its
@@ -1150,7 +1284,7 @@ function unknownBody(ctx){
   const max = Math.max(1, ...partial.map(x => Math.abs(x.w || 0)));
   const partialHtml = partial.length ? `<h2 style="margin-top:4px">Passed testing, but not enough to explain it</h2>
       ${partial.map(x => `<div class="cause"><span class="d">${esc(x.text)}</span><span class="w num">${inr(x.w, {sign:true})}<span class="muted small"> /day</span></span>
-        <span class="bar"><i style="width:${Math.round(Math.abs(x.w||0)/max*100)}%"></i></span>
+        <span class="bar">${meter(Math.abs(x.w||0)/max, 'unk')}<small>relative size</small></span>
         ${x.v ? `<span class="meta"><button type="button" class="ev" data-ev="cause:${esc(x.id)}">${esc(testsLine(x.v))}</button></span>` : ''}</div>`).join('')}
       ${a.coverage !== undefined ? `<p class="note">Together they account for ${pct(a.coverage, 0)} of the movement.</p>` : ''}` : '';
   return `${waterfallHtml(ctx)}<div class="grid">
@@ -1163,7 +1297,8 @@ function unknownBody(ctx){
         ${reconHtml(d)}</div>
     </div>
     ${fishboneHtml(ctx)}
-    ${decisionsHtml(ctx)}`;
+    ${decisionsHtml(ctx)}
+    ${whatIfHtml(ctx)}`;
 }
 function contradictedBody(ctx){
   const d = ctx.diag.data, r = d.reconciliation || {};
@@ -1325,13 +1460,15 @@ function decisionsHtml(ctx){
       <div class="t">${esc(actionText(c.action))}</div>
       <div class="m">Because: ${esc(causeText(c.cause))} · owner ${esc(roleName(a.assigned_to).toLowerCase())} · expected recovery <b class="num">${inr(c.expected_recovery_inr_per_day)}</b> a day${c.recovery_basis ? ` (${esc(plain(c.recovery_basis, d).replace(/^./, x => x.toLowerCase()))})` : ''}</div>
       ${c.monitoring ? `<div class="m">Then watch ${esc(c.monitoring.watch)}.</div>` : ''}
-      ${c.already_actioned ? `<div class="m done-note">Already done on ${esc(dt(c.already_actioned.on))}, per ${esc(c.already_actioned.doc_id)}: ${esc(c.already_actioned.text)} What is left to decide is whether it worked.</div>` : ''}
+      ${c.already_actioned ? `<div class="m done-note"><b>Already done on ${esc(dt(c.already_actioned.on))}.</b> The release log records it: “${esc(causeText(c.already_actioned.text))}.” <span class="muted">(${esc(c.already_actioned.doc_id)})</span> What is left to decide is whether it worked.</div>` : ''}
       <div class="row2">
         ${done ? `<span class="state">${esc(human(done.event.replace('decision_','')))} by ${esc(done.actor.name)}</span>` :
-          mine ? `<button type="button" class="btn sm primary" data-decide="${esc(a.action_id)}:accept">Accept</button>
+          mine ? `<button type="button" class="btn sm primary" data-decide="${esc(a.action_id)}:accept">${c.already_actioned ? 'Confirm it worked' : 'Accept'}</button>
                   <button type="button" class="btn sm" data-decide="${esc(a.action_id)}:modify">Modify</button>
-                  <button type="button" class="btn sm" data-decide="${esc(a.action_id)}:reject">Reject</button>`
-               : `<span class="small muted">Awaiting the ${esc(roleName(a.assigned_to).toLowerCase())}. Nothing executes until they decide.</span>`}
+                  <button type="button" class="btn sm" data-decide="${esc(a.action_id)}:reject">${c.already_actioned ? 'It did not work' : 'Reject'}</button>`
+               : c.already_actioned
+                 ? `<span class="small muted">Awaiting the ${esc(roleName(a.assigned_to).toLowerCase())}'s confirmation that it worked. Nothing further executes.</span>`
+                 : `<span class="small muted">Awaiting the ${esc(roleName(a.assigned_to).toLowerCase())}. Nothing executes until they decide.</span>`}
         <button type="button" class="btn sm" data-teams="${esc(a.action_id)}" style="margin-left:auto">Send to Teams</button>
       </div></div>`;
   }).join('');
@@ -1343,7 +1480,7 @@ function decisionsHtml(ctx){
     ? (cards.length === 1
       ? `<p class="note" style="margin-top:0">This cause passed its tests but does not explain the movement. Acting on it recovers what it accounts for; the rest is still unknown.</p>`
       : `<p class="note" style="margin-top:0">These causes passed their tests but do not explain the movement. Acting on them recovers what they account for; the rest is still unknown.</p>`) : '';
-  return `<section class="panel" id="decide" style="margin-top:20px"><h2>${S.persona === 'ops' ? 'Actions in your territory' : d.verdict === 'explained' ? 'What to do' : 'What can be done now'}</h2>${partial}${body}</section>`;
+  return `<section class="panel" id="decide" style="margin-top:20px"><h2>${S.persona === 'ops' ? 'Actions in your region, and who signs them' : d.verdict === 'explained' ? 'What to do' : 'What can be done now'}</h2>${partial}${body}</section>`;
 }
 function recordHtml(ctx){
   if(!ctx.audit.length) return '';
@@ -1389,7 +1526,7 @@ function chainLinks(ctx){
   const add = (name, state, main, sub, go) => L.push({name, state, main, sub, go});
 
   add('Moved', w ? 'held' : 'open', w ? `${inr(Math.abs(w.delta))} ${w.delta < 0 ? 'below' : 'above'} expected` : 'Not flagged',
-      w && isFinite(w.robust_z) ? `unusual at z ${w.robust_z.toFixed(1).replace('-', '−')} and over the rupee floor` : '', 'ev:movement');
+      w && isFinite(w.robust_z) ? `far outside the normal range, and above the size worth acting on` : '', 'ev:movement');
 
   if(r.state === 'agreed') add('Confirmed', 'held', 'Ledger agrees', `within ${pct(r.worst_residual)}`, 'why');
   else if(r.state === 'contradicted') add('Confirmed', 'broken', 'Ledger disagrees', `by up to ${pct(r.worst_residual)}: check the extract first`, 'why');
@@ -1408,7 +1545,7 @@ function chainLinks(ctx){
 
   const docs = (d.verified || []).reduce((a, x) => a + (x.supporting_documents || 0), 0);
   if(!causes.length) add('Evidence', 'skipped', 'Nothing to corroborate', '', 'why');
-  else if(!d.verified) add('Evidence', 'withheld', 'Withheld here', 'citations are in the analyst view', 'why');
+  else if(!d.verified) add('Evidence', 'withheld', 'In the analyst view', 'tickets and notes, quoted to the character', 'why');
   else add('Evidence', docs ? 'held' : 'open', docs ? `${docs} document${docs === 1 ? '' : 's'}` : 'None found',
       docs ? 'quoted to the character' : 'the tests stand alone', 'why');
 
@@ -1419,7 +1556,7 @@ function chainLinks(ctx){
   const decided = card && ctx.audit.find(e => e.event.startsWith('decision_') && e.payload.action_id === card.approval.action_id);
   if(!card) add('Decided', 'skipped', 'Nothing to decide', '', 'decide');
   else if(decided) add('Decided', 'held', cap(human(decided.event.replace('decision_', ''))), `by ${decided.actor.name.replace(' (demo)', '')}`, 'decide');
-  else if(card.already_actioned) add('Decided', 'held', 'Already done', `${dt(card.already_actioned.on)}, per ${card.already_actioned.doc_id}`, 'decide');
+  else if(card.already_actioned) add('Decided', 'held', 'Already done', `on ${dt(card.already_actioned.on)}, per the release log`, 'decide');
   else add('Decided', 'open', `Awaiting the ${roleName(card.approval.assigned_to).toLowerCase()}`, 'nothing executes until then', 'decide');
 
   const owner = (ctx.sig && ctx.sig.accountable) || 'finance_director';
@@ -1445,7 +1582,7 @@ function chainHtml(ctx){
   const waiting = L.filter(x => x.state === 'open');
   const lede = broke
     ? `The chain breaks at <b>${esc(NOUN[broke.name] || broke.name.toLowerCase())}</b>: ${esc(broke.main.toLowerCase())}. Nothing after it is attempted, and that is the answer rather than a gap in it.`
-    : `Every link from the movement to its cause holds.${waiting.length ? ` ${waiting.length === 1 ? 'One is' : `${waiting.length} are`} still open: ${esc(waiting.map(x => x.name.toLowerCase()).join(', '))}.` : ''}`;
+    : `Every link from the movement to its cause holds.${waiting.length ? ` Still open: ${esc(waiting.map(x => NOUN[x.name] || x.name.toLowerCase()).join(', '))}.` : ''}`;
   const glyph = {held: 'explained', broken: 'contradicted', open: 'checking', withheld: 'refused', skipped: 'cannot_verify'};
   const word = {held: 'holds', broken: 'broken', open: 'open', withheld: 'withheld', skipped: 'not reached'};
   return `<section class="panel" id="chain" style="margin-top:20px"><h2>The chain · every link has to hold</h2>
@@ -1632,7 +1769,7 @@ function wireFinding(ctx){
   // Built from what was rendered, so a link never points at a section this
   // verdict does not have (a contradicted finding has no gap and no decisions).
   const first = {explained:'Causes', contradicted:'Why nothing is explained'}[ctx.diag.data.verdict] || 'What we checked';
-  const links = [['chain', 'The chain'], ['bridge', 'The bridge'], ['why', first], ['fishbone', 'Fishbone'], ['gap', 'Signal gap'], ['calendar', 'Calendar'], ['decide', 'Decisions'], ['fair', 'Fair target']]
+  const links = [['chain', 'The chain'], ['bridge', 'The bridge'], ['why', first], ['fishbone', 'Fishbone'], ['gap', 'Signal gap'], ['calendar', 'Calendar'], ['decide', 'Decisions'], ['whatif', 'What-if'], ['fair', 'Fair target']]
     .filter(([id]) => document.getElementById(id));
   const nav = $('#onpage');
   if(nav){
@@ -1648,6 +1785,7 @@ function wireFinding(ctx){
     const to = document.getElementById(b.dataset.jump); if(to) to.scrollIntoView({block:'start', behavior:'smooth'});
   });
   view.querySelectorAll('[data-fb]').forEach(b => b.onclick = () => feedback(ctx, b));
+  wireWhatIf(ctx);
   view.querySelectorAll('[data-decide]').forEach(b => b.onclick = () => decideModal(ctx, ...b.dataset.decide.split(':')));
   view.querySelectorAll('[data-teams]').forEach(b => b.onclick = () => teams(ctx, b.dataset.teams));
   const s = view.querySelector('[data-sign]'); if(s) s.onclick = () => signModal(ctx);
@@ -1800,7 +1938,11 @@ function excuseModal(ctx){
 }
 function decideModal(ctx, actionId, choice){
   const c = (ctx.diag.data.decisions||[]).find(x => x.approval && x.approval.action_id === actionId);
-  const verb = {accept:'Accept', modify:'Modify', reject:'Reject'}[choice];
+  // Once the record shows the lever was pulled, the owner is confirming the
+  // outcome rather than approving the action; the words say which.
+  const verb = c && c.already_actioned
+    ? {accept:'Confirm it worked', modify:'Modify', reject:'It did not work'}[choice]
+    : {accept:'Accept', modify:'Modify', reject:'Reject'}[choice];
   layer(`<div class="modal" role="dialog" aria-modal="true" aria-label="${verb} decision"><div class="box">
     <h3>${verb}: ${esc(actionText(c.action))}</h3>
     <p class="small">Recording this decision does not execute it. The change itself happens in the system that owns it, by the people who own it.</p>
@@ -1824,10 +1966,152 @@ async function teams(ctx, actionId){
     <div class="ac"><div class="h">${esc(card.body[0].text)}</div><p style="margin:6px 0">${esc(card.body[1].text)}</p>
       <dl class="kv">${facts.map(x => `<dt>${esc(x.title)}</dt><dd>${esc(x.value)}</dd>`).join('')}</dl>
       <p class="small muted" style="margin:8px 0 0">${esc(card.body[3].text)}</p></div>
-    <details style="margin-top:10px"><summary class="small">Adaptive Card JSON</summary><pre style="font-size:11.5px;overflow:auto;max-height:220px">${esc(JSON.stringify(card, null, 2))}</pre></details>
+    <details style="margin-top:10px"><summary class="small">Adaptive Card JSON</summary><pre style="font-size:13px;overflow:auto;max-height:220px">${esc(JSON.stringify(card, null, 2))}</pre></details>
     <div class="foot"><button type="button" class="btn" data-close>Close</button></div></div></div>`);
 }
 
+
+/* ---------- tick meters ----------
+   Discrete, like a level meter: twelve ticks, lit in proportion. Easier to
+   compare at a glance than a thin bar, and legible in greyscale print. */
+function meter(frac, tone = 'brand', n = 12){
+  const on = Math.max(frac > 0 ? 1 : 0, Math.round(Math.min(Math.max(frac, 0), 1) * n));
+  return `<span class="meter ${tone === 'brand' ? '' : tone}" role="img" aria-label="${Math.round(Math.min(frac, 1) * 100)} percent">${
+    Array.from({length: n}, (_, i) => `<i${i < on ? ' class="on"' : ''}></i>`).join('')}</span>`;
+}
+
+/* ---------- what-if analysis ----------
+   The engine's scenarios, which the finding page never showed: reverse the
+   cause that can be reversed, move the price, let the external pressure run
+   on. Every figure is the server's (whychain/actions/simulate.py), computed
+   from declared assumptions; the page only asks again with a different price
+   or horizon, and says plainly that these are projections, not measurements. */
+const WHATIF_TITLE = {rollback:'Reverse the cause', price_move:'Change the price', sustained_external:'If it persists'};
+function whatIfCard(sc, ctx){
+  const d = ctx.whatIf || {};
+  if(!sc.available) return `<article class="wi off"><span class="tag">${esc(WHATIF_TITLE[sc.scenario_id] || 'What-if')}</span>
+      <div class="q">${esc(sc.question)}</div><p class="why">${esc(cap(sc.unavailable_because || 'Not available for this finding'))}.</p></article>`;
+  const per = sc.effect_inr_per_day, total = sc.effect_inr_total;
+  const of = sc.effect_of === 'gross profit' ? 'gross profit' : 'revenue';
+  const ctl = sc.scenario_id === 'price_move'
+    ? `<div class="ctl"><label class="mc" for="wi-price">Price change</label><input id="wi-price" type="range" min="-20" max="20" step="1" value="${Math.round((d.price ?? -0.05) * 100)}">
+        <span class="num" id="wi-price-v">${(d.price ?? -0.05) > 0 ? '+' : (d.price ?? -0.05) < 0 ? '−' : ''}${Math.abs(Math.round((d.price ?? -0.05) * 100))}%</span></div>`
+    : sc.scenario_id === 'sustained_external'
+    ? `<div class="ctl"><span class="mc">For</span><div class="segp" role="group" aria-label="How long">${[7, 14, 30, 60].map(h =>
+        `<button type="button" data-horizon="${h}" aria-pressed="${(d.horizon ?? 14) === h}">${h} days</button>`).join('')}</div></div>` : '';
+  return `<article class="wi" data-sc="${esc(sc.scenario_id)}"><span class="tag brand">What-if · ${esc(WHATIF_TITLE[sc.scenario_id] || 'Projection')}</span>
+    <div class="q">${esc(sc.question.replace(/(\s)-(\d)/g, '$1−$2'))}</div>${ctl}
+    ${doneNote(sc, ctx)}
+    <div class="fig">${inr(per, {sign:true})}<small> ${of} a day${total !== null && total !== undefined ? `, ${inr(total, {sign:true})} over ${sc.horizon_days} days` : ''}</small></div>
+    ${(sc.alongside || []).map(a => `<div class="along">Alongside: ${esc(a.name)} ${inr(a.inr_per_day, {sign:true})} a day</div>`).join('')}
+    <details><summary>Assumptions</summary><ul>${(sc.assumptions || []).map(a => `<li><b>${esc(cap(a.name))}:</b> ${esc(a.value)}. <span class="muted">${esc(cap(a.basis))}.</span></li>`).join('')}</ul>
+      ${sc.bounded_by ? `<p class="muted" style="margin:6px 0 0">Bounded by ${esc(sc.bounded_by)}.</p>` : ''}</details></article>`;
+}
+// A reversal the record shows already happened is still worth projecting (it
+// is what the rollback should be bringing back), but the card must not read as
+// advice to do it now.
+function doneNote(sc, ctx){
+  const done = (ctx.diag.data.decisions || []).find(c => c.already_actioned && (sc.derived_from || []).includes(c.candidate_id));
+  return done && sc.scenario_id === 'rollback'
+    ? `<p class="why" style="margin:0"><b>Already done on ${esc(dt(done.already_actioned.on))}.</b> This is what it should be bringing back; watch for it.</p>` : '';
+}
+function whatIfHtml(ctx){
+  const list = (ctx.diag.data.scenarios || []);
+  if(!list.length) return '';
+  return `<section class="panel" id="whatif" style="margin-top:20px"><h2>What-if analysis · projections, not measurements</h2>
+    <p class="chain-lede" style="margin-top:-6px">What would change if the business acted, or if conditions held. Each estimate is computed from the measured effects and the assumptions stated under it; the language model writes none of these numbers.</p>
+    <div class="whatif" id="whatif-cards">${list.map(sc => whatIfCard(sc, ctx)).join('')}</div></section>`;
+}
+function wireWhatIf(ctx){
+  const box = document.getElementById('whatif-cards'); if(!box) return;
+  ctx.whatIf = ctx.whatIf || {price: -0.05, horizon: 14};
+  let timer = null;
+  const ask = async () => {
+    box.querySelectorAll('.wi').forEach(c => c.classList.add('busy'));
+    const r = await api('/api/diagnose?' + qs({...ctx.base, persona:S.persona, backend:'none',
+      price_delta: ctx.whatIf.price, horizon_days: ctx.whatIf.horizon}));
+    if(!r.ok){ box.querySelectorAll('.wi').forEach(c => c.classList.remove('busy')); toast(detail(r)); return; }
+    box.innerHTML = (r.data.scenarios || []).map(sc => whatIfCard(sc, ctx)).join('');
+    wireWhatIf(ctx);
+  };
+  const slider = document.getElementById('wi-price');
+  if(slider) slider.oninput = () => {
+    ctx.whatIf.price = Number(slider.value) / 100;
+    document.getElementById('wi-price-v').textContent = `${slider.value > 0 ? '+' : slider.value < 0 ? '−' : ''}${Math.abs(slider.value)}%`;
+    clearTimeout(timer); timer = setTimeout(ask, 280);
+  };
+  box.querySelectorAll('[data-horizon]').forEach(b => b.onclick = () => { ctx.whatIf.horizon = Number(b.dataset.horizon); ask(); });
+}
+
+/* The seat menu: engine status, appearance and switching seat, under the
+   reader's own name, where they belong. */
+function initSeatMenu(){
+  // Larger everything for a projector at the back of a hall; remembered on
+  // this laptop, and applied by every page before it first paints.
+  const pr = $('#present'), setPresent = on => {
+    if(on) document.documentElement.setAttribute('data-present', 'on'); else document.documentElement.removeAttribute('data-present');
+    pr.setAttribute('aria-pressed', String(on)); $('#present-tip').textContent = `Presenting in a room: ${on ? 'on' : 'off'}`;
+    store.set('whychain-present', on ? 'on' : 'off');
+  };
+  setPresent(store.get('whychain-present', 'off') === 'on');
+  pr.onclick = () => setPresent(document.documentElement.getAttribute('data-present') !== 'on');
+  const btn = $('#actor'), menu = $('#seatmenu');
+  const set = open => { menu.hidden = !open; btn.setAttribute('aria-expanded', String(open)); };
+  btn.onclick = e => { e.stopPropagation(); set(menu.hidden); };
+  document.addEventListener('click', e => { if(!menu.hidden && !e.target.closest('.seat')) set(false); });
+  addEventListener('keydown', e => { if(e.key === 'Escape' && !menu.hidden) set(false); });
+}
+
+/* ---------- the command palette ----------
+   Everywhere reachable from the keyboard: pages, the rehearsed demos, the
+   findings in the queue and the governed metrics. */
+function initPalette(){
+  const items = () => [
+    ...[['Findings', '/', 'The queue of material movements'], ['Metrics', '/?tab=metrics', 'Governed definitions, lineage and access'],
+        ['Audit trail', '/?tab=audit', 'Signatures and decisions, hash-chained'], ['Workbench', '/workbench', 'The analyst\'s full method page'],
+        ['Switch seat', '/login', 'Sign in as another role']].map(([t, u, d]) => ({g:'Go to', t, d, u})),
+    ...SCEN.map(x => ({g:'Demos', t:x.t, d:x.d, u:scenarioLink(x)})),
+    ...(S.inboxRows || []).map(f => ({g:'Findings', t:`${kpiName(f.kpi_id)}, ${f.region || 'all regions'}`, d:`${span(f.start, f.end)} · ${inr(f.impact_inr_per_day)} a day`,
+        u:`/finding?${qs({kpi:f.kpi_id, region:f.region, start:f.start, end:f.end, industry:S.industry})}`})),
+    ...(S.metricIds || []).map(k => ({g:'Metrics', t:kpiName(k), d:'Definition, lineage and access', u:`/?tab=metrics&kpi=${k}`})),
+  ];
+  const open = () => {
+    const scrim = document.createElement('div');
+    scrim.className = 'palette-scrim';
+    scrim.innerHTML = `<div class="palette" role="dialog" aria-modal="true" aria-label="Search"><input type="search" placeholder="Search findings, metrics, demos, pages" aria-label="Search" autocomplete="off"><ul role="listbox"></ul></div>`;
+    document.body.appendChild(scrim);
+    const input = scrim.querySelector('input'), ul = scrim.querySelector('ul');
+    let shown = [], at = 0;
+    const draw = () => {
+      const q = input.value.trim().toLowerCase();
+      shown = items().filter(x => !q || (x.t + ' ' + x.d + ' ' + x.g).toLowerCase().includes(q)).slice(0, 40);
+      at = Math.min(at, Math.max(shown.length - 1, 0));
+      let last = '';
+      ul.innerHTML = shown.length ? shown.map((x, i) => `${x.g !== last ? (last = x.g, `<div class="grp mc">${esc(x.g)}</div>`) : ''}<li role="option" data-i="${i}" aria-selected="${i === at}"><span><b>${esc(x.t)}</b><small>${esc(x.d)}</small></span></li>`).join('')
+        : `<div class="grp muted">Nothing matches.</div>`;
+      ul.querySelectorAll('li').forEach(li => { li.onclick = () => pick(Number(li.dataset.i)); li.onmousemove = () => { at = Number(li.dataset.i); mark(); }; });
+    };
+    const mark = () => ul.querySelectorAll('li').forEach(li => li.setAttribute('aria-selected', String(Number(li.dataset.i) === at)));
+    const close = () => { scrim.remove(); removeEventListener('keydown', keys, true); };
+    const pick = i => { const x = shown[i]; if(!x) return; close(); if(x.u.startsWith('/workbench') || x.u.startsWith('/login')) location.href = x.u; else go(x.u); };
+    const keys = e => {
+      if(e.key === 'Escape'){ e.stopPropagation(); close(); }
+      else if(e.key === 'ArrowDown'){ at = Math.min(at + 1, shown.length - 1); mark(); e.preventDefault(); }
+      else if(e.key === 'ArrowUp'){ at = Math.max(at - 1, 0); mark(); e.preventDefault(); }
+      else if(e.key === 'Enter'){ pick(at); e.preventDefault(); }
+    };
+    addEventListener('keydown', keys, true);
+    scrim.onclick = e => { if(e.target === scrim) close(); };
+    input.oninput = () => { at = 0; draw(); };
+    draw(); input.focus();
+  };
+  document.querySelectorAll('[data-palette]').forEach(b => b.onclick = open);
+  addEventListener('keydown', e => {
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '');
+    if(((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') || (e.key === '/' && !typing && !e.ctrlKey && !e.metaKey)){
+      e.preventDefault(); if(!document.querySelector('.palette-scrim')) open(); }
+  });
+}
 /* ---------- boot ---------- */
 shell().then(route);
 </script>

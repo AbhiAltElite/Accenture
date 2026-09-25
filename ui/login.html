@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · WhyChain</title>
+<link rel="icon" href="/static/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/theme.css">
+<script>
+/* Light unless the reader chose otherwise, applied before first paint so the
+   page never flashes in the other theme. */
+try{ const t = localStorage.getItem('whychain-theme') || 'light';
+  if(t !== 'auto') document.documentElement.setAttribute('data-theme', t); }catch{ document.documentElement.setAttribute('data-theme', 'light'); }
+try{ if(localStorage.getItem('whychain-present') === 'on') document.documentElement.setAttribute('data-present', 'on'); }catch{}
+</script>
+<style>
+/* Sign-in. In production the organisation's single sign-on proxy decides who
+   the reader is (whychain/identity.py), so this page only continues. In the
+   demo there is no password anywhere: a reader chooses the seat to sit in.
+   A demo that asks for a password teaches people to type real ones into it. */
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:var(--sans);font-size:16px;line-height:1.55;color:var(--ink);background:var(--ground)}
+.wrap{min-height:100%;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
+.brandside{position:relative;overflow:hidden;color:#fff;padding:56px 64px;display:flex;flex-direction:column;
+  background:radial-gradient(1200px 600px at 110% 110%,#a100ff 0%,transparent 60%),
+             radial-gradient(900px 500px at -10% -10%,#7500c0 0%,transparent 55%),#1a0033}
+.brandside .mark{color:#fff}
+.brandside .mark b span{color:#d9a3ff}
+.brandside h1{font-family:var(--display);font-weight:800;font-size:clamp(34px,4vw,52px);line-height:1.08;
+  letter-spacing:-.03em;margin:auto 0 18px;max-width:14ch}
+.brandside p.lede{font-size:18px;line-height:1.6;color:rgba(255,255,255,.82);max-width:46ch;margin:0 0 34px}
+.proof{list-style:none;margin:0 0 auto;padding:0;display:grid;gap:14px;max-width:48ch}
+.proof li{display:flex;gap:14px;align-items:flex-start;font-size:16px;color:rgba(255,255,255,.9)}
+.proof svg{width:22px;height:22px;flex:none;margin-top:1px;fill:none;stroke:#d9a3ff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.brandside .foot{margin-top:40px;font-size:13px;color:rgba(255,255,255,.6)}
+.chainart{position:absolute;right:-60px;top:70px;width:420px;opacity:.18;pointer-events:none}
+
+.signside{display:flex;align-items:center;justify-content:center;padding:48px 32px}
+.card{width:min(520px,100%)}
+.card h2{font-family:var(--display);font-weight:800;font-size:32px;letter-spacing:-.025em;margin:0 0 6px}
+.card .sub{color:var(--ink-3);margin:0 0 28px;font-size:16px}
+.sso{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 18px;border-radius:var(--r-sm);
+  border:1px solid var(--line-2);background:var(--paper);font:inherit;font-weight:600;font-size:16px;color:var(--ink);cursor:pointer}
+.sso[disabled]{cursor:not-allowed;color:var(--ink-3)}
+.sso svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ssonote{font-size:13.5px;color:var(--ink-3);text-align:center;margin:10px 0 0}
+.or{display:flex;align-items:center;gap:14px;margin:28px 0 16px}
+.or::before,.or::after{content:"";flex:1;border-top:1px solid var(--line)}
+.roles{display:grid;gap:10px}
+.role{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:center;text-align:left;width:100%;
+  padding:14px 16px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--paper);font:inherit;color:var(--ink);
+  cursor:pointer;box-shadow:var(--shadow-1);transition:border-color .12s,transform .12s}
+.role:hover,.role:focus-visible{border-color:var(--brand);transform:translateY(-1px);outline:none}
+.role .av{width:44px;height:44px;border-radius:var(--r-pill);display:grid;place-items:center;font-weight:800;font-size:15px;color:#fff;
+  background:linear-gradient(135deg,var(--brand-deep),var(--brand))}
+.role b{display:block;font-size:16px;font-weight:700}
+.role small{display:block;color:var(--ink-3);font-size:14px;line-height:1.45}
+.role .go{color:var(--brand-mid);font-weight:700;font-size:20px}
+.demo{display:inline-flex;align-items:center;gap:8px;margin-top:24px;font-size:13.5px;color:var(--ink-3)}
+.proxyok{padding:18px 20px;border-radius:var(--r-md);background:var(--ok-soft);color:var(--ok);font-weight:600}
+@media (max-width:900px){
+  .wrap{grid-template-columns:1fr}
+  .brandside{padding:36px 24px;min-height:auto}
+  .brandside h1{margin-top:36px}
+  .chainart{display:none}
+  .signside{padding:32px 16px 48px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="brandside">
+    <a class="mark" href="/login" aria-label="WhyChain">
+      <img src="/static/mark.svg" alt="" width="34" height="34"><b>Why<span>Chain</span></b>
+    </a>
+    <svg class="chainart" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="#fff" stroke-width="3" transform="rotate(-38 32 32)">
+      <rect x="8" y="23" width="28" height="18" rx="9"/><rect x="28" y="23" width="28" height="18" rx="9"/></g></svg>
+    <h1>Every movement, explained and signed.</h1>
+    <p class="lede">When a business metric moves, WhyChain finds what caused it, tests every cause before it is shown, and hands the decision to the person accountable for it.</p>
+    <ul class="proof">
+      <li><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>Every figure is computed by code. The language model writes prose and never a number.</li>
+      <li><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V7z"/></svg>Every cause passes timing, comparison and placebo tests before it is shown. When nothing passes, it says unknown.</li>
+      <li><svg viewBox="0 0 24 24"><path d="M5 19c3-.2 4.5-3.5 6-7 1 3.5 2.2 5 3.5 5 1.2 0 1.8-1.5 3-1.5 1 0 1.5.8 3.5 1"/></svg>Every sign-off and decision is kept on a tamper-evident audit trail.</li>
+    </ul>
+    <div class="foot">WhyChain · Team CtrlAltReinvent</div>
+  </section>
+
+  <section class="signside">
+    <div class="card" id="card">
+      <h2>Sign in</h2>
+      <p class="sub">Reading your access…</p>
+    </div>
+  </section>
+</div>
+
+<script>
+'use strict';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store = {
+  set(k, v){ try{ localStorage.setItem(k, v); }catch{ /* private window */ } },
+};
+// Where to go after signing in: only a path on this site, never a full URL, so
+// a crafted link cannot bounce a reader somewhere else.
+const next = (() => {
+  const n = new URLSearchParams(location.search).get('next') || '/';
+  return n.startsWith('/') && !n.startsWith('//') ? n : '/';
+})();
+// What each seat reads, in a line. The view each opens matches the decision
+// view's own mapping, so a signed-in reader lands on the projection for them.
+const SEAT = {
+  finance_director: {view:'cfo', what:'Signs findings. Sees the size, the decision and how much to trust it.'},
+  fpa_analyst: {view:'analyst', what:'Works the evidence: every test, citation and rejected cause.'},
+  ecommerce_lead: {view:'analyst', what:'Owns the app and web levers, and approves release decisions.'},
+  category_manager: {view:'analyst', what:'Owns pricing and assortment, and approves those decisions.'},
+  area_sales_manager: {view:'ops', what:'Sees the levers in their territory and who signs them off.'},
+};
+const initials = n => n.replace(/\(demo\)/, '').replace(/,.*$/, '').split(/[\s&]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+
+function signIn(user, role){
+  store.set('whychain-user', user);
+  const seat = SEAT[role];
+  if(seat) store.set('whychain-persona', seat.view);
+  store.set('whychain-session', String(Date.now()));
+  location.replace(next);
+}
+
+(async () => {
+  const card = document.getElementById('card');
+  let me;
+  try{ me = await (await fetch('/api/me')).json(); }
+  catch{ card.innerHTML = `<h2>Sign in</h2><p class="sub">The engine is not answering. Start WhyChain again and reload this page.</p>`; return; }
+
+  if(me.mode !== 'demo'){
+    // Single sign-on has already decided who this is.
+    store.set('whychain-session', String(Date.now()));
+    card.innerHTML = `<h2>Signed in</h2><p class="sub">Your organisation's single sign-on identified you.</p>
+      <div class="proxyok">${esc(me.identity.name)}</div>`;
+    setTimeout(() => location.replace(next), 700);
+    return;
+  }
+
+  card.innerHTML = `<h2>Sign in</h2>
+    <p class="sub">Choose how you sign in to WhyChain.</p>
+    <button class="sso" type="button" disabled aria-describedby="ssonote">
+      <svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      Continue with single sign-on</button>
+    <p class="ssonote" id="ssonote">Connected in production to your organisation's identity provider. Not configured on this demo.</p>
+    <div class="or mc">Demo access · choose a seat</div>
+    <div class="roles">${me.demo_users.map(u => {
+      const seat = SEAT[u.role] || {what:''};
+      const name = u.name.replace(' (demo)', '');
+      return `<button class="role" type="button" data-user="${esc(u.id)}" data-role="${esc(u.role)}">
+        <span class="av">${esc(initials(name))}</span>
+        <span><b>${esc(name)}</b><small>${esc(seat.what)}</small></span>
+        <span class="go" aria-hidden="true">→</span></button>`;
+    }).join('')}</div>
+    <p class="demo"><span class="tag unk">Demo</span>No password is used or stored. Every record made here is marked as a demo identity.</p>`;
+  card.querySelectorAll('.role').forEach(b => b.onclick = () => signIn(b.dataset.user, b.dataset.role));
+  const first = card.querySelector('.role'); if(first) first.focus();
+})();
+</script>
+</body>
+</html>

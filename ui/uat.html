@@ -41,6 +41,9 @@ tr.fail td{background:var(--bad-soft)} tr.warn td{background:var(--warn-soft)}
 </main>
 <script>
 'use strict';
+// Every page the checks open is behind the sign-in, which the checks are not
+// testing: they sit in a demo seat for the run, as a presenter would.
+try{ if(!localStorage.getItem('whychain-session')) localStorage.setItem('whychain-session', 'uat'); }catch{}
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const frame = document.getElementById('f');
 const results = [];

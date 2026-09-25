@@ -3402,6 +3402,12 @@ def index() -> FileResponse:
     return FileResponse(UI / "app.html", headers=_NO_CACHE)
 
 
+@app.get("/login")
+def login() -> FileResponse:
+    """Sign-in: single sign-on in production, a choice of seat in the demo."""
+    return FileResponse(UI / "login.html", headers=_NO_CACHE)
+
+
 @app.get("/slide")
 def slide() -> FileResponse:
     """One finding as a board-pack slide, laid out for print to PDF."""

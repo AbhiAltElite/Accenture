@@ -21,13 +21,13 @@ from whychain import identity
 log = logging.getLogger("whychain.access")
 
 # Scripts and styles are inline in both console pages, so 'unsafe-inline' is
-# required for them; everything else is locked to this origin, plus the one
-# font host the pages use. Framing is refused to every other origin; this one
+# required for them; everything else is locked to this origin. The fonts are
+# served from here too since 25 Sep, so no font host is allowed any more. Framing is refused to every other origin; this one
 # may frame itself, which the /uat page needs to load each scenario and read
 # what it rendered. The interactive API docs load assets from a CDN and are exempt.
 CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; "
-       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-       "font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data:; "
+       "style-src 'self' 'unsafe-inline'; "
+       "font-src 'self' data:; img-src 'self' data:; "
        "connect-src 'self'; frame-src 'self'; frame-ancestors 'self'; base-uri 'self'; "
        "form-action 'self'")
 SECURITY_HEADERS = [
@@ -110,6 +110,12 @@ class EnterpriseMiddleware:
                 extra = [(b"x-request-id", request_id.encode()), *SECURITY_HEADERS]
                 if not path.startswith(DOCS):
                     extra.append((b"content-security-policy", CSP.encode()))
+                # Shared styles, fonts and the mark: checked with the server on
+                # every load (a 304 when unchanged). Cached without asking, an
+                # updated stylesheet was not picked up and a page rendered half
+                # in yesterday's design.
+                if path.startswith("/static/"):
+                    extra.append((b"cache-control", b"no-cache"))
                 message["headers"] = list(message.get("headers", [])) + extra
             await send(message)
 

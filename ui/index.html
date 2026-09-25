@@ -4,9 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WhyChain</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" href="/static/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/theme.css">
+<script>
+/* Light unless the reader chose otherwise, applied before first paint so the
+   page never flashes in the other theme. */
+try{ const t = localStorage.getItem('whychain-theme') || 'light';
+  if(t !== 'auto') document.documentElement.setAttribute('data-theme', t); }catch{ document.documentElement.setAttribute('data-theme', 'light'); }
+try{ if(localStorage.getItem('whychain-present') === 'on') document.documentElement.setAttribute('data-present', 'on'); }catch{}
+</script>
 <style>
 :root{
   /* Paper and ink. The page has a ground rather than being white with grey
@@ -56,7 +62,7 @@
   --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
 
   --rail-w:246px; --margin-w:210px; --measure:70ch;
-  --r-sm:3px; --r-md:5px;
+  --r-sm:8px; --r-md:12px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --paper:#0e1116; --surface:#161a20; --raised:#1d222a; --sunk:#242a33;
@@ -995,6 +1001,107 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
   border-radius:var(--r-sm);padding:2px var(--sp-3);min-height:30px;min-width:58px;cursor:pointer;flex:none}
 .themebtn:hover{color:var(--ink)}
 .demo-chip{font-family:var(--mono);font-size:11px;color:var(--flag);border:1px solid var(--flag);border-radius:var(--r-sm);padding:0 5px}
+/* ═══ the shared look ═════════════════════════════════════════════════════
+   The workbench keeps its own layout and its own token names, and takes the
+   product's colour, type and geometry from here: the brand purple as the one
+   accent, Inter to read, Plus Jakarta Sans to display, JetBrains Mono for
+   every figure, a larger scale, and softer, rounder surfaces. */
+:root{
+  --paper:#f6f6f9; --surface:#ffffff; --raised:#fafafc; --sunk:#efeff4;
+  --ink:#0b0b12; --ink-2:#2c2c36; --ink-3:#4a4a5a; --ink-4:#6b6b7e;
+  --line:#e7e7ef; --line-strong:#d4d4e0; --line-heavy:#9a9aad;
+  --accent:#a100ff; --accent-ink:#7500c0; --accent-soft:#f4e8ff;
+  --evidence:#7500c0; --evidence-ink:#460073; --evidence-soft:#f3e6ff;
+  --down:#c4122f; --down-soft:#fde8eb; --up:#0a7d4f; --flag:#935800; --flag-soft:#fff2d9;
+  --serif:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --display:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --t-2xs:13px; --t-xs:14.5px; --t-sm:16px; --t-base:17px; --t-md:20px;
+  --t-lg:24px; --t-xl:28px; --t-2xl:34px; --t-3xl:40px;
+  --r-sm:8px; --r-md:12px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0b0b10; --surface:#15151c; --raised:#1b1b24; --sunk:#23232e;
+  --ink:#f4f4f8; --ink-2:#d6d6e0; --ink-3:#b0b0c2; --ink-4:#8c8ca3;
+  --line:#262632; --line-strong:#383848; --line-heavy:#5a5a70;
+  --accent:#b54dff; --accent-ink:#d9a3ff; --accent-soft:#2a1340;
+  --evidence:#d9a3ff; --evidence-ink:#ecd0ff; --evidence-soft:#2a1340;
+  --down:#ff7a8c; --down-soft:#35141b; --up:#5fd19c; --flag:#f0b25a; --flag-soft:#2f230f;
+}}
+:root[data-theme="dark"]{
+  --paper:#0b0b10; --surface:#15151c; --raised:#1b1b24; --sunk:#23232e;
+  --ink:#f4f4f8; --ink-2:#d6d6e0; --ink-3:#b0b0c2; --ink-4:#8c8ca3;
+  --line:#262632; --line-strong:#383848; --line-heavy:#5a5a70;
+  --accent:#b54dff; --accent-ink:#d9a3ff; --accent-soft:#2a1340;
+  --evidence:#d9a3ff; --evidence-ink:#ecd0ff; --evidence-soft:#2a1340;
+  --down:#ff7a8c; --down-soft:#35141b; --up:#5fd19c; --flag:#f0b25a; --flag-soft:#2f230f;
+}
+.masthead{background:var(--surface);min-height:64px;border-bottom:1px solid var(--line);gap:18px}
+.appnav a{font-size:15px;font-weight:600;color:var(--ink-3);border-bottom:3px solid transparent}
+.appnav a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--brand)}
+.masthead .tools .iconbtn{padding:8px 10px}
+.masthead .mark{gap:10px}
+.masthead .mark img{width:32px;height:32px}
+.masthead .mark b{font-weight:800;letter-spacing:-.025em}
+.masthead .mark b span{font-size:inherit;font-weight:inherit;text-transform:none;letter-spacing:inherit;color:var(--brand);margin:0;padding:0;border:0}
+.seg{border-radius:var(--r-sm);padding:3px;gap:2px;background:var(--sunk);border-color:var(--line)}
+.seg button{border-radius:var(--r-sm);border-right:none;font-weight:600}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-1)}
+.demo-chip{border-radius:var(--r-pill);padding:1px 9px;font-size:12px}
+
+#askgo{background:var(--brand);border-color:var(--brand);color:#fff;border-radius:var(--r-sm);font-weight:600}
+#askgo:hover{background:var(--brand-mid);border-color:var(--brand-mid)}
+#askbox{border-radius:var(--r-sm)}
+/* The header fits in one line at laptop widths: the breadcrumb (repeated on
+   the page) goes first, then the seat shows as its avatar. */
+@media (max-width:1680px){.masthead .context{display:none}.whoami .who{padding:3px}.whoami .who > span:not(.av){display:none}}
+@media (max-width:1180px){.masthead .mark > span{display:none}.appnav a{padding:0 8px;font-size:14px}}
+/* ═══ reading structure ═════════════════════════════════════════════════
+   The workbench carries the most words in the product, so its hierarchy has to
+   do visible work: a lead sentence, then reading text; sections named in bold
+   sentence case with the number in a badge; every sub-part under its own label
+   and rule; emphasis in full ink. A reader at the back of a room should be able
+   to tell a heading from a finding from a footnote without reading a word. */
+.prose{font-family:var(--sans);font-size:17px;line-height:1.7;color:var(--ink-2)}
+.prose p:first-child{font-family:var(--display);font-size:19px;font-weight:600;line-height:1.6;color:var(--ink);letter-spacing:-.005em}
+.prose p + p{padding-left:18px;border-left:3px solid var(--brand-tint)}
+.prose strong,.prose b{font-weight:700;color:var(--ink)}
+.grouphead{border-top:3px solid var(--brand);padding-top:14px}
+.grouphead h2{font-size:26px;font-weight:800;letter-spacing:-.02em}
+.grouphead p{font-size:15.5px}
+.sec > summary{padding:14px 18px}
+.sec .num{display:inline-grid;place-items:center;min-width:34px;height:34px;border-radius:var(--r-pill);
+  background:var(--brand-tint);color:var(--brand-mid);font-weight:700;font-size:14px;letter-spacing:0}
+.sec .name{font-family:var(--display);text-transform:none;letter-spacing:-.01em;font-size:19px;font-weight:700}
+.sec .count{font-size:14.5px}
+.sec[open] > summary{background:var(--surface);border-bottom:2px solid var(--brand-tint)}
+.sec[open] > .body{padding:26px 28px 24px}
+.sec .body > p{font-size:17px;line-height:1.7;color:var(--ink-2);margin-bottom:16px}
+.sec .body > p:first-child,.sec .body .lede{font-family:var(--display);font-size:19.5px;font-weight:600;color:var(--ink);line-height:1.5}
+.sec .body h3{font-family:var(--display);font-size:20px;font-weight:700;color:var(--ink);margin:26px 0 10px;letter-spacing:-.01em}
+.sec .body h4,.sec .body .label{display:block;font-size:13px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--brand-mid);margin:30px 0 12px;padding-top:20px;border-top:1px solid var(--line)}
+.sec .body > h4:first-child,.sec .body > .label:first-child,.sec .body > div:first-child > h4:first-child{border-top:0;padding-top:0;margin-top:0}
+.sec .body strong,.sec .body b{font-weight:700;color:var(--ink)}
+.sec .body table{font-size:15.5px}
+.sec .body th{font-size:12.5px;font-weight:800;color:var(--ink-2)}
+.sec .body td{padding-top:12px;padding-bottom:12px}
+.sec .body tbody td:first-child{font-weight:600;color:var(--ink)}
+.sec .body dt{font-weight:700;color:var(--ink)}
+.sec .body .caption,.sec .body p.muted{font-size:15px;color:var(--ink-3)}
+.sec .body .verdictline{font-family:var(--display);font-size:19px;font-weight:700;color:var(--ink)}
+.sec .body article.decision{border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:var(--r-md);padding:18px 22px;background:var(--raised)}
+.sec .body article.decision h3{margin-top:0}
+.margin .label{font-size:12.5px;font-weight:800;color:var(--ink-2)}
+.written{font-family:var(--sans);font-size:17px;line-height:1.6;padding-left:0;list-style:none;counter-reset:w;
+  margin:0 0 22px;max-width:none;display:grid;gap:10px}
+.written .s{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:12px;align-items:start;counter-increment:w;
+  padding:10px 14px;border-radius:var(--r-sm);background:var(--raised);border:1px solid var(--line);color:var(--ink)}
+.written .s::before{content:counter(w);display:grid;place-items:center;width:28px;height:28px;border-radius:var(--r-pill);
+  background:var(--brand-tint);color:var(--brand-mid);font-weight:700;font-size:13.5px}
+.written .cites{vertical-align:baseline;margin:3px 0 0;font-size:12.5px;font-weight:700;color:var(--ok);background:var(--ok-soft);
+  border-radius:var(--r-pill);padding:2px 9px;white-space:nowrap;letter-spacing:0}
 </style>
 </head>
 <body>
@@ -1029,7 +1136,7 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
 <symbol id="i-chevron" viewBox="0 0 24 24"><polyline points="7 10 12 15 17 10"/></symbol>
 </defs></svg>
 <header class="masthead">
-  <a class="mark" href="/"><b>WhyChain</b><span>Diagnostic engine</span></a>
+  <a class="mark" href="/"><img src="/static/mark.svg" alt="" width="32" height="32"><b>Why<span>Chain</span></b><span>Workbench</span></a>
   <nav class="appnav" aria-label="Primary">
     <a href="/">Findings</a><a href="/?tab=audit">Audit trail</a><a href="/?tab=metrics">Metrics</a><a href="/workbench" aria-current="page">Workbench</a>
   </nav>
@@ -1042,7 +1149,8 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
       <button data-persona="analyst" aria-pressed="true" title="FP&amp;A: every step, including the working">Analyst</button>
       <button data-persona="ops" aria-pressed="false" title="Area sales manager: the lever they hold and who signs it off">Area sales</button>
     </div>
-    <button type="button" class="themebtn" id="theme" title="Appearance: follows the system, light or dark">Auto</button>
+    <button type="button" class="iconbtn" id="dock-ask" title="Ask a question (press /)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
+    <button type="button" class="iconbtn" id="theme" aria-label="Appearance"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg><span id="theme-tip" hidden>Appearance</span></button>
     <div class="whoami" id="whoami"></div>
   </div>
 </header>
@@ -1115,7 +1223,7 @@ pre{background:var(--sunk);border-radius:var(--r-sm);
     </div>
 
     <details class="railgroup demos">
-      <summary><span class="label">Scenarios</span><span class="demohint">Every
+      <summary><span class="label">Demos</span><span class="demohint">Every
         method, one click</span></summary>
       <div id="demos"></div>
     </details>
@@ -1570,16 +1678,17 @@ function applyTheme(t){
   if(t==='auto') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme',t);
   const btn = document.getElementById('theme');
-  if(btn){ btn.textContent = t.charAt(0).toUpperCase() + t.slice(1); btn.setAttribute('aria-label', 'Appearance: ' + t); }
+  if(btn){ btn.setAttribute('aria-label', 'Appearance: ' + t + ', change');
+    const tip = document.getElementById('theme-tip'); if(tip) tip.textContent = 'Appearance: ' + t.charAt(0).toUpperCase() + t.slice(1); }
   if(STATE.series) drawChart();
   if(STATE.overview) drawSparks();
 }
 function initTheme(){
-  let saved='auto';
-  try{ saved = localStorage.getItem('whychain-theme') || 'auto'; }catch{ /* private mode */ }
-  applyTheme(THEMES.includes(saved)?saved:'auto');
-  // One button stepping Auto, Light, Dark, as on the decision view.
-  let cur = THEMES.includes(saved) ? saved : 'auto';
+  // Light unless the reader chose otherwise, as on the decision view.
+  let saved='light';
+  try{ saved = localStorage.getItem('whychain-theme') || 'light'; }catch{ /* private mode */ }
+  applyTheme(THEMES.includes(saved)?saved:'light');
+  let cur = THEMES.includes(saved) ? saved : 'light';
   $('#theme').addEventListener('click',()=>{
     cur = THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length];
     try{ localStorage.setItem('whychain-theme',cur); }catch{ /* ignore */ }
@@ -1594,17 +1703,29 @@ async function whoami(){
   const box = document.getElementById('whoami'); if(!box) return;
   let user = 'fpa.analyst'; try{ user = localStorage.getItem('whychain-user') || user; }catch{ /* private */ }
   let me; try{ me = await (await fetch('/api/me', {headers:{'X-WhyChain-User': user}})).json(); }catch{ return; }
-  if(me.mode === 'demo'){
-    box.innerHTML = `<span class="toollabel">Signed in</span><select id="wb-user" aria-label="Signed in as">${me.demo_users.map(u =>
-      `<option value="${escapeHtml(u.id)}"${u.id === me.identity.id ? ' selected' : ''}>${escapeHtml(u.name.replace(' (demo)', ''))}</option>`).join('')}</select>
-      <span class="demo-chip" title="No single sign-on is connected; records made here are marked as a demo identity">Demo</span>`;
-    document.getElementById('wb-user').onchange = e => { try{ localStorage.setItem('whychain-user', e.target.value); }catch{ /* ignore */ } };
-  }else{
-    box.innerHTML = `<span class="toollabel">Signed in</span><span>${escapeHtml(me.identity.name)}</span>`;
+  // A demo reader chooses a seat on the sign-in page first, as on the
+  // decision view; single sign-on has already decided.
+  let session = ''; try{ session = localStorage.getItem('whychain-session') || ''; }catch{ /* private */ }
+  if(me.mode === 'demo' && !session){
+    location.replace('/login?next=' + encodeURIComponent(location.pathname + location.search + location.hash));
+    return;
   }
+  const name = me.identity.name.replace(' (demo)', '');
+  const initials = name.replace(/,.*$/, '').split(/[\s&]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  const next = encodeURIComponent(location.pathname + location.search);
+  box.innerHTML = `<a class="who" href="/login?next=${next}" title="${me.mode === 'demo' ? 'Demo seat. Click to switch seat.' : 'Signed in through single sign-on'}">
+    <span class="av" aria-hidden="true">${escapeHtml(initials)}</span><span><b>${escapeHtml(name)}</b><small>${me.mode === 'demo' ? 'Demo seat' : 'Single sign-on'}</small></span></a>`;
 }
 
 async function boot(){
+  // Ctrl K or /, and the search button, go to the question box: on the
+  // workbench the way to find something is to ask for it.
+  const ask = () => { const box = document.getElementById('askbox'); if(box){ box.scrollIntoView({block:'center'}); box.focus(); } };
+  const dockAsk = document.getElementById('dock-ask'); if(dockAsk) dockAsk.onclick = ask;
+  addEventListener('keydown', e => {
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '');
+    if(((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') || (e.key === '/' && !typing)){ e.preventDefault(); ask(); }
+  });
   whoami();
   initTheme();
   initPersona();
@@ -2884,15 +3005,19 @@ function narrativeBlock(){
   if(!n) return '';
   const v = n.validation || {};
   const rejected = v.rejected || [];
+  // One sentence per line, numbered: a paragraph of validated claims read as
+  // one block of text. A model sometimes repeats the evidence ids in brackets
+  // inside its own sentence; they are shown once, as the chip, not twice.
+  const bare = t => String(t).replace(/\s*\((?:f-[\w-]+(?:,\s*)?)+\)/g, '');
   const sentences = (n.sentences||[]).map(x=>
-    `<span class="s" title="cites ${escapeHtml((x.cites||[]).join(', '))}">${
-      escapeHtml(prose(x.text))}<span class="cites">\u25AA${(x.cites||[]).length}</span></span> `).join('');
+    `<li class="s" title="cites ${escapeHtml((x.cites||[]).join(', '))}">${
+      escapeHtml(prose(bare(x.text)))}<span class="cites">${(x.cites||[]).length} ${(x.cites||[]).length === 1 ? 'fact' : 'facts'}</span></li>`).join('');
 
   return section('What we found, and what we checked', `
     <p>Written from a flat table of computed facts and nothing else. Every
     sentence carries its evidence ids, and a deterministic validator checks each
     one before it is shown.</p>
-    <div class="written">${sentences || '<span class="muted">No sentence survived validation.</span>'}</div>
+    ${sentences ? `<ol class="written">${sentences}</ol>` : '<p class="muted">No sentence survived validation.</p>'}
     <div class="gate">
       <div><b>${(n.sentences||[]).length}</b>sentences accepted</div>
       <div><b class="${rejected.length?'no':''}">${rejected.length}</b>rejected by the validator</div>
@@ -3578,7 +3703,7 @@ function simulatorBlock(){
         ${s.bounded_by ? `<p class="q bounded">Bounded by ${escapeHtml(s.bounded_by)}.</p>` : ''}
       </article>`;
   }).join('');
-  return section('What changes if you act', `
+  return section('What-if analysis', `
     <p>Projections, not measurements. Each rests on a measured quantity or a
     coefficient the contract declares, with every assumption stated.</p>${rows}`, false,
     `${list.filter(s=>s.available).length} of ${list.length} available`);
