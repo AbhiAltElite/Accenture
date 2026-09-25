@@ -420,7 +420,8 @@ def check_decision_view(r: Report) -> None:
     else:
         r.fail("decision rights", f"expected 403, got {status}")
 
-    status, body = post("/api/dispatch/teams", {**window, "action_id": "act-pc1099-launch-dip"})
+    # The release card: the SKU card this used was never a cause (B-056).
+    status, body = post("/api/dispatch/teams", {**window, "action_id": "act-rel-4.05"})
     if status == 200 and body.get("card", {}).get("type") == "AdaptiveCard":
         r.ok(f"Teams card built ({'sent' if body.get('sent') else 'not sent: no webhook configured'})")
     else:

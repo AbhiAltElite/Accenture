@@ -37,6 +37,7 @@ from whychain.corroborate.quarantine import redact
 from whychain.corroborate.query import ModelQueryWriter
 from whychain.decompose import compute_bridge, contribution_by
 from whychain.decompose.bridge import BridgeError
+from whychain.decompose.waterfall import cause_waterfall
 from whychain.detect import (
     decompose_for,
     festival_factor,
@@ -78,7 +79,7 @@ from whychain.reconcile import reconcile
 from whychain.signalgap import PRECEDENT_LOOKBACK_DAYS, find_gap
 from whychain.signalgap.gap import read_signals
 from whychain.telemetry import Telemetry
-from whychain.text import label, plural, role, sentence_case
+from whychain.text import action_text, label, plain, plural, role, sentence_case
 from whychain.verify import (
     filter_relevant,
     from_operations,
@@ -86,6 +87,8 @@ from whychain.verify import (
     touches_scope,
     verify,
 )
+from whychain.verify.candidates import remediations
+from whychain.verify.fishbone import bone_for, bones
 from whychain.verify.tests import PLACEBO_WINDOWS
 from whychain.verticals import RETAIL_PLAN_COLUMNS, PlanColumns, Vertical
 
@@ -830,8 +833,13 @@ def triage(
     # business. "Now" is the last day the warehouse actually holds rather than
     # the wall clock, because the wall clock is not where this data lives and a
     # window measured against it would be empty.
+    #
+    # Read across every contract, before any filter. It used to be the newest
+    # *finding* after the metric and region filters, so "last 90 days" began on
+    # 1 Jun for the whole queue and on 18 May for on-time delivery alone: the
+    # filter moved the window it was meant to narrow within (B-059).
     if days and findings:
-        latest = max(f["end"] for f in findings)
+        latest = _latest_day(vertical, reg).isoformat()
         since = (date.fromisoformat(latest) - timedelta(days=days)).isoformat()
         findings = [f for f in findings if f["end"] >= since]
 
@@ -856,6 +864,22 @@ def triage(
             "This is detection and prioritisation; the cause is a diagnosis away."
         ),
     }
+
+
+def _latest_day(vertical, reg) -> date:
+    """The last day this warehouse holds any metric for, whatever is filtered."""
+    days: list[date] = []
+    with warehouse(vertical) as wh:
+        for contract in reg:
+            try:
+                raw = _cached(vertical, ("kpi_series", contract.kpi_id),
+                              lambda c=contract: wh.kpi_series(c))
+            except IngestError:
+                continue
+            column = "h" if "h" in raw.columns else "d"
+            if not raw.empty and column in raw.columns:
+                days.append(pd.to_datetime(raw[column]).max().date())
+    return max(days)
 
 
 def _overlaps(a: dict, b: dict) -> bool:
@@ -1295,6 +1319,27 @@ def _contract(kpi: str, vertical: Vertical):
         return registry(vertical).get(kpi)
     except ContractError as exc:
         raise HTTPException(404, str(exc)) from exc
+
+
+def _already_actioned(card: dict, verifications, documents: pd.DataFrame) -> dict:
+    """Mark a card whose lever the record shows was already pulled.
+
+    The West regression's card said "apply release rollback" while the release
+    log, dated after the window, says the rollback was applied (B-057). A
+    decision a reader is asked to back must not be one that was already taken:
+    what is left to decide is whether it worked, so that is what the card says.
+    """
+    found = next((v.candidate for v in verifications
+                  if v.candidate.candidate_id == card.get("candidate_id")), None)
+    if found is None or not card.get("controllable"):
+        return card
+    done = remediations(documents, found.candidate_id, after=found.start)
+    return {**card, "already_actioned": done[0] if done else None}
+
+
+def _skus(panel: pd.DataFrame) -> tuple[str, ...]:
+    """The products a note may name: the ones this warehouse actually holds."""
+    return tuple(panel["sku"].dropna().unique()) if "sku" in panel.columns else ()
 
 
 def _lookback(event_start: date, baseline_days: int) -> date:
@@ -1932,7 +1977,8 @@ def candidates(
         raise HTTPException(503, str(exc)) from exc
 
     found = from_operations(
-        documents, event_start, event_end, vocabulary=vertical.corpus.vocabulary
+        documents, event_start, event_end, vocabulary=vertical.corpus.vocabulary,
+        skus=_skus(panel),
     ) + from_promotions(plan, event_start, event_end, vertical.plan)
     all_regions = tuple(sorted(panel["region"].unique()))
 
@@ -1979,9 +2025,8 @@ def candidates(
             "kind": candidate.kind,
             "description": candidate.description,
             "exposed_regions": list(candidate.exposed_regions) or list(all_regions),
-            "scope": {k: v2 for k, v2 in
-                      (("channel", candidate.channel), ("device", candidate.device),
-                       ("category", candidate.category)) if v2},
+            "scope": candidate.scope(),
+            "bone": bone_for(candidate.kind, candidate.description),
             "state": v.state.value,
             "reason": v.reason,
             "effect_pct": round(v.effect_pct, 4) if v.effect_pct is not None else None,
@@ -2311,7 +2356,8 @@ def diagnose(
     all_regions = tuple(sorted(panel["region"].unique()))
     found, set_aside = filter_relevant(
         from_operations(
-            documents, event_start, event_end, vocabulary=vertical.corpus.vocabulary
+            documents, event_start, event_end, vocabulary=vertical.corpus.vocabulary,
+            skus=_skus(panel),
         )
         + from_promotions(plan, event_start, event_end, vertical.plan),
         event_start, event_end, region, sliced,
@@ -2499,7 +2545,8 @@ def diagnose(
         # What the answer is about. Without it on the response a reader cannot
         # tell a national answer from a single-channel one.
         "slice": sliced,
-        "decisions": [c.as_dict() for c in cards],
+        "decisions": [_already_actioned(c.as_dict(), verifications, documents)
+                      for c in cards],
         "scenarios": [sc.as_dict() for sc in scenarios],
         "window": {"from": event_start.isoformat(), "to": event_end.isoformat()},
         "baseline": {"from": base_lo.isoformat(),
@@ -2536,7 +2583,8 @@ def diagnose(
         "set_aside": [
             # The description is for readers; the prompt builder reads only the
             # id and the reason, so adding it leaves every cached answer valid.
-            {"candidate_id": c.candidate_id, "description": c.description, "reason": why}
+            {"candidate_id": c.candidate_id, "description": c.description, "reason": why,
+             "bone": bone_for(c.kind, c.description)}
             for c, why in set_aside
         ],
         "verified": [
@@ -2561,9 +2609,8 @@ def diagnose(
                     for t in v.results
                 ],
                 "exposed_regions": list(v.candidate.exposed_regions),
-                "scope": {k: val for k, val in
-                          (("channel", v.candidate.channel), ("device", v.candidate.device),
-                           ("category", v.candidate.category)) if val},
+                "scope": v.candidate.scope(),
+                "bone": bone_for(v.candidate.kind, v.candidate.description),
             }
             for v in verifications
             if v.state.value == "verified"
@@ -2695,6 +2742,16 @@ def diagnose(
     # recover exactly what the withheld one was worth.
     projected["fair_target"] = fair_target(
         result, withheld=bool((projected.get("entitlement") or {}).get("notice")))
+    # The fishbone's categories. Fixed labels and nothing about this run, so
+    # safe after projection (T-32): they name no cause and size nothing.
+    projected["bones"] = bones()
+    # The variance bridge, from the projected movement so a withheld cause is
+    # already absent. Labels only for causes this reader was given a figure for.
+    shown = set((projected.get("movement") or {}).get("per_cause") or {})
+    projected["waterfall"] = cause_waterfall(projected.get("movement"), {
+        v.candidate.candidate_id: plain(v.candidate.description)
+        for v in verifications if v.candidate.candidate_id in shown
+    })
     return projected
 
 
@@ -3224,12 +3281,7 @@ def _card_span(start: str, end: str) -> str:
     return f"{a.day} {_MONTHS[a.month - 1]}{'' if a.year == b.year else f' {a.year}'} to {tail}"
 
 
-def _card_action(action: str) -> str:
-    """The engine's action as the decision view words it."""
-    text = re.sub(r"for channel (\w+), device (\w+)", r"for the \1 channel on \2 devices", action)
-    text = re.sub(r"for device (\w+)", r"for \1", text)
-    text = re.sub(r"for channel (\w+)", r"for the \1 channel", text).replace("_", " ")
-    return text[:1].upper() + text[1:]
+_card_action = action_text
 
 
 def _card_role(identifier: str) -> str:

@@ -24,8 +24,9 @@ UI = Path("ui")
 # What each scenario promises, in its own words. `status` is the HTTP answer to
 # the diagnosis; `verdict` and `gap` are what the page then says.
 WORKBENCH_EXPECT = {
-    "trap": {"status": 200, "verdict": "explained", "rejected_at_least": 1},
-    "channel": {"status": 200, "verdict": "unknown", "set_aside_at_least": 1},
+    "trap": {"status": 200, "verdict": "explained", "rejected_at_least": 1,
+             "cannot_verify_at_least": 1},
+    "channel": {"status": 200, "verdict": "explained", "set_aside_at_least": 1},
     "graph": {"status": 422},
     "refusal": {"status": 200, "verdict": "unknown"},
     "contradiction": {"status": 200, "verdict": "contradicted"},
@@ -38,9 +39,15 @@ WORKBENCH_EXPECT = {
     "petroleum": {"status": 200, "verdict": "explained", "rejected_at_least": 1},
 }
 DECISION_EXPECT = {
-    "Three causes and a trap": {"status": 200, "verdict": "explained", "rejected_at_least": 1},
+    # Two verified, the decoy rejected, the three-week-old SKU unverifiable. It
+    # was "three causes" while the SKU was tested as the whole West (B-056).
+    "Two causes, and a trap": {"status": 200, "verdict": "explained", "rejected_at_least": 1,
+                               "cannot_verify_at_least": 1},
     "Why nobody saw it coming": {"status": 200, "verdict": "explained", "gap": "gap_found"},
-    "One day, asked about the app": {"status": 200, "verdict": "unknown", "set_aside_at_least": 1},
+    # Explained now: it abstained only because the 19 Aug rollback note was
+    # tested as a second, opposite cause (B-057).
+    "The same finding, asked about the app": {"status": 200, "verdict": "explained",
+                                              "set_aside_at_least": 1},
     "Abstains: no cause survives": {"status": 200, "verdict": "unknown"},
     "Two systems disagree": {"status": 200, "verdict": "contradicted"},
     "Detected, not diagnosed": {"status": 422},
@@ -67,7 +74,7 @@ def decision_scenarios() -> dict[str, dict]:
     block = (UI / "app.html").read_text(encoding="utf-8").split("const SCEN = [", 1)[1].split("];", 1)[0]
     out = {}
     for line in block.strip().splitlines():
-        if not line.strip().startswith("{g:"):
+        if not line.strip().startswith(("{g:", "{id:")):
             continue
         q = _js_fields(re.search(r"q:\{([^}]*)\}", line).group(1))
         top = _js_fields(re.sub(r"q:\{[^}]*\}", "", line))
@@ -122,9 +129,10 @@ def _check(client, params: dict, expect: dict, name: str) -> None:
         assert body["signal_gap"]["verdict"] == expect["gap"], f"{name}: gap {body['signal_gap']['verdict']}"
     if "set_aside_at_least" in expect:
         assert len(body.get("set_aside") or []) >= expect["set_aside_at_least"], name
-    if "rejected_at_least" in expect:
-        c = client.get("/api/candidates", params={**params, "persona": "analyst", "backend": "none"})
-        assert c.json()["counts"]["rejected"] >= expect["rejected_at_least"], name
+    for state in ("rejected", "cannot_verify"):
+        if f"{state}_at_least" in expect:
+            c = client.get("/api/candidates", params={**params, "persona": "analyst", "backend": "none"})
+            assert c.json()["counts"][state] >= expect[f"{state}_at_least"], f"{name}: {state}"
 
 
 def test_every_workbench_scenario_is_covered():

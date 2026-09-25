@@ -241,6 +241,13 @@ def project(
         # control failure behind it.
         "signal_gap": result.get("signal_gap"),
         "narrative": result.get("narrative"),
+        # Whether the finance ledger agrees the movement happened. It was on no
+        # withheld list and still reached only the analyst, so the reader who
+        # owns the ledger was shown "cannot compare" (and a contradicted finding
+        # without its breaches). It is about the movement every reader already
+        # receives, for the slice they asked about, so it carries no row they
+        # could not otherwise see.
+        "reconciliation": result.get("reconciliation"),
     }
 
     confidence = result.get("confidence") or {}
@@ -290,6 +297,7 @@ def project(
         out["scenarios"] = [
             scenario for scenario in (result.get("scenarios") or [])
             if scenario.get("candidate_id") not in withheld_ids
+            and not set(scenario.get("derived_from") or ()) & set(withheld_ids)
             and not _names_any(scenario, withheld_causes)
         ]
 
@@ -337,7 +345,8 @@ def project(
             "confidence": confidence.get("band"),
         }
         out["causes"] = [
-            {"cause": v.get("description"), "contribution": v.get("contribution")}
+            {"cause": v.get("description"), "contribution": v.get("contribution"),
+             "bone": v.get("bone")}
             for v in verified
         ]
         # One decision, not a list. A CFO is being asked to back a call.
@@ -347,6 +356,7 @@ def project(
             "expected_recovery_inr_per_day": top["expected_recovery_inr_per_day"],
             "controllable": top["controllable"],
             "awaiting_approval_from": (top.get("approval") or {}).get("assigned_to"),
+            "already_actioned": top.get("already_actioned"),
         }
         out["recovery_outlook"] = _outlook(
             decisions, (result.get("movement") or {}).get("overlap")
@@ -362,6 +372,7 @@ def project(
                 "cause": v.get("description"),
                 "contribution": v.get("contribution"),
                 "scope": v.get("scope"),
+                "bone": v.get("bone"),
             }
             for v in verified
         ]

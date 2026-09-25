@@ -167,7 +167,9 @@ class TestSingleSignOn:
 class TestService:
     def test_teams_says_when_it_did_not_send(self, client):
         c, _ = client
-        r = c.post("/api/dispatch/teams", json={**WEST, "action_id": "act-pc1099-launch-dip"},
+        # The release card: the SKU card this used was a cause the engine should
+        # never have verified (B-056), and no longer exists.
+        r = c.post("/api/dispatch/teams", json={**WEST, "action_id": "act-rel-4.05"},
                    headers=as_("fpa.analyst"))
         assert r.status_code == 200
         assert r.json()["sent"] is False
@@ -178,13 +180,13 @@ class TestService:
     def test_the_teams_card_carries_the_decision_as_it_stands(self, client):
         # It said "awaiting approval" after the owner had accepted.
         c, _ = client
-        body = {**WEST, "action_id": "act-pc1099-launch-dip"}
+        body = {**WEST, "action_id": "act-rel-4.05"}
         card = c.post("/api/dispatch/teams", json=body, headers=as_("fpa.analyst")).json()["card"]
         assert card["body"][0]["text"] == "Decision awaiting approval"
         assert c.post("/api/decision", json={**body, "decision": "accept"},
-                      headers=as_("category.manager")).status_code == 200
+                      headers=as_("ecommerce.lead")).status_code == 200
         card = c.post("/api/dispatch/teams", json=body, headers=as_("fpa.analyst")).json()["card"]
-        assert card["body"][0]["text"].startswith("Decision accepted by Category Manager")
+        assert card["body"][0]["text"].startswith("Decision accepted by E-commerce Lead")
         facts = {f["title"]: f["value"] for f in card["body"][2]["facts"]}
         assert facts["Finding"].endswith("13 to 15 Aug 2026") and "₹" in facts["Expected recovery"]
 

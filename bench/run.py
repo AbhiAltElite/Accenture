@@ -164,7 +164,8 @@ def run_case(
         )
 
     candidates, _aside = filter_relevant(
-        from_operations(documents, case.window_start, case.window_end)
+        from_operations(documents, case.window_start, case.window_end,
+                        skus=tuple(panel["sku"].unique()) if "sku" in panel.columns else ())
         + from_promotions(plan, case.window_start, case.window_end),
         case.window_start, case.window_end, case.region,
     )

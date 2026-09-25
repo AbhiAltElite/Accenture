@@ -1,7 +1,7 @@
 # Average order value. The other half of the identity, and where the
 # price/volume/mix bridge does its work.
 kpi_id: aov
-version: 1
+version: 2
 owner_role: category_manager
 unit: INR
 definition: >
@@ -65,4 +65,9 @@ access_policy:
 
 lineage:
   upstream: [pos_txn.orders, pos_txn.order_items]
-  transforms: [dedupe_order_id, net_returns]
+  # tz_normalise as `orders` and `net_revenue` declare it. Without it East's day
+  # ran 5.5 hours off revenue's, so revenue was not orders times AOV there and
+  # the series ended on a partial day (B-058, the B-019 defect again). Test
+  # accounts are excluded as `orders` excludes them, so the ratio's numerator
+  # and denominator count the same orders (B-062).
+  transforms: [dedupe_order_id, tz_normalise, exclude_test_accounts, net_returns]

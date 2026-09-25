@@ -244,3 +244,30 @@ class TestPerCauseAndScenariosAreRedacted:
         out = project(result, Persona.ANALYST, entitled_regions=("South",))
         ids = [s["candidate_id"] for s in out["scenarios"]]
         assert ids == ["south-thing"]
+
+
+def test_a_scenario_built_from_withheld_causes_is_withheld_too():
+    """B-064. "What if the external pressure persists" is the sum of the
+    external causes' figures and names none of them, so the text-matching filter
+    let it through: a reader entitled to South alone, asking nationally, was
+    shown the West weather cause's rupees (and, before B-056, the weather and
+    SKU causes summed) under a neutral heading. Scenarios now carry the causes
+    they were computed from, and entitlement withholds by that."""
+    from pathlib import Path
+
+    import pytest
+    if not Path("data/warehouse/whychain.duckdb").exists():
+        pytest.skip("warehouse not generated")
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+    c = TestClient(app)
+    q = "/api/diagnose?kpi=net_revenue&start=2026-08-13&end=2026-08-16&backend=none"
+    full = c.get(q + "&persona=analyst").json()
+    west = {v["candidate_id"] for v in full["verified"] if v["exposed_regions"] == ["West"]}
+    assert west, "the fixture needs a verified West cause to withhold"
+    for persona in ("analyst", "cfo", "ops"):
+        scoped = c.get(q + f"&persona={persona}&entitled=South").json()
+        shown = [s for s in scoped["scenarios"] if s["available"]]
+        assert not any(set(s.get("derived_from") or ()) & west for s in shown), persona
+        assert not any(s["scenario_id"] in ("rollback", "sustained_external") for s in shown), persona
