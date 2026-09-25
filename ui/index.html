@@ -2704,8 +2704,7 @@ function render(){
     `<button type="button" class="back" id="crumbback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</button>`
     + `<a href="/workbench" id="crumbhome">Open findings</a>`
     + crumbs.map(c => `<i>/</i><span>${c}</span>`).join('')
-    + `<i>/</i><span class="crumbwin">${escapeHtml(series.days[0])} to ${
-        escapeHtml(series.days.at(-1))}</span>`;
+    + `<i>/</i><span class="crumbwin">${escapeHtml(humanSpan(series.days[0].slice(0, 10), series.days.at(-1).slice(0, 10)))}</span>`;
   // The masthead carries the current context so a reader always knows what
   // they are looking at without scrolling back to the top of the document.
   $('#context').innerHTML =
@@ -2740,8 +2739,8 @@ function render(){
   const verb = rose ? 'rose' : 'fell';
   const against = rose ? 'above expected' : 'below expected';
   $('#headline').textContent = contradicted
-    ? `${title(kpi)} appears to ${rose ? 'rise' : 'fall'} ${pct(Math.abs(w.pct))} ${against} in ${where} on ${w.day}, unconfirmed`
-    : `${title(kpi)} ${verb} ${pct(Math.abs(w.pct))} ${against} in ${where} on ${w.day}`;
+    ? `${title(kpi)} appears to ${rose ? 'rise' : 'fall'} ${pct(Math.abs(w.pct))} ${against} in ${where} on ${humanSpan(w.day)}, unconfirmed`
+    : `${title(kpi)} ${verb} ${pct(Math.abs(w.pct))} ${against} in ${where} on ${humanSpan(w.day)}`;
 
   // The basis for the word "fell", said in the sentence a reader would have
   // used. Contradicted runs are the exception: the two systems do not agree the

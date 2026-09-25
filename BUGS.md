@@ -49,6 +49,15 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-069 · Closing the app window left an engine running for good
+**Found:** 2026-09-26, the Mac slowing down with four engines running · **Severity:** P1 on a demo laptop · **Status:** fixed
+
+**Symptom:** two engines on ports 8765 and 8766, 12 and 5 hours old, parent `launchd`, nothing connected, 1.2 GB between them, alongside the two in use. The Mac had pushed 2 GB into swap and every app on it lagged.
+**Root cause:** opening WhyChain while a window was already open hands the request to that window, and the second launcher returns at once. If the code had changed since the first engine started, the second launch had already stopped it and started a new one, recorded in `engine.json`. Closing the window then stopped only the first launcher's own pid, already dead, and deleted the record: the new engine ran on, known to nothing. The open window's engine was also restarted underneath it, which reads as the app glitching.
+**Fix:** `close_engines` stops both this launch's engine and the one the state file names, since every window shares one profile and none is left once it closes.
+**Regression test:** `test_closing_the_window_stops_the_engine_a_second_launch_started`, verified to fail without the fix.
+**Lesson:** a process that hands ownership to a file must read the file back before it tears down, not only its own memory of what it started.
+
 ### B-068 · The UI pass that followed the redesign: nine defects a reader saw
 **Found:** 2026-09-26, reviewing the redesign on screen · **Severity:** P2 · **Status:** fixed
 

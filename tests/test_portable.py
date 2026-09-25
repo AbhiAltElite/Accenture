@@ -138,3 +138,18 @@ def test_every_entry_prefers_the_bundled_python():
     assert "runtime/python/bin/python3" in (ROOT / "app" / "build_mac_app.sh").read_text()
     launch = _load("launch")
     assert "runtime" in str(launch.BUNDLED_PY)
+
+
+def test_closing_the_window_stops_the_engine_a_second_launch_started(tmp_path, monkeypatch):
+    """A launch made while the window was open, after the code changed, swapped
+    the engine; closing the window stopped only the first, and the second ran on
+    with nothing that knew of it (B-069)."""
+    launch = _load("launch")
+    monkeypatch.setattr(launch, "STATE", tmp_path / "engine.json")
+    running = {111, 222}
+    monkeypatch.setattr(launch, "alive", lambda p: p in running)
+    monkeypatch.setattr(launch, "stop", lambda p: running.discard(p))
+    launch.STATE.write_text(json.dumps({"pid": 222, "port": 8766}))
+    launch.close_engines(111)
+    assert running == set()
+    assert not launch.STATE.exists()

@@ -27,6 +27,7 @@ There is no terminal to read, so every failure is also shown as a dialog.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shutil
@@ -576,9 +577,27 @@ def main() -> int:
     # reused by the next launch instead.
     if time.monotonic() - began < 8 or os.environ.get("WHYCHAIN_APP_KEEP_ENGINE") == "1":
         return 0
-    stop(pid)
-    STATE.unlink(missing_ok=True)
+    close_engines(pid)
     return 0
+
+
+def close_engines(pid: int) -> None:
+    """Stop this launch's engine and whichever engine the state file now names.
+
+    Every window shares one profile, so when this one closes no window is left
+    on any engine. A second launch made while this window was open, after the
+    code had changed, replaced this engine with a new one and recorded that; the
+    launcher that started the new one had already returned. Stopping only our
+    own pid, then deleting the record, left the new engine running for good
+    with nothing that knew of it (B-069).
+    """
+    pids = {pid}
+    with contextlib.suppress(OSError, ValueError):
+        pids.add(int(json.loads(STATE.read_text(encoding="utf-8")).get("pid", 0)))
+    for p in pids - {0}:
+        if alive(p):
+            stop(p)
+    STATE.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
