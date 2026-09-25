@@ -39,11 +39,232 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 | T-30 | A demo scenario is data, and data drifts | ui, datagen | A button's label promises an outcome its coordinates no longer produce: a gap on a metric that cannot be diagnosed, a refusal that crashes the page (B-039, B-041). Scenario coordinates are read out of the page by a test that asserts each one's promised outcome (`tests/test_scenarios.py`), and the rendered page is checked in a browser (`/uat`) |
 | T-31 | A page sentence composed from a template that is true only for some results | ui | "No cause survived testing" was printed over two causes that had passed testing, and "nothing external warned of this" over a verdict one of whose three causes is that a warning was received (B-044, B-045). Every fixed sentence is checked against every value its inputs can take, or the engine's own reason is shown instead |
 | T-32 | A field attached to the diagnosis after the projection | api | `diagnose()` projects, then adds fields. Anything added there skips entitlement. A hash is safe; anything that names a cause or sizes one is not, and must be withheld whole when the projection withheld a cause, since a partial set of figures subtracts to the missing one. B-049. The audit check `No surface names a cause outside entitlement` catches it |
+| T-33 | A candidate tested at a wider scope than the one its source names | verify | A note about one SKU or one category, tested as the whole region, borrows every other cause's movement and verifies (B-056). Carry every scope the source names; when a scope cannot be read, return `cannot_verify` rather than widening |
+| T-34 | A contract that reads a source's timestamps without that source's correction | contracts | `orders` got `tz_normalise` in B-019; `aov` and `checkout_conversion` read the same `order_ts` and did not (B-058). A test asserts every contract reading `pos_txn.order_ts` declares it, rather than each contract remembering |
+| T-35 | Scoring the benchmark and not the demo | bench, uat | The cases a jury sees are the ones that must be right. Score each demo case against its own planted causes, not only for page-equals-API consistency (B-063) |
 | T-18 | A benchmark result that improved for a reason nobody checked | bench, datagen | Numbers that move the flattering way get accepted; numbers that move the other way get investigated. A harness defect usually shows up as the former. Any invariant the generator depends on is executed by a test, never only stated in a docstring (see B-014) |
 
 ---
 
 ## Defects
+
+### B-065 · Moving the app to another computer failed in six ways, none of them tested
+**Found:** 2026-09-25, packaging the app and installing it cold from the zip · **Severity:** P1, demo risk · **Status:** fixed
+
+The cross-platform launcher arrived on 24 Sep on a branch CI never ran on (CI
+runs on `main` and on pull requests; the last run was 18 Sep), so its
+Windows, macOS and Linux first-run job had never executed. Reproduced here:
+
+1. **An interrupted first install was never repaired.** The launcher trusted
+   `.venv` because it existed. Close the window during the silent install, or
+   lose the network, and every later start died with "No module named
+   uvicorn". The same after a pull that changed `requirements.txt`.
+2. **The install was silent for minutes**, which is what made people close it.
+3. **The macOS app carried the builder's own path** (`/Users/<builder>/...`) as
+   its fallback. macOS runs a quarantined app (one that arrived by AirDrop or
+   download) from a hidden copy that cannot see its folder, so the app fell
+   back to a path that exists on no other Mac and silently did nothing.
+4. **Windows ran the Microsoft Store placeholder** when that was the only
+   `python`: a console flashed and closed with no message.
+5. **Anything started through `.venv/bin/uvicorn` broke when the folder moved**:
+   the script's first line names where the venv was built. `run.sh` then
+   printed "the server exited during start-up" and discarded the reason.
+6. **`make package ARGS="--wheels mac"` could not resolve**: one platform tag
+   per target, and scipy's Apple-silicon wheels are tagged macOS 12 and later.
+
+Also: the engine log was appended, so a failure showed an earlier day's lines
+as its reason; a zip with no key failed its own self-check instead of saying
+AI was off; two double-clicks ran two installs into one folder.
+
+**Fix:** one installer for every entry point (`app/launch.py`; `run.sh` and
+`make setup` call it with `--setup`). It writes a marker inside `.venv` only
+after every dependency imports, keyed to a hash of `requirements.txt`, and
+repairs or updates whenever that does not hold; shows pip's progress and keeps
+all of it in `data/app/install.log`; takes a lock; starts a fresh engine log;
+clears quarantine on its own app bundle once the reader has run it. Entry
+scripts run a Python before trusting it, and pause on failure. Everything
+starts through `.venv/bin/python -m`. The package carries `Start
+WhyChain.command` and `start-whychain.sh` beside the Windows file, a rewritten
+`START HERE.txt`, a SHA-256, and a self-verified zip; the answer key, audit and
+feedback stay out. CI's first-run job now goes through each system's
+double-click file and then breaks an install on purpose to prove it is
+repaired. Tested here from the zip and from a clone-equivalent copy, cold,
+bare, killed mid-install, concurrent, requirements changed, folder moved, and
+with no key. `tests/test_portable.py`, verified to fail on the old scripts.
+
+**Not tested on Windows hardware.** Every pinned dependency was resolved
+against the package index for Windows x64 on 3.12, 3.13 and 3.14, and the CI
+job above runs it on a clean Windows machine the first time this branch is
+pushed with a pull request.
+
+### B-064 · A scenario summed withheld causes and showed the total to a reader who could not see them
+**Found:** 2026-09-25, by `make audit` after B-056 was fixed · **Severity:** P1, security · **Status:** fixed
+
+A South-only reader asking about all regions, 13 to 16 Aug, was shown "What
+happens if the external pressure persists: −₹27,072 a day". That is the West
+weather and SKU causes, both withheld, added together. **Root cause:** the
+projection withheld a scenario only if its text named a withheld cause, and the
+sustained-external estimate is a sum that names none. The audit's check looks
+for the weather cause's exact figure, which a sum never equals, so it passed by
+coincidence until B-056 removed the SKU cause and the sum became the weather
+figure alone. **Fix:** every scenario carries `derived_from`, the causes it was
+computed from, and entitlement withholds by that. T-32 again: a figure computed
+from a withheld one is withheld.
+`test_a_scenario_built_from_withheld_causes_is_withheld_too`, verified to fail
+without the fix.
+
+### B-056 · A cause about one SKU was verified and sized as if it covered the whole region
+**Found:** 2026-09-25, independent review, recomputing `?demo=trap` from the warehouse · **Severity:** P1, flagship demo · **Status:** fixed
+
+On West, 13 to 15 Aug, "Introductory pricing ended on a SKU launched three
+weeks earlier" is shown verified at **−₹23,391 a day**. SKU PC-1099 in the West
+fell **₹5,304 a day** over the same windows (₹60,684 to ₹55,380, recomputed by
+hand from `pos_txn` with the contract's lineage). The page overstates it about
+4.4 times, and the overstatement is most of the 177% overlap the page then has
+to explain.
+
+**Root cause:** `from_operations` builds a `Candidate` from the note's region and
+whatever `_scope` can read of channel, device and category. `Candidate` has no
+SKU field, and the note names none of the three, so the candidate is the whole
+West region. Its difference-in-differences then measures West against the other
+regions, which is the release and the rain falling, and passes.
+
+*Corrected while fixing:* the first write-up said `comp-pricecut-aug` was also
+widened. It was not: `_scope` reads "personal care" and it is tested on that
+category. Its rejection is a genuine placebo failure (quiet windows on personal
+care range to −25.6%, partly because the PC-1099 launch lands in that category),
+so a true −9% effect is not distinguishable from noise there. That is the
+method working, and it stays.
+
+Scored against `data/ground_truth/cases.json` for this window: release and rain
+verified correctly, the promotion decoy rejected correctly, the competitor price
+cut rejected wrongly, and the SKU event verified when its own case expects
+`cannot_verify` (three weeks of history) and it ran in every region, so no
+region is an unexposed control.
+
+**Fix:** `Candidate` carries `sku`, read from the note by `_sku` against the
+SKUs the warehouse holds (the note's identifier, `pc1099-launch-dip`, names it).
+Every consumer narrows through one helper, `narrow_to`, which returns nothing
+rather than everything when the panel lacks a dimension. Tested on its SKU, the
+event has no history before launch, so timing and placebo cannot run and it is
+`cannot_verify`, which is what its own case expects. The flagship now verifies
+two causes at 113% overlap instead of three at 177%, and confidence rises from
+0.79 to 0.90 because coverage is no longer discounted for a borrowed movement.
+`tests/test_demo_answer_key.py`, verified to fail before the fix. T-33.
+
+### B-057 · A rollback note became a candidate cause of its own
+**Found:** 2026-09-25, independent review · **Severity:** P1 for the decision view's "One day, asked about the app" · **Status:** fixed
+
+West, app, 12 to 20 Aug verifies `rel-4.05` at −₹22,792 a day **and** `4.05` at
+**+₹13,936 a day**, then abstains because "rel-4.05 and 4.05 move West in
+opposite directions".
+
+**Root cause:** the 19 Aug release-log entry is "Release note 4.05: rollback of
+the card entry component applied...". `_identifier` takes the last token with a
+digit before the colon, `4.05`, which is not `rel-4.05`, so the fix is tested as
+a new cause and the recovery it produced verifies.
+
+**Second consequence:** the 13 to 15 Aug finding recommends "Apply release
+rollback", while the warehouse, which runs to 1 Sep, records that rollback as
+applied on 19 Aug. A decision card should check whether its lever has already
+been pulled.
+
+**Fix:** a note that rolls back, reverts or hotfixes is not a candidate
+(`is_remediation`). It is linked to the release whose version it names
+(`remediations`), and the card carries `already_actioned`: the page says
+"Already done on 19 Aug, per OPS006805. What is left to decide is whether it
+worked." The 12 to 20 Aug app window now explains instead of abstaining.
+
+### B-058 · East checkout conversion and AOV read order times without the timezone correction
+**Found:** 2026-09-25, independent review · **Severity:** P2 · **Status:** fixed
+
+The East extract lands 5.5 hours ahead (the reason `tz_normalise` exists, and
+why B-019 added it to `orders`). `checkout_conversion` declares
+`transforms: []` and `aov` declares `[dedupe_order_id, net_returns]`. On 15 Aug,
+East shows 72 to 306 sessions an hour from 07:00 to 11:00 with **zero** orders,
+and orders at 01:00 to 05:00 with no session row, which the join from sessions
+drops. The "East checkout conversion 100% below expected" findings on 15, 20 and
+30 Aug are this artefact. AOV East is on a day boundary 5.5 hours off revenue's,
+so revenue is not orders times AOV there, and the series ends on a partial day.
+T-34.
+
+**Fix:** both contracts declare `tz_normalise` (version 2); conversion lists
+`pos_txn` first because transforms apply to the first upstream source. East
+hours now read 2 to 10%. The `hourly` scenario moved from 29 Aug to 25 Aug:
+the 29th was flagged only because of this artefact. **Residual, recorded:** nine
+single quiet hours a year still read "100% below expected", genuinely zero
+orders from about thirty sessions. That is a small-denominator limit of an
+hourly ratio, and the right fix is a minimum-session floor in the contract's
+materiality, not a timezone change.
+
+### B-059 · "Last 90 days" meant a different window for each filter
+**Found:** 2026-09-25, independent review · **Severity:** P2 · **Status:** fixed (`_latest_day`)
+
+`/api/triage` anchors the window at `max(f["end"] for f in findings)`, after the
+metric and region filters. Unfiltered, 90 days starts 1 Jun; filtered to
+on-time delivery, whose newest finding ends 14 Aug, it reaches back to 18 May.
+The comment says "the last day the warehouse actually holds", which is the right
+anchor and is not what the code reads. Non-negotiable 4 in spirit: a filter
+changed what was considered, not only what was drawn.
+
+### B-060 · One event sized three ways, and a total that counts a contradicted finding
+**Found:** 2026-09-25, independent review · **Severity:** P2, finance reader · **Status:** fixed
+
+West, 13 to 15 Aug: the inbox says **₹41,224 a day** (mean shortfall against
+expected over the flagged days), the finding's headline says **₹52,952** (worst
+day against expected), and the causes are sized against **₹36,381 a day** (the
+window against the fortnight before). All three are correct and labelled; the
+inbox figure appears nowhere on the page it opens, and the fortnight before sits
+on the PC-1099 launch surge (every region's August runs about 35% above July).
+
+"Shortfall in these findings, ₹10,08,906" reproduces exactly, and includes
+₹1,36,664 from the North finding the engine marks **Contradicted** (the ledger
+says the revenue was there) and ₹1,13,820 of on-time delivery priced at a
+declared rate. Uncontested revenue shortfall is about ₹7.35 lakh.
+
+**Fix:** the tile is "Revenue shortfall in these findings", over rupee metrics
+not disputed by the ledger, with the disputed and contract-rate amounts shown
+beside it. It covers every finding in the queue, signed or not, so it no
+longer changes when verdicts arrive. The finding page shows the queue's figure
+under the worst day ("₹41,224 a day across the 3 flagged days").
+
+### B-061 · One scenario name, two windows, and `?demo=` ignored on the decision view
+**Found:** 2026-09-25, independent review · **Severity:** P2, demo risk · **Status:** fixed
+
+`ui/app.html` `SCEN` and `ui/index.html` `DEMOS` are separate lists. "One day,
+asked about the app" is 12 to 20 Aug on `/` (nine days, and Unknown, B-057) and
+15 Aug on `/workbench` (explained). "Scoped to South" and "Detected, not
+diagnosed" also differ. `/?demo=trap`, the link the handoff rehearses, opens
+the plain inbox; only `/workbench?demo=` and `/kpi/...?demo=` apply it.
+
+**Fix:** decision-view scenarios carry ids; `/?demo=<id>` opens the finding, or
+the workbench for ids only it has. "One day" became "The same finding, asked
+about the app", on 13 to 15 Aug.
+
+### B-062 · Net revenue and AOV count test accounts; orders does not
+**Found:** 2026-09-25, independent review · **Severity:** P3 · **Status:** fixed for AOV; **net revenue deferred by decision**
+
+0.4% of `pos_txn` rows are `is_test` (7,272). `orders` declares
+`exclude_test_accounts`; `net_revenue` and `aov` do not, and the Metrics page's
+definition of net revenue does not say so. Small in rupees, but it is the
+revenue identity again, and the Metrics page is where a finance reader checks
+definitions.
+
+`aov` now excludes them, so its numerator and denominator count the same
+orders. `net_revenue` is left as it is until after 29 Sep: changing it moves
+every rehearsed figure (−17.2% appears 36 times and ₹36,381 eleven times in the
+pitch material) by about 0.4%. One line in `contracts/net_revenue.yml` when it
+is done, then re-read the deck.
+
+### B-063 · The demo cases were never scored against their own answer key
+**Found:** 2026-09-25, independent review · **Severity:** P1, process · **Status:** fixed (`tests/test_demo_answer_key.py`)
+
+`make bench` scores 160 generated single-cause panels. The seven demo cases in
+`data/ground_truth/cases.json`, including the multi-factor one every rehearsal
+opens, are checked by `/uat`, `make smoke` and `tests/test_scenarios.py` for
+*consistency* (page equals API, promised verdict appears) and never for
+*correctness* against the causes planted there. That is how B-056 reached the
+flagship. T-35.
 
 ### B-055 · A Teams card said "awaiting approval" over a decision already taken
 **Found:** 2026-09-24, in the interactive pass after accepting a decision · **Severity:** P2, demo risk · **Status:** fixed

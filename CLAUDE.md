@@ -30,14 +30,20 @@ headline figure opens its aggregated rows, the query that reproduces them
 `/workbench` is the analyst's full method page with the twelve `?demo=`
 scenarios.
 
-`make test` (595), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
+`make test` (628), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
 server), `make bench`, `make audit`, `make lint`, `make real-data`. `/uat` in
 any browser runs the acceptance checks against every scenario and persona.
 
 On another PC: `make package` builds `dist/WhyChain-portable.zip` (code, data,
-AI cache and the `.env` key: USB or AirDrop only). There, double-click, then
-`python app/launch.py --check` should end "9 of 9". `app/launch.py` is the
-launcher for all platforms.
+AI cache and the `.env` key: USB or AirDrop only; `ARGS=--no-key` to leave it
+out) and a `.sha256` beside it. There, follow `START HERE.txt`: double-click
+`Start WhyChain.bat` (Windows) or right-click `Start WhyChain.command`, Open
+(macOS, first time). `python app/launch.py --check` should end "... checks pass
+on this computer. Ready." `app/launch.py` is the one installer for every entry
+point, `run.sh` and `make setup` included: it verifies the environment against
+`requirements.txt` and repairs it, so an interrupted first run fixes itself.
+Never start anything through `.venv/bin/<script>`; use `.venv/bin/python -m`,
+which survives the folder being moved (B-065).
 
 `make prepare` computes each contract's lineage once at ingest. It is idempotent
 and runs automatically from `gen`, `gen-all` and `run.sh`. A warehouse that has

@@ -3,7 +3,7 @@
 
 [![CI](https://github.com/AbhiAltElite/Accenture/actions/workflows/ci.yml/badge.svg)](https://github.com/AbhiAltElite/Accenture/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-502-informational)](tests/)
+[![Tests](https://img.shields.io/badge/tests-628-informational)](tests/)
 [![Audit checks](https://img.shields.io/badge/audit-33%2F33-informational)](docs/SECURITY-LOGIC-CHECKLIST.md)
 
 An evidence-backed diagnosis engine for business metric movements.
@@ -29,19 +29,21 @@ Four commands and one page. Nothing here needs an API key, a database server or
 a network connection.
 
 ```bash
-make setup && make gen     # environment, then the synthetic warehouse (~40s)
+make setup                 # environment and all three warehouses, verified (~2 min the first time)
 make demo                  # console at http://localhost:8000
 ```
 
-1. **Open `net_revenue`, West, 13–15 Aug 2026** (the second row of the triage
-   queue). Three verified causes, and a planted decoy that correlates perfectly
-   and caused nothing. Click any highlighted claim and it resolves to the tests,
-   the rows, or the character span in the ticket behind it.
-2. **Open `net_revenue`, West, 27–28 Jul 2026** (the fourth row). Nothing in the
+1. **Open `net_revenue`, West, 13–15 Aug 2026** (near the top of the findings
+   queue, or `/?demo=trap`). The chain of evidence from the movement to the
+   decision, a bridge from the fortnight before to this window, two verified
+   causes, a planted decoy that correlates perfectly and caused nothing, and a
+   three-week-old SKU the engine declines to verify. Click any highlighted claim
+   and it resolves to the tests, the rows, or the character span behind it.
+2. **Open `net_revenue`, West, 27–28 Jul 2026** (`/?demo=refusal`). Nothing in the
    operational record survives testing, so the engine returns UNKNOWN at 0.15
    confidence, names the next check and asks a clarifying question. Refusal is
    the feature.
-3. **Set Entitlement to "South only"**, first with All regions (three causes are
+3. **Set Entitlement to "South only"**, first with All regions (the West causes are
    withheld and the notice names who to escalate to), then with West selected
    (nothing about West is computed or drawn).
 4. **Run `make bench`** for accuracy, trap rejection, calibration and latency,
@@ -53,7 +55,7 @@ demonstrates it, and marks the rows only partly met. The other working documents
 are indexed in **[docs/README.md](docs/README.md)**.
 
 If you have twenty minutes and not twenty-five, skip step 4 and read
-[*Measured results*](#measured-results) instead — `make bench` reproduces it.
+[*Measured results*](#measured-results) instead; `make bench` reproduces it.
 
 ---
 
@@ -641,8 +643,7 @@ pydantic, fastapi, uvicorn, PyYAML. No LLM SDK.
 
 ```bash
 git clone https://github.com/AbhiAltElite/Accenture.git && cd Accenture
-make setup        # venv and pinned dependencies
-make gen          # generate the synthetic warehouse and ground truth (~40s)
+make setup        # verified environment, then every warehouse and its lineage (~2 min first time)
 make demo         # console at http://localhost:8000
 ```
 
@@ -710,7 +711,7 @@ test suite, and the table says which.
 
 | Scenario | Where | Shows |
 |---|---|---|
-| Multi-factor movement | `net_revenue`, West, Aug 2026 | three verified causes plus a planted decoy that correlates perfectly and caused nothing |
+| Multi-factor movement | `net_revenue`, West, Aug 2026 | two verified causes, a planted decoy that correlates perfectly and caused nothing, and a three-week-old SKU the engine declines to verify |
 | Low confidence | `net_revenue`, West, 27–28 Jul 2026 (fourth row of the queue) | nothing in the operational record survives testing; the engine returns UNKNOWN with the next check and a clarifying question. The planted nationwide shallow movement (3–9 Jun, no control group for DiD) is not flagged by detection, so it is exercised by the benchmark rather than the console |
 | Sparse history | `aov`, Aug 2026 — **in `tests/test_sparse_history.py`, not the console** | a late-launched SKU; the verdict is `CANNOT_VERIFY`, deliberately distinct from `REJECTED`. The console cannot slice to one SKU, so this case is demonstrated by the test suite |
 | Seasonal decoy | `net_revenue`, Oct 2025 | Diwali peaks then falls 18% overnight; the fall is correctly not an anomaly |
@@ -864,10 +865,11 @@ declared by the author.
   change is tested against its whole region, and in West, 13–15 Aug, that region
   is also carrying a release regression and a storm. The planted competitor
   price cut, a true cause at −9% on one category, fails its placebo and is
-  rejected; the SKU launch dip is verified with part of its neighbours' effect
-  attributed to it. The engine does not hide this, since the three verified causes
-  sum to 177% of the movement and confidence is discounted for the overlap, but
-  it means "verified" is not "exactly apportioned".
+  rejected. The SKU launch dip used to be verified with its neighbours' effect
+  attributed to it; since 25 Sep a candidate carries the SKU its note names and
+  is tested on that SKU alone, so it is correctly `cannot_verify` (B-056). The
+  two verified causes still overlap (113%), and the bridge scales them to the
+  movement and says so: "verified" is not "exactly apportioned".
 
 - **Difference-in-differences needs a control group**, and the control is
   geography. A repricing, a platform release or a policy change that lands
