@@ -49,6 +49,14 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-070 · A decoy planted in one region verifies as a cause in another
+**Found:** 2026-09-26, breaking down the benchmark misses · **Severity:** P1 for the published decoy figure · **Status:** open, root cause not yet established
+
+**Symptom:** in `bench/report.json`, 13 cases are explained but not exactly right. In all of them the true cause was verified; a planted decoy passed too. In 6 of the 13 the decoy belongs to a different region from the case (`bench-02-north-0` verifies `bench-02-south-0-decoy`). These are part of the "14 planted decoys got through" on the track record.
+**Root cause:** not yet established. The first hypothesis is T-33 again: the region a note names is not carried into the candidate's scope, so a South event is tested against the North movement and borrows it, as the SKU did in B-056.
+**Fix:** none yet. Do not change it before the finale without re-running `make bench` and the demo answer key: it changes published figures.
+**Why it matters:** ranking by an AI would not fix this. Both causes pass the statistics; the decoy should never have been in the North case at all.
+
 ### B-069 · Closing the app window left an engine running for good
 **Found:** 2026-09-26, the Mac slowing down with four engines running · **Severity:** P1 on a demo laptop · **Status:** fixed
 
