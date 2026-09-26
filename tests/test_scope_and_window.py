@@ -113,3 +113,23 @@ def test_a_filter_does_not_move_the_window():
     floor = earliest()
     for q in ({"kpi": "on_time_delivery"}, {"region": "East"}, {"kpi": "aov"}):
         assert earliest(**q) >= floor, q
+
+
+def test_a_word_inside_another_word_names_no_driver():
+    """"suspended" contains "spend": a courier's collapse was put on the
+    marketing budget, and the card told the marketing lead to apply media
+    budget for South (B-073)."""
+    from datetime import date
+    from pathlib import Path
+
+    from whychain.actions import _driver_for
+    from whychain.contracts import load_contract
+    from whychain.verify.tests import Candidate
+
+    contract = load_contract(Path("contracts/net_revenue.yml"))
+    note = Candidate("carrier-collapse-may", "ops_note", date(2026, 5, 18), date(2026, 5, 22),
+                     ("South",), "A regional carrier suspended operations without notice.")
+    assert _driver_for(note, contract) is None
+    spend = Candidate("mk-1", "ops_note", date(2026, 5, 18), date(2026, 5, 22),
+                      ("South",), "Marketing spend was cut in the South.")
+    assert _driver_for(spend, contract).id == "marketing_spend"

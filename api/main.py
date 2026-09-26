@@ -3396,8 +3396,18 @@ def dispatch_teams(payload: dict, request: Request) -> dict:
         "end": window.get("to"), "industry": payload.get("industry")}.items() if v})
     decided = _decided(run, (card.get("approval") or {}).get("action_id"))
     content = _adaptive_card(card, run, link, decided)
-    webhook = os.environ.get("WHYCHAIN_TEAMS_WEBHOOK", "").strip()
-    sent, detail = False, "No Teams webhook is configured, so nothing was sent."
+    # Each Teams channel has its own incoming webhook, so the card goes to the
+    # channel of the role that owns the decision. One shared webhook sent every
+    # card to the same place while the preview said "to E-commerce lead".
+    owner = card["approval"]["assigned_to"]
+    route = f"WHYCHAIN_TEAMS_WEBHOOK_{owner.upper()}"
+    webhook = os.environ.get(route, "").strip()
+    channel = f"the {_card_role(owner).lower()}'s channel"
+    if not webhook:
+        webhook = os.environ.get("WHYCHAIN_TEAMS_WEBHOOK", "").strip()
+        channel = "the shared channel" if webhook else channel
+    sent, detail = False, (f"No Teams channel is connected for the {_card_role(owner).lower()}, "
+                           "so nothing was sent.")
     if webhook:
         message = {"type": "message", "attachments": [{
             "contentType": "application/vnd.microsoft.card.adaptive", "content": content}]}
@@ -3406,13 +3416,15 @@ def dispatch_teams(payload: dict, request: Request) -> dict:
                 webhook, data=json.dumps(message).encode(),
                 headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=10) as resp:
-                sent, detail = 200 <= resp.status < 300, f"Teams answered HTTP {resp.status}."
+                sent = 200 <= resp.status < 300
+                detail = f"Posted to {channel}; Teams answered HTTP {resp.status}."
         except Exception as exc:  # the reason is the answer
             detail = f"Teams could not be reached: {type(exc).__name__}."
         if sent:
             _audit.append("card_dispatched", who.as_dict(), _subject(run, payload),
-                          {"action_id": card["approval"]["action_id"], "channel": "teams"})
-    return {"sent": sent, "detail": detail, "card": content}
+                          {"action_id": card["approval"]["action_id"], "channel": "teams",
+                           "to": channel})
+    return {"sent": sent, "detail": detail, "card": content, "route": route, "to": channel}
 
 
 def _decided(run: dict, action_id: str | None) -> dict | None:
@@ -3475,6 +3487,11 @@ def dispatch_ticket(payload: dict, request: Request) -> dict:
                  if (c.get("approval") or {}).get("action_id") == payload.get("action_id")), None)
     if card is None:
         raise HTTPException(404, f"no decision card {payload.get('action_id')!r} on this finding")
+    # A change the release log shows already made is not raised again: what is
+    # left to decide is whether it worked, and confirming that raises nothing.
+    if card.get("already_actioned"):
+        raise HTTPException(409, "the change is already done "
+                            f"({card['already_actioned'].get('doc_id')}); there is nothing to raise")
     decided = _decided(run, card["approval"]["action_id"])
     if decided is None or decided["event"] == "decision_rejected":
         raise HTTPException(409, "only an accepted decision becomes a change request"

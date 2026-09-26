@@ -50,6 +50,31 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-075 · A change already made could be raised as a change request
+**Found:** 2026-09-26, clicking every button that writes a record · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** on the flagship, the e-commerce lead confirmed the rollback worked (the release log records it as done on 19 Aug), and the card then offered **Raise change request** for "Apply release rollback". A service desk would have received a ticket for work already finished.
+**Root cause:** the ticket rule checked only that a decision was accepted, not whether the change it names had already been made.
+**Fix:** the engine refuses a ticket for a card with `already_actioned` (409, "the change is already done"), and the button is not shown. Confirming it worked now reads "Confirmed it worked, by …" rather than "Accepted by …".
+**Regression test:** `test_a_change_already_made_raises_no_ticket`; the open-decision path is tested on the petroleum turnaround through single sign-on.
+**Known limit, demo only:** the five demo seats hold no petroleum or power owner (supply manager, trading head and so on), so on the demo no seat can raise a change request. Single sign-on accepts every role.
+
+### B-074 · Every Teams card went to one channel while the preview named the owner
+**Found:** 2026-09-26 · **Severity:** P1 for the hand-off claim · **Status:** fixed
+
+**Symptom:** the Teams preview said "to E-commerce lead", but the engine posted every card to the single `WHYCHAIN_TEAMS_WEBHOOK`, whoever owned the decision.
+**Root cause:** routing was never built; the preview implied it.
+**Fix:** a card goes to `WHYCHAIN_TEAMS_WEBHOOK_<ROLE>` for its owner's role (each Teams channel has its own incoming webhook), falling back to the shared one and saying so. The audit entry records where it went.
+**Regression test:** `test_a_card_goes_to_the_owners_channel_not_a_shared_one`.
+
+### B-073 · A courier's collapse was put on the marketing budget
+**Found:** 2026-09-26 · **Severity:** P1, visible on a finding · **Status:** fixed
+
+**Symptom:** South, 18 to 22 May: "A regional carrier suspended operations without notice" produced a decision card "Apply media budget for South", owned by the marketing lead.
+**Root cause:** notes were matched to drivers, and to scope, by substring: "suspended" contains "spend". The scope reader had the same flaw ("approach" would have read as the app channel), though no current note triggered it.
+**Fix:** `mentions()` matches whole words, plurals included, for both. The carrier note now matches no driver, so the card says there is no lever and gives a monitoring rule, which is the truth: net revenue's contract declares no logistics driver. The benchmark is identical to the decimal.
+**Regression test:** `test_a_word_inside_another_word_names_no_driver`, verified to fail without the fix.
+
 ### B-072 · A container build would have carried the model key
 **Found:** 2026-09-26, preparing the deployment guide · **Severity:** P0 for any deployment · **Status:** fixed
 

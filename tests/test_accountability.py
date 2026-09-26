@@ -190,23 +190,38 @@ class TestService:
         facts = {f["title"]: f["value"] for f in card["body"][2]["facts"]}
         assert facts["Finding"].endswith("13 to 15 Aug 2026") and "₹" in facts["Expected recovery"]
 
-    def test_only_an_accepted_decision_becomes_a_change_request(self, client):
+    def test_only_an_accepted_decision_becomes_a_change_request(self, client, monkeypatch):
         # A ticket for a decision nobody has taken would put a change in the
-        # service desk's queue that its owner never agreed to.
+        # service desk's queue that its owner never agreed to. The refinery
+        # turnaround is open; its owner signs in through single sign-on.
+        c, _ = client
+        monkeypatch.setenv("WHYCHAIN_IDENTITY", "proxy")
+        owner = {"X-Forwarded-Email": "supply@client.example", "X-Forwarded-User": "Supply Manager",
+                 "X-Forwarded-Groups": "whychain:role:supply_manager,whychain:region:West"}
+        body = {"kpi": "net_realisation", "region": "West", "start": "2026-08-13",
+                "end": "2026-08-15", "industry": "petroleum", "action_id": "act-TA-4411"}
+        assert c.post("/api/dispatch/ticket", json=body, headers=owner).status_code == 409
+        assert c.post("/api/decision", json={**body, "decision": "accept"},
+                      headers=owner).status_code == 200
+        r = c.post("/api/dispatch/ticket", json=body, headers=owner)
+        assert r.status_code == 200 and r.json()["sent"] is False
+        t = r.json()["ticket"]
+        assert t["reference"].startswith("WC-") and t["assignee_role"].startswith("Supply")
+        assert t["decision"].startswith("Accepted by Supply Manager") and "₹" in t["expected_recovery"]
+        assert "/finding?" in t["evidence"]["link"]
+        entry = next(e for e in c.get("/api/audit", headers=owner).json()["entries"]
+                     if e["event"] == "decision_accepted")
+        assert t["evidence"]["audit_entry"] == entry["hash"]
+
+    def test_a_change_already_made_raises_no_ticket(self, client):
+        # The rollback is in the release log as done on 19 Aug; confirming it
+        # worked must not send the service desk a ticket to do it again.
         c, _ = client
         body = {**WEST, "action_id": "act-rel-4.05"}
-        assert c.post("/api/dispatch/ticket", json=body, headers=as_("fpa.analyst")).status_code == 409
         assert c.post("/api/decision", json={**body, "decision": "accept"},
                       headers=as_("ecommerce.lead")).status_code == 200
         r = c.post("/api/dispatch/ticket", json=body, headers=as_("ecommerce.lead"))
-        assert r.status_code == 200 and r.json()["sent"] is False
-        t = r.json()["ticket"]
-        assert t["reference"].startswith("WC-") and t["assignee_role"].startswith("E-commerce")
-        assert t["decision"].startswith("Accepted by E-commerce Lead") and "₹" in t["expected_recovery"]
-        assert t["done_when"] and "/finding?" in t["evidence"]["link"]
-        entry = next(e for e in c.get("/api/audit").json()["entries"]
-                     if e["event"] == "decision_accepted")
-        assert t["evidence"]["audit_entry"] == entry["hash"]
+        assert r.status_code == 409 and "already done" in r.json()["detail"]
 
     def test_a_rejected_decision_raises_no_ticket(self, client):
         c, _ = client
@@ -235,6 +250,26 @@ class TestService:
         monkeypatch.setenv("WHYCHAIN_IDENTITY", "proxy")
         r = c.post("/api/demo/reset", headers={**SOUTH, "X-WhyChain-User": "finance.director"})
         assert r.status_code == 403
+
+    def test_a_card_goes_to_the_owners_channel_not_a_shared_one(self, client, monkeypatch):
+        # One webhook for every card posted a release decision to the same place
+        # as a pricing one, while the preview said "to E-commerce lead".
+        c, m = client
+        posted = []
+
+        class Answer:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        monkeypatch.setattr(m.urllib.request, "urlopen",
+                            lambda req, timeout=10: posted.append(req.full_url) or Answer())
+        monkeypatch.setenv("WHYCHAIN_TEAMS_WEBHOOK", "https://teams.example/shared")
+        monkeypatch.setenv("WHYCHAIN_TEAMS_WEBHOOK_ECOMMERCE_LEAD", "https://teams.example/ecommerce")
+        r = c.post("/api/dispatch/teams", json={**WEST, "action_id": "act-rel-4.05"},
+                   headers=as_("fpa.analyst")).json()
+        assert posted == ["https://teams.example/ecommerce"]
+        assert r["sent"] and "e-commerce lead's channel" in r["detail"]
 
     def test_trackrecord_is_read_not_typed(self, client):
         c, _ = client

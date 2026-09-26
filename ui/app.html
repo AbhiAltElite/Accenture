@@ -1640,7 +1640,7 @@ function decisionsHtml(ctx){
       ${c.monitoring ? `<div class="m">Then watch ${esc(c.monitoring.watch)}.</div>` : ''}
       ${c.already_actioned ? `<div class="m done-note"><b>Already done on ${esc(dt(c.already_actioned.on))}.</b> The release log records it: “${esc(causeText(c.already_actioned.text))}.” <span class="muted">(${esc(c.already_actioned.doc_id)})</span> What is left to decide is whether it worked.</div>` : ''}
       <div class="row2">
-        ${done ? `<span class="state">${esc(human(done.event.replace('decision_','')))} by ${esc(done.actor.name)}</span>` :
+        ${done ? `<span class="state">${esc(c.already_actioned ? ({decision_accepted:'Confirmed it worked', decision_rejected:'Marked as not working', decision_modified:'Modified'}[done.event] || human(done.event.replace('decision_',''))) : human(done.event.replace('decision_','')))}, by ${esc(done.actor.name)}</span>` :
           mine ? `<button type="button" class="btn sm primary" data-decide="${esc(a.action_id)}:accept">${c.already_actioned ? 'Confirm it worked' : 'Accept'}</button>
                   <button type="button" class="btn sm" data-decide="${esc(a.action_id)}:modify">Modify</button>
                   <button type="button" class="btn sm" data-decide="${esc(a.action_id)}:reject">${c.already_actioned ? 'It did not work' : 'Reject'}</button>`
@@ -1648,7 +1648,7 @@ function decisionsHtml(ctx){
                  ? `<span class="small muted">Awaiting the ${esc(roleName(a.assigned_to).toLowerCase())}'s confirmation that it worked. Nothing further executes.</span>`
                  : `<span class="small muted">Awaiting the ${esc(roleName(a.assigned_to).toLowerCase())}. Nothing executes until they decide.</span>`}
         <span class="handoff">
-          ${done && done.event !== 'decision_rejected' ? `<button type="button" class="btn sm${mine ? ' primary' : ''}" data-ticket="${esc(a.action_id)}">Raise change request</button>` : ''}
+          ${done && done.event !== 'decision_rejected' && !c.already_actioned ? `<button type="button" class="btn sm${mine ? ' primary' : ''}" data-ticket="${esc(a.action_id)}">Raise change request</button>` : ''}
           <button type="button" class="btn sm" data-teams="${esc(a.action_id)}">${done ? 'Share in Teams' : 'Notify owner in Teams'}</button>
         </span>
       </div></div>`;
@@ -2164,7 +2164,7 @@ async function teams(ctx, actionId){
   const owner = (facts.find(f => f.title === 'Owner') || {}).value || 'the owner';
   layer(`<div class="modal" role="dialog" aria-modal="true" aria-label="Teams"><div class="box wide">
     <h3>${r.data.sent ? 'Sent to Teams' : 'Message to the owner in Teams'}</h3>
-    ${handoffStatus(r.data.sent, r.data.detail, 'Sent to Teams', 'Teams', 'WHYCHAIN_TEAMS_WEBHOOK')}
+    ${handoffStatus(r.data.sent, r.data.detail, 'Sent to Teams', 'Teams', r.data.route || 'WHYCHAIN_TEAMS_WEBHOOK')}
     <div class="teamsmsg">
       <div class="from"><img src="/static/mark.svg" alt="" width="32" height="32"><div><b>WhyChain</b><span>to ${esc(owner)}</span></div></div>
       <div class="ac">
@@ -2197,7 +2197,7 @@ async function ticket(ctx, actionId){
         ${row('Finding', esc(t.finding))}
         ${row('Expected recovery', `<b class="num">${esc(t.expected_recovery)}</b>`)}
         ${row('Done when', t.done_when ? esc(cap(t.done_when)) : '')}
-        ${row('Check within', t.check_within ? esc(t.check_within) : '')}
+        ${row('Check within', t.check_within ? esc(cap(t.check_within)) : '')}
         ${row('Evidence', `audit entry <span class="mc">${esc(t.evidence.audit_entry.slice(0, 12))}</span>, with a link back to the finding`)}
       </dl>
     </div>
