@@ -2017,10 +2017,14 @@ def candidates(
     # The panel is untouched, so difference-in-differences keeps its controls.
     sliced = _slice_of(contract, channel=channel, device=device, category=category)
     found = [c for c in found if touches_scope(c, sliced).relevant]
+    # The same direction the diagnosis tests against, or the two views could
+    # disagree about whether a cause is a cause.
+    direction = _expected_direction(vertical, contract, scope, region, sliced,
+                                    event_start, event_end)
 
     verified, rejected, untestable = [], [], []
     for candidate in found:
-        v = verify(candidate, panel, all_regions)
+        v = verify(candidate, panel, all_regions, movement=direction)
         corr = corroborate(candidate, documents, corpus=vertical.corpus,
                            retriever=ticket_retriever(documents), index=False)
         row = {
@@ -2174,6 +2178,29 @@ def _narrow(frame, sliced: dict[str, str]):
             )
         frame = frame[frame[dimension] == value]
     return frame
+
+
+def _expected_direction(vertical: Vertical, contract, scope, region: str | None,
+                        sliced: dict[str, str], start: date, end: date) -> float | None:
+    """Which way the finding moved against what a normal day would have been.
+
+    The same decomposition the chart draws its expected line from: the window's
+    observed total less its expected total. Negative is "short of expected".
+    None when the series is too short to have a seasonal shape, and then the
+    direction test is skipped rather than guessed from the raw change, which a
+    seasonal ramp can point the wrong way (B-070).
+    """
+    try:
+        frame = _series_frame(vertical, contract, scope, region, sliced)
+        parts = decompose_for(frame, contract)
+    except (HTTPException, ValueError):
+        return None
+    days = pd.to_datetime(parts.days).dt.date.to_numpy()
+    inside = (days >= start) & (days <= end)
+    if not inside.any():
+        return None
+    gap = float((parts.observed[inside] - parts.expected[inside]).sum())
+    return gap if gap else None
 
 
 def _slice_of(contract, **dims: str | None) -> dict[str, str]:
@@ -2401,7 +2428,9 @@ def diagnose(
         )
 
     with tel.stage("verify", MethodClass.CAUSAL) as t:
-        verifications = [verify(c, panel, all_regions) for c in found]
+        direction = _expected_direction(vertical, contract, scope, region, sliced,
+                                        event_start, event_end)
+        verifications = [verify(c, panel, all_regions, movement=direction) for c in found]
         t.note = f"{len(found)} candidates tested"
     _verified_ids = {
         v.candidate.candidate_id for v in verifications

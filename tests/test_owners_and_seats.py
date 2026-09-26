@@ -132,3 +132,16 @@ def test_a_petroleum_owner_can_now_raise_a_change_request_in_the_demo(client):
     card = client.post("/api/dispatch/teams", json=body, headers=who).json()["card"]
     facts = {f["title"]: f["value"] for f in card["body"][2]["facts"]}
     assert facts["Explains"] == "Zonal Head, West"
+
+
+def test_the_direction_comes_from_expected_not_the_raw_fortnight(client):
+    """The flagship is short of expected, so causes are tested as causes of a fall."""
+    from datetime import date
+
+    import api.main as m
+    v = m._vertical("retail")
+    c = m._contract("net_revenue", v)
+    gap = m._expected_direction(v, c, None, "West", {}, date(2026, 8, 13), date(2026, 8, 15))
+    assert gap is not None and gap < 0
+    # A slice with no data answers None, and the test is skipped, not guessed.
+    assert m._expected_direction(v, c, None, "Nowhere", {}, date(2026, 8, 13), date(2026, 8, 15)) is None

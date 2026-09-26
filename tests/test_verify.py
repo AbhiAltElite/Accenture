@@ -77,6 +77,22 @@ class TestNegativeControl:
         v = verify(candidate(("West", "East")), p, REGIONS)
         assert v.state is ClaimState.VERIFIED, v.reason
 
+    def test_a_cause_that_held_up_better_cannot_explain_a_fall(self):
+        """B-070: the gap was large, but it pointed the wrong way."""
+        p = panel({"West": (*WINDOW, +0.20)})
+        v = verify(candidate(("West",)), p, REGIONS, movement=-1.0)
+        assert v.state is ClaimState.REJECTED
+        assert "direction" in {r.name for r in v.failed()}
+        # The same candidate explains a rise, and without a direction the test
+        # does not run at all.
+        assert verify(candidate(("West",)), p, REGIONS, movement=+1.0).state is ClaimState.VERIFIED
+        assert verify(candidate(("West",)), p, REGIONS).state is ClaimState.VERIFIED
+
+    def test_a_cause_of_a_fall_passes_the_direction_test(self):
+        p = panel({"West": (*WINDOW, -0.25)})
+        v = verify(candidate(("West",)), p, REGIONS, movement=-1.0)
+        assert v.state is ClaimState.VERIFIED, v.reason
+
     def test_a_genuinely_regional_cause_survives(self):
         p = panel({"West": (*WINDOW, -0.25)})
         v = verify(candidate(("West",)), p, REGIONS)
