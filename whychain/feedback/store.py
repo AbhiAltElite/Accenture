@@ -166,6 +166,7 @@ class FeedbackStore:
     path: Path = DEFAULT_PATH
     _cache: list[Feedback] = field(default_factory=list, repr=False)
     _loaded: bool = field(default=False, repr=False)
+    _stamp: int | None = field(default=None, repr=False)
 
     def record(self, feedback: Feedback) -> Feedback:
         # Warm the cache *before* writing. Loading afterwards reads the line
@@ -179,10 +180,20 @@ class FeedbackStore:
         return feedback
 
     def _all(self) -> list[Feedback]:
-        if not self._loaded:
+        # Re-read when the file has changed. Loaded once and kept, a second
+        # worker never saw a judgement recorded by the first, and after a demo
+        # reset moved the file away it went on counting the old ones (B-077).
+        stamp = self._mtime()
+        if not self._loaded or stamp != self._stamp:
             self._cache = list(self._read())
-            self._loaded = True
+            self._loaded, self._stamp = True, stamp
         return self._cache
+
+    def _mtime(self) -> int:
+        try:
+            return self.path.stat().st_mtime_ns
+        except OSError:
+            return 0
 
     def _read(self):
         if not self.path.exists():

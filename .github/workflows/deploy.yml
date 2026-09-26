@@ -65,7 +65,12 @@ jobs:
           project_id: ${{ vars.GCP_PROJECT }}
           region: ${{ vars.GCP_REGION || 'us-central1' }}
           source: .
-          flags: --memory=2Gi --cpu=1 --port=8000 --allow-unauthenticated --timeout=300
+          # Two workers on two CPUs: one process serves about five diagnoses a
+          # second however many readers wait, two serve about twice that
+          # (measured, B-077). Each worker holds ~0.8 GB, hence 4Gi. At most
+          # three instances, so a burst of traffic cannot become a bill.
+          env_vars: WHYCHAIN_WORKERS=2
+          flags: --memory=4Gi --cpu=2 --port=8000 --max-instances=3 --allow-unauthenticated --timeout=300
 
       # The same smoke run that gates a demo, against the link just deployed.
       - uses: actions/setup-python@v5

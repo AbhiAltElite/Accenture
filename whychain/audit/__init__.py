@@ -22,15 +22,22 @@ signed finding has changed since it was signed.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import threading
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
 DEFAULT_PATH = Path("data/audit/audit.jsonl")
 GENESIS = "0" * 64
+
+try:  # POSIX: the container and the Mac
+    import fcntl
+except ImportError:  # Windows, where the launcher runs one process
+    fcntl = None
 
 EVENTS = frozenset({"finding_signed", "decision_accepted", "decision_modified",
                     "decision_rejected", "card_dispatched", "ticket_raised",
@@ -82,10 +89,33 @@ def evidence_fingerprint(diagnosis: dict) -> str:
 
 @dataclass
 class AuditLog:
-    """The chain on disk. One process writes it; the lock keeps appends whole."""
+    """The chain on disk, appended to by every process serving the engine.
+
+    Each entry links to the one before, so reading the head and writing the next
+    entry must happen as one step. A thread lock only covers one process: with
+    several workers two of them read the same head and write the same `seq`, and
+    the chain reports itself broken (B-077). `locked()` holds both.
+    """
 
     path: Path = DEFAULT_PATH
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    @contextlib.contextmanager
+    def locked(self) -> Iterator[None]:
+        """Exclusive over the chain, across threads and processes."""
+        with self._lock:
+            if fcntl is None:
+                yield
+                return
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            # A lock file beside the log, not the log itself: a demo reset moves
+            # the log away, and a lock on a moved file protects nothing.
+            with (self.path.parent / (self.path.name + ".lock")).open("a") as fh:
+                fcntl.flock(fh, fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(fh, fcntl.LOCK_UN)
 
     def entries(self) -> list[dict]:
         if not self.path.exists():
@@ -96,7 +126,7 @@ class AuditLog:
     def append(self, event: str, actor: dict, subject: dict, payload: dict) -> dict:
         if event not in EVENTS:
             raise ValueError(f"unknown audit event {event!r}")
-        with self._lock:
+        with self.locked():
             chain = self.entries()
             entry = {
                 "seq": len(chain) + 1,

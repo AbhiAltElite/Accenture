@@ -3038,7 +3038,7 @@ def demo_reset(request: Request) -> dict:
     stamp = datetime.now(UTC).astimezone().strftime("%Y%m%d-%H%M%S")  # local, as make demo-reset names it
     dest = _ARCHIVE / stamp
     moved = []
-    with _audit._lock:
+    with _audit.locked():
         for path in (_audit.path, _feedback.path, _applied.path):
             if path.exists() and path.stat().st_size:
                 dest.mkdir(parents=True, exist_ok=True)
