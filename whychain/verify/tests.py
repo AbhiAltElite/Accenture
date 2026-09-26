@@ -327,10 +327,14 @@ def verify(
         # overall effect, by at least the floor.
         responded = [r for r, v in usable.items() if v * direction >= EFFECT_FLOOR]
         share = len(responded) / len(usable)
+        # Half is not enough when half is one region: present in two, moved in
+        # one, is the coincidence this test exists to catch (B-070). A cause
+        # present in several places must have moved at least two of them.
+        consistent = share >= CONSISTENCY_FLOOR and len(responded) >= 2
         results.append(
             TestResult(
                 "exposure_consistency",
-                Outcome.PASS if share >= CONSISTENCY_FLOOR else Outcome.FAIL,
+                Outcome.PASS if consistent else Outcome.FAIL,
                 f"present in {len(usable)} regions, {len(responded)} moved "
                 f"({', '.join(f'{r} {v:+.1%}' for r, v in usable.items())})",
                 share,
