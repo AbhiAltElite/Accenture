@@ -3333,10 +3333,22 @@ def _adaptive_card(card: dict, run: dict, link: str, decided: dict | None = None
     rec = card.get("expected_recovery_inr_per_day")
     verb = {"decision_accepted": "accepted", "decision_modified": "modified",
             "decision_rejected": "rejected"}.get((decided or {}).get("event", ""))
+    done = card.get("already_actioned")
     heading = (f"Decision {verb} by {decided['actor']['name']}" if verb
                else "Decision awaiting approval")
     footer = ("Recorded in the WhyChain audit trail. Nothing was executed by WhyChain."
               if verb else "Drafted by WhyChain. Nothing executes until the owner approves.")
+    # A change the record shows was already made is not awaiting approval: the
+    # card asked an owner to approve a rollback done on 19 Aug, as the page and
+    # the slide once did (B-080). What is left is whether it worked.
+    if done:
+        on = _card_span(str(done["on"])[:10], str(done["on"])[:10])
+        heading = (f"Confirmed it worked, by {decided['actor']['name']}"
+                   if verb == "accepted" else heading if verb
+                   else f"Already done on {on}: did it work?")
+        footer = (f"The release log records it as done ({done.get('doc_id')}). "
+                  + ("Recorded in the WhyChain audit trail." if verb
+                     else "Confirm in WhyChain whether it brought the revenue back."))
     return {
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",

@@ -3758,7 +3758,9 @@ function cfoStory(d){
       <strong>${escapeHtml(role(dec.owner))}</strong>.
       Expected recovery <strong>${inr(dec.expected_recovery_inr_per_day)}</strong>
       per day, computed from the movement the causal test measured rather than
-      estimated. It is drafted and awaiting approval; nothing has been changed.</p>`
+      estimated. ${dec.already_actioned
+        ? `The release log records it as already done on ${humanSpan(String(dec.already_actioned.on).slice(0, 10))}; what is left is to confirm it worked.`
+        : 'It is drafted and awaiting approval; nothing has been changed.'}</p>`
       : `<p>No cause in this window has a lever, so there is no decision to take.
          The response is the monitoring rule below.</p>`}
     <p class="q">Of the fall, <strong>${inr(o.recoverable_inr_per_day)}</strong> per
@@ -3781,7 +3783,9 @@ function opsStory(d){
     ${mine.map(a => `<p><strong>${escapeHtml(a.action)}</strong>,
       ${escapeHtml(words(a.lever))}, owned by
       ${escapeHtml(role(a.owner))}. Expected recovery
-      ${inr(a.expected_recovery_inr_per_day)} per day, awaiting approval.</p>`).join('')}
+      ${inr(a.expected_recovery_inr_per_day)} per day, ${a.already_actioned
+        ? `already done on ${humanSpan(String(a.already_actioned.on).slice(0, 10))}, awaiting confirmation that it worked`
+        : 'awaiting approval'}.</p>`).join('')}
     ${watch.length ? `<p class="q">${watch.length} further cause${watch.length>1?'s':''}
       moved the metric with no lever to pull. The monitoring rule${watch.length>1?'s':''}
       for ${watch.length>1?'those':'that'} ${watch.length>1?'are':'is'} below.</p>` : ''}

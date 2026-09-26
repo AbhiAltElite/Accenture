@@ -384,6 +384,9 @@ def project(
                 "expected_recovery_inr_per_day": d["expected_recovery_inr_per_day"],
                 "monitoring": d["monitoring"],
                 "approval": d.get("approval"),
+                # Carried so this reader is not told a change already made is
+                # awaiting approval (B-080).
+                "already_actioned": d.get("already_actioned"),
             }
             for d in decisions if d["controllable"]
         ]

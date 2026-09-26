@@ -231,17 +231,30 @@ class TestService:
         assert "/finding?" in link and "8765" not in link
 
     def test_the_teams_card_carries_the_decision_as_it_stands(self, client):
-        # It said "awaiting approval" after the owner had accepted.
+        # It said "awaiting approval" after the owner had accepted, and (B-080)
+        # "awaiting approval" for a rollback the release log shows was done.
         c, _ = client
         body = {**WEST, "action_id": "act-rel-4.05"}
         card = c.post("/api/dispatch/teams", json=body, headers=as_("fpa.analyst")).json()["card"]
-        assert card["body"][0]["text"] == "Decision awaiting approval"
+        assert card["body"][0]["text"] == "Already done on 19 Aug 2026: did it work?"
+        assert "approves" not in card["body"][3]["text"]
         assert c.post("/api/decision", json={**body, "decision": "accept"},
                       headers=as_("ecommerce.lead")).status_code == 200
         card = c.post("/api/dispatch/teams", json=body, headers=as_("fpa.analyst")).json()["card"]
-        assert card["body"][0]["text"].startswith("Decision accepted by E-commerce Lead")
+        assert card["body"][0]["text"].startswith("Confirmed it worked, by E-commerce Lead")
         facts = {f["title"]: f["value"] for f in card["body"][2]["facts"]}
         assert facts["Finding"].endswith("13 to 15 Aug 2026") and "₹" in facts["Expected recovery"]
+
+    def test_an_open_decision_still_awaits_approval_in_teams(self, client, monkeypatch):
+        c, _ = client
+        sso(monkeypatch)
+        owner = {**PROXY, "X-Forwarded-Email": "supply@client.example", "X-Forwarded-User": "Supply Manager",
+                 "X-Forwarded-Groups": "whychain:role:supply_manager,whychain:region:West"}
+        body = {"kpi": "net_realisation", "region": "West", "start": "2026-08-13",
+                "end": "2026-08-15", "industry": "petroleum", "action_id": "act-TA-4411"}
+        card = c.post("/api/dispatch/teams", json=body, headers=owner).json()["card"]
+        assert card["body"][0]["text"] == "Decision awaiting approval"
+        assert "until the owner approves" in card["body"][3]["text"]
 
     def test_only_an_accepted_decision_becomes_a_change_request(self, client, monkeypatch):
         # A ticket for a decision nobody has taken would put a change in the
