@@ -1,0 +1,83 @@
+# Continuous deployment to Google Cloud Run: a fixed https link that follows
+# `main`, and any branch on demand (Actions tab > Deploy > Run workflow).
+#
+# Off until it is connected. With the secret and variable below unset the job
+# says so and succeeds, so a fork or a fresh clone never shows a red deploy.
+#   secret    GCP_SA_KEY    JSON key of a service account with Cloud Run Admin,
+#                           Cloud Build Editor, Artifact Registry Writer,
+#                           Service Account User and Storage Admin
+#   variable  GCP_PROJECT   the Google Cloud project id
+#   variable  GCP_REGION    optional, us-central1 by default (its free tier)
+# Steps and the free allowance: docs/DEPLOY-FREE.md.
+#
+# The model key never enters the image (.dockerignore, B-072). Attach it on the
+# service as a Secret Manager secret once, and every deploy keeps it.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One deploy at a time; a newer push supersedes one still building.
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cloud-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Is deployment connected?
+        id: cfg
+        env:
+          SA: ${{ secrets.GCP_SA_KEY }}
+          PROJECT: ${{ vars.GCP_PROJECT }}
+        run: |
+          if [ -z "$SA" ] || [ -z "$PROJECT" ]; then
+            echo "connected=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Deploy skipped: set the GCP_SA_KEY secret and the GCP_PROJECT variable to turn it on (docs/DEPLOY-FREE.md)."
+          else
+            echo "connected=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.cfg.outputs.connected == 'true'
+
+      - uses: google-github-actions/auth@v2
+        if: steps.cfg.outputs.connected == 'true'
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # Built from the Dockerfile by Cloud Build: the warehouse is generated and
+      # the benchmark run inside the image, so the service starts with data.
+      - name: Build and deploy
+        id: deploy
+        if: steps.cfg.outputs.connected == 'true'
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: whychain
+          project_id: ${{ vars.GCP_PROJECT }}
+          region: ${{ vars.GCP_REGION || 'us-central1' }}
+          source: .
+          flags: --memory=2Gi --cpu=1 --port=8000 --allow-unauthenticated --timeout=300
+
+      # The same smoke run that gates a demo, against the link just deployed.
+      - uses: actions/setup-python@v5
+        if: steps.cfg.outputs.connected == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Smoke-test the deployed link
+        if: steps.cfg.outputs.connected == 'true'
+        env:
+          WHYCHAIN_BASE: ${{ steps.deploy.outputs.url }}
+        run: |
+          echo "Deployed at $WHYCHAIN_BASE"
+          python scripts/smoke.py
+          echo "### Live at ${WHYCHAIN_BASE}" >> "$GITHUB_STEP_SUMMARY"

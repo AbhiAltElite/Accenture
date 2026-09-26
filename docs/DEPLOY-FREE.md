@@ -81,13 +81,29 @@ tiers; check before choosing Mumbai.
    the link a few minutes before you present. Sign-offs made on it vanish when
    the container restarts, which for a demo is a reset for free.
 
-## Deploying on every push (CI/CD)
+## Deploying on every push (CD)
 
-The CI on GitHub already runs the tests, the desktop app on three systems and the
-offline packages. For Cloud Run, one more job deploys when the tests pass on a
-chosen branch, using Google's `deploy-cloudrun` action with a service account
-key or workload identity stored as a GitHub secret. Not set up yet; say the word
-and it is a short file.
+`.github/workflows/deploy.yml` builds the image on Google's Cloud Build, deploys
+it to Cloud Run, then runs the demo smoke test against the new link. It runs on
+every push to `main`, and on any branch from the Actions tab (Deploy > Run
+workflow). Until it is connected it skips with a notice, so nothing goes red.
+
+To connect it, once:
+
+1. In the Google Cloud console (IAM > Service accounts), create a service account
+   `whychain-deploy` with the roles **Cloud Run Admin**, **Cloud Build Editor**,
+   **Artifact Registry Writer**, **Service Account User** and **Storage Admin**.
+   Create a JSON key for it and download it.
+2. In GitHub, the repository's Settings > Secrets and variables > Actions:
+   - secret `GCP_SA_KEY`: paste the whole JSON key file;
+   - variable `GCP_PROJECT`: the project id;
+   - variable `GCP_REGION` (optional): `us-central1` by default, for the free tier.
+3. Run it once from the Actions tab on `feat/ui-redesign` to check, then leave it
+   to follow `main`. The job summary prints the live link.
+
+The key file is a credential: paste it into GitHub's secret store and delete the
+downloaded copy. The model key goes on the service as in Option B step 3, once;
+deploys keep it.
 
 ## Recommendation
 
