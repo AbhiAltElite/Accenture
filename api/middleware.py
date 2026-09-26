@@ -8,11 +8,15 @@ request on its own except the 401 below.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
+import os
+import threading
 import time
 import uuid
 from collections import defaultdict
+from pathlib import Path
 from threading import Lock
 from urllib.parse import parse_qsl, urlencode
 
@@ -41,16 +45,37 @@ OPEN = ("/api/health", "/api/metrics")
 
 
 class Metrics:
-    """Request counts and latency by route and status, for /api/metrics."""
+    """Request counts and latency by route and status, for /api/metrics.
+
+    Each worker counts its own requests. With one worker that is the whole
+    picture; with several, a scrape reached whichever worker answered and saw
+    only its share, a different share each time (B-082). So when more than one
+    worker runs, each writes a snapshot to a shared folder at most every two
+    seconds, and rendering sums the snapshots of workers that are still alive.
+    A worker that has exited drops out, which a scraper reads as a counter reset,
+    as it would for a restarted process.
+    """
 
     BUCKETS = (0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30)
+    WRITE_EVERY = 2.0
 
-    def __init__(self) -> None:
+    def __init__(self, directory: Path | None = None, pid: int | None = None,
+                 alive=None) -> None:
         self._lock = Lock()
         self.count: dict[tuple[str, str, int], int] = defaultdict(int)
         self.seconds: dict[tuple[str, str], float] = defaultdict(float)
         self.buckets: dict[tuple[str, str, float], int] = defaultdict(int)
         self.started = time.time()
+        self.pid = pid or os.getpid()
+        self.directory = directory
+        self._alive = alive or _process_alive
+        self._written = 0.0
+        self._dirty = False
+        self._flusher: threading.Thread | None = None
+        if directory is not None:
+            # Present from the start, so a worker that has served nothing yet
+            # still counts as a worker.
+            self._write()
 
     def observe(self, method: str, route: str, status: int, seconds: float) -> None:
         with self._lock:
@@ -59,24 +84,115 @@ class Metrics:
             for b in self.BUCKETS:
                 if seconds <= b:
                     self.buckets[(method, route, b)] += 1
+            self._dirty = True
+        # Written by a background flush, not here: a burst's last requests
+        # would otherwise sit unsaved until the next request reached this
+        # worker, and a scrape answered by the other one missed them.
+        if self.directory is not None and self._flusher is None:
+            self._flusher = threading.Thread(target=self._flush_forever, daemon=True)
+            self._flusher.start()
+
+    def _flush_forever(self) -> None:
+        while True:
+            time.sleep(self.WRITE_EVERY / 2)
+            if self._dirty:
+                self._write()
+
+    def _snapshot(self) -> dict:
+        with self._lock:
+            return {
+                "pid": self.pid, "started": self.started,
+                "count": [[m, r, s, n] for (m, r, s), n in self.count.items()],
+                "seconds": [[m, r, v] for (m, r), v in self.seconds.items()],
+                "buckets": [[m, r, b, n] for (m, r, b), n in self.buckets.items()],
+            }
+
+    def _write(self) -> None:
+        self._written = time.time()
+        self._dirty = False
+        try:
+            self.directory.mkdir(parents=True, exist_ok=True)
+            final = self.directory / f"{self.pid}.json"
+            part = final.with_suffix(".part")
+            part.write_text(json.dumps(self._snapshot()), encoding="utf-8")
+            os.replace(part, final)  # a reader sees the old snapshot or the new one
+        except OSError:
+            pass  # monitoring must never fail a request
+
+    def _all(self) -> list[dict]:
+        """This worker's counts, now, and every other live worker's last snapshot."""
+        mine = self._snapshot()
+        if self.directory is None:
+            return [mine]
+        self._write()
+        out = [mine]
+        for path in sorted(self.directory.glob("*.json")):
+            try:
+                pid = int(path.stem)
+            except ValueError:
+                continue
+            if pid == self.pid:
+                continue
+            if not self._alive(pid):
+                with contextlib.suppress(OSError):
+                    path.unlink()
+                continue
+            try:
+                out.append(json.loads(path.read_text(encoding="utf-8")))
+            except (OSError, ValueError):
+                continue  # half-written or removed between listing and reading
+        return out
 
     def render(self) -> str:
-        """Prometheus text exposition, so any scraper can read it."""
+        """Prometheus text exposition, summed across workers, so any scraper can read it."""
+        count: dict[tuple, int] = defaultdict(int)
+        seconds: dict[tuple, float] = defaultdict(float)
+        buckets: dict[tuple, int] = defaultdict(int)
+        snaps = self._all()
+        for snap in snaps:
+            for m, r, s, n in snap["count"]:
+                count[(m, r, int(s))] += n
+            for m, r, v in snap["seconds"]:
+                seconds[(m, r)] += v
+            for m, r, b, n in snap["buckets"]:
+                buckets[(m, r, float(b))] += n
         lines = ["# TYPE whychain_requests_total counter"]
-        with self._lock:
-            for (m, r, s), n in sorted(self.count.items()):
-                lines.append(f'whychain_requests_total{{method="{m}",route="{r}",status="{s}"}} {n}')
-            lines.append("# TYPE whychain_request_seconds_sum counter")
-            for (m, r), s in sorted(self.seconds.items()):
-                lines.append(f'whychain_request_seconds_sum{{method="{m}",route="{r}"}} {s:.4f}')
-            lines.append("# TYPE whychain_request_seconds_bucket counter")
-            for (m, r, b), n in sorted(self.buckets.items()):
-                lines.append(f'whychain_request_seconds_bucket{{method="{m}",route="{r}",le="{b}"}} {n}')
-        lines.append(f"whychain_uptime_seconds {time.time() - self.started:.0f}")
+        for (m, r, s), n in sorted(count.items()):
+            lines.append(f'whychain_requests_total{{method="{m}",route="{r}",status="{s}"}} {n}')
+        lines.append("# TYPE whychain_request_seconds_sum counter")
+        for (m, r), v in sorted(seconds.items()):
+            lines.append(f'whychain_request_seconds_sum{{method="{m}",route="{r}"}} {v:.4f}')
+        lines.append("# TYPE whychain_request_seconds_bucket counter")
+        for (m, r, b), n in sorted(buckets.items()):
+            lines.append(f'whychain_request_seconds_bucket{{method="{m}",route="{r}",le="{b}"}} {n}')
+        lines.append("# TYPE whychain_workers gauge")
+        lines.append(f"whychain_workers {len(snaps)}")
+        lines.append(f"whychain_uptime_seconds {time.time() - min(s['started'] for s in snaps):.0f}")
         return "\n".join(lines) + "\n"
 
 
-METRICS = Metrics()
+def _process_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # exists, owned by someone else
+    return True
+
+
+def _metrics_directory() -> Path | None:
+    """Shared only when several workers serve, which is when it matters."""
+    try:
+        workers = int(os.environ.get("WHYCHAIN_WORKERS", "1") or 1)
+    except ValueError:
+        workers = 1
+    if workers <= 1:
+        return None
+    return Path(os.environ.get("WHYCHAIN_METRICS_DIR", "data/app/metrics"))
+
+
+METRICS = Metrics(_metrics_directory())
 
 
 def _route(path: str) -> str:
