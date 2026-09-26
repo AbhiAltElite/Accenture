@@ -25,6 +25,16 @@ def as_(user: str) -> dict:
     return {"X-WhyChain-User": user}
 
 
+# What a configured single-sign-on proxy adds to every request it forwards.
+PROXY_SECRET = "s3cret-set-in-the-proxy"
+PROXY = {"X-WhyChain-Proxy-Secret": PROXY_SECRET}
+
+
+def sso(monkeypatch) -> None:
+    monkeypatch.setenv("WHYCHAIN_IDENTITY", "proxy")
+    monkeypatch.setenv("WHYCHAIN_PROXY_SECRET", PROXY_SECRET)
+
+
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     import api.main as m
@@ -32,8 +42,9 @@ def client(tmp_path, monkeypatch):
         pytest.skip("warehouse not generated")
     from fastapi.testclient import TestClient
     monkeypatch.setattr(m, "_audit", AuditLog(tmp_path / "audit.jsonl"))
-    monkeypatch.delenv("WHYCHAIN_IDENTITY", raising=False)
-    monkeypatch.delenv("WHYCHAIN_TEAMS_WEBHOOK", raising=False)
+    for var in ("WHYCHAIN_IDENTITY", "WHYCHAIN_PROXY_SECRET", "WHYCHAIN_TRUSTED_PROXIES",
+                "WHYCHAIN_TEAMS_WEBHOOK"):
+        monkeypatch.delenv(var, raising=False)
     return TestClient(m.app), m
 
 
@@ -136,20 +147,20 @@ class TestAuditChain:
         assert c.get("/api/audit").json()["chain"]["intact"] is False
 
 
-SOUTH = {"X-Forwarded-Email": "reader@client.example", "X-Forwarded-User": "Reader",
+SOUTH = {**PROXY, "X-Forwarded-Email": "reader@client.example", "X-Forwarded-User": "Reader",
              "X-Forwarded-Groups": "whychain:role:finance_director,whychain:region:South"}
 
 
 class TestSingleSignOn:
     def test_no_identity_no_answer(self, client, monkeypatch):
         c, _ = client
-        monkeypatch.setenv("WHYCHAIN_IDENTITY", "proxy")
+        sso(monkeypatch)
         assert c.get("/api/kpis").status_code == 401
         assert c.get("/api/health").status_code == 200, "the platform's probe stays open"
 
     def test_regions_come_from_groups_and_cannot_be_widened(self, client, monkeypatch):
         c, _ = client
-        monkeypatch.setenv("WHYCHAIN_IDENTITY", "proxy")
+        sso(monkeypatch)
         q = {**QUERY, "backend": "none"}
         assert c.get("/api/diagnose", params=q, headers=SOUTH).status_code == 403
         widened = c.get("/api/diagnose", params={**q, "entitled": "West,South"}, headers=SOUTH)
@@ -157,11 +168,53 @@ class TestSingleSignOn:
 
     def test_demo_headers_are_ignored_under_sso(self, client, monkeypatch):
         c, _ = client
-        monkeypatch.setenv("WHYCHAIN_IDENTITY", "proxy")
+        sso(monkeypatch)
         me = c.get("/api/me", headers={**SOUTH, "X-WhyChain-User": "finance.director"}).json()
         assert me["identity"]["source"] == "proxy"
         assert me["identity"]["regions"] == ["South"]
         assert me["demo_users"] == []
+
+    # B-076. The headers say who the reader is, so whoever can set them can be
+    # anyone. Each case below is someone reaching the engine without the proxy.
+    def test_identity_headers_without_the_proxy_are_refused(self, client, monkeypatch):
+        c, _ = client
+        sso(monkeypatch)
+        forged = {k: v for k, v in SOUTH.items() if k not in PROXY}
+        for headers in (forged, {**forged, "X-WhyChain-Proxy-Secret": "guess"},
+                        {**forged, "X-WhyChain-Proxy-Secret": PROXY_SECRET + "x"}):
+            r = c.get("/api/me", headers=headers)
+            assert r.status_code == 401, headers
+        assert c.post("/api/signoff", json=WEST, headers=forged).status_code == 401
+        assert c.get("/api/me", headers=SOUTH).status_code == 200
+
+    def test_an_unconfigured_proxy_trusts_nobody_and_says_why(self, client, monkeypatch):
+        c, _ = client
+        monkeypatch.setenv("WHYCHAIN_IDENTITY", "proxy")
+        r = c.get("/api/me", headers=SOUTH)
+        assert r.status_code == 401
+        assert "WHYCHAIN_PROXY_SECRET" in r.json()["detail"]
+        assert c.get("/api/health").status_code == 200, "the platform's probe stays open"
+
+    def test_trusted_networks_admit_the_proxy_and_no_one_else(self, client, monkeypatch):
+        from whychain import identity
+        monkeypatch.setenv("WHYCHAIN_IDENTITY", "proxy")
+        monkeypatch.setenv("WHYCHAIN_TRUSTED_PROXIES", "10.0.0.0/8, not-a-network, 127.0.0.1")
+        headers = {k.lower(): v for k, v in SOUTH.items() if k not in PROXY}
+        assert identity.resolve(headers, "10.4.2.9").regions == ("South",)
+        assert identity.resolve(headers, "127.0.0.1") is not None
+        for outsider in ("192.168.1.5", "11.0.0.1", "testclient", None):
+            assert identity.resolve(headers, outsider) is None, outsider
+        # With both set, both must hold.
+        monkeypatch.setenv("WHYCHAIN_PROXY_SECRET", PROXY_SECRET)
+        assert identity.resolve(headers, "10.4.2.9") is None
+        assert identity.resolve({**headers, "x-whychain-proxy-secret": PROXY_SECRET},
+                                "10.4.2.9") is not None
+
+    def test_demo_mode_is_untouched(self, client, monkeypatch):
+        c, _ = client
+        monkeypatch.setenv("WHYCHAIN_PROXY_SECRET", PROXY_SECRET)
+        me = c.get("/api/me", headers=as_("finance.director")).json()
+        assert me["identity"]["source"] == "demo" and me["identity"]["role"] == "finance_director"
 
 
 class TestService:
@@ -195,8 +248,8 @@ class TestService:
         # service desk's queue that its owner never agreed to. The refinery
         # turnaround is open; its owner signs in through single sign-on.
         c, _ = client
-        monkeypatch.setenv("WHYCHAIN_IDENTITY", "proxy")
-        owner = {"X-Forwarded-Email": "supply@client.example", "X-Forwarded-User": "Supply Manager",
+        sso(monkeypatch)
+        owner = {**PROXY, "X-Forwarded-Email": "supply@client.example", "X-Forwarded-User": "Supply Manager",
                  "X-Forwarded-Groups": "whychain:role:supply_manager,whychain:region:West"}
         body = {"kpi": "net_realisation", "region": "West", "start": "2026-08-13",
                 "end": "2026-08-15", "industry": "petroleum", "action_id": "act-TA-4411"}
@@ -247,7 +300,7 @@ class TestService:
 
     def test_single_sign_on_cannot_reset_the_record(self, client, monkeypatch):
         c, _ = client
-        monkeypatch.setenv("WHYCHAIN_IDENTITY", "proxy")
+        sso(monkeypatch)
         r = c.post("/api/demo/reset", headers={**SOUTH, "X-WhyChain-User": "finance.director"})
         assert r.status_code == 403
 

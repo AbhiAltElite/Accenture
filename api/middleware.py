@@ -100,7 +100,8 @@ class EnterpriseMiddleware:
         headers = {k.decode("latin-1").lower(): v.decode("latin-1")
                    for k, v in scope.get("headers", [])}
         request_id = headers.get("x-request-id") or uuid.uuid4().hex[:16]
-        who = identity.resolve(headers)
+        client = (scope.get("client") or (None,))[0]
+        who = identity.resolve(headers, client)
         started = time.perf_counter()
         status_holder = {"status": 500}
 
@@ -122,7 +123,9 @@ class EnterpriseMiddleware:
         # Under single sign-on a request with no identity never reaches an
         # endpoint. The health check and metrics stay open for the platform.
         if who is None and not path.startswith(OPEN):
-            body = json.dumps({"detail": "sign in through the company's single sign-on"}).encode()
+            detail = (identity.proxy_untrusted(headers, client)
+                      or "sign in through the company's single sign-on")
+            body = json.dumps({"detail": detail}).encode()
             await send_wrapped({"type": "http.response.start", "status": 401,
                                 "headers": [(b"content-type", b"application/json")]})
             await send({"type": "http.response.body", "body": body})
