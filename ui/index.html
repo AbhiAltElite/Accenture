@@ -3209,6 +3209,17 @@ function contrastMarkup(){
   // left to be inferred from the prose. Sentence counts alone were the whole
   // caption, which measured the least interesting difference.
   const read = v => `${plural(v.documents_found || 0,'document')} read, ${plural(v.citations || 0,'span')} cited`;
+  // The model's answers, whether fetched now or served from the cache.
+  const answers = v => {
+    const n = (v.model_calls || 0) + (v.cache_hits || 0);
+    return plural(n, 'model answer') + (v.cache_hits ? ` (${v.cache_hits} from cache)` : '');
+  };
+  // Each model sentence carries the fact it rests on, "(f-movement)". The
+  // finding page links those; here they are removed so the prose reads.
+  const untag = t => prose(t).replace(/\s*\(f-[\w-]+\)/g, '');
+  // A run whose model prose failed validation shows the template, and said
+  // nothing: both columns read the same and the panel looked broken (26 Sep).
+  const fellBack = /template/.test(String(a.writer || ''));
   return `
     <h4 class="label" style="margin-top:var(--sp-5)">With the model, and without</h4>
     <p class="muted">${escapeHtml(prose(c.note || ''))}</p>
@@ -3218,15 +3229,16 @@ function contrastMarkup(){
     <div class="tracks" style="margin-top:var(--sp-4)">
       <div>
         <h4 class="exactly">Model on</h4>
-        <p class="caption">${plural(a.model_calls || 0,'call')} · ${a.tokens || 0} tokens ·
+        <p class="caption">${answers(a)} · ${a.tokens || 0} tokens ·
           ${read(a)} · ${plural(a.sentences || 0,'sentence')}, ${a.rejected || 0} rejected</p>
-        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(prose(a.narrative || ''))}</p>
+        ${fellBack ? `<p class="muted">The model's prose failed validation on this run, so the template below was shown instead: the validator working as designed.</p>` : ''}
+        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(untag(a.narrative || ''))}</p>
       </div>
       <div>
         <h4 class="merely">Model off</h4>
         <p class="caption">${plural(b.model_calls || 0,'call')} · ${read(b)} ·
           ${plural(b.sentences || 0,'sentence')}, ${b.rejected || 0} rejected</p>
-        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(prose(b.narrative || ''))}</p>
+        <p class="prose" style="font-size:var(--t-base)">${escapeHtml(untag(b.narrative || ''))}</p>
       </div>
     </div>
     <div class="gate" style="margin-top:var(--sp-4)">

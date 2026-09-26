@@ -50,6 +50,21 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-084 · The "model on / model off" panel showed the same text, from a stale run
+**Found:** 2026-09-26, asked why the two columns read the same · **Severity:** P1, contradicts the rest of the app · **Status:** fixed
+
+**Symptom:** the workbench's contrast panel showed identical prose under "Model on" and "Model off", with three causes, "188.3%" overlap and a window of 13 to 16 Aug, while the app said two causes and 113% for 13 to 15 Aug.
+**Root cause:** the panel reads `data/demo/contrast.json`, captured on 2 Sep with a local 7B model. In that run the model's prose failed validation and the template was shown instead (`writer: model -> template`), which the panel never said; and the capture had not been re-run since B-020, B-056 and the flagship window changed. Re-running it failed too: the script called the endpoint as a function without `channel`, `device` and `category`, which arrived as FastAPI `Query` defaults (B-040) and filtered every row away.
+**Fix:** the script names every parameter and captures the flagship window (13 to 15 Aug); re-captured on the current model, the two columns differ and carry today's figures. The panel counts answers served from the cache as model answers ("5 model answers, 5 from cache" rather than "0 calls"), strips the citation tags from the prose, and says plainly when a run's model prose failed validation and the template was shown.
+**Lesson:** a captured artefact is a claim about the system; re-capture it when the system changes, and make the display say which run it is and what happened in it.
+
+### B-085 · A price what-if showed revenue down and profit up, with no reason given
+**Found:** 2026-09-26, "how is revenue dropping, is this correct?" · **Severity:** P2, correct but unexplained · **Status:** fixed
+
+**Symptom:** +10% price: gross profit +₹9,679 a day, revenue −₹12,687 a day, and nothing on the card said why.
+**Verified:** correct. Retail's declared elasticity is −1.4 and margin 32%: units fall 14%, revenue 1.10 × 0.86 = 0.946 (−5.4% of ₹2,34,939), gross profit 0.86 × (1.10 − 0.68) = 0.361 of revenue against 0.32 (+4.1%). At −10% the reverse: revenue +₹6,108, gross profit −₹16,258.
+**Fix:** the scenario states the volume change as an assumption ("volume change −14%: the price elasticity times the price change") and the card says, when revenue and profit move apart, "Units −14%: revenue falls, but each unit sold earns more, so gross profit rises."
+
 ### B-083 · No demo seat could act in petroleum or power
 **Found:** 2026-09-26, listing what the demo could not show · **Severity:** P1 for the demo · **Status:** fixed
 

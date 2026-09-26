@@ -230,6 +230,10 @@ def price_move(
                    f"{contract.kpi_id}.yml, version {contract.version}"),
         Assumption(f"{recovery.price_noun} change applied", f"{d:+.0%}",
                    "the scenario input"),
+        # Stated, not left to be inferred: it is why revenue and gross profit
+        # can move in opposite directions, and a reader asked exactly that.
+        Assumption("volume change", f"{e * d:+.0%}",
+                   "the price elasticity times the price change"),
     ]
 
     if margin is None:

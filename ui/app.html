@@ -2284,6 +2284,19 @@ const WHATIF_TITLE = {rollback:'Reverse the cause', price_move:'Change the price
 // Revenue and gross profit: up is good. The sign is written as well as
 // coloured, so the figure reads the same in greyscale print.
 const wiTone = n => !n ? '' : n > 0 ? 'up' : 'down';
+// When a price move takes revenue one way and gross profit the other, say why
+// in one line, from the engine's own stated assumptions: "why is revenue
+// dropping?" was asked of a +10% card showing profit up and revenue down.
+function whyOpposite(sc){
+  if(sc.scenario_id !== 'price_move' || sc.effect_of !== 'gross profit') return '';
+  const rev = (sc.alongside || []).find(a => a.name === 'revenue');
+  const vol = (sc.assumptions || []).find(a => a.name === 'volume change');
+  if(!rev || !vol || !sc.effect_inr_per_day || Math.sign(rev.inr_per_day) === Math.sign(sc.effect_inr_per_day)) return '';
+  const units = String(vol.value).replace(/^-/, '−');
+  return sc.effect_inr_per_day > 0
+    ? `<p class="why" style="margin:6px 0 0">Units ${esc(units)}: revenue falls, but each unit sold earns more, so gross profit rises.</p>`
+    : `<p class="why" style="margin:6px 0 0">Units ${esc(units)}: revenue rises, but each unit sold earns less, so gross profit falls.</p>`;
+}
 function whatIfCard(sc, ctx){
   const d = ctx.whatIf || {};
   if(!sc.available) return `<article class="wi off"><span class="tag">What-if · ${esc(WHATIF_TITLE[sc.scenario_id] || 'Projection')}</span>
@@ -2301,6 +2314,7 @@ function whatIfCard(sc, ctx){
     ${doneNote(sc, ctx)}
     <div class="fig ${wiTone(per)}"><b>${inr(per, {sign:true})}</b><small>${esc(cap(of))} a day${total !== null && total !== undefined ? `<br><span class="${wiTone(total)}">${inr(total, {sign:true})}</span> over ${sc.horizon_days} days` : ''}</small></div>
     ${(sc.alongside || []).map(a => `<div class="along">Alongside: ${esc(a.name)} <b class="num ${wiTone(a.inr_per_day)}">${inr(a.inr_per_day, {sign:true})}</b> a day</div>`).join('')}
+    ${whyOpposite(sc)}
     <details><summary>Assumptions</summary><ul>${(sc.assumptions || []).map(a => `<li><b>${esc(cap(a.name))}:</b> ${esc(a.value)}. <span class="muted">${esc(cap(a.basis))}.</span></li>`).join('')}</ul>
       ${sc.bounded_by ? `<p class="muted" style="margin:6px 0 0">Bounded by ${esc(sc.bounded_by)}.</p>` : ''}</details></article>`;
 }
