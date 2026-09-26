@@ -40,7 +40,7 @@ headline figure opens its aggregated rows, the query that reproduces them
 `/workbench` is the analyst's full method page with the twelve `?demo=`
 scenarios.
 
-`make test` (649), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
+`make test` (653), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
 server), `make bench`, `make audit`, `make lint`, `make real-data`. `/uat` in
 any browser runs the acceptance checks against every scenario and persona.
 
@@ -67,8 +67,15 @@ which survives the folder being moved (B-065).
 and runs automatically from `gen`, `gen-all` and `run.sh`. A warehouse that has
 not been prepared still reads correctly, just slower.
 
-Before any demo: `make warm-ai` (must end "All N cases warm" with no failures), `make
-demo-reset`, then `/uat` (must be all pass).
+Before any demo, with the app running: `make stage-check` (warms the AI cache and
+must end "All N cases warm", resets the demo records, runs the smoke test), then
+`/uat` in the browser (must be all pass). **Reset demo** in the seat menu does the
+reset from the app. A decision card goes to its owner's Teams channel
+(`WHYCHAIN_TEAMS_WEBHOOK_<ROLE>`, falling back to `WHYCHAIN_TEAMS_WEBHOOK`); a change
+already made (per the release log) raises no change request.
+
+Deploying: `docs/DEPLOY-FREE.md`. `.github/workflows/deploy.yml` deploys `main` to
+Google Cloud Run and smoke-tests the link, once `GCP_SA_KEY` and `GCP_PROJECT` are set.
 
 Accountability: sign-off, decisions and dispatch go to a hash-chained log
 (`whychain/audit`). Identity is a demo picker unless `WHYCHAIN_IDENTITY=proxy`,
