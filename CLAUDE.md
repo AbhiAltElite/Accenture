@@ -40,7 +40,7 @@ headline figure opens its aggregated rows, the query that reproduces them
 `/workbench` is the analyst's full method page with the twelve `?demo=`
 scenarios.
 
-`make test` (653), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
+`make test` (670), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
 server), `make bench`, `make audit`, `make lint`, `make real-data`. `/uat` in
 any browser runs the acceptance checks against every scenario and persona.
 
@@ -80,7 +80,21 @@ Google Cloud Run and smoke-tests the link, once `GCP_SA_KEY` and `GCP_PROJECT` a
 Accountability: sign-off, decisions and dispatch go to a hash-chained log
 (`whychain/audit`). Identity is a demo picker unless `WHYCHAIN_IDENTITY=proxy`,
 where a single-sign-on proxy's headers decide who the reader is and which
-regions they see. See `whychain/identity.py`.
+regions they see, believed only from a proxy that proves itself
+(`WHYCHAIN_PROXY_SECRET` and/or `WHYCHAIN_TRUSTED_PROXIES`; with neither set it
+refuses everyone, B-076). See `whychain/identity.py`.
+
+Serving: the container runs `WHYCHAIN_WORKERS` processes (Cloud Run: 2). The
+audit chain and feedback log are safe across processes (B-077,
+`tests/test_workers.py`); anything new that a request writes must be too. The
+desktop app runs one process.
+
+`make eval-extraction` scores the keyword rules and the model on 96 labelled
+tickets (`bench/tickets_heldout.json` was labelled and committed before any run);
+`WHYCHAIN_LLM_CACHE=off` for a live reading. Results in `bench/extraction.json`.
+Six live runs on 26 Sep: where a batch answered, held-out tickets 88 to 92% right
+against 11.5% for the keyword rules, 0 false alarms in five of six runs; but the
+free model sometimes returns nothing for a whole batch (B-081, open).
 
 ## Non-negotiables
 

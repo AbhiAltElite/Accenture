@@ -50,6 +50,60 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-081 · The model sometimes returns nothing for a whole batch of tickets
+**Found:** 2026-09-26, `make eval-extraction`, six live runs · **Severity:** P2, the evidence link weakens silently · **Status:** open, measured, not fixed before the finale
+
+**Symptom:** the free hosted model reads 25 tickets per call. In three of six live runs a whole batch came back as a valid answer with no readings: 17 and 12 problem tickets lost in one run, 20 in another. Where batches did answer, readings were mostly right: held-out tickets 88 to 92%, customer wording the keyword rules miss 70 to 83%, and 0 false alarms on ordinary tickets in five of six runs (one in the sixth). Replaying a failing batch three times, it answered fully each time, so it is intermittent, from the service, not the tickets.
+**Why not fixed now:** the fix is to re-ask a batch that returns nothing, which must go around the answer cache (a cached empty answer would otherwise be served again). That changes the model path three days before the finale, when the demo runs from cached answers that are complete. The demo is not affected; a live diagnosis on the free tier can be.
+**Fix, when made:** retry an empty batch once, uncached; count and show "batches that returned nothing" in the run receipt, so a reader sees the gap instead of a thinner evidence list.
+
+### B-080 · The Teams card asked for approval of a change already made
+**Found:** 2026-09-26, capturing the Teams card for the brochure · **Severity:** P1, visible to an owner · **Status:** fixed
+
+**Symptom:** for the flagship, the release log records the rollback as done on 19 Aug, and the page and slide say so (B-057, B-075). The Teams card still said "Decision awaiting approval … Nothing executes until the owner approves", and so did the workbench's finance-director and area-sales summaries ("drafted and awaiting approval; nothing has been changed").
+**Root cause:** `already_actioned` was read by the page and the slide but not by the Teams card builder or the workbench summaries, and the area-sales projection dropped it altogether.
+**Fix:** the card reads "Already done on 19 Aug 2026: did it work?" and, once confirmed, "Confirmed it worked, by …", with the release-log reference; the workbench summaries say the same; the area-sales projection carries the field.
+**Regression test:** `test_the_teams_card_carries_the_decision_as_it_stands` (its old assertion encoded the defect and now asserts the done state; verified to fail without the fix), and `test_an_open_decision_still_awaits_approval_in_teams` for a decision that is genuinely open.
+**Lesson:** a state shown in one surface has to be read by every surface that renders the same decision. There are five (page, slide, Teams card, change request, workbench); check all five.
+
+### B-079 · The same question could return a different evidence fingerprint
+**Found:** 2026-09-26, comparing every demo view before and after an unrelated fix · **Severity:** P1 for sign-off · **Status:** fixed
+
+**Symptom:** petroleum, net realisation, 14 to 15 Aug: 60 identical requests returned ₹323,926,437.49 fifty-five times and ₹323,926,437.50 five times, and the evidence fingerprint changed with it. A signed finding compares its fingerprint on every open, so the wobble alone could tell a signer the evidence had changed since they signed. Retail's flagship, the North refusal and power were stable across 30 repeats each.
+**Root cause:** the bridge query summed floats across DuckDB's threads, which add in whatever order they finish, and returned its groups in whatever order they finished; a sum landing on a rounding boundary then rounds either way.
+**Fix:** sums are taken as exact decimals (`DECIMAL(38,6)`, then read back as floats) and the result is ordered. 60 of 60 repeats identical. Checked against all 69 warmed demo views and the benchmark: nothing changed except that the wobbling value now always takes the value it took most often before; every benchmark figure is identical.
+**Regression test:** `tests/test_deterministic_sums.py`, verified to fail without the fix (two totals differing in the last digit).
+**Lesson:** a fingerprint over floats is only as stable as the order of their arithmetic. Anything that feeds `evidence_fingerprint` must be deterministic, not merely accurate.
+
+### B-078 · One model run lost 21 of 77 correct ticket readings to a copied label
+**Found:** 2026-09-26, the first measurement of ticket reading (`make eval-extraction`) · **Severity:** P2, silent loss of evidence · **Status:** fixed
+
+**Symptom:** in one of three live runs the model returned ticket ids as `id: G027` rather than `G027`, and every such reading was dropped as "unknown doc_id". That run scored 58% on held-out tickets against 88 to 92% for the other two.
+**Root cause:** each passage is headed `id: <doc_id>`, and the model sometimes copies the whole header line. The id match was exact.
+**Fix:** a leading `id:` label is removed before matching. It cannot attach a reading to the wrong ticket, because the quote must still be found verbatim in that ticket's own text. The prompt is unchanged, so every cached demo answer stays valid; five cached answers did carry the label, and all 69 demo views were compared before and after: identical.
+**Regression test:** `test_the_header_label_copied_into_the_id_still_matches`, verified to fail without the fix.
+
+### B-077 · More than one worker would have broken the audit chain and split the feedback
+**Found:** 2026-09-26, before turning on several workers to lift throughput · **Severity:** P0 for any multi-worker deployment · **Status:** fixed
+
+**Symptom:** none yet, because every deployment ran one process. Measured first: one process serves about five diagnoses a second whether 1 or 8 readers are waiting (typical wait 1.7 s at 8), because Python computes one thing at a time per process. More workers fix that, and three things would have gone wrong with them.
+**Root cause:**
+- The audit log's lock was a thread lock. Two workers read the same head and wrote the same `seq`; four processes signing 25 times each produced a chain that `verify()` reports broken.
+- `FeedbackStore` read its file once and kept it, so a worker never saw an Agree or Dispute recorded by another, and after a demo reset kept counting the archived ones. The applied-changes store already re-read on a changed file; this one did not.
+- A model answer was written straight into its cache file, so another worker could read half of it. That read as a miss, not an error, so it only cost a model call, but it is fixed with the rest.
+**Fix:** the audit log takes an OS file lock beside the log (`AuditLog.locked()`, used by append and by demo reset) as well as the thread lock; the feedback store re-reads when the file's modification time changes; cache answers are written aside and renamed into place. The container runs `WHYCHAIN_WORKERS` workers (default 1); Cloud Run deploys 2 on 2 CPUs, 4 GB, at most 3 instances.
+**Measured:** 1 worker 5.3 req/s, typical wait 1.73 s; 2 workers 7.7 req/s; 4 workers 13.7 req/s, typical wait 0.55 s, p95 1.2 s, no failures (8 concurrent readers, a mix of findings, inbox and overview). Each worker holds about 0.8 GB. The desktop launcher stays at one process: laptops have the memory for one engine (B-069).
+**Regression test:** `tests/test_workers.py`, real separate processes; all three tests verified to fail without the fix (duplicate `seq` at entry 25; the second store saw 0 of 1 judgements).
+**Known limit:** `/api/metrics` counts per worker, so a scrape sees one worker's numbers. Windows has no `fcntl`; there the lock is the thread lock, which is right because the launcher runs one process.
+
+### B-076 · Under single sign-on, anyone who could reach the engine could sign as anyone
+**Found:** 2026-09-26, listing limitations for the jury · **Severity:** P0 for an enterprise deployment, none for the demo · **Status:** fixed
+
+**Symptom:** in proxy mode the engine read who the reader was from `X-Forwarded-Email` and `X-Forwarded-Groups`. Any request that reached the engine without going through the proxy could send those headers itself and sign a finding as the finance director, with any regions it liked.
+**Root cause:** the headers were trusted because the proxy sets them, and "the engine is reachable only through the proxy" was a deployment rule written in a docstring rather than enforced in code.
+**Fix:** the proxy has to prove itself on every request: `X-WhyChain-Proxy-Secret` matching `WHYCHAIN_PROXY_SECRET` (compared in constant time), or a connection from `WHYCHAIN_TRUSTED_PROXIES` (addresses or networks), or both. With neither configured, single sign-on refuses everyone and says which setting is missing, rather than trusting anyone. Demo mode is unchanged.
+**Regression test:** `test_identity_headers_without_the_proxy_are_refused`, `test_an_unconfigured_proxy_trusts_nobody_and_says_why`, `test_trusted_networks_admit_the_proxy_and_no_one_else`, all three verified to fail without the fix.
+
 ### B-075 · A change already made could be raised as a change request
 **Found:** 2026-09-26, clicking every button that writes a record · **Severity:** P1 · **Status:** fixed
 

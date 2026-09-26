@@ -9,7 +9,6 @@ query the registry does not hold.
 from __future__ import annotations
 
 import json
-import socket
 import urllib.error
 from datetime import date
 
@@ -41,7 +40,7 @@ def ask(backend, q="Why did revenue fall in West in August?"):
 
 def test_offline_says_so_in_words_and_points_to_what_still_works():
     for down in (urllib.error.URLError("nodename nor servname provided"),
-                 socket.timeout("timed out"), ConnectionResetError()):
+                 TimeoutError("timed out"), ConnectionResetError()):
         got = ask(Stub(raises=down))
         assert not got.runnable
         assert "needs the internet" in got.problem and "Error" not in got.problem, got.problem

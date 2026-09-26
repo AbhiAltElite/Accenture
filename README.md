@@ -830,8 +830,14 @@ flat at roughly 1.7 requests per second however many readers arrive, and latency
 grows linearly with concurrency: the work is serialised behind one process and
 one warehouse connection. **So the honest capacity figure for this build is
 about two diagnoses per second, and adding readers adds queue, not throughput.**
-The route out is ordinary — multiple workers, a connection per worker, and the
-in-process series cache moved behind them — and none of it is built.
+**Since 26 Sep the route out is built for a server** (B-077). Measured again on
+the redesigned engine, with 8 readers on a mix of findings, inbox and overview:
+one process serves 5.3 a second (typical wait 1.7 s), two serve 7.7, and four
+serve 13.7 (typical wait 0.55 s, p95 1.2 s), with no failures. Several workers
+needed the audit chain and the feedback log made safe across processes first,
+and both are tested with real separate processes (`tests/test_workers.py`). The
+container runs `WHYCHAIN_WORKERS` of them; each holds about 0.8 GB, so the
+desktop app stays at one.
 
 **The honest summary.** Scaling to another business is demonstrated and costs
 configuration. Scaling with data is measured, and the wall is a per-query window

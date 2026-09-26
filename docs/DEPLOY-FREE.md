@@ -15,7 +15,7 @@ about 765 MB. A diagnosis holds roughly 0.7 to 1.2 GB of memory. So:
 | **Render, free plan** | Not enough | 512 MB and a tenth of a CPU; spins down after 15 minutes idle |
 | **Hugging Face Spaces** | No longer free for this | Docker Spaces now need a paid plan to create; only static Spaces are free |
 | **Cloudflare quick tunnel from your laptop** | **Free, no account, works today** | Your laptop runs the app; Cloudflare gives it a public link |
-| **Google Cloud Run** | **Free within its monthly allowance** | Runs the Docker image with 2 GB; needs a card on file |
+| **Google Cloud Run** | **Free within its monthly allowance** | Runs the Docker image, 2 workers on 2 CPUs and 4 GB; needs a card on file |
 
 ## Option A, for demo day: your laptop plus a Cloudflare quick tunnel
 
@@ -50,7 +50,9 @@ reset afterwards. If the model key is set, their clicks use your model quota.
 A fixed `https://whychain-….run.app` link that works when your laptop is off.
 The free allowance (Google's figures, request-based billing, in `us-central1`) is
 2 million requests, 180,000 vCPU-seconds and 360,000 GiB-seconds a month: about
-100 hours of a 1 GB container, which a demo will not approach. A billing account
+25 hours of busy time at 2 CPUs and 4 GB, billed only while requests are being
+served, which a demo and a jury's week of clicking will not approach. Instances
+are capped at 3, so a burst of traffic cannot become a bill. A billing account
 with a card is required even to stay inside it. Other regions have their own
 tiers; check before choosing Mumbai.
 
@@ -65,7 +67,7 @@ tiers; check before choosing Mumbai.
    and runs the benchmark while it builds, so the first build takes several
    minutes:
    ```bash
-   gcloud run deploy whychain --source . --region us-central1 --memory 2Gi --cpu 1 --port 8000 --allow-unauthenticated
+   gcloud run deploy whychain --source . --region us-central1 --memory 4Gi --cpu 2 --max-instances 3 --set-env-vars WHYCHAIN_WORKERS=2 --port 8000 --allow-unauthenticated
    ```
 3. The model key is never in the image (`.dockerignore` excludes `.env`, and a
    test holds that; see BUGS.md B-072). To turn the model on, store the key in
