@@ -50,6 +50,14 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-072 · A container build would have carried the model key
+**Found:** 2026-09-26, preparing the deployment guide · **Severity:** P0 for any deployment · **Status:** fixed
+
+**Symptom:** `.dockerignore` excluded the virtualenv, caches and the warehouse, but not `.env`. `docker build`, and any cloud build from the folder (`gcloud run deploy --source .`), would have copied the model API key into the image. The audit trail and the demo archive would have gone in too.
+**Root cause:** `.env` is gitignored, so it never reached GitHub, and the image was only ever built locally; nothing checked what the build context contained.
+**Fix:** `.dockerignore` excludes `.env` and `.env.*`, the audit, archive and app-data folders, and the desktop package outputs. A deployment sets the key as the platform's secret.
+**Lesson:** gitignored is not the same as excluded from every other copy of the folder. Every packaging path (git, the portable zip, the image) keeps its own list, and each has to name the secrets.
+
 ### B-071 · One cause, two figures; a slide that contradicted its finding
 **Found:** 2026-09-26, a page-by-page pass with every figure re-derived from the raw warehouse · **Severity:** P1 for the flagship · **Status:** fixed
 

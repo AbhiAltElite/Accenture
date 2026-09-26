@@ -153,3 +153,10 @@ def test_closing_the_window_stops_the_engine_a_second_launch_started(tmp_path, m
     launch.close_engines(111)
     assert running == set()
     assert not launch.STATE.exists()
+
+
+def test_an_image_never_carries_the_model_key():
+    """`.env` was gitignored but not dockerignored, so any image built from the
+    folder carried the key (B-072)."""
+    ignored = {line.strip() for line in (ROOT / ".dockerignore").read_text().splitlines()}
+    assert {".env", "data/audit/", "data/archive/"} <= ignored
