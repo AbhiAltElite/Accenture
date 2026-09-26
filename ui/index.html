@@ -525,7 +525,7 @@ table.watch td.n{text-align:right;white-space:nowrap}
    "Prior episodes" into "Prior episod / es" as soon as the value beside it was
    long, which reads as a rendering fault rather than as a narrow column. */
 .margin dt{color:var(--ink-3);min-width:0;overflow-wrap:normal;word-break:normal;
-  hyphens:none}
+  hyphens:none;white-space:nowrap}
 /* The value may wrap; it must not force the row wider than the column. A
    long one used to hold `nowrap` and push the label into the broken state
    above rather than wrapping itself. */
@@ -1186,7 +1186,7 @@ details.queuenote{margin-top:var(--sp-4)}
    sees each one start with a capital, as copy should. Display only: nothing
    read by the engine or the tests changes. Identifiers in code styling keep
    their own case. */
-#main :is(td,th,li,p,small,dd,dt,.q,.count,.owner,.na,b,strong)::first-letter{text-transform:uppercase}
+#main :is(td,th,li,p,small,dd,dt,.q,.count,.owner,.na,b,strong):not(:has(> code:first-child)):not(.mono)::first-letter{text-transform:uppercase}
 #main :is(code,.mono,.num,kbd)::first-letter,#main td.mono::first-letter{text-transform:none}
 /* The section chips wrap onto a second row rather than scroll sideways: a
    chip cut off at the edge did not read as more to see. */
@@ -1400,6 +1400,9 @@ const pct = n => (n*100).toFixed(1).replace(/^-/, '\u2212') + '%';
 /* "10 to 12 Jun 2026", "30 Jun to 2 Jul 2026", the way the decision view writes
    a window. ISO dates are for machines. */
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+/* A calibrated probability as the decision view writes it. The isotonic curve
+   returns 1 in its top bin, and nothing here is certain, so it never says so. */
+const calib = p => p == null ? '\u2013' : p >= 0.95 ? 'above 0.95' : Number(p).toFixed(2);
 function humanSpan(a, b){
   const p = s => { const [y, m, d] = s.split('-').map(Number); return {y, m, d}; };
   const x = p(a), y = p(b || a);
@@ -2832,7 +2835,7 @@ function explainedStory(d){
     company's own words. Confidence is
     <button class="claim" data-panel="confidence">${d.confidence.band}${
       d.confidence.probability != null
-        ? `, calibrated to ${d.confidence.probability}`
+        ? `, calibrated to ${calib(d.confidence.probability)}`
         : `, scoring ${d.confidence.score}`}</button>.</p>`;
 }
 
@@ -3570,7 +3573,7 @@ function objectHeader(d, w, unit){
 
   if(d && d.confidence && d.confidence.band){
     const score = d.confidence.probability != null
-      ? `calibrated to ${d.confidence.probability}`
+      ? `calibrated to ${calib(d.confidence.probability)}`
       : `score ${d.confidence.score}`;
     cells.push(`<div class="kpi"><span class="k">Confidence</span>
       <span class="v words" title="${escapeHtml(score)}">${escapeHtml(bandWord(d.confidence.band))}</span></div>`);
@@ -3584,7 +3587,7 @@ function objectHeader(d, w, unit){
 
   if(w && w.day)
     cells.push(`<div class="kpi"><span class="k">${rising ? 'Best day' : 'Worst day'}</span>
-      <span class="v words">${escapeHtml(w.day)}</span></div>`);
+      <span class="v words">${escapeHtml(humanSpan(w.day))}</span></div>`);
 
   return cells.length > 1 ? cells.join('') : '';
 }
@@ -3703,7 +3706,7 @@ function marginBlock(d){
     ${(d.confidence||{}).probability!=null?`<hr class="rule"><section><span class="label">Confidence</span>
       <dl>
         <dt>Raw score</dt><dd>${d.confidence.score}</dd>
-        <dt>Calibrated</dt><dd>${d.confidence.probability}</dd>
+        <dt>Calibrated</dt><dd>${calib(d.confidence.probability)}</dd>
         <dt>Fitted on</dt><dd>${d.confidence.calibrated_on}</dd>
       </dl></section>`:''}
     ${nar.writer?`<hr class="rule"><section><span class="label">Narrative</span>
@@ -3717,7 +3720,7 @@ function marginBlock(d){
         <dt>Verdict</dt><dd>${escapeHtml(String(gap.verdict).replace(/_/g,' '))}</dd>
         ${gap.recurrence?`<dt>Prior episodes</dt><dd>${gap.recurrence}${
           gap.recurrence_that_hurt!=null
-            ? ` · ${gap.recurrence_that_hurt} with material impact`:''}</dd>`:''}
+            ? `, ${gap.recurrence_that_hurt} material`:''}</dd>`:''}
       </dl></section>`:''}
     ${stale?`<hr class="rule"><section><span class="label">Freshness</span>
       <p>${plural(stale,'source')} past SLA.</p></section>`:''}`;

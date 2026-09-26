@@ -43,11 +43,27 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 | T-34 | A contract that reads a source's timestamps without that source's correction | contracts | `orders` got `tz_normalise` in B-019; `aov` and `checkout_conversion` read the same `order_ts` and did not (B-058). A test asserts every contract reading `pos_txn.order_ts` declares it, rather than each contract remembering |
 | T-35 | Scoring the benchmark and not the demo | bench, uat | The cases a jury sees are the ones that must be right. Score each demo case against its own planted causes, not only for page-equals-API consistency (B-063) |
 | T-36 | A component class named after a common word, in a shared stylesheet | ui | `ui/theme.css` defines `.who` (the seat chip), `.facts`, `.chain`, `.status`; a page that already used the same word for something else inherited a border, padding and flex from the theme (B-067). Page classes that could collide are named for what they are (`owner-note`, `kvgrid`, `whychain`), and a new shared class is grepped for in every page before it lands |
+| T-37 | A figure shown in two views, computed twice | api, ui | The rain's share was scaled for overlap in the bridge with the exact ratio and in the recovery line with one rounded to three places: four rupees apart (B-071). Where one figure appears in two views, one test asserts they agree, and a ratio used as a divisor is never rounded before use |
 | T-18 | A benchmark result that improved for a reason nobody checked | bench, datagen | Numbers that move the flattering way get accepted; numbers that move the other way get investigated. A harness defect usually shows up as the former. Any invariant the generator depends on is executed by a test, never only stated in a docstring (see B-014) |
 
 ---
 
 ## Defects
+
+### B-071 · One cause, two figures; a slide that contradicted its finding
+**Found:** 2026-09-26, a page-by-page pass with every figure re-derived from the raw warehouse · **Severity:** P1 for the flagship · **Status:** fixed
+
+**What held:** 21 of 21 worst-day values re-derived by hand from `pos_txn`, applying each contract's declared SQL and transforms without the engine (averages as a ratio of sums, as the contracts declare), matched the app to the paisa across all three industries; `/uat` 88 of 88.
+
+**What did not, each with its cause:**
+- **The rain was ₹12,572 a day in one line and ₹12,576 in two others.** The recovery line divides by `movement.overlap`, which the API rounded to three places (1.127 for 1.12669); the bridge and the fair target divide by the exact ratio. Kept at full precision now: it is a divisor, not a display figure. Test: `test_one_cause_is_one_figure_in_every_view`, verified to fail without the fix.
+- **The board-pack slide said "Awaiting approval"** for the rollback the finding page reports as already done on 19 Aug. The slide read only the audit trail, not `already_actioned`. It now says "Already done ...; awaiting the owner's confirmation that it worked."
+- **The slide's cause bars were sized against the largest cause**, so the largest always drew full. Now each is its share of the movement, with the percentage.
+- **The workbench said "calibrated to 1"**; the decision view never states certainty ("above 0.95"). Both now read the same. Its worst day was an ISO date.
+- **Sentence case capitalised identifiers** (`Pos_txn`, `Unit_margin`). A block that opens with code keeps its case.
+- **"Prior episodes"** broke into the value beside it in the workbench margin; the value is shortened to fit.
+
+**Lesson:** a figure that appears in more than one view needs one test asserting the views agree, not one test per view (T-37).
 
 ### B-070 · A decoy planted in one region verifies as a cause in another
 **Found:** 2026-09-26, breaking down the benchmark misses · **Severity:** P1 for the published decoy figure · **Status:** open, root cause not yet established

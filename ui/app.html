@@ -230,7 +230,7 @@ h2{font-size:14px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-
 .rowsbox .scroll td,.rowsbox .scroll th{white-space:nowrap}
 .sqlbox{margin:0;padding:14px 16px;font:13px/1.55 var(--mono);color:var(--ink);background:var(--raised);white-space:pre;overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .rowsbox pre{margin:0;padding:14px 16px;font:13px/1.55 var(--mono);color:var(--ink);background:var(--raised);white-space:pre;overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:var(--r-sm)}
-.rowsbox .bar2{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
+.bar2,.rowsbox .bar2{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
 .tabs{display:flex;gap:20px}
 .tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 0;color:var(--ink-3);cursor:pointer;font-size:14.5px}
 .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink);font-weight:600}
@@ -606,7 +606,9 @@ main section[id]{scroll-margin-top:88px}
 .wi details[open] > summary::before,.rowsq[open] > summary::before{transform:rotate(45deg)}
 .narr > summary:hover,details.more > summary:hover,.raw > summary:hover,.wi details > summary:hover,.rowsq > summary:hover{text-decoration:underline;text-underline-offset:3px}
 /* Sentence case wherever a block of text begins; see the workbench's rule. */
-#view :is(td,li,p,small,dd,.s,.m,.why,.note)::first-letter{text-transform:uppercase}
+/* A block that opens with an identifier (pos_txn, unit_margin) keeps its case:
+   that is a name in a system, not the start of a sentence. */
+#view :is(td,li,p,small,dd,.s,.m,.why,.note):not(:has(> code:first-child)):not(.mono)::first-letter{text-transform:uppercase}
 #view :is(code,.num,kbd)::first-letter{text-transform:none}
 .summary .aside{display:block;margin-top:6px;font-size:14.5px;color:var(--ink-2)}
 .summary .aside b{font-size:15px;color:var(--ink)}

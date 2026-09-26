@@ -2565,7 +2565,9 @@ def diagnose(
             # and sum to `explained`; above that they sum to more than the
             # movement, and a reader adding the column up needs telling why it
             # does not reconcile.
-            "overlap": round(overlap, 3),
+            # Full precision: it is a divisor. Rounded to three places it moved a
+            # scaled figure by four rupees between two views of one cause.
+            "overlap": round(overlap, 6),
             "per_cause": {k: round(v2, 2) for k, v2 in per_cause.items()},
         },
         "confidence": {
@@ -3033,7 +3035,7 @@ def demo_reset(request: Request) -> dict:
     if identity_mode() != "demo":
         raise HTTPException(403, "the audit trail cannot be reset under single sign-on")
     who = _who(request)
-    stamp = datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now(UTC).astimezone().strftime("%Y%m%d-%H%M%S")  # local, as make demo-reset names it
     dest = _ARCHIVE / stamp
     moved = []
     with _audit._lock:
