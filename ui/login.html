@@ -47,6 +47,10 @@ body{font-family:var(--sans);font-size:16px;line-height:1.55;color:var(--ink);ba
 .or{display:flex;align-items:center;gap:14px;margin:28px 0 16px}
 .or::before,.or::after{content:"";flex:1;border-top:1px solid var(--line)}
 .roles{display:grid;gap:10px}
+.inds{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:var(--r-md);background:var(--sunk);margin-bottom:14px}
+.inds button{border:0;background:transparent;border-radius:calc(var(--r-md) - 3px);padding:9px 6px;font:inherit;font-weight:600;font-size:14px;color:var(--ink-2);cursor:pointer}
+.inds button[aria-pressed="true"]{background:var(--raised);color:var(--ink);box-shadow:var(--shadow-1)}
+.inds button:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
 .role{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:center;text-align:left;width:100%;
   padding:14px 16px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--paper);font:inherit;color:var(--ink);
   cursor:pointer;box-shadow:var(--shadow-1);transition:border-color .12s,transform .12s}
@@ -105,21 +109,17 @@ const next = (() => {
   const n = new URLSearchParams(location.search).get('next') || '/';
   return n.startsWith('/') && !n.startsWith('//') ? n : '/';
 })();
-// What each seat reads, in a line. The view each opens matches the decision
-// view's own mapping, so a signed-in reader lands on the projection for them.
-const SEAT = {
-  finance_director: {view:'cfo', what:'Signs findings. Sees the size, the decision and how much to trust it.'},
-  fpa_analyst: {view:'analyst', what:'Works the evidence: every test, citation and rejected cause.'},
-  ecommerce_lead: {view:'analyst', what:'Owns the app and web levers, and approves release decisions.'},
-  category_manager: {view:'analyst', what:'Owns pricing and assortment, and approves those decisions.'},
-  area_sales_manager: {view:'ops', what:'Sees the levers in their territory and who signs them off.'},
-};
+const INDUSTRIES = [['retail', 'Retail'], ['petroleum', 'Petroleum'], ['power', 'Power']];
 const initials = n => n.replace(/\(demo\)/, '').replace(/,.*$/, '').split(/[\s&]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+let chosen = (() => { try{ return localStorage.getItem('whychain-industry') || 'retail'; }catch{ return 'retail'; } })();
+if(!INDUSTRIES.some(([id]) => id === chosen)) chosen = 'retail';
 
-function signIn(user, role){
+// Each seat opens in its own view and in the industry chosen above, so a
+// supply manager lands on the petroleum findings they sign and decide.
+function signIn(user, view){
   store.set('whychain-user', user);
-  const seat = SEAT[role];
-  if(seat) store.set('whychain-persona', seat.view);
+  if(view) store.set('whychain-persona', view);
+  store.set('whychain-industry', chosen);
   store.set('whychain-session', String(Date.now()));
   location.replace(next);
 }
@@ -146,16 +146,27 @@ function signIn(user, role){
       Continue with single sign-on</button>
     <p class="ssonote" id="ssonote">Connected in production to your organisation's identity provider. Not configured on this demo.</p>
     <div class="or mc">Demo access · choose a seat</div>
-    <div class="roles">${me.demo_users.map(u => {
-      const seat = SEAT[u.role] || {what:''};
-      const name = u.name.replace(' (demo)', '');
-      return `<button class="role" type="button" data-user="${esc(u.id)}" data-role="${esc(u.role)}">
-        <span class="av">${esc(initials(name))}</span>
-        <span><b>${esc(name)}</b><small>${esc(seat.what)}</small></span>
-        <span class="go" aria-hidden="true">→</span></button>`;
-    }).join('')}</div>
+    <div class="inds" role="group" aria-label="Industry">${INDUSTRIES.map(([id, name]) =>
+      `<button type="button" data-ind="${id}" aria-pressed="${id === chosen}">${name}</button>`).join('')}</div>
+    <div class="roles" id="roles"></div>
     <p class="demo"><span class="tag unk">Demo</span>No password is used or stored. Every record made here is marked as a demo identity.</p>`;
-  card.querySelectorAll('.role').forEach(b => b.onclick = () => signIn(b.dataset.user, b.dataset.role));
+  const seats = () => {
+    const list = me.demo_users.filter(u => (u.industries || ['retail']).includes(chosen));
+    card.querySelector('#roles').innerHTML = list.map(u => {
+      const name = u.name.replace(' (demo)', '');
+      return `<button class="role" type="button" data-user="${esc(u.id)}" data-view="${esc(u.view || 'analyst')}">
+        <span class="av">${esc(initials(name))}</span>
+        <span><b>${esc(name)}</b><small>${esc(u.what || '')}</small></span>
+        <span class="go" aria-hidden="true">→</span></button>`;
+    }).join('');
+    card.querySelectorAll('.role').forEach(b => b.onclick = () => signIn(b.dataset.user, b.dataset.view));
+  };
+  card.querySelectorAll('.inds button').forEach(b => b.onclick = () => {
+    chosen = b.dataset.ind;
+    card.querySelectorAll('.inds button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    seats();
+  });
+  seats();
   const first = card.querySelector('.role'); if(first) first.focus();
 })();
 </script>

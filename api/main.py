@@ -56,7 +56,7 @@ from whychain.feedback.apply import (
     ApplyRefused,
     apply_proposal,
 )
-from whychain.identity import DEMO_USERS, Identity, effective_entitlement
+from whychain.identity import DEMO_USERS, SEATS, Identity, effective_entitlement
 from whychain.identity import mode as identity_mode
 from whychain.ingest import IngestError, Warehouse
 from whychain.ingest import rows as query_rows
@@ -2757,6 +2757,16 @@ def diagnose(
         v.candidate.candidate_id: plain(v.candidate.description)
         for v in verifications if v.candidate.candidate_id in shown
     })
+    # Who answers for it, from the projected decisions so a lever this reader
+    # may not see is not named. Roles and titles only: nothing here is evidence,
+    # so it is outside the fingerprint and cannot move a signature.
+    # Every lever owner, not only the top card a finance view shows, unless the
+    # reader's entitlement withheld a cause: then only what they were shown.
+    withheld = bool((projected.get("entitlement") or {}).get("notice"))
+    projected["accountability"] = _accountability(
+        vertical, contract, region,
+        (projected.get("decisions") if withheld else result.get("decisions")) or [],
+        projected.get("verdict"))
     return projected
 
 
@@ -3059,7 +3069,9 @@ def me(request: Request) -> dict:
         "identity": who.as_dict(),
         "mode": identity_mode(),
         "demo_users": (
-            [{"id": k, "name": n, "role": r} for k, (n, r) in DEMO_USERS.items()]
+            [{"id": k, "name": n, "role": r, "industries": list(SEATS[k]["industries"]),
+              "view": SEATS[k]["view"], "what": SEATS[k]["what"]}
+             for k, (n, r) in DEMO_USERS.items()]
             if identity_mode() == "demo" else []
         ),
     }
@@ -3318,6 +3330,58 @@ def _card_span(start: str, end: str) -> str:
 _card_action = action_text
 
 
+def _accountability(vertical: Vertical, contract, region: str | None,
+                    decisions: list[dict], verdict: str | None) -> dict:
+    """Who explains, reviews, acts on and signs a finding.
+
+    Signs is the metric's owner, from its contract. Acts is each lever's owner,
+    from the decision cards. Between them, the head of the region the movement
+    happened in explains it and the national head reviews it: the line that the
+    industry's reference operating model names (`Vertical.ladder`). A finding
+    across all regions is explained by the national head directly.
+    """
+    ladder = vertical.ladder
+
+    def person(role_id: str, title: str) -> dict:
+        return {"role": role_id, "title": title}
+
+    if region:
+        explains = person(ladder.explains[0], ladder.explains[1].format(region=region))
+        reviews = person(*ladder.reviews)
+        informed = ladder.informed.format(region=region)
+    else:
+        explains = person(*ladder.reviews)
+        reviews = None
+        informed = None
+    acts, seen = [], set()
+    for card in decisions:
+        owner = (card.get("approval") or {}).get("assigned_to") or card.get("owner")
+        if not owner or not card.get("controllable", True) or (owner, card.get("action")) in seen:
+            continue
+        seen.add((owner, card.get("action")))
+        done = card.get("already_actioned") or {}
+        # "for category coal" reads as a field name. Tidied here only: the
+        # shared wording feeds cached prompts, and changing it would send the
+        # demo back to the model on stage.
+        action = re.sub(r"\bfor category (\w+)", r"for \1", _card_action(card.get("action") or ""))
+        acts.append({**person(owner, _card_role(owner)), "action": action,
+                     "done_on": str(done.get("on"))[:10] if done else None})
+    return {
+        "region": region,
+        "explains": explains,
+        "reviews": reviews,
+        "acts": acts,
+        "signs": person(contract.owner_role, _card_role(contract.owner_role)),
+        "informed": informed,
+        # Why nobody acts yet, in words, when nobody does.
+        "no_action": None if acts else (
+            "The two systems disagree, so data engineering checks the extract first."
+            if verdict == "contradicted" else
+            "No verified cause has a lever; the response is to monitor."),
+        "reference": ladder.reference,
+    }
+
+
 def _card_role(identifier: str) -> str:
     text = sentence_case(role(identifier).removeprefix("the "))
     return re.sub(r"^Ecommerce", "E-commerce", text)
@@ -3359,6 +3423,9 @@ def _adaptive_card(card: dict, run: dict, link: str, decided: dict | None = None
             {"type": "FactSet", "facts": [
                 {"title": "Verified cause", "value": sentence_case(card["cause"].split(": ", 1)[-1])},
                 {"title": "Owner", "value": _card_role(card["approval"]["assigned_to"])},
+                # The regional line, so the owner knows who will be asked about it.
+                *([{"title": "Explains", "value": run["accountability"]["explains"]["title"]}]
+                  if run.get("accountability") else []),
                 {"title": "Expected recovery",
                  "value": f"₹{_indian(rec)} a day" if rec is not None else "not computed"},
                 {"title": "Finding", "value":

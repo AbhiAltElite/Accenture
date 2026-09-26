@@ -22,7 +22,7 @@ from pathlib import Path
 from whychain.actions import DriverMap, RecoveryModel
 from whychain.corroborate import Corpus, Vocabulary
 from whychain.verify.candidates import PlanSpec
-from whychain.verticals.spec import PlanColumns, Vertical
+from whychain.verticals.spec import Ladder, PlanColumns, Vertical
 
 # The same five roles again: a pair for "the dispatch could not be completed",
 # a pair for "the energy did not arrive", then tariff, quality and residual.
@@ -125,6 +125,15 @@ PLAN = PlanSpec(
     noun="Outage",
 )
 
+LADDER = Ladder(
+    explains=("regional_executive_director", "Regional Executive Director, {region}"),
+    reviews=("director_commercial", "Director, Commercial"),
+    informed="Station heads, {region}",
+    reference="Reference operating model, drawn from published structures of Indian "
+              "power generation companies: corporate, regional and station.",
+)
+
+
 RECOVERY = RecoveryModel(
     # A regulatory filing recovers least of anything in the three verticals: a
     # tariff order is not reversed by asking, and the filing that might amend it
@@ -173,6 +182,7 @@ POWER = Vertical(
     drivers=DRIVERS,
     plan=PLAN,
     recovery=RECOVERY,
+    ladder=LADDER,
     plan_columns=PlanColumns(
         levels=("fuel_cost", "declared_capacity"),
         index="market_clearing_index",

@@ -50,6 +50,13 @@ a{color:var(--accent)}
 .fbd > summary h2{margin:0}
 .fbd[open] > summary{margin-bottom:14px}
 .chain-lede{margin:0 0 16px;font-size:16.5px;line-height:1.55;color:var(--ink-2)}
+.who-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.who-c{border:1px solid var(--line);border-radius:var(--r-md);padding:14px 16px;background:var(--raised)}
+.who-c.me{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand) inset}
+.who-l{display:block;font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
+.who-l em{font-style:normal;text-transform:none;letter-spacing:0;color:var(--brand);margin-left:4px}
+.who-c b{display:block;font-size:16px;line-height:1.35}
+.who-c small{display:block;margin-top:4px;font-size:14px;line-height:1.45;color:var(--ink-2)}
 .chain-key{margin:14px 0 0;font-size:14.5px;color:var(--ink-3)}
 /* Eight links in two rows of four. In one row of eight each link was about
    120px wide on a laptop, so step names broke mid-label, the figures wrapped a
@@ -820,6 +827,8 @@ function initTheme(){
 // could not see, let alone accept, the pricing decision assigned to them.
 const ROLE_VIEW = {finance_director:'cfo', fpa_analyst:'analyst', area_sales_manager:'ops',
   ecommerce_lead:'analyst', category_manager:'analyst'};
+// The seat list says each seat's view; this map is the fallback for single sign-on.
+const viewOf = r => ((S.me && S.me.demo_users) || []).find(u => u.role === r)?.view || ROLE_VIEW[r];
 function renderActor(){
   const me = S.me; if(!me) return;
   const who = me.identity;
@@ -1318,7 +1327,7 @@ function findingView(ctx){
   const main = d.verdict === 'explained' ? explainedBody(ctx) : d.verdict === 'contradicted' ? contradictedBody(ctx) : unknownBody(ctx);
   const withheld = (d.withheld || []).length && persona !== 'analyst'
     ? `<div class="withheld" style="margin-top:14px">Withheld for the ${esc(PERSONA_NAME[persona].toLowerCase())}: ${esc(d.withheld.join(', '))}. The evidence underneath is the same for every reader.</div>` : '';
-  const own = S.me && ROLE_VIEW[S.me.identity.role];
+  const own = S.me && viewOf(S.me.identity.role);
   const note = own && own !== persona ? `<p class="viewnote" title="What you may sign or decide follows who you are signed in as, not the view.">Viewing as the ${esc(PERSONA_NAME[persona].toLowerCase())} · Signed in as ${esc(myName().replace(' (demo)', ''))}</p>` : '';
   return `<div class="crumbs">${backBtn('/?' + qs({entitled:f.entitled}))}<a href="/?${qs({entitled:f.entitled})}" data-nav>Findings</a> / ${esc(kpiName(f.kpi))} / ${esc(scopeText(f))} / ${span(f.start, f.end)}</div>
     ${note}<section class="panel head" style="margin-top:10px">
@@ -1331,6 +1340,7 @@ function findingView(ctx){
     </section>
     <nav class="onpage" id="onpage" aria-label="On this page"></nav>
     ${chainHtml(ctx)}
+    ${whoHtml(ctx)}
     ${main}
     ${calendarHtml(ctx)}
     ${withheld}
@@ -1625,6 +1635,12 @@ function reconHtml(d){
   const r = d.reconciliation; if(!r || r.state === 'contradicted') return '';
   return `<section class="panel"><h2>${r.state === 'agreed' ? 'Checked against the finance ledger' : 'Finance ledger'}</h2><p class="small" style="margin:0">${esc(plain(r.reason || human(r.state), d))}</p></section>`;
 }
+// In the demo, one click to the seat that owns a card, as signing already has.
+// Under single sign-on there is no switching: the proxy decides who you are.
+function actAs(role){
+  if(!S.me || S.me.mode !== 'demo' || !(S.me.demo_users || []).some(u => u.role === role)) return '';
+  return ` <button type="button" class="btn sm" data-actas-role="${esc(role)}">Act as the ${esc(roleName(role).toLowerCase())} (demo)</button>`;
+}
 function decisionsHtml(ctx){
   const d = ctx.diag.data;
   let cards = d.decisions || [];
@@ -1646,8 +1662,8 @@ function decisionsHtml(ctx){
                   <button type="button" class="btn sm" data-decide="${esc(a.action_id)}:modify">Modify</button>
                   <button type="button" class="btn sm" data-decide="${esc(a.action_id)}:reject">${c.already_actioned ? 'It did not work' : 'Reject'}</button>`
                : c.already_actioned
-                 ? `<span class="small muted">Awaiting the ${esc(roleName(a.assigned_to).toLowerCase())}'s confirmation that it worked. Nothing further executes.</span>`
-                 : `<span class="small muted">Awaiting the ${esc(roleName(a.assigned_to).toLowerCase())}. Nothing executes until they decide.</span>`}
+                 ? `<span class="small muted">Awaiting the ${esc(roleName(a.assigned_to).toLowerCase())}'s confirmation that it worked. Nothing further executes.</span>${actAs(a.assigned_to)}`
+                 : `<span class="small muted">Awaiting the ${esc(roleName(a.assigned_to).toLowerCase())}. Nothing executes until they decide.</span>${actAs(a.assigned_to)}`}
         <span class="handoff">
           ${done && done.event !== 'decision_rejected' && !c.already_actioned ? `<button type="button" class="btn sm${mine ? ' primary' : ''}" data-ticket="${esc(a.action_id)}">Raise change request</button>` : ''}
           <button type="button" class="btn sm" data-teams="${esc(a.action_id)}">${done ? 'Share in Teams' : 'Notify owner in Teams'}</button>
@@ -1758,6 +1774,27 @@ function chainLinks(ctx){
 // How each link reads mid-sentence: "breaks at the cause", not "at caused".
 const NOUN = {Moved: 'the movement', Confirmed: 'the second system', Located: 'the breakdown', Caused: 'the cause',
   Evidence: 'the evidence', Lever: 'the lever', Decided: 'the decision', Signed: 'the signature'};
+/* Who answers for this finding: the line above the metric owner, from the
+   industry's reference operating model, and the lever owners from the cards.
+   "You" marks the seat signed in, so a reader sees their own part in it. */
+function whoHtml(ctx){
+  const a = ctx.diag.data.accountability; if(!a) return '';
+  const me = myRole();
+  const cell = (label, title, sub, role) => `<div class="who-c${role && role === me ? ' me' : ''}">
+    <span class="who-l">${label}${role && role === me ? ' <em>you</em>' : ''}</span>
+    <b>${esc(title)}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
+  const acts = a.acts.length
+    ? a.acts.map(x => cell('Acts', x.title, esc(x.action) + (x.done_on ? ` · done ${esc(dt(x.done_on))}` : ''), x.role)).join('')
+    : cell('Acts', 'No one yet', esc(a.no_action || ''), null);
+  return `<section class="panel" id="who" style="margin-top:20px"><h2>Who answers for it</h2>
+    <div class="who-grid">
+      ${cell('Explains', a.explains.title, a.region ? `Heads the ${esc(a.region)} zone` : 'Every region', a.explains.role)}
+      ${a.reviews ? cell('Reviews', a.reviews.title, 'Nationally', a.reviews.role) : ''}
+      ${acts}
+      ${cell('Signs', a.signs.title, `Owns ${esc(kpiName(ctx.diag.data.kpi_id).toLowerCase())}`, a.signs.role)}
+    </div>
+    <p class="small muted" style="margin:12px 0 0">${a.informed ? `Kept informed: ${esc(a.informed)}. ` : ''}${esc(a.reference)}</p></section>`;
+}
 function chainHtml(ctx){
   const L = chainLinks(ctx);
   const broke = L.find(x => x.state === 'broken');
@@ -1963,7 +2000,7 @@ function wireFinding(ctx){
   // Built from what was rendered, so a link never points at a section this
   // verdict does not have (a contradicted finding has no gap and no decisions).
   const first = {explained:'Causes', contradicted:'Why nothing is explained'}[ctx.diag.data.verdict] || 'What we checked';
-  const links = [['chain', 'The chain'], ['bridge', 'The bridge'], ['why', first], ['fishbone', 'Fishbone'], ['gap', 'Signal gap'], ['calendar', 'Calendar'], ['decide', 'Decisions'], ['whatif', 'What-if'], ['fair', 'Fair target']]
+  const links = [['chain', 'The chain'], ['who', 'Who answers'], ['bridge', 'The bridge'], ['why', first], ['fishbone', 'Fishbone'], ['gap', 'Signal gap'], ['calendar', 'Calendar'], ['decide', 'Decisions'], ['whatif', 'What-if'], ['fair', 'Fair target']]
     .filter(([id]) => document.getElementById(id));
   const nav = $('#onpage');
   if(nav){
@@ -1980,6 +2017,15 @@ function wireFinding(ctx){
   view.querySelectorAll('[data-fb]').forEach(b => b.onclick = () => feedback(ctx, b));
   wireWhatIf(ctx);
   view.querySelectorAll('[data-decide]').forEach(b => b.onclick = () => decideModal(ctx, ...b.dataset.decide.split(':')));
+  view.querySelectorAll('[data-actas-role]').forEach(b => b.onclick = async () => {
+    const u = S.me.demo_users.find(x => x.role === b.dataset.actasRole); if(!u) return;
+    S.user = u.id; store.set('whychain-user', S.user);
+    // The owner's view, so the card they own is on the page they land on.
+    if(u.view){ S.persona = u.view; store.set('whychain-persona', S.persona); markPersona(); }
+    S.me = (await api('/api/me')).data; renderActor();
+    toast(`Now acting as the ${roleName(u.role).toLowerCase()} (demo).`);
+    route();
+  });
   view.querySelectorAll('[data-teams]').forEach(b => b.onclick = () => teams(ctx, b.dataset.teams));
   view.querySelectorAll('[data-ticket]').forEach(b => b.onclick = () => ticket(ctx, b.dataset.ticket));
   const s = view.querySelector('[data-sign]'); if(s) s.onclick = () => signModal(ctx);

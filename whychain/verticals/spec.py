@@ -48,6 +48,36 @@ RETAIL_PLAN_COLUMNS = PlanColumns()
 
 
 @dataclass(frozen=True)
+class Ladder:
+    """Who answers for a region's number in this industry, above the metric owner.
+
+    A finding names who signs (the contract's owner) and who holds each lever
+    (the decision cards). Between them sits the line: the head of the region the
+    movement happened in explains it, and the national head reviews it. That line
+    differs by industry, so it is data here rather than an assumption in code.
+
+    Each is a reference operating model, drawn from published structures of the
+    industry's leading companies, which are not named (see CLAUDE.md, Naming).
+    The demo's four regions are what these companies call zones.
+    """
+
+    explains: tuple[str, str]      # (role id, title with {region})
+    reviews: tuple[str, str]       # (role id, title)
+    informed: str                  # who else hears, with {region}
+    reference: str
+
+
+RETAIL_LADDER = Ladder(
+    explains=("zonal_sales_manager", "Zonal Sales Manager, {region}"),
+    reviews=("national_sales_manager", "National Sales Manager"),
+    informed="Area Sales Managers, {region}",
+    reference="Reference operating model, drawn from published structures of leading "
+              "Indian and global consumer goods companies: National, Zonal, Regional "
+              "and Area Sales Managers.",
+)
+
+
+@dataclass(frozen=True)
 class Vertical:
     """One industry the console can be pointed at.
 
@@ -82,6 +112,7 @@ class Vertical:
     plan: PlanSpec = RETAIL_PLAN
     plan_columns: PlanColumns = RETAIL_PLAN_COLUMNS
     recovery: RecoveryModel = RETAIL_RECOVERY
+    ladder: Ladder = RETAIL_LADDER
 
     def label_for(self, dimension: str) -> str:
         return self.dimensions.get(dimension, dimension.replace("_", " ").capitalize())
