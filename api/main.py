@@ -2687,6 +2687,13 @@ def diagnose(
             "next_check": a.next_check,
             "question": a.question,
         }
+        # "Break the movement down a further level" named no slice and no
+        # person, and every unknown asked the same question. The breakdown is
+        # already computed: say where the movement sits and who explains it.
+        result["abstention"].update(_where_to_look(
+            result, verifications, vertical, region, event_start, event_end,
+            _expected_direction(vertical, contract, scope, region, sliced,
+                                event_start, event_end)) or {})
     else:
         result["verdict"] = "explained"
 
@@ -3357,6 +3364,66 @@ def _card_span(start: str, end: str) -> str:
 
 
 _card_action = action_text
+
+
+def _where_to_look(result: dict, verifications, vertical: Vertical, region: str | None,
+                   start: date, end: date, expected: float | None = None) -> dict | None:
+    """A next check and a question that name the slice and the person.
+
+    From the exact breakdown (the slices sum to the movement with no residual),
+    the slice carrying the most of it in the movement's direction, and the
+    region's line owner from the industry's ladder. Untestable causes get the
+    question that fits why they could not be tested.
+    """
+    when = _card_span(start.isoformat(), end.isoformat())
+    where = region or "every region"
+    untestable = [v for v in verifications if v.state.value == "cannot_verify"]
+    if untestable:
+        v = untestable[0]
+        name = plain(v.candidate.description)
+        off = " ".join(t.detail for t in v.results if t.outcome.value == "unavailable")
+        if "history" in off or "quiet windows" in off:
+            return {
+                "next_check": (f"Re-open this finding once there is more history before "
+                               f"{name.lower()}; it is too new to test, and is tested again "
+                               f"each time the finding opens"),
+                "question": (f"Is there an earlier period, or a similar launch, that {name.lower()} "
+                             f"can be compared with?"),
+            }
+        return None
+    total = (result.get("movement") or {}).get("total_change") or 0
+    ladder = vertical.ladder
+    who = ladder.explains[1].format(region=region) if region else ladder.reviews[1]
+    # The breakdown is against the fortnight before. When the season was rising
+    # a finding can be short of expected and still up on that fortnight, and the
+    # slice "carrying most of the rise" then says nothing about the shortfall.
+    if expected and total and (expected > 0) != (total > 0):
+        return {
+            "next_check": (f"Compare {where} with the same weeks in earlier years, slice by "
+                           f"slice: it is {'below' if expected < 0 else 'above'} what the time "
+                           f"of year predicts but {'up' if total > 0 else 'down'} on the "
+                           f"fortnight before, so that fortnight cannot place it. Ask the "
+                           f"{who}{',' if ',' in who else ''} what was different on {when}"),
+            "question": (f"What held {where} {'below' if expected < 0 else 'above'} its usual "
+                         f"level for the time of year on {when}?"),
+        }
+    slices = [x for x in (result.get("ranking") or {}).get("exact") or []
+              if x.get("value") and total and (x["value"] > 0) == (total > 0)]
+    if not slices:
+        return None
+    top = max(slices, key=lambda x: abs(x["value"]))
+    what = top["label"].split(" · ", 1)[-1]
+    what = {"lpg": "LPG", "pos": "point of sale"}.get(what, what)
+    share = top.get("share") or 0
+    size = (f"more than the whole {'fall' if total < 0 else 'rise'}, other slices moving the "
+            f"other way" if share > 1 else
+            f"{share:.0%} of the {'fall' if total < 0 else 'rise'}")
+    return {
+        "next_check": (f"Start with {what} in {where}: it carries {size}, "
+                       f"₹{_indian(abs(top['value']))} a day. Ask the {who}"
+                       f"{',' if ',' in who else ''} what changed on {when}"),
+        "question": f"What changed for {what} in {where} on {when} that is not in the record?",
+    }
 
 
 def _accountability(vertical: Vertical, contract, region: str | None,

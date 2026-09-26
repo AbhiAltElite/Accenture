@@ -95,7 +95,7 @@ document.getElementById('print').onclick = () => window.print();
   const decidedBy = id => ((aud.data && aud.data.entries) || []).find(e => e.event.startsWith('decision_') && e.payload.action_id === id
     && e.subject.window && e.subject.window.from === f.start && e.subject.window.to === f.end);
   const out = document.getElementById('out');
-  if(!d.ok){ out.innerHTML = `<div class="msg"><b>No slide for this finding.</b><p>${esc((d.data && (d.data.detail.detail || d.data.detail)) || 'It could not be read.')}</p></div>`; return; }
+  if(!d.ok){ out.innerHTML = `<div class="msg"><b>No slide for this finding.</b><p>${esc(String((d.data && (d.data.detail.detail || d.data.detail)) || 'It could not be read.').replace(/\b[a-z]+(?:_[a-z]+)+\b/g, m => m.replace(/_/g, ' ')))}</p></div>`; return; }
   const x = d.data, all = (s.data && s.data.anomalies) || [], drops = all.filter(a => a.delta < 0);
   const an = (drops.length ? drops : all).reduce((w,a) => !w || Math.abs(a.delta) > Math.abs(w.delta) ? a : w, null);
   const scope = [f.region || (f.entitled ? `${f.entitled} (your regions)` : 'all regions'), f.channel && `${f.channel} channel`].filter(Boolean).join(', ');

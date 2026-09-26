@@ -50,6 +50,18 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-087 · Internal names showed through to readers in 72 places
+**Found:** 2026-09-26, a browser sweep of 234 pages across all three industries · **Severity:** P2, polish visible to a jury · **Status:** fixed
+
+**Symptom:** the what-if assumptions read "elasticity_prior declared on the unit_price driver in net_revenue.yml"; the slide for a detection-only metric read "avg_realised_tariff is measured in…"; the model's written summary in petroleum and power said "The net_realisation moved" and "not_foreseeable", and carried citation tags such as "(f-decision-1)".
+**Fix:** one wording helper on the page (`words` in `ui/app.html`) removes citation tags, turns `x_y.yml` into "the x y contract" and any remaining snake_case into words; the slide's refusal does the same. The sweep (`scratchpad/sweep.mjs` pattern, described in the handover) now reports 0 across 234 pages: every inbox filter value, every finding in three views, every slide, every metric, the audit trail, the workbench, and region refusals; no script errors, no NaN, undefined or null, nothing stuck loading.
+
+### B-086 · A "next check" that named nothing, and sometimes the wrong direction
+**Found:** 2026-09-26, reviewing every unknown finding's next check · **Severity:** P1 for the refusal story · **Status:** fixed
+
+**Symptom:** every unknown said some form of "break the movement down a further level" and asked the same question, "Is there an event in this window that was not written down anywhere?". Made specific from the fortnight breakdown, four of them then said "carries 65% of the rise" on findings listed under Falls: short of expected but up on the fortnight before, because the season was climbing (the B-070 trap again). And an untestable cause always asked whether it "applied everywhere", which for a three-week-old SKU is the wrong reason.
+**Fix:** `_where_to_look` in `api/main.py`: the slice carrying most of the movement, its share and rupees a day, and the region's line owner from the ladder ("Start with personal care in West: it carries 63% of the fall, ₹14,373 a day. Ask the Zonal Sales Manager, West, what changed on 27 to 28 Jul 2026"). Where the fortnight and the expected line disagree, it says so and points to the same weeks in earlier years. Untestable causes get the question that fits why (too new, or everywhere). The fishbone says "Too new to test yet" and "Failed the placebo test", with the full reason on hover. AI cache re-warmed: all 23 cases, 12 questions.
+
 ### B-084 · The "model on / model off" panel showed the same text, from a stale run
 **Found:** 2026-09-26, asked why the two columns read the same · **Severity:** P1, contradicts the rest of the app · **Status:** fixed
 

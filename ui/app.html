@@ -714,6 +714,13 @@ const causeText = c => String(c||'').replace(/^[\w.-]+:\s*/, '').replace(/\.$/, 
 const cap = t => { t = String(t || ''); return t.charAt(0).toUpperCase() + t.slice(1); };
 // Engine sentences name things by id. Each id the run knows is replaced with
 // the words a reader knows it by, longest first so "rel-4.05" wins over "4.05".
+// Internal names a reader should never meet: "net_realisation",
+// "net_revenue.yml", "not_foreseeable", and the model's citation tags,
+// "(f-movement)", which link a sentence to its fact and read as noise in prose.
+const words = t => String(t || '')
+  .replace(/\s*\(f-[\w-]+\)/g, '')
+  .replace(/\b([a-z]+(?:_[a-z]+)+)\.yml\b/g, (m, id) => `the ${id.replace(/_/g, ' ')} contract`)
+  .replace(/\b[A-Za-z][a-z]*(?:_[a-z]+)+\b/g, m => m.replace(/_/g, ' '));
 function plain(text, d){
   let t = String(text || '');
   const names = [];
@@ -729,8 +736,8 @@ function plain(text, d){
       .map(id => id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
     t = t.replace(new RegExp(`(?<![\\w.-])(${alt})(?![\\w-]|\\.\\w)`, 'gi'), m => byId.get(m.toLowerCase()) || m);
   }
-  return cap(t.replace(/\bfinance_ledger\b/g, 'the finance ledger').replace(/\bchannel (store|app|web)\b/g, 'the $1 channel')
-    .replace(/(\d[\d,]*) rupees per day/g, (m, n) => `${inr(Number(n.replace(/,/g, '')))} a day`));
+  return cap(words(t.replace(/\bfinance_ledger\b/g, 'the finance ledger').replace(/\bchannel (store|app|web)\b/g, 'the $1 channel')
+    .replace(/(\d[\d,]*) rupees per day/g, (m, n) => `${inr(Number(n.replace(/,/g, '')))} a day`)));
 }
 const actionText = a => cap(String(a || '')
   .replace(/for channel (\w+), device (\w+)/, 'for the $1 channel on $2 devices')
@@ -1247,7 +1254,7 @@ function flaggedMean(ctx){
   const days = ser.anomalies.filter(a => a.day >= f.start && a.day <= f.end && Math.sign(a.delta) === Math.sign(worst.delta));
   if(days.length < 2) return '';
   const mean = days.reduce((a,x) => a + Math.abs(x.delta), 0) / days.length;
-  return `<small class="cap">Worst day. ${inr(mean)} a day across the ${days.length} flagged days</small>`;
+  return `<small class="cap">On the worst day. Across all ${days.length} flagged days: ${inr(mean)} a day</small>`;
 }
 /* The model-written prose arrives second. Every figure is already on the page
    and stays put; only the paragraph changes. */
@@ -1900,15 +1907,29 @@ function waterfallHtml(ctx){
    diagram separates what survived from what was rejected and why, and shows
    the bones where the record held nothing at all. Placement is the server's
    (whychain/verify/fishbone.py), deterministic and explained per entry. */
+// Why a cause could not be tested, in words, from the tests that could not
+// run, and what would change it. A test that cannot run is never counted as
+// passed (D-006), so these are neither accepted nor rejected: the diagnosis is
+// recomputed each time the finding opens, and the cause is tested as soon as
+// the data allows. "Could not be tested yet" alone left a reader asking why.
+function untestableWhy(x){
+  const off = (x.tests || []).filter(t => t.outcome === 'unavailable').map(t => String(t.detail || ''));
+  if(off.some(t => /comparison group|present everywhere/.test(t)))
+    return ['Untestable: ran everywhere', 'It touched every region, so there is none to compare with'];
+  if(off.some(t => /history|quiet windows/.test(t)))
+    return ['Too new to test yet', 'There is no history before it to compare against. It is tested again each time the finding opens'];
+  return ['Could not be tested yet', ''];
+}
 function fishEntries(ctx){
   const d = ctx.diag.data, out = new Map();
   const idOf = s => (String(s).match(/^([\w.-]+):/) || [])[1] || String(s);
-  const put = (id, state, text, bone, note) => { if(bone && !out.has(id)) out.set(id, {id, state, text, bone: bone.id, because: bone.because, note}); };
+  const put = (id, state, text, bone, note, why) => { if(bone && !out.has(id)) out.set(id, {id, state, text, bone: bone.id, because: bone.because, note, why}); };
   (d.verified || []).forEach(x => put(x.candidate_id, 'verified', causeText(x.description), x.bone, `${inr(x.contribution, {sign: true})} a day`));
   (d.causes || []).forEach(x => put(idOf(x.cause), 'verified', causeText(x.cause), x.bone, `${inr(x.contribution, {sign: true})} a day`));
   if(ctx.cand){
-    (ctx.cand.cannot_verify || []).forEach(x => put(x.candidate_id, 'untestable', causeText(x.description), x.bone, 'Could not be tested yet'));
-    (ctx.cand.rejected || []).forEach(x => put(x.candidate_id, 'rejected', causeText(x.description), x.bone, cap(String(x.reason || 'rejected').toLowerCase())));
+    (ctx.cand.cannot_verify || []).forEach(x => { const [note, why] = untestableWhy(x); put(x.candidate_id, 'untestable', causeText(x.description), x.bone, note, why); });
+    (ctx.cand.rejected || []).forEach(x => put(x.candidate_id, 'rejected', causeText(x.description), x.bone,
+      cap(String(x.reason || 'rejected').toLowerCase().replace(/^failed (.+)$/, 'failed the $1 test').replace('the difference in differences test', 'the regional comparison')), reasonText(x.reason)));
   }
   (d.set_aside || []).forEach(x => put(x.candidate_id, 'aside', causeText(x.description), x.bone, 'Set aside: could not touch this slice'));
   return [...out.values()];
@@ -1960,7 +1981,7 @@ function fishboneHtml(ctx){
       const py = top ? ey + 14 + m * 44 : ay + 26 + m * 44;
       const t = (py - ey) / (ay - ey), px = ex + t * (ax - ex);
       const ls = wrap(e.text);
-      svgs += `<g class="fb-e ${e.state}"><title>${esc(`${e.text}${e.note ? '. ' + e.note : ''}${e.because ? `. On this bone because the record ${e.because}.` : ''}`)}</title>
+      svgs += `<g class="fb-e ${e.state}"><title>${esc(`${e.text}${e.why && e.note && e.why.startsWith(e.note) ? '. ' + e.why : `${e.note ? '. ' + e.note : ''}${e.why ? '. ' + e.why : ''}`}${e.because ? `. On this bone because the record ${e.because}.` : ''}`)}</title>
         <line x1="${px}" y1="${py}" x2="${px + 9}" y2="${py}"/>
         <text x="${px + 13}" y="${py - 3}"><tspan class="fb-m">${mark[e.state] || ''}</tspan> ${esc(ls[0])}${ls[1] ? `<tspan x="${px + 24}" dy="14">${esc(ls[1])}</tspan>` : ''}</text>
         ${e.note ? `<text class="fb-note" x="${px + 24}" y="${py + (ls[1] ? 25 : 11)}">${esc(clip(e.note))}</text>` : ''}</g>`;
@@ -2315,7 +2336,7 @@ function whatIfCard(sc, ctx){
     <div class="fig ${wiTone(per)}"><b>${inr(per, {sign:true})}</b><small>${esc(cap(of))} a day${total !== null && total !== undefined ? `<br><span class="${wiTone(total)}">${inr(total, {sign:true})}</span> over ${sc.horizon_days} days` : ''}</small></div>
     ${(sc.alongside || []).map(a => `<div class="along">Alongside: ${esc(a.name)} <b class="num ${wiTone(a.inr_per_day)}">${inr(a.inr_per_day, {sign:true})}</b> a day</div>`).join('')}
     ${whyOpposite(sc)}
-    <details><summary>Assumptions</summary><ul>${(sc.assumptions || []).map(a => `<li><b>${esc(cap(a.name))}:</b> ${esc(a.value)}. <span class="muted">${esc(cap(a.basis))}.</span></li>`).join('')}</ul>
+    <details><summary>Assumptions</summary><ul>${(sc.assumptions || []).map(a => `<li><b>${esc(cap(a.name))}:</b> ${esc(a.value)}. <span class="muted">${esc(cap(words(a.basis)))}.</span></li>`).join('')}</ul>
       ${sc.bounded_by ? `<p class="muted" style="margin:6px 0 0">Bounded by ${esc(sc.bounded_by)}.</p>` : ''}</details></article>`;
 }
 // A reversal the record shows already happened is still worth projecting (it
