@@ -386,8 +386,14 @@ class Warehouse:
         sql = (
             f"SELECT date_trunc('day', order_ts) AS d, {spec.key} AS {spec.key}"
             f"{select_dims},"
-            f" SUM({spec.units}) AS units,"
-            f" SUM({spec.revenue}) AS revenue "
+            # Summed as exact decimals, then read back as floats. A float SUM
+            # across DuckDB's threads adds in whatever order the threads finish,
+            # so the same question returned ...437.49 or ...437.50 and the
+            # evidence fingerprint changed with it: a signed finding could claim
+            # its evidence had moved when nothing had (B-079). Six places keeps
+            # every row exact: prices and discounts are held to two.
+            f" SUM(CAST({spec.units} AS DECIMAL(38,6)))::DOUBLE AS units,"
+            f" SUM(CAST({spec.revenue} AS DECIMAL(38,6)))::DOUBLE AS revenue "
             f"FROM {prepared} WHERE {' AND '.join(where)} "
             f"GROUP BY 1,2{group_dims}"
         )
@@ -397,6 +403,10 @@ class Warehouse:
             placeholders = ", ".join("?" for _ in entitled_regions)
             sql = f"SELECT * FROM ({sql}) WHERE region IN ({placeholders})"
             params = [*params, *entitled_regions]
+        # A GROUP BY returns its groups in whatever order the threads finish, and
+        # floats added in a different order differ in the last digit. Ordered, the
+        # frame is the same every time, and so is every sum taken from it (B-079).
+        sql = f"SELECT * FROM ({sql}) ORDER BY ALL"
 
         try:
             return self._con.execute(sql, params).df()

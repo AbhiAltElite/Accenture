@@ -221,7 +221,7 @@ class ModelExtractor:
 
         out: list[Extraction] = []
         for row in payload.get("extractions", []):
-            document = by_id.get(str(row.get("doc_id", "")))
+            document = by_id.get(_doc_id(row.get("doc_id")))
             if document is None:
                 dropped.append(f"unknown doc_id {row.get('doc_id')!r}")
                 continue
@@ -248,6 +248,20 @@ class ModelExtractor:
                 )
             )
         return out
+
+
+def _doc_id(value) -> str:
+    """The id as the model wrote it, less the header label it sometimes copies.
+
+    Each passage is headed `id: TK000132`, and a model will return that whole
+    line as the id. Read strictly, one run dropped 21 of 77 correct readings as
+    "unknown doc_id" (B-078). Accepting the label cannot attach a reading to the
+    wrong ticket: the quote must still be found in that ticket's own text.
+    """
+    text = str(value or "").strip()
+    if text[:3].lower() == "id:":
+        text = text[3:].strip()
+    return text
 
 
 def _clean(value) -> str | None:

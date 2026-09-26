@@ -139,6 +139,22 @@ class TestTheCitationIsVerifiedNotTrusted:
         extractor = ModelExtractor(backend=backend)
         assert extractor.extract([quarantine("t-1", TICKET)]) == []
 
+    def test_the_header_label_copied_into_the_id_still_matches(self):
+        # B-078: the passage header reads "id: t-1" and the model returns it
+        # whole. Measured, that dropped 21 of 77 correct readings in one run.
+        def read(doc_id, quote):
+            backend = FakeModel({"extractions": [{
+                "doc_id": doc_id, "issue": "checkout_failure", "quote": quote,
+                "channel": None, "device": None, "category": None}]})
+            return ModelExtractor(backend=backend).extract(
+                [quarantine("t-1", TICKET), quarantine("t-2", "delivery arrived on time")])
+        quote = "The card page just spins on my phone"
+        for written in ("id: t-1", "ID:t-1", " t-1 "):
+            got = read(written, quote)
+            assert [e.doc_id for e in got] == ["t-1"], written
+        # The label never moves a reading onto a ticket that does not say it.
+        assert read("id: t-2", quote) == []
+
 
 class TestTheWriterUsesWhateverBackend:
     def test_sentences_come_back_with_their_cost(self):
