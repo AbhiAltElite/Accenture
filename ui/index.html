@@ -1191,6 +1191,18 @@ details.queuenote{margin-top:var(--sp-4)}
 /* The section chips wrap onto a second row rather than scroll sideways: a
    chip cut off at the edge did not read as more to see. */
 .anchorbar{flex-wrap:wrap;overflow:visible;position:static}
+/* The same header as the decision view, in the same order, and it fits on one
+   line at a laptop's width: at 1280 px it ran 149 px wide, pushing the theme
+   button and the seat off the right edge. Below 1320 the page's name is the
+   underlined Workbench tab, so the badge beside the mark steps aside. */
+@media (max-width:1400px){
+  .masthead{gap:12px;padding:0 20px}
+  .masthead .mark{padding-right:12px}
+  .masthead .tools{gap:10px}
+  .appnav a{padding:0 10px}
+}
+@media (max-width:1320px){ .masthead .mark > span{display:none} }
+.tiphint{display:inline-block;margin-top:4px;font-weight:700;color:var(--accent)}
 </style>
 </head>
 <body>
@@ -1227,7 +1239,7 @@ details.queuenote{margin-top:var(--sp-4)}
 <header class="masthead">
   <a class="mark" href="/"><img src="/static/mark.svg" alt="" width="32" height="32"><b>Why<span>Chain</span></b><span>Workbench</span></a>
   <nav class="appnav" aria-label="Primary">
-    <a href="/">Findings</a><a href="/?tab=audit">Audit trail</a><a href="/?tab=metrics">Metrics</a><a href="/workbench" aria-current="page">Workbench</a>
+    <a href="/">Findings</a><a href="/?tab=metrics">Metrics</a><a href="/?tab=audit">Audit trail</a><a href="/workbench" aria-current="page">Workbench</a>
   </nav>
   <div class="context" id="context"></div>
   <div class="tools">
@@ -4306,6 +4318,17 @@ function drawChart(){
 
 let CHART=null, HOVER=null, DRAG=null, CHART_OBSERVER=null, SCRUBBING=false;
 
+/* The flagged fall at or beside a day index, so a point a pixel off still
+   answers; rises are not diagnosed, as in the table. */
+function fallAt(i){
+  const s = STATE.series; if(!s || i == null) return null;
+  for(const k of [i, i - 1, i + 1]){
+    const a = s.anomalies.find(x => x.day === s.days[k]);
+    if(a && a.direction === 'drop') return k;
+  }
+  return null;
+}
+
 function bindChart(){
   const c=$('#c'); if(!c) return;
 
@@ -4331,8 +4354,23 @@ function bindChart(){
       VIEW={lo,hi}; drawChart(); return;
     }
     HOVER=Math.max(CHART.lo,Math.min(CHART.hi,atX(px)));
+    c.style.cursor = fallAt(HOVER) ? 'pointer' : '';
     showTip(e.clientY-r.top);
     drawChart();
+  });
+  // A flagged fall on the chart opens its diagnosis, as its row in the table
+  // does: the point is where a reader's eye goes, and it did nothing. A drag
+  // that pans the chart is not a click.
+  let downX = null;
+  c.addEventListener('pointerdown', e => { downX = e.clientX; });
+  c.addEventListener('click', e => {
+    if(!CHART || downX === null || Math.abs(e.clientX - downX) > 4) return;
+    const r = c.getBoundingClientRect(), i = fallAt(atX(e.clientX - r.left));
+    if(i === null) return;
+    const day = STATE.series.days[i];
+    if(STATE.pick === day) return;
+    STATE.pick = day;
+    load();
   });
   c.addEventListener('mouseleave',()=>{ HOVER=null; $('#tip').classList.remove('on'); drawChart(); });
 
@@ -4409,12 +4447,15 @@ function showTip(mouseY){
   const gap=observed-expected, z=d.robust_z[HOVER];
   const flagged=d.anomalies.find(a=>a.day===d.days[HOVER]);
   const unit = d.unit;
-  t.innerHTML = `<b>${d.days[HOVER]}</b><br>
+  const day = d.days[HOVER], label = /^\d{4}-\d{2}-\d{2}$/.test(day) ? humanSpan(day) : day;
+  const pickable = flagged && flagged.direction === 'drop';
+  t.innerHTML = `<b>${label}</b><br>
     observed <b>${fmtValue(observed, unit)}</b><br>
     expected <b>${fmtValue(expected, unit)}</b><br>
     <span class="${gap<0?'down':'up'}">${gap<0?'\u2212':'+'}${fmtDelta(gap, unit)}
     · z ${z>0?'+':''}${z.toFixed(2)}</span>
-    ${flagged?'<br><span class="pill no">flagged</span>':''}`;
+    ${flagged?'<br><span class="pill no">Flagged</span>':''}
+    ${pickable && STATE.pick !== day ? '<br><span class="tiphint">Click to diagnose this day</span>' : ''}`;
   const px=CHART.X(HOVER);
   t.style.left = Math.min(Math.max(px+14, 8), CHART.w-150) + 'px';
   t.style.top  = Math.max(mouseY-10, 8) + 'px';

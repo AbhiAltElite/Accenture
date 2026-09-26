@@ -160,3 +160,22 @@ def test_an_image_never_carries_the_model_key():
     folder carried the key (B-072)."""
     ignored = {line.strip() for line in (ROOT / ".dockerignore").read_text().splitlines()}
     assert {".env", "data/audit/", "data/archive/"} <= ignored
+
+
+def test_the_window_opens_at_once_on_a_loading_page():
+    """A cold start showed nothing for the seconds the engine took, and read as
+    frozen. The window now opens on app/loading.html, which follows the engine
+    and switches over when it answers."""
+    launch = (ROOT / "app" / "launch.py").read_text()
+    assert "loading.html" in launch and "start_engine(wait=browser is None)" in launch
+    page = (ROOT / "app" / "loading.html").read_text()
+    assert "location.replace(target)" in page and "left" in page
+    assert "../ui/mark.svg" in page and "https://" not in page, "must render offline"
+
+
+def test_a_first_install_draws_its_progress():
+    launch = _load("launch")
+    assert launch.Steps(3).total == 3
+    text = (ROOT / "app" / "launch.py").read_text()
+    for step in ('STEPS.run(1,', 'STEPS.run(2,', 'STEPS.run(3,'):
+        assert step in text
