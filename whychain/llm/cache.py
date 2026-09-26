@@ -37,6 +37,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -134,7 +135,10 @@ class CachedModel:
             return completion
         try:
             self.directory.mkdir(parents=True, exist_ok=True)
-            path.write_text(
+            # Written aside and renamed into place, so another worker reading
+            # the same prompt sees the whole answer or none of it.
+            part = path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.part")
+            part.write_text(
                 json.dumps(
                     {
                         "text": completion.text,
@@ -147,6 +151,7 @@ class CachedModel:
                 ),
                 encoding="utf-8",
             )
+            os.replace(part, path)
         except OSError:
             pass
         return completion

@@ -42,11 +42,215 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 | T-33 | A candidate tested at a wider scope than the one its source names | verify | A note about one SKU or one category, tested as the whole region, borrows every other cause's movement and verifies (B-056). Carry every scope the source names; when a scope cannot be read, return `cannot_verify` rather than widening |
 | T-34 | A contract that reads a source's timestamps without that source's correction | contracts | `orders` got `tz_normalise` in B-019; `aov` and `checkout_conversion` read the same `order_ts` and did not (B-058). A test asserts every contract reading `pos_txn.order_ts` declares it, rather than each contract remembering |
 | T-35 | Scoring the benchmark and not the demo | bench, uat | The cases a jury sees are the ones that must be right. Score each demo case against its own planted causes, not only for page-equals-API consistency (B-063) |
+| T-36 | A component class named after a common word, in a shared stylesheet | ui | `ui/theme.css` defines `.who` (the seat chip), `.facts`, `.chain`, `.status`; a page that already used the same word for something else inherited a border, padding and flex from the theme (B-067). Page classes that could collide are named for what they are (`owner-note`, `kvgrid`, `whychain`), and a new shared class is grepped for in every page before it lands |
+| T-37 | A figure shown in two views, computed twice | api, ui | The rain's share was scaled for overlap in the bridge with the exact ratio and in the recovery line with one rounded to three places: four rupees apart (B-071). Where one figure appears in two views, one test asserts they agree, and a ratio used as a divisor is never rounded before use |
 | T-18 | A benchmark result that improved for a reason nobody checked | bench, datagen | Numbers that move the flattering way get accepted; numbers that move the other way get investigated. A harness defect usually shows up as the former. Any invariant the generator depends on is executed by a test, never only stated in a docstring (see B-014) |
 
 ---
 
 ## Defects
+
+### B-087 · Internal names showed through to readers in 72 places
+**Found:** 2026-09-26, a browser sweep of 234 pages across all three industries · **Severity:** P2, polish visible to a jury · **Status:** fixed
+
+**Symptom:** the what-if assumptions read "elasticity_prior declared on the unit_price driver in net_revenue.yml"; the slide for a detection-only metric read "avg_realised_tariff is measured in…"; the model's written summary in petroleum and power said "The net_realisation moved" and "not_foreseeable", and carried citation tags such as "(f-decision-1)".
+**Fix:** one wording helper on the page (`words` in `ui/app.html`) removes citation tags, turns `x_y.yml` into "the x y contract" and any remaining snake_case into words; the slide's refusal does the same. The sweep (`scratchpad/sweep.mjs` pattern, described in the handover) now reports 0 across 234 pages: every inbox filter value, every finding in three views, every slide, every metric, the audit trail, the workbench, and region refusals; no script errors, no NaN, undefined or null, nothing stuck loading.
+
+### B-086 · A "next check" that named nothing, and sometimes the wrong direction
+**Found:** 2026-09-26, reviewing every unknown finding's next check · **Severity:** P1 for the refusal story · **Status:** fixed
+
+**Symptom:** every unknown said some form of "break the movement down a further level" and asked the same question, "Is there an event in this window that was not written down anywhere?". Made specific from the fortnight breakdown, four of them then said "carries 65% of the rise" on findings listed under Falls: short of expected but up on the fortnight before, because the season was climbing (the B-070 trap again). And an untestable cause always asked whether it "applied everywhere", which for a three-week-old SKU is the wrong reason.
+**Fix:** `_where_to_look` in `api/main.py`: the slice carrying most of the movement, its share and rupees a day, and the region's line owner from the ladder ("Start with personal care in West: it carries 63% of the fall, ₹14,373 a day. Ask the Zonal Sales Manager, West, what changed on 27 to 28 Jul 2026"). Where the fortnight and the expected line disagree, it says so and points to the same weeks in earlier years. Untestable causes get the question that fits why (too new, or everywhere). The fishbone says "Too new to test yet" and "Failed the placebo test", with the full reason on hover. AI cache re-warmed: all 23 cases, 12 questions.
+
+### B-084 · The "model on / model off" panel showed the same text, from a stale run
+**Found:** 2026-09-26, asked why the two columns read the same · **Severity:** P1, contradicts the rest of the app · **Status:** fixed
+
+**Symptom:** the workbench's contrast panel showed identical prose under "Model on" and "Model off", with three causes, "188.3%" overlap and a window of 13 to 16 Aug, while the app said two causes and 113% for 13 to 15 Aug.
+**Root cause:** the panel reads `data/demo/contrast.json`, captured on 2 Sep with a local 7B model. In that run the model's prose failed validation and the template was shown instead (`writer: model -> template`), which the panel never said; and the capture had not been re-run since B-020, B-056 and the flagship window changed. Re-running it failed too: the script called the endpoint as a function without `channel`, `device` and `category`, which arrived as FastAPI `Query` defaults (B-040) and filtered every row away.
+**Fix:** the script names every parameter and captures the flagship window (13 to 15 Aug); re-captured on the current model, the two columns differ and carry today's figures. The panel counts answers served from the cache as model answers ("5 model answers, 5 from cache" rather than "0 calls"), strips the citation tags from the prose, and says plainly when a run's model prose failed validation and the template was shown.
+**Lesson:** a captured artefact is a claim about the system; re-capture it when the system changes, and make the display say which run it is and what happened in it.
+
+### B-085 · A price what-if showed revenue down and profit up, with no reason given
+**Found:** 2026-09-26, "how is revenue dropping, is this correct?" · **Severity:** P2, correct but unexplained · **Status:** fixed
+
+**Symptom:** +10% price: gross profit +₹9,679 a day, revenue −₹12,687 a day, and nothing on the card said why.
+**Verified:** correct. Retail's declared elasticity is −1.4 and margin 32%: units fall 14%, revenue 1.10 × 0.86 = 0.946 (−5.4% of ₹2,34,939), gross profit 0.86 × (1.10 − 0.68) = 0.361 of revenue against 0.32 (+4.1%). At −10% the reverse: revenue +₹6,108, gross profit −₹16,258.
+**Fix:** the scenario states the volume change as an assumption ("volume change −14%: the price elasticity times the price change") and the card says, when revenue and profit move apart, "Units −14%: revenue falls, but each unit sold earns more, so gross profit rises."
+
+### B-083 · No demo seat could act in petroleum or power
+**Found:** 2026-09-26, listing what the demo could not show · **Severity:** P1 for the demo · **Status:** fixed
+
+**Symptom:** the five demo seats were retail roles. Petroleum and power findings are signed by roles such as the supply manager, terminal manager, system operator and regulatory lead, and their decision cards belong to the logistics lead, trading head, fuel manager and station head. No seat held any of them, so outside retail nothing could be decided, no change request raised, and "Act as the owner" did nothing. Two retail owners (commercial director, supply planner) had no seat either.
+**Fix:** a seat for every role that signs or decides in a demo industry, 16 in all, each with its industries, its default view and a line on what it owns; the sign-in page groups them by industry and opens the seat in its industry and view. Decision cards owned by someone else offer "Act as the … (demo)", as signing did.
+**Verified:** every finding in all three inboxes signed by its owner's seat with every other seat refused (20 findings), every decision card decided by its owner with a wrong seat refused (8), change requests raised (6) and refused where the change was already made (2), Teams previews (8), 31 audit entries with the chain intact; `/uat` 120 of 121 (the one warning: no model key on the isolated test server).
+**Regression test:** `tests/test_owners_and_seats.py`.
+
+### B-082 · With several workers, /api/metrics reported one worker's share
+**Found:** 2026-09-26 · **Severity:** P2, production monitoring only · **Status:** fixed
+
+**Symptom:** counters lived in each worker's memory, so a scrape saw whichever worker answered: half the traffic with two, a different half each time.
+**Fix:** with more than one worker (`WHYCHAIN_WORKERS`), each writes a snapshot to `WHYCHAIN_METRICS_DIR` (default `data/app/metrics`) at start and then every second when counts change, and a scrape sums the live workers' snapshots; an exited worker drops out and its file is removed. One worker writes nothing. Measured with two real workers: 40 requests counted as 40 on every one of six scrapes, `whychain_workers 2`. The first version flushed only on the next request and undercounted a burst (27 of 40); the background flush fixed it.
+**Regression test:** three tests in `tests/test_workers.py`.
+
+### B-081 · The model sometimes returns nothing for a whole batch of tickets
+**Found:** 2026-09-26, `make eval-extraction`, six live runs · **Severity:** P2, the evidence link weakens silently · **Status:** open, measured, not fixed before the finale
+
+**Symptom:** the free hosted model reads 25 tickets per call. In three of six live runs a whole batch came back as a valid answer with no readings: 17 and 12 problem tickets lost in one run, 20 in another. Where batches did answer, readings were mostly right: held-out tickets 88 to 92%, customer wording the keyword rules miss 70 to 83%, and 0 false alarms on ordinary tickets in five of six runs (one in the sixth). Replaying a failing batch three times, it answered fully each time, so it is intermittent, from the service, not the tickets.
+**Why not fixed now:** the fix is to re-ask a batch that returns nothing, which must go around the answer cache (a cached empty answer would otherwise be served again). That changes the model path three days before the finale, when the demo runs from cached answers that are complete. The demo is not affected; a live diagnosis on the free tier can be.
+**Fix, when made:** retry an empty batch once, uncached; count and show "batches that returned nothing" in the run receipt, so a reader sees the gap instead of a thinner evidence list.
+
+### B-080 · The Teams card asked for approval of a change already made
+**Found:** 2026-09-26, capturing the Teams card for the brochure · **Severity:** P1, visible to an owner · **Status:** fixed
+
+**Symptom:** for the flagship, the release log records the rollback as done on 19 Aug, and the page and slide say so (B-057, B-075). The Teams card still said "Decision awaiting approval … Nothing executes until the owner approves", and so did the workbench's finance-director and area-sales summaries ("drafted and awaiting approval; nothing has been changed").
+**Root cause:** `already_actioned` was read by the page and the slide but not by the Teams card builder or the workbench summaries, and the area-sales projection dropped it altogether.
+**Fix:** the card reads "Already done on 19 Aug 2026: did it work?" and, once confirmed, "Confirmed it worked, by …", with the release-log reference; the workbench summaries say the same; the area-sales projection carries the field.
+**Regression test:** `test_the_teams_card_carries_the_decision_as_it_stands` (its old assertion encoded the defect and now asserts the done state; verified to fail without the fix), and `test_an_open_decision_still_awaits_approval_in_teams` for a decision that is genuinely open.
+**Lesson:** a state shown in one surface has to be read by every surface that renders the same decision. There are five (page, slide, Teams card, change request, workbench); check all five.
+
+### B-079 · The same question could return a different evidence fingerprint
+**Found:** 2026-09-26, comparing every demo view before and after an unrelated fix · **Severity:** P1 for sign-off · **Status:** fixed
+
+**Symptom:** petroleum, net realisation, 14 to 15 Aug: 60 identical requests returned ₹323,926,437.49 fifty-five times and ₹323,926,437.50 five times, and the evidence fingerprint changed with it. A signed finding compares its fingerprint on every open, so the wobble alone could tell a signer the evidence had changed since they signed. Retail's flagship, the North refusal and power were stable across 30 repeats each.
+**Root cause:** the bridge query summed floats across DuckDB's threads, which add in whatever order they finish, and returned its groups in whatever order they finished; a sum landing on a rounding boundary then rounds either way.
+**Fix:** sums are taken as exact decimals (`DECIMAL(38,6)`, then read back as floats) and the result is ordered. 60 of 60 repeats identical. Checked against all 69 warmed demo views and the benchmark: nothing changed except that the wobbling value now always takes the value it took most often before; every benchmark figure is identical.
+**Regression test:** `tests/test_deterministic_sums.py`, verified to fail without the fix (two totals differing in the last digit).
+**Lesson:** a fingerprint over floats is only as stable as the order of their arithmetic. Anything that feeds `evidence_fingerprint` must be deterministic, not merely accurate.
+
+### B-078 · One model run lost 21 of 77 correct ticket readings to a copied label
+**Found:** 2026-09-26, the first measurement of ticket reading (`make eval-extraction`) · **Severity:** P2, silent loss of evidence · **Status:** fixed
+
+**Symptom:** in one of three live runs the model returned ticket ids as `id: G027` rather than `G027`, and every such reading was dropped as "unknown doc_id". That run scored 58% on held-out tickets against 88 to 92% for the other two.
+**Root cause:** each passage is headed `id: <doc_id>`, and the model sometimes copies the whole header line. The id match was exact.
+**Fix:** a leading `id:` label is removed before matching. It cannot attach a reading to the wrong ticket, because the quote must still be found verbatim in that ticket's own text. The prompt is unchanged, so every cached demo answer stays valid; five cached answers did carry the label, and all 69 demo views were compared before and after: identical.
+**Regression test:** `test_the_header_label_copied_into_the_id_still_matches`, verified to fail without the fix.
+
+### B-077 · More than one worker would have broken the audit chain and split the feedback
+**Found:** 2026-09-26, before turning on several workers to lift throughput · **Severity:** P0 for any multi-worker deployment · **Status:** fixed
+
+**Symptom:** none yet, because every deployment ran one process. Measured first: one process serves about five diagnoses a second whether 1 or 8 readers are waiting (typical wait 1.7 s at 8), because Python computes one thing at a time per process. More workers fix that, and three things would have gone wrong with them.
+**Root cause:**
+- The audit log's lock was a thread lock. Two workers read the same head and wrote the same `seq`; four processes signing 25 times each produced a chain that `verify()` reports broken.
+- `FeedbackStore` read its file once and kept it, so a worker never saw an Agree or Dispute recorded by another, and after a demo reset kept counting the archived ones. The applied-changes store already re-read on a changed file; this one did not.
+- A model answer was written straight into its cache file, so another worker could read half of it. That read as a miss, not an error, so it only cost a model call, but it is fixed with the rest.
+**Fix:** the audit log takes an OS file lock beside the log (`AuditLog.locked()`, used by append and by demo reset) as well as the thread lock; the feedback store re-reads when the file's modification time changes; cache answers are written aside and renamed into place. The container runs `WHYCHAIN_WORKERS` workers (default 1); Cloud Run deploys 2 on 2 CPUs, 4 GB, at most 3 instances.
+**Measured:** 1 worker 5.3 req/s, typical wait 1.73 s; 2 workers 7.7 req/s; 4 workers 13.7 req/s, typical wait 0.55 s, p95 1.2 s, no failures (8 concurrent readers, a mix of findings, inbox and overview). Each worker holds about 0.8 GB. The desktop launcher stays at one process: laptops have the memory for one engine (B-069).
+**Regression test:** `tests/test_workers.py`, real separate processes; all three tests verified to fail without the fix (duplicate `seq` at entry 25; the second store saw 0 of 1 judgements).
+**Known limit:** `/api/metrics` counts per worker, so a scrape sees one worker's numbers. Windows has no `fcntl`; there the lock is the thread lock, which is right because the launcher runs one process.
+
+### B-076 · Under single sign-on, anyone who could reach the engine could sign as anyone
+**Found:** 2026-09-26, listing limitations for the jury · **Severity:** P0 for an enterprise deployment, none for the demo · **Status:** fixed
+
+**Symptom:** in proxy mode the engine read who the reader was from `X-Forwarded-Email` and `X-Forwarded-Groups`. Any request that reached the engine without going through the proxy could send those headers itself and sign a finding as the finance director, with any regions it liked.
+**Root cause:** the headers were trusted because the proxy sets them, and "the engine is reachable only through the proxy" was a deployment rule written in a docstring rather than enforced in code.
+**Fix:** the proxy has to prove itself on every request: `X-WhyChain-Proxy-Secret` matching `WHYCHAIN_PROXY_SECRET` (compared in constant time), or a connection from `WHYCHAIN_TRUSTED_PROXIES` (addresses or networks), or both. With neither configured, single sign-on refuses everyone and says which setting is missing, rather than trusting anyone. Demo mode is unchanged.
+**Regression test:** `test_identity_headers_without_the_proxy_are_refused`, `test_an_unconfigured_proxy_trusts_nobody_and_says_why`, `test_trusted_networks_admit_the_proxy_and_no_one_else`, all three verified to fail without the fix.
+
+### B-075 · A change already made could be raised as a change request
+**Found:** 2026-09-26, clicking every button that writes a record · **Severity:** P1 · **Status:** fixed
+
+**Symptom:** on the flagship, the e-commerce lead confirmed the rollback worked (the release log records it as done on 19 Aug), and the card then offered **Raise change request** for "Apply release rollback". A service desk would have received a ticket for work already finished.
+**Root cause:** the ticket rule checked only that a decision was accepted, not whether the change it names had already been made.
+**Fix:** the engine refuses a ticket for a card with `already_actioned` (409, "the change is already done"), and the button is not shown. Confirming it worked now reads "Confirmed it worked, by …" rather than "Accepted by …".
+**Regression test:** `test_a_change_already_made_raises_no_ticket`; the open-decision path is tested on the petroleum turnaround through single sign-on.
+**Known limit, demo only:** the five demo seats hold no petroleum or power owner (supply manager, trading head and so on), so on the demo no seat can raise a change request. Single sign-on accepts every role.
+
+### B-074 · Every Teams card went to one channel while the preview named the owner
+**Found:** 2026-09-26 · **Severity:** P1 for the hand-off claim · **Status:** fixed
+
+**Symptom:** the Teams preview said "to E-commerce lead", but the engine posted every card to the single `WHYCHAIN_TEAMS_WEBHOOK`, whoever owned the decision.
+**Root cause:** routing was never built; the preview implied it.
+**Fix:** a card goes to `WHYCHAIN_TEAMS_WEBHOOK_<ROLE>` for its owner's role (each Teams channel has its own incoming webhook), falling back to the shared one and saying so. The audit entry records where it went.
+**Regression test:** `test_a_card_goes_to_the_owners_channel_not_a_shared_one`.
+
+### B-073 · A courier's collapse was put on the marketing budget
+**Found:** 2026-09-26 · **Severity:** P1, visible on a finding · **Status:** fixed
+
+**Symptom:** South, 18 to 22 May: "A regional carrier suspended operations without notice" produced a decision card "Apply media budget for South", owned by the marketing lead.
+**Root cause:** notes were matched to drivers, and to scope, by substring: "suspended" contains "spend". The scope reader had the same flaw ("approach" would have read as the app channel), though no current note triggered it.
+**Fix:** `mentions()` matches whole words, plurals included, for both. The carrier note now matches no driver, so the card says there is no lever and gives a monitoring rule, which is the truth: net revenue's contract declares no logistics driver. The benchmark is identical to the decimal.
+**Regression test:** `test_a_word_inside_another_word_names_no_driver`, verified to fail without the fix.
+
+### B-072 · A container build would have carried the model key
+**Found:** 2026-09-26, preparing the deployment guide · **Severity:** P0 for any deployment · **Status:** fixed
+
+**Symptom:** `.dockerignore` excluded the virtualenv, caches and the warehouse, but not `.env`. `docker build`, and any cloud build from the folder (`gcloud run deploy --source .`), would have copied the model API key into the image. The audit trail and the demo archive would have gone in too.
+**Root cause:** `.env` is gitignored, so it never reached GitHub, and the image was only ever built locally; nothing checked what the build context contained.
+**Fix:** `.dockerignore` excludes `.env` and `.env.*`, the audit, archive and app-data folders, and the desktop package outputs. A deployment sets the key as the platform's secret.
+**Lesson:** gitignored is not the same as excluded from every other copy of the folder. Every packaging path (git, the portable zip, the image) keeps its own list, and each has to name the secrets.
+
+### B-071 · One cause, two figures; a slide that contradicted its finding
+**Found:** 2026-09-26, a page-by-page pass with every figure re-derived from the raw warehouse · **Severity:** P1 for the flagship · **Status:** fixed
+
+**What held:** 21 of 21 worst-day values re-derived by hand from `pos_txn`, applying each contract's declared SQL and transforms without the engine (averages as a ratio of sums, as the contracts declare), matched the app to the paisa across all three industries; `/uat` 88 of 88.
+
+**What did not, each with its cause:**
+- **The rain was ₹12,572 a day in one line and ₹12,576 in two others.** The recovery line divides by `movement.overlap`, which the API rounded to three places (1.127 for 1.12669); the bridge and the fair target divide by the exact ratio. Kept at full precision now: it is a divisor, not a display figure. Test: `test_one_cause_is_one_figure_in_every_view`, verified to fail without the fix.
+- **The board-pack slide said "Awaiting approval"** for the rollback the finding page reports as already done on 19 Aug. The slide read only the audit trail, not `already_actioned`. It now says "Already done ...; awaiting the owner's confirmation that it worked."
+- **The slide's cause bars were sized against the largest cause**, so the largest always drew full. Now each is its share of the movement, with the percentage.
+- **The workbench said "calibrated to 1"**; the decision view never states certainty ("above 0.95"). Both now read the same. Its worst day was an ISO date.
+- **Sentence case capitalised identifiers** (`Pos_txn`, `Unit_margin`). A block that opens with code keeps its case.
+- **"Prior episodes"** broke into the value beside it in the workbench margin; the value is shortened to fit.
+
+**Lesson:** a figure that appears in more than one view needs one test asserting the views agree, not one test per view (T-37).
+
+### B-070 · A decoy planted in one region verifies as a cause in another
+**Found:** 2026-09-26, breaking down the benchmark misses · **Severity:** P1 for the published decoy figure · **Status:** generator and two-region gap fixed; direction check measured, awaiting a decision; published figures not yet changed
+
+**Symptom:** 17 benchmark cases verified a decoy, 8 of them the case's own; these make up the "14 planted decoys got through" on the track record.
+**Verified causes, three of them, found by reading each passing decoy's test results:**
+1. **The generator, mostly.** `datagen/bulk.py` promised to run each decoy "in two regions that saw nothing" and drew them at random. 41 of 64 decoys landed on a region with its own real fall, or a nationwide one, in the same days; 12 of the 15 decoys that got through were among them. There a decoy coincides with a real fall exactly and no test on the data can separate them: the benchmark was scoring the generator.
+2. **A two-region gap in exposure consistency.** It passed at half of the exposed regions moving, and half of two is one: a promotion present in two regions that moved one of them passed (North −11%, South −1.8%).
+3. **No direction check.** Difference-in-differences asked whether the gap was large, not which way it pointed: a decoy whose regions did 7% better than the comparison passed as a cause of a fall.
+**Fixed:** decoys now run only in regions with nothing real in the window (same random draw, so every case, date and effect is unchanged; 13 decoys with no quiet region anywhere are removed), and consistency needs at least two exposed regions to have moved. 0 of 69 demo views change.
+**Measured, not shipped:** the direction check, taken from the detector's flagged direction (short of expected), not the raw change on the fortnight before: a seasonal ramp made five real falls look like rises and the first version rejected their true causes. Patch in `_internal/proposals/b070-direction-check.patch`; wiring it into the app needs the diagnosis to carry the finding's expected-based direction.
+
+| | published | fair decoys + two-region (on this branch) | + direction check |
+|---|---|---|---|
+| true cause ranked first | 38.9% | 43.8% | 45.8% |
+| ... among material movements | 64.4% | 72.4% | 75.9% |
+| true cause verified at all | 48.6% | 48.6% | 47.9% (one nationwide case now correctly unknown) |
+| noise explained | 0% | 0% | 0% |
+| decoys rejected | 87.5% | 88.2% | 92.2% |
+| abstentions right / unanswerable abstained on | 85.7% / 88.2% | 95.0% / 94.1% | 100% / 100% |
+| calibration error after fitting | 0.042 | 0.015 | 0.023 |
+
+Reports in `_internal/proposals/`. **`bench/report.json` and `data/calibration.json` are the published run until the figures are agreed**; `make bench` then rewrites both.
+**Regression tests:** `test_present_in_two_moved_in_one_is_the_same_trap`, `test_a_cause_that_moved_both_its_regions_survives`, `test_a_decoy_runs_only_where_nothing_real_happened`, each verified to fail without its fix.
+**Lesson:** before blaming the engine for a benchmark miss, check the benchmark could have been passed. And a direction taken from raw change is not the direction a finding is about.
+
+### B-069 · Closing the app window left an engine running for good
+**Found:** 2026-09-26, the Mac slowing down with four engines running · **Severity:** P1 on a demo laptop · **Status:** fixed
+
+**Symptom:** two engines on ports 8765 and 8766, 12 and 5 hours old, parent `launchd`, nothing connected, 1.2 GB between them, alongside the two in use. The Mac had pushed 2 GB into swap and every app on it lagged.
+**Root cause:** opening WhyChain while a window was already open hands the request to that window, and the second launcher returns at once. If the code had changed since the first engine started, the second launch had already stopped it and started a new one, recorded in `engine.json`. Closing the window then stopped only the first launcher's own pid, already dead, and deleted the record: the new engine ran on, known to nothing. The open window's engine was also restarted underneath it, which reads as the app glitching.
+**Fix:** `close_engines` stops both this launch's engine and the one the state file names, since every window shares one profile and none is left once it closes.
+**Regression test:** `test_closing_the_window_stops_the_engine_a_second_launch_started`, verified to fail without the fix.
+**Lesson:** a process that hands ownership to a file must read the file back before it tears down, not only its own memory of what it started.
+
+### B-068 · The UI pass that followed the redesign: nine defects a reader saw
+**Found:** 2026-09-26, reviewing the redesign on screen · **Severity:** P2 · **Status:** fixed
+
+**Symptom and root cause, each:**
+- The board-pack slide rendered dark text on a dark ground in a dark-mode system. The shared theme's `prefers-color-scheme: dark` block overrode the slide's own `:root`. The slide now carries `data-theme="light"`, which the dark block excludes: a board pack is paper.
+- The seat avatar wrapped onto a second line of the top bar at 1280px. The bar was `flex-wrap: wrap` and its content summed to within 9px of the width. It no longer wraps above 760px, and the tabs tighten below 1400px.
+- A large figure ran out of its card in the workbench (`₹2,71,63,12…`). A fixed size with no fit for a nine-digit rupee value. Long values drop a size; none wrap.
+- "All unit classs": plurals were an appended `s`. `pluralWord` now forms them.
+- An em dash in the power industry's summary, shown on the workbench.
+- "Relative size" meters were sized against the largest cause, so the largest always read full and said nothing. They show each cause's share of the movement, with the percentage.
+- The calendar ran a warning on every day into a solid saw of triangles, drew events from before the axis into the lane labels, and set two labels on top of each other. Consecutive warnings are one band with a count, only events on the axis are drawn, and the labels are placed apart.
+- Figures in the what-if cards carried no direction beyond their sign, and "+₹0" was printed with a sign. They are coloured by direction, and zero has no sign.
+- Captions, table cells and badges began in lower case ("a day", "not excused", "volume"). Much of it is contract and engine data. Fixed at display: every block of text starts with a capital, and the data is untouched.
+
+**Regression test:** `/uat` (74 of 74) and the screenshots of this pass; the class collision is T-36.
+
+### B-067 · "You are the accountable owner" drawn as a seat chip
+**Found:** 2026-09-26 · **Severity:** P2 · **Status:** fixed
+
+**Symptom:** the owner line under the sign button rendered as a bordered pill with the avatar chip's padding and flex layout.
+**Root cause:** the page's `.actions .who` and the theme's `.who` (the signed-in seat) are the same class. The theme loads first, and every property the page did not set came from it.
+**Fix:** renamed to `.owner-note`; the right column is now one contained sign-off box.
+**Lesson:** T-36.
 
 ### B-066 · A Mac stops anything that arrived by AirDrop or download, including our Python
 **Found:** 2026-09-25, building the offline packages · **Severity:** P1 for sharing by AirDrop · **Status:** designed around; the full fix is signing

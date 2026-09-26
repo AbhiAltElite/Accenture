@@ -90,3 +90,16 @@ def test_a_rollback_is_not_a_cause_and_is_reported_as_done(scored):
     _, diagnosis, _ = scored
     card = next(d for d in diagnosis["decisions"] if d["candidate_id"] == "rel-4.05")
     assert card["already_actioned"]["on"] == "2026-08-19"
+
+
+def test_one_cause_is_one_figure_in_every_view(scored):  # the fixture supplies the skip
+    """The rain had no lever: the recovery line said ₹12,572 a day of it, the
+    bridge and the fair target said ₹12,576. Both scale for the overlap; one
+    divided by a ratio rounded to three places."""
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+    diagnosis = TestClient(app).get("/api/diagnose", params={**WINDOW, "persona": "cfo"}).json()
+    bars = {s["id"]: s["value"] for s in diagnosis["waterfall"]["steps"] if s["kind"] == "cause"}
+    expected = abs(bars["wx-mumbai-aug"])   # the one verified cause with no lever
+    assert diagnosis["recovery_outlook"]["not_actionable_inr_per_day"] == pytest.approx(expected, abs=0.5)

@@ -56,7 +56,7 @@ from whychain.feedback.apply import (
     ApplyRefused,
     apply_proposal,
 )
-from whychain.identity import DEMO_USERS, Identity, effective_entitlement
+from whychain.identity import DEMO_USERS, SEATS, Identity, effective_entitlement
 from whychain.identity import mode as identity_mode
 from whychain.ingest import IngestError, Warehouse
 from whychain.ingest import rows as query_rows
@@ -122,6 +122,9 @@ _retriever: object | None = None
 _retriever_rows: int = 0
 _feedback = FeedbackStore()
 _applied = AppliedStore()
+# Where a demo reset moves the records to. A module setting so a test can point
+# it, and the stores, somewhere that is not the presenter's real demo data.
+_ARCHIVE = Path("data/archive")
 # Keyed on the file's mtime rather than loaded once at import. `make bench`
 # refits the curve while the service is running, and a calibration that only
 # takes effect after a restart is one that silently disagrees with the report
@@ -235,7 +238,7 @@ def _external_for(ext, candidate, event_end: date) -> list[dict]:
     something it did to itself and its own record describes it. For a fuel
     marketer or a generator it is not. Those businesses move because of refinery
     turnarounds, port closures, tariff orders and grid constraints, and the
-    record that describes those is external and public — an IMD cyclone warning
+    record that describes those is external and public: an IMD cyclone warning
     with a named publisher and a measurable lead time, which is already in the
     warehouse and already read by the signal-gap stage.
 
@@ -2014,10 +2017,14 @@ def candidates(
     # The panel is untouched, so difference-in-differences keeps its controls.
     sliced = _slice_of(contract, channel=channel, device=device, category=category)
     found = [c for c in found if touches_scope(c, sliced).relevant]
+    # The same direction the diagnosis tests against, or the two views could
+    # disagree about whether a cause is a cause.
+    direction = _expected_direction(vertical, contract, scope, region, sliced,
+                                    event_start, event_end)
 
     verified, rejected, untestable = [], [], []
     for candidate in found:
-        v = verify(candidate, panel, all_regions)
+        v = verify(candidate, panel, all_regions, movement=direction)
         corr = corroborate(candidate, documents, corpus=vertical.corpus,
                            retriever=ticket_retriever(documents), index=False)
         row = {
@@ -2171,6 +2178,29 @@ def _narrow(frame, sliced: dict[str, str]):
             )
         frame = frame[frame[dimension] == value]
     return frame
+
+
+def _expected_direction(vertical: Vertical, contract, scope, region: str | None,
+                        sliced: dict[str, str], start: date, end: date) -> float | None:
+    """Which way the finding moved against what a normal day would have been.
+
+    The same decomposition the chart draws its expected line from: the window's
+    observed total less its expected total. Negative is "short of expected".
+    None when the series is too short to have a seasonal shape, and then the
+    direction test is skipped rather than guessed from the raw change, which a
+    seasonal ramp can point the wrong way (B-070).
+    """
+    try:
+        frame = _series_frame(vertical, contract, scope, region, sliced)
+        parts = decompose_for(frame, contract)
+    except (HTTPException, ValueError):
+        return None
+    days = pd.to_datetime(parts.days).dt.date.to_numpy()
+    inside = (days >= start) & (days <= end)
+    if not inside.any():
+        return None
+    gap = float((parts.observed[inside] - parts.expected[inside]).sum())
+    return gap if gap else None
 
 
 def _slice_of(contract, **dims: str | None) -> dict[str, str]:
@@ -2398,7 +2428,9 @@ def diagnose(
         )
 
     with tel.stage("verify", MethodClass.CAUSAL) as t:
-        verifications = [verify(c, panel, all_regions) for c in found]
+        direction = _expected_direction(vertical, contract, scope, region, sliced,
+                                        event_start, event_end)
+        verifications = [verify(c, panel, all_regions, movement=direction) for c in found]
         t.note = f"{len(found)} candidates tested"
     _verified_ids = {
         v.candidate.candidate_id for v in verifications
@@ -2562,7 +2594,9 @@ def diagnose(
             # and sum to `explained`; above that they sum to more than the
             # movement, and a reader adding the column up needs telling why it
             # does not reconcile.
-            "overlap": round(overlap, 3),
+            # Full precision: it is a divisor. Rounded to three places it moved a
+            # scaled figure by four rupees between two views of one cause.
+            "overlap": round(overlap, 6),
             "per_cause": {k: round(v2, 2) for k, v2 in per_cause.items()},
         },
         "confidence": {
@@ -2653,6 +2687,13 @@ def diagnose(
             "next_check": a.next_check,
             "question": a.question,
         }
+        # "Break the movement down a further level" named no slice and no
+        # person, and every unknown asked the same question. The breakdown is
+        # already computed: say where the movement sits and who explains it.
+        result["abstention"].update(_where_to_look(
+            result, verifications, vertical, region, event_start, event_end,
+            _expected_direction(vertical, contract, scope, region, sliced,
+                                event_start, event_end)) or {})
     else:
         result["verdict"] = "explained"
 
@@ -2752,6 +2793,16 @@ def diagnose(
         v.candidate.candidate_id: plain(v.candidate.description)
         for v in verifications if v.candidate.candidate_id in shown
     })
+    # Who answers for it, from the projected decisions so a lever this reader
+    # may not see is not named. Roles and titles only: nothing here is evidence,
+    # so it is outside the fingerprint and cannot move a signature.
+    # Every lever owner, not only the top card a finance view shows, unless the
+    # reader's entitlement withheld a cause: then only what they were shown.
+    withheld = bool((projected.get("entitlement") or {}).get("notice"))
+    projected["accountability"] = _accountability(
+        vertical, contract, region,
+        (projected.get("decisions") if withheld else result.get("decisions")) or [],
+        projected.get("verdict"))
     return projected
 
 
@@ -3017,6 +3068,35 @@ def _subject(run: dict, body: dict) -> dict:
     }
 
 
+@app.post("/api/demo/reset")
+def demo_reset(request: Request) -> dict:
+    """Start the demo clean: sign-offs, decisions and feedback moved aside.
+
+    The same as `make demo-reset`, for a presenter with no terminal. Demo mode
+    only: under single sign-on the audit trail is a record of real decisions and
+    nothing in the product may reset it. Nothing is deleted. The files move to
+    `data/archive/<time>/` with a note of who reset it, and the chain starts
+    again from its genesis, which `verify` reads as intact.
+    """
+    if identity_mode() != "demo":
+        raise HTTPException(403, "the audit trail cannot be reset under single sign-on")
+    who = _who(request)
+    stamp = datetime.now(UTC).astimezone().strftime("%Y%m%d-%H%M%S")  # local, as make demo-reset names it
+    dest = _ARCHIVE / stamp
+    moved = []
+    with _audit.locked():
+        for path in (_audit.path, _feedback.path, _applied.path):
+            if path.exists() and path.stat().st_size:
+                dest.mkdir(parents=True, exist_ok=True)
+                path.replace(dest / path.name)
+                moved.append(path.name)
+        if moved:
+            (dest / "RESET.json").write_text(json.dumps(
+                {"reset_by": who.as_dict(), "at": datetime.now(tz=UTC).isoformat(timespec="seconds"),
+                 "moved": moved}, indent=2), encoding="utf-8")
+    return {"archived_to": str(dest) if moved else None, "moved": moved}
+
+
 @app.get("/api/me")
 def me(request: Request) -> dict:
     """Who the console is acting as, how that was established, and who else it may be."""
@@ -3025,7 +3105,9 @@ def me(request: Request) -> dict:
         "identity": who.as_dict(),
         "mode": identity_mode(),
         "demo_users": (
-            [{"id": k, "name": n, "role": r} for k, (n, r) in DEMO_USERS.items()]
+            [{"id": k, "name": n, "role": r, "industries": list(SEATS[k]["industries"]),
+              "view": SEATS[k]["view"], "what": SEATS[k]["what"]}
+             for k, (n, r) in DEMO_USERS.items()]
             if identity_mode() == "demo" else []
         ),
     }
@@ -3055,7 +3137,7 @@ def trackrecord() -> dict:
     exact = sum(1 for c in named if set(c.get("verified") or []) == {truth(c)})
     # The strict count, not the benchmark's per-case decoy rate: a decoy planted
     # for a neighbouring case in the same panel counts here too. The per-case
-    # rate (87.5%) is correct as defined and reads as more than it is.
+    # rate (92.2% since 26 Sep) is correct as defined and reads as more than it is.
     decoy_through = sum(1 for c in named if any(v.endswith("-decoy") for v in c.get("verified") or []))
     noise = [c for c in cases if c.get("expected") == "no_anomaly"]
     return {
@@ -3284,6 +3366,118 @@ def _card_span(start: str, end: str) -> str:
 _card_action = action_text
 
 
+def _where_to_look(result: dict, verifications, vertical: Vertical, region: str | None,
+                   start: date, end: date, expected: float | None = None) -> dict | None:
+    """A next check and a question that name the slice and the person.
+
+    From the exact breakdown (the slices sum to the movement with no residual),
+    the slice carrying the most of it in the movement's direction, and the
+    region's line owner from the industry's ladder. Untestable causes get the
+    question that fits why they could not be tested.
+    """
+    when = _card_span(start.isoformat(), end.isoformat())
+    where = region or "every region"
+    untestable = [v for v in verifications if v.state.value == "cannot_verify"]
+    if untestable:
+        v = untestable[0]
+        name = plain(v.candidate.description)
+        off = " ".join(t.detail for t in v.results if t.outcome.value == "unavailable")
+        if "history" in off or "quiet windows" in off:
+            return {
+                "next_check": (f"Re-open this finding once there is more history before "
+                               f"{name.lower()}; it is too new to test, and is tested again "
+                               f"each time the finding opens"),
+                "question": (f"Is there an earlier period, or a similar launch, that {name.lower()} "
+                             f"can be compared with?"),
+            }
+        return None
+    total = (result.get("movement") or {}).get("total_change") or 0
+    ladder = vertical.ladder
+    who = ladder.explains[1].format(region=region) if region else ladder.reviews[1]
+    # The breakdown is against the fortnight before. When the season was rising
+    # a finding can be short of expected and still up on that fortnight, and the
+    # slice "carrying most of the rise" then says nothing about the shortfall.
+    if expected and total and (expected > 0) != (total > 0):
+        return {
+            "next_check": (f"Compare {where} with the same weeks in earlier years, slice by "
+                           f"slice: it is {'below' if expected < 0 else 'above'} what the time "
+                           f"of year predicts but {'up' if total > 0 else 'down'} on the "
+                           f"fortnight before, so that fortnight cannot place it. Ask the "
+                           f"{who}{',' if ',' in who else ''} what was different on {when}"),
+            "question": (f"What held {where} {'below' if expected < 0 else 'above'} its usual "
+                         f"level for the time of year on {when}?"),
+        }
+    slices = [x for x in (result.get("ranking") or {}).get("exact") or []
+              if x.get("value") and total and (x["value"] > 0) == (total > 0)]
+    if not slices:
+        return None
+    top = max(slices, key=lambda x: abs(x["value"]))
+    what = top["label"].split(" · ", 1)[-1]
+    what = {"lpg": "LPG", "pos": "point of sale"}.get(what, what)
+    share = top.get("share") or 0
+    size = (f"more than the whole {'fall' if total < 0 else 'rise'}, other slices moving the "
+            f"other way" if share > 1 else
+            f"{share:.0%} of the {'fall' if total < 0 else 'rise'}")
+    return {
+        "next_check": (f"Start with {what} in {where}: it carries {size}, "
+                       f"₹{_indian(abs(top['value']))} a day. Ask the {who}"
+                       f"{',' if ',' in who else ''} what changed on {when}"),
+        "question": f"What changed for {what} in {where} on {when} that is not in the record?",
+    }
+
+
+def _accountability(vertical: Vertical, contract, region: str | None,
+                    decisions: list[dict], verdict: str | None) -> dict:
+    """Who explains, reviews, acts on and signs a finding.
+
+    Signs is the metric's owner, from its contract. Acts is each lever's owner,
+    from the decision cards. Between them, the head of the region the movement
+    happened in explains it and the national head reviews it: the line that the
+    industry's reference operating model names (`Vertical.ladder`). A finding
+    across all regions is explained by the national head directly.
+    """
+    ladder = vertical.ladder
+
+    def person(role_id: str, title: str) -> dict:
+        return {"role": role_id, "title": title}
+
+    if region:
+        explains = person(ladder.explains[0], ladder.explains[1].format(region=region))
+        reviews = person(*ladder.reviews)
+        informed = ladder.informed.format(region=region)
+    else:
+        explains = person(*ladder.reviews)
+        reviews = None
+        informed = None
+    acts, seen = [], set()
+    for card in decisions:
+        owner = (card.get("approval") or {}).get("assigned_to") or card.get("owner")
+        if not owner or not card.get("controllable", True) or (owner, card.get("action")) in seen:
+            continue
+        seen.add((owner, card.get("action")))
+        done = card.get("already_actioned") or {}
+        # "for category coal" reads as a field name. Tidied here only: the
+        # shared wording feeds cached prompts, and changing it would send the
+        # demo back to the model on stage.
+        action = re.sub(r"\bfor category (\w+)", r"for \1", _card_action(card.get("action") or ""))
+        acts.append({**person(owner, _card_role(owner)), "action": action,
+                     "done_on": str(done.get("on"))[:10] if done else None})
+    return {
+        "region": region,
+        "explains": explains,
+        "reviews": reviews,
+        "acts": acts,
+        "signs": person(contract.owner_role, _card_role(contract.owner_role)),
+        "informed": informed,
+        # Why nobody acts yet, in words, when nobody does.
+        "no_action": None if acts else (
+            "The two systems disagree, so data engineering checks the extract first."
+            if verdict == "contradicted" else
+            "No verified cause has a lever; the response is to monitor."),
+        "reference": ladder.reference,
+    }
+
+
 def _card_role(identifier: str) -> str:
     text = sentence_case(role(identifier).removeprefix("the "))
     return re.sub(r"^Ecommerce", "E-commerce", text)
@@ -3299,10 +3493,22 @@ def _adaptive_card(card: dict, run: dict, link: str, decided: dict | None = None
     rec = card.get("expected_recovery_inr_per_day")
     verb = {"decision_accepted": "accepted", "decision_modified": "modified",
             "decision_rejected": "rejected"}.get((decided or {}).get("event", ""))
+    done = card.get("already_actioned")
     heading = (f"Decision {verb} by {decided['actor']['name']}" if verb
                else "Decision awaiting approval")
     footer = ("Recorded in the WhyChain audit trail. Nothing was executed by WhyChain."
               if verb else "Drafted by WhyChain. Nothing executes until the owner approves.")
+    # A change the record shows was already made is not awaiting approval: the
+    # card asked an owner to approve a rollback done on 19 Aug, as the page and
+    # the slide once did (B-080). What is left is whether it worked.
+    if done:
+        on = _card_span(str(done["on"])[:10], str(done["on"])[:10])
+        heading = (f"Confirmed it worked, by {decided['actor']['name']}"
+                   if verb == "accepted" else heading if verb
+                   else f"Already done on {on}: did it work?")
+        footer = (f"The release log records it as done ({done.get('doc_id')}). "
+                  + ("Recorded in the WhyChain audit trail." if verb
+                     else "Confirm in WhyChain whether it brought the revenue back."))
     return {
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -3313,6 +3519,9 @@ def _adaptive_card(card: dict, run: dict, link: str, decided: dict | None = None
             {"type": "FactSet", "facts": [
                 {"title": "Verified cause", "value": sentence_case(card["cause"].split(": ", 1)[-1])},
                 {"title": "Owner", "value": _card_role(card["approval"]["assigned_to"])},
+                # The regional line, so the owner knows who will be asked about it.
+                *([{"title": "Explains", "value": run["accountability"]["explains"]["title"]}]
+                  if run.get("accountability") else []),
                 {"title": "Expected recovery",
                  "value": f"₹{_indian(rec)} a day" if rec is not None else "not computed"},
                 {"title": "Finding", "value":
@@ -3360,15 +3569,20 @@ def dispatch_teams(payload: dict, request: Request) -> dict:
     link = f"{public}/finding?" + urllib.parse.urlencode({k: v for k, v in {
         "kpi": run.get("kpi_id"), "region": run.get("region"), "start": window.get("from"),
         "end": window.get("to"), "industry": payload.get("industry")}.items() if v})
-    action_id = (card.get("approval") or {}).get("action_id")
-    decided = next((e for e in reversed(_audit.entries())
-                    if e["event"].startswith("decision_") and e["payload"].get("action_id") == action_id
-                    and e["subject"].get("kpi_id") == run.get("kpi_id")
-                    and e["subject"].get("region") == run.get("region")
-                    and e["subject"].get("window") == run.get("window")), None)
+    decided = _decided(run, (card.get("approval") or {}).get("action_id"))
     content = _adaptive_card(card, run, link, decided)
-    webhook = os.environ.get("WHYCHAIN_TEAMS_WEBHOOK", "").strip()
-    sent, detail = False, "No Teams webhook is configured, so nothing was sent."
+    # Each Teams channel has its own incoming webhook, so the card goes to the
+    # channel of the role that owns the decision. One shared webhook sent every
+    # card to the same place while the preview said "to E-commerce lead".
+    owner = card["approval"]["assigned_to"]
+    route = f"WHYCHAIN_TEAMS_WEBHOOK_{owner.upper()}"
+    webhook = os.environ.get(route, "").strip()
+    channel = f"the {_card_role(owner).lower()}'s channel"
+    if not webhook:
+        webhook = os.environ.get("WHYCHAIN_TEAMS_WEBHOOK", "").strip()
+        channel = "the shared channel" if webhook else channel
+    sent, detail = False, (f"No Teams channel is connected for the {_card_role(owner).lower()}, "
+                           "so nothing was sent.")
     if webhook:
         message = {"type": "message", "attachments": [{
             "contentType": "application/vnd.microsoft.card.adaptive", "content": content}]}
@@ -3377,13 +3591,111 @@ def dispatch_teams(payload: dict, request: Request) -> dict:
                 webhook, data=json.dumps(message).encode(),
                 headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=10) as resp:
-                sent, detail = 200 <= resp.status < 300, f"Teams answered HTTP {resp.status}."
+                sent = 200 <= resp.status < 300
+                detail = f"Posted to {channel}; Teams answered HTTP {resp.status}."
         except Exception as exc:  # the reason is the answer
             detail = f"Teams could not be reached: {type(exc).__name__}."
         if sent:
             _audit.append("card_dispatched", who.as_dict(), _subject(run, payload),
-                          {"action_id": card["approval"]["action_id"], "channel": "teams"})
-    return {"sent": sent, "detail": detail, "card": content}
+                          {"action_id": card["approval"]["action_id"], "channel": "teams",
+                           "to": channel})
+    return {"sent": sent, "detail": detail, "card": content, "route": route, "to": channel}
+
+
+def _decided(run: dict, action_id: str | None) -> dict | None:
+    """The latest decision recorded on this action for this finding, if any."""
+    return next((e for e in reversed(_audit.entries())
+                 if e["event"].startswith("decision_") and e["payload"].get("action_id") == action_id
+                 and e["subject"].get("kpi_id") == run.get("kpi_id")
+                 and e["subject"].get("region") == run.get("region")
+                 and e["subject"].get("window") == run.get("window")), None)
+
+
+def _change_request(card: dict, run: dict, link: str, decided: dict) -> dict:
+    """The work item an accepted decision becomes in the owner's service desk.
+
+    WhyChain decides nothing and executes nothing. Once the owner has accepted,
+    the change itself is made where changes are made, under that system's own
+    approvals, and the ticket carries back what the change desk needs: what to
+    do, who owns it, why, what it is worth, how to tell it worked, and the
+    audit entry and evidence it rests on, so the ticket can be checked against
+    the finding rather than trusted.
+    """
+    rec = card.get("expected_recovery_inr_per_day")
+    mon = card.get("monitoring") or {}
+    verb = {"decision_accepted": "Accepted", "decision_modified": "Accepted with a change"}[decided["event"]]
+    note = str(decided["payload"].get("note") or "").strip()
+    return {
+        "reference": f"WC-{decided['hash'][:8].upper()}",
+        "type": "change_request",
+        "title": _card_action(card["action"]),
+        "assignee_role": _card_role(card["approval"]["assigned_to"]),
+        "requested_by": decided["actor"]["name"],
+        "decision": f"{verb} by {decided['actor']['name'].replace(' (demo)', '')} on "
+                    f"{_card_span(decided['at'][:10], decided['at'][:10])}",
+        "change_note": note or None,
+        "reason": sentence_case(card["cause"].split(": ", 1)[-1]),
+        "finding": (f"{sentence_case(label(run['kpi_id']))}, {run.get('region') or 'all regions'}, "
+                    f"{_card_span(run['window']['from'], run['window']['to'])}"),
+        "expected_recovery": f"₹{_indian(rec)} a day" if rec is not None else "not computed",
+        "done_when": (f"No alert on {mon['threshold']}, watching {mon['watch']}"
+                      if mon.get("threshold") and mon.get("watch") else None),
+        "check_within": mon.get("window"),
+        "evidence": {"audit_entry": decided["hash"],
+                     "fingerprint": decided["payload"].get("evidence"), "link": link},
+    }
+
+
+@app.post("/api/dispatch/ticket")
+def dispatch_ticket(payload: dict, request: Request) -> dict:
+    """Raise the change request for a decision the owner has accepted.
+
+    Posted as JSON to `WHYCHAIN_TICKET_WEBHOOK` (a service desk's inbound
+    integration) when one is set; without one, the exact request is returned
+    and the page says it was not raised. Only an accepted or modified decision
+    becomes a ticket: a rejection is the end of it, and a pending one is still
+    the owner's to make.
+    """
+    who = _who(request)
+    run = _finding_run(payload, effective_entitlement(who, payload.get("entitled")))
+    card = next((c for c in run.get("decisions", [])
+                 if (c.get("approval") or {}).get("action_id") == payload.get("action_id")), None)
+    if card is None:
+        raise HTTPException(404, f"no decision card {payload.get('action_id')!r} on this finding")
+    # A change the release log shows already made is not raised again: what is
+    # left to decide is whether it worked, and confirming that raises nothing.
+    if card.get("already_actioned"):
+        raise HTTPException(409, "the change is already done "
+                            f"({card['already_actioned'].get('doc_id')}); there is nothing to raise")
+    decided = _decided(run, card["approval"]["action_id"])
+    if decided is None or decided["event"] == "decision_rejected":
+        raise HTTPException(409, "only an accepted decision becomes a change request"
+                            if decided else "the owner has not decided yet")
+    public = os.environ.get("WHYCHAIN_PUBLIC_URL", "").rstrip("/") or str(request.base_url).rstrip("/")
+    window = run.get("window") or {}
+    link = f"{public}/finding?" + urllib.parse.urlencode({k: v for k, v in {
+        "kpi": run.get("kpi_id"), "region": run.get("region"), "start": window.get("from"),
+        "end": window.get("to"), "industry": payload.get("industry")}.items() if v})
+    ticket = _change_request(card, run, link, decided)
+    raised = next((e for e in reversed(_audit.entries()) if e["event"] == "ticket_raised"
+                   and e["payload"].get("reference") == ticket["reference"]), None)
+    if raised:
+        return {"sent": True, "detail": f"Already raised by {raised['actor']['name']}.", "ticket": ticket}
+    webhook = os.environ.get("WHYCHAIN_TICKET_WEBHOOK", "").strip()
+    sent, detail = False, "No service desk is connected, so no ticket was raised."
+    if webhook:
+        try:
+            req = urllib.request.Request(
+                webhook, data=json.dumps(ticket).encode(),
+                headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                sent, detail = 200 <= resp.status < 300, f"The service desk answered HTTP {resp.status}."
+        except Exception as exc:  # the reason is the answer
+            detail = f"The service desk could not be reached: {type(exc).__name__}."
+        if sent:
+            _audit.append("ticket_raised", who.as_dict(), _subject(run, payload),
+                          {"action_id": card["approval"]["action_id"], "reference": ticket["reference"]})
+    return {"sent": sent, "detail": detail, "ticket": ticket}
 
 
 @app.get("/api/metrics")
@@ -3400,6 +3712,12 @@ _NO_CACHE = {"Cache-Control": "no-cache"}
 def index() -> FileResponse:
     """The decision view: findings to act on, then one finding at a time."""
     return FileResponse(UI / "app.html", headers=_NO_CACHE)
+
+
+@app.get("/login")
+def login() -> FileResponse:
+    """Sign-in: single sign-on in production, a choice of seat in the demo."""
+    return FileResponse(UI / "login.html", headers=_NO_CACHE)
 
 
 @app.get("/slide")

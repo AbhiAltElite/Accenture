@@ -27,6 +27,7 @@ There is no terminal to read, so every failure is also shown as a dialog.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shutil
@@ -36,6 +37,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import webbrowser
 from pathlib import Path
@@ -90,6 +92,62 @@ def say(text: str) -> None:
         subprocess.run(["osascript", "-e",
                         f'display notification "{text}" with title "WhyChain"'],
                        check=False, capture_output=True)
+
+
+class Steps:
+    """Numbered steps with a bar and the time left, so a first run never looks frozen.
+
+    Pip prints nothing for most of a long install, and a Terminal window that
+    stops scrolling for a minute reads as a hang: the reader closes it and
+    leaves half an environment behind. Each step says what it is doing, how far
+    along it is and about how long remains, redrawn twice a second. The
+    estimate is the step's usual length; past it the bar holds and says so
+    rather than claiming to be done. Plain ASCII, because an old Windows
+    console draws block characters as question marks.
+    """
+
+    def __init__(self, total: int) -> None:
+        self.total = total
+        self.live = sys.stdout.isatty()
+        self._stop = None
+
+    def run(self, n: int, label: str, expect: float):
+        import threading
+
+        self.end()
+        began = time.monotonic()
+        if not self.live:
+            print(f"[{n}/{self.total}] {label}...", flush=True)
+            return
+        stop = threading.Event()
+
+        def draw() -> None:
+            while not stop.wait(0.5):
+                spent = time.monotonic() - began
+                frac = min(spent / expect, 0.95)
+                bar = "#" * int(frac * 24) + "-" * (24 - int(frac * 24))
+                left = (f"about {max(1, int(expect - spent))} s left" if spent < expect
+                        else "a little longer than usual, still working")
+                print(f"\r[{n}/{self.total}] {label:34s} [{bar}] {int(frac * 100):3d}%  {left:42s}",
+                      end="", flush=True)
+
+        thread = threading.Thread(target=draw, daemon=True)
+        thread.start()
+        self._stop = (stop, thread, n, label, began)
+
+    def end(self) -> None:
+        if not self._stop:
+            return
+        stop, thread, n, label, began = self._stop
+        stop.set()
+        thread.join()
+        spent = time.monotonic() - began
+        print(f"\r[{n}/{self.total}] {label:34s} [{'#' * 24}] 100%  done in {spent:.0f} s{' ' * 30}",
+              flush=True)
+        self._stop = None
+
+
+STEPS = Steps(3)
 
 
 def alert(text: str) -> None:
@@ -268,7 +326,7 @@ def _imports_ok() -> bool:
     return probe.returncode == 0
 
 
-def _pip(args: list[str]) -> bool:
+def _pip(args: list[str], quiet: bool = False) -> bool:
     """Run pip, showing its progress and keeping all of it in install.log.
 
     The first install takes minutes. Run silently it looked frozen, which is
@@ -283,6 +341,11 @@ def _pip(args: list[str]) -> bool:
                                 env=CHILD_ENV, **NOWIN)
         for line in proc.stdout:
             log.write(line)
+            if quiet:
+                # The step bar is drawing; only a failure interrupts it.
+                if line.startswith("ERROR"):
+                    print("\n  " + line.strip()[:110], flush=True)
+                continue
             if line.startswith("Collecting"):
                 print("  " + line.split(" (from")[0].strip()[:90], flush=True)
             elif line.startswith(("Installing collected", "Successfully installed", "ERROR")):
@@ -299,10 +362,12 @@ def install() -> None:
         if fresh:
             shutil.rmtree(ROOT / ".venv", ignore_errors=True)
             python = base_python()
-            say("First run on this computer: installing WhyChain. This takes a few "
-                "minutes; keep this open.")
+            say("First run on this computer: setting WhyChain up, usually under a minute. "
+                "Keep this window open; WhyChain opens by itself when it is ready.")
+            STEPS.run(1, "Preparing Python", 3)
             made = subprocess.run([python, "-m", "venv", str(ROOT / ".venv")],
                                   capture_output=True, text=True, **NOWIN)
+            STEPS.end()
             if made.returncode != 0:
                 raise Stop(
                     f"Python at {python} could not create an environment for WhyChain. "
@@ -313,8 +378,11 @@ def install() -> None:
             say("Updating WhyChain's installation on this computer.")
         requirements = ["-r", str(ROOT / "requirements.txt")]
         offline = WHEELS.is_dir() and any(WHEELS.glob("*.whl"))
-        done = offline and _pip(["--no-index", "--find-links", str(WHEELS), *requirements])
-        done = done or _pip(["--only-binary=:all:", *requirements])
+        STEPS.run(2, "Installing WhyChain's components", 25 if offline else 120)
+        done = offline and _pip(["--no-index", "--find-links", str(WHEELS), *requirements],
+                                quiet=STEPS.live)
+        done = done or _pip(["--only-binary=:all:", *requirements], quiet=STEPS.live)
+        STEPS.end()
         if done and _imports_ok():
             READY.write_text(json.dumps({"requirements": _requirements_hash(),
                                          "python": ".".join(map(str, _version(str(VENV_PY))))}),
@@ -353,7 +421,8 @@ def ensure_environment() -> None:
     _unquarantine()
     _lock()
     try:
-        if not _ready():
+        first = not _ready()
+        if first:
             install()
 
         missing = [w for w in WAREHOUSES if not (ROOT / "data" / "warehouse" / w).exists()]
@@ -363,8 +432,11 @@ def ensure_environment() -> None:
                            cwd=ROOT, env=CHILD_ENV, check=True, **NOWIN)
         # Idempotent and a second when already done. An unprepared warehouse
         # still answers correctly, only slower, so a failure here stops nothing.
+        if first:
+            STEPS.run(3, "Preparing the data", 12)
         subprocess.run([str(VENV_PY), "scripts/prepare.py"], cwd=ROOT, env=CHILD_ENV,
                        check=False, capture_output=True, **NOWIN)
+        STEPS.end()
 
         if not (ROOT / ".env").exists() and (ROOT / ".env.example").exists():
             shutil.copy(ROOT / ".env.example", ROOT / ".env")
@@ -388,8 +460,13 @@ def _unquarantine() -> None:
 
 # --- the engine ----------------------------------------------------------------
 
-def start_engine() -> int:
-    """Start the engine, or reuse ours if it is running the code on disk now."""
+def start_engine(wait: bool = True) -> int:
+    """Start the engine, or reuse ours if it is running the code on disk now.
+
+    With `wait=False` it returns as soon as the engine is launched: the window
+    opens at once on a loading page that switches to WhyChain when it answers,
+    rather than showing nothing for the seconds a cold start takes.
+    """
     global PORT
     APPDATA.mkdir(parents=True, exist_ok=True)
     stamp = fingerprint()
@@ -425,6 +502,8 @@ def start_engine() -> int:
             cwd=ROOT, env=CHILD_ENV, stdout=log, stderr=log, **flags)
     STATE.write_text(json.dumps({"pid": proc.pid, "port": PORT, "fingerprint": stamp}),
                      encoding="utf-8")
+    if not wait:
+        return proc.pid
     for _ in range(180):
         if healthy():
             return proc.pid
@@ -540,7 +619,8 @@ def main() -> int:
         if "--setup" in sys.argv:
             print("Ready. Installed and prepared in this folder.", flush=True)
             return 0
-        pid = start_engine()
+        browser = None if checking else app_browser()
+        pid = start_engine(wait=browser is None)
     except Stop as exc:
         alert(str(exc))
         return 1
@@ -557,7 +637,6 @@ def main() -> int:
             STATE.unlink(missing_ok=True)
 
     url = f"http://127.0.0.1:{PORT}/"
-    browser = app_browser()
     if browser is None:
         webbrowser.open(url)
         say("Opened in your browser. The engine keeps running in the background.")
@@ -567,7 +646,11 @@ def main() -> int:
     began = time.monotonic()
     # A separate profile is what makes this call block until the window closes,
     # and what keeps the reader's own tabs, extensions and sign-ins out of it.
-    subprocess.run([browser, f"--app={url}", f"--user-data-dir={PROFILE}",
+    # The window opens on the loading page at once; it follows the engine and
+    # switches to WhyChain the moment it answers (app/loading.html).
+    loading = (ROOT / "app" / "loading.html").as_uri() + "?" + urllib.parse.urlencode(
+        {"port": PORT, "log": str(LOG)})
+    subprocess.run([browser, f"--app={loading}", f"--user-data-dir={PROFILE}",
                     "--window-size=1440,900", "--no-first-run",
                     "--no-default-browser-check"], check=False, capture_output=True, **NOWIN)
     # A browser that hands the window to an already-running copy of itself
@@ -576,9 +659,27 @@ def main() -> int:
     # reused by the next launch instead.
     if time.monotonic() - began < 8 or os.environ.get("WHYCHAIN_APP_KEEP_ENGINE") == "1":
         return 0
-    stop(pid)
-    STATE.unlink(missing_ok=True)
+    close_engines(pid)
     return 0
+
+
+def close_engines(pid: int) -> None:
+    """Stop this launch's engine and whichever engine the state file now names.
+
+    Every window shares one profile, so when this one closes no window is left
+    on any engine. A second launch made while this window was open, after the
+    code had changed, replaced this engine with a new one and recorded that; the
+    launcher that started the new one had already returned. Stopping only our
+    own pid, then deleting the record, left the new engine running for good
+    with nothing that knew of it (B-069).
+    """
+    pids = {pid}
+    with contextlib.suppress(OSError, ValueError):
+        pids.add(int(json.loads(STATE.read_text(encoding="utf-8")).get("pid", 0)))
+    for p in pids - {0}:
+        if alive(p):
+            stop(p)
+    STATE.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,22 @@ Innovation Challenge 2026, team CtrlAltReinvent, IIT Hyderabad. **Grand Finale
 make app          # builds WhyChain.app: double-click, opens in its own window
 ```
 
+Sign-in at `/login`: a choice of demo seat (no password anywhere), or single
+sign-on in proxy mode. Seats are grouped by industry, one for every role that
+signs or decides in the demo (`whychain/identity.py` `SEATS`); a card owned by
+another role offers "Act as the … (demo)". Every finding carries
+`accountability`: who explains (the head of the region), reviews (the national
+head), acts (each lever owner) and signs (the metric owner), from each
+industry's reference ladder (`Vertical.ladder`), on the page, the slide and the
+Teams card. Design: `ui/theme.css` (fonts bundled in `ui/fonts`,
+OFL), light by default, and scaled up automatically from 1900px wide
+(external monitors and projectors; laptops are never zoomed, B-068). A finding
+page carries the chain, the variance bridge, the fishbone, the calendar and
+**What-if analysis** (price slider and horizon, every figure from the engine).
+A decision goes to its owner as a Teams card; once accepted or modified it
+becomes a **change request** (`/api/dispatch/ticket`, `WHYCHAIN_TICKET_WEBHOOK`),
+a preview until a service desk is connected. The board-pack slide is always light.
+
 Two views. `/` is the **decision view**: findings inbox (filter by metric,
 region, falls or rises, status), one finding at a time, sign-off, decisions,
 board-pack slide (`/slide`), audit trail, and **Metrics** (`/?tab=metrics`),
@@ -30,7 +46,7 @@ headline figure opens its aggregated rows, the query that reproduces them
 `/workbench` is the analyst's full method page with the twelve `?demo=`
 scenarios.
 
-`make test` (628), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
+`make test` (686), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
 server), `make bench`, `make audit`, `make lint`, `make real-data`. `/uat` in
 any browser runs the acceptance checks against every scenario and persona.
 
@@ -57,18 +73,40 @@ which survives the folder being moved (B-065).
 and runs automatically from `gen`, `gen-all` and `run.sh`. A warehouse that has
 not been prepared still reads correctly, just slower.
 
-Before any demo: `make warm-ai` (must end "All N cases warm" with no failures), `make
-demo-reset`, then `/uat` (must be all pass).
+Before any demo, with the app running: `make stage-check` (warms the AI cache and
+must end "All N cases warm", resets the demo records, runs the smoke test), then
+`/uat` in the browser (must be all pass). **Reset demo** in the seat menu does the
+reset from the app. A decision card goes to its owner's Teams channel
+(`WHYCHAIN_TEAMS_WEBHOOK_<ROLE>`, falling back to `WHYCHAIN_TEAMS_WEBHOOK`); a change
+already made (per the release log) raises no change request.
+
+Deploying: `docs/DEPLOY-FREE.md`. `.github/workflows/deploy.yml` deploys `main` to
+Google Cloud Run and smoke-tests the link, once `GCP_SA_KEY` and `GCP_PROJECT` are set.
 
 Accountability: sign-off, decisions and dispatch go to a hash-chained log
 (`whychain/audit`). Identity is a demo picker unless `WHYCHAIN_IDENTITY=proxy`,
 where a single-sign-on proxy's headers decide who the reader is and which
-regions they see. See `whychain/identity.py`.
+regions they see, believed only from a proxy that proves itself
+(`WHYCHAIN_PROXY_SECRET` and/or `WHYCHAIN_TRUSTED_PROXIES`; with neither set it
+refuses everyone, B-076). See `whychain/identity.py`.
+
+Serving: the container runs `WHYCHAIN_WORKERS` processes (Cloud Run: 2). The
+audit chain and feedback log are safe across processes (B-077,
+`tests/test_workers.py`); anything new that a request writes must be too. The
+desktop app runs one process.
+
+`make eval-extraction` scores the keyword rules and the model on 96 labelled
+tickets (`bench/tickets_heldout.json` was labelled and committed before any run);
+`WHYCHAIN_LLM_CACHE=off` for a live reading. Results in `bench/extraction.json`.
+Six live runs on 26 Sep: where a batch answered, held-out tickets 88 to 92% right
+against 11.5% for the keyword rules, 0 false alarms in five of six runs; but the
+free model sometimes returns nothing for a whole batch (B-081, open).
 
 ## Non-negotiables
 
-1. **The LLM never calculates.** It reads unstructured text, ranks hypotheses
-   and writes prose. Every figure comes from deterministic code.
+1. **The LLM never calculates.** It interprets the question, reads unstructured
+   text (tickets, notes) in the writer's own words, and writes prose. Ranking
+   causes is statistical, not the model. Every figure comes from deterministic code.
 2. **A claim that cannot be traced is not shipped.** A deterministic validator
    runs after the model and rejects any sentence whose figures are not in the
    evidence table.

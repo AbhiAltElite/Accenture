@@ -8,8 +8,19 @@ the reader against the company's identity provider and forwards who they are in
 headers the proxy itself sets. The engine trusts those headers and nothing the
 browser sends: a reader's regions come from their groups, and a region
 restriction the client tries to widen is replaced by the one the identity
-carries. This is only safe when the engine is reachable through the proxy
-alone, which is a deployment rule, stated here so it is not forgotten.
+carries.
+
+Those headers are only believed from the proxy. Anyone who can reach the
+engine directly could otherwise type `X-Forwarded-Email: cfo@...` and sign as
+the finance director. So the proxy has to prove itself on every request, one
+of two ways, and with neither configured the engine refuses everyone rather
+than trusting anyone (B-076):
+
+    WHYCHAIN_PROXY_SECRET     the proxy adds `X-WhyChain-Proxy-Secret: <value>`
+    WHYCHAIN_TRUSTED_PROXIES  the request arrives from one of these addresses
+                              or networks, e.g. `10.0.0.0/8,127.0.0.1`
+
+Both may be set, and then both must hold.
 
 **demo** is everything else, including the finale. The console lets the
 presenter pick a named demo user, and every audit entry records
@@ -23,21 +34,73 @@ Group convention, set in the identity provider:
 
 from __future__ import annotations
 
+import hmac
+import ipaddress
 import os
 from dataclasses import asdict, dataclass
 
-ROLES = ("finance_director", "fpa_analyst", "area_sales_manager", "category_manager",
-         "ecommerce_lead", "supply_planner", "commercial_director")
-
 # The people a presenter can act as. Named by seat, not by person, because the
 # demo has no real users and should not pretend to.
-DEMO_USERS = {
-    "finance.director": ("Finance Director (demo)", "finance_director"),
-    "fpa.analyst": ("FP&A Analyst (demo)", "fpa_analyst"),
-    "ecommerce.lead": ("E-commerce Lead (demo)", "ecommerce_lead"),
-    "category.manager": ("Category Manager (demo)", "category_manager"),
-    "asm.west": ("Area Sales Manager, West (demo)", "area_sales_manager"),
+#
+# One seat for every role that owns a finding or a decision in a demo industry.
+# With only the retail five, no seat could sign a petroleum or power finding or
+# decide one of their cards, so a change request could never be shown there
+# (B-075). Each seat says which industries it acts in, the view it opens in and,
+# in a line, what it owns, read from the contracts and the decision cards.
+SEATS: dict[str, dict] = {
+    "finance.director": {"name": "Finance Director", "role": "finance_director",
+                         "industries": ("retail", "petroleum", "power"), "view": "cfo",
+                         "what": "Signs the headline revenue finding in every industry."},
+    "fpa.analyst": {"name": "FP&A Analyst", "role": "fpa_analyst",
+                    "industries": ("retail", "petroleum", "power"), "view": "analyst",
+                    "what": "Works the evidence: every test, citation and rejected cause."},
+    "commercial.director": {"name": "Commercial Director", "role": "commercial_director",
+                            "industries": ("retail", "petroleum"), "view": "cfo",
+                            "what": "Signs orders and consignments findings."},
+    "ecommerce.lead": {"name": "E-commerce Lead", "role": "ecommerce_lead",
+                       "industries": ("retail",), "view": "analyst",
+                       "what": "Owns the app and web levers, and approves release decisions."},
+    "category.manager": {"name": "Category Manager", "role": "category_manager",
+                         "industries": ("retail",), "view": "analyst",
+                         "what": "Signs average order value; owns pricing and assortment."},
+    "supply.planner": {"name": "Supply Planner", "role": "supply_planner",
+                       "industries": ("retail",), "view": "analyst",
+                       "what": "Signs on-time delivery; owns the supply planning levers."},
+    "asm.west": {"name": "Area Sales Manager, West", "role": "area_sales_manager",
+                 "industries": ("retail",), "view": "ops",
+                 "what": "Sees the levers in their territory and who signs them off."},
+    "supply.manager": {"name": "Supply Manager", "role": "supply_manager",
+                       "industries": ("petroleum",), "view": "analyst",
+                       "what": "Signs supply reliability; approves alternate sourcing."},
+    "logistics.lead": {"name": "Logistics Lead", "role": "logistics_lead",
+                       "industries": ("petroleum",), "view": "analyst",
+                       "what": "Approves tanker fleet augmentation and transport mode switches."},
+    "pricing.manager": {"name": "Pricing Manager", "role": "pricing_manager",
+                        "industries": ("petroleum",), "view": "analyst",
+                        "what": "Signs average consignment value."},
+    "terminal.manager": {"name": "Terminal Manager", "role": "terminal_manager",
+                         "industries": ("petroleum",), "view": "analyst",
+                         "what": "Signs gantry throughput at the terminals."},
+    "trading.head": {"name": "Trading Head", "role": "trading_head",
+                     "industries": ("power",), "view": "analyst",
+                     "what": "Signs scheduled blocks; approves corridor bookings."},
+    "fuel.manager": {"name": "Fuel Manager", "role": "fuel_manager",
+                     "industries": ("power",), "view": "analyst",
+                     "what": "Approves fuel sourcing when coal stocks run short."},
+    "station.head": {"name": "Station Head", "role": "station_head",
+                     "industries": ("power",), "view": "analyst",
+                     "what": "Approves outage rescheduling at the stations."},
+    "system.operator": {"name": "System Operator", "role": "system_operator",
+                        "industries": ("power",), "view": "analyst",
+                        "what": "Signs dispatch fulfilment and grid availability."},
+    "regulatory.lead": {"name": "Regulatory Lead", "role": "regulatory_lead",
+                        "industries": ("power",), "view": "analyst",
+                        "what": "Signs average realised tariff."},
 }
+
+ROLES = tuple(dict.fromkeys(seat["role"] for seat in SEATS.values()))
+
+DEMO_USERS = {key: (f"{seat['name']} (demo)", seat["role"]) for key, seat in SEATS.items()}
 DEFAULT_DEMO_USER = "fpa.analyst"
 
 
@@ -66,12 +129,50 @@ def _header(headers: dict[str, str], *names: str) -> str:
     return ""
 
 
-def resolve(headers: dict[str, str]) -> Identity | None:
-    """The reader's identity, or None in proxy mode when the proxy sent none.
+def proxy_untrusted(headers: dict[str, str], client: str | None) -> str | None:
+    """Why this request cannot be taken as coming from the proxy, or None if it can.
 
-    `headers` is keyed in lower case.
+    `client` is the address the connection came from.
+    """
+    secret = os.environ.get("WHYCHAIN_PROXY_SECRET", "")
+    networks = [n.strip() for n in os.environ.get("WHYCHAIN_TRUSTED_PROXIES", "").split(",")
+                if n.strip()]
+    if not secret and not networks:
+        return ("single sign-on is on but the proxy is not configured to prove itself: "
+                "set WHYCHAIN_PROXY_SECRET or WHYCHAIN_TRUSTED_PROXIES")
+    # Compared in constant time, so the secret cannot be guessed a byte at a time.
+    if secret and not hmac.compare_digest(
+            headers.get("x-whychain-proxy-secret", "").encode(), secret.encode()):
+        return "this request did not come through the company's single sign-on"
+    if networks and not _from(client, networks):
+        return "this request did not come through the company's single sign-on"
+    return None
+
+
+def _from(client: str | None, networks: list[str]) -> bool:
+    try:
+        address = ipaddress.ip_address(client or "")
+    except ValueError:
+        return False
+    for n in networks:
+        try:
+            if address in ipaddress.ip_network(n, strict=False):
+                return True
+        except ValueError:
+            continue  # a mistyped entry grants nothing
+    return False
+
+
+def resolve(headers: dict[str, str], client: str | None = None) -> Identity | None:
+    """The reader's identity, or None in proxy mode when there is none to believe.
+
+    `headers` is keyed in lower case; `client` is the connecting address. Under
+    single sign-on the identity headers are read only once the request has
+    proved it came through the proxy.
     """
     if mode() == "proxy":
+        if proxy_untrusted(headers, client):
+            return None
         email = _header(headers, "x-forwarded-email", "x-auth-request-email")
         user = _header(headers, "x-forwarded-preferred-username", "x-forwarded-user",
                        "x-auth-request-user")

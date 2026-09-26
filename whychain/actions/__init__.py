@@ -33,6 +33,7 @@ from datetime import UTC, datetime
 from whychain.actions.recovery import RETAIL_RECOVERY, RecoveryModel
 from whychain.actions.simulate import Scenario, simulate
 from whychain.contracts import Driver, KPIContract
+from whychain.corroborate.extract import mentions
 from whychain.evidence import ClaimState
 from whychain.text import label, plain, role, sentence_case
 from whychain.verify.tests import SCOPE_DIMENSIONS
@@ -173,7 +174,7 @@ def _driver_for(
     if driver_id is None and candidate.kind == drivers.note_kind:
         text = f"{candidate.description}".lower()
         for words, mapped in drivers.note_to_driver:
-            if any(w in text for w in words):
+            if any(mentions(text, w) for w in words):
                 driver_id = mapped
                 break
     if driver_id is None:

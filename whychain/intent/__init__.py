@@ -251,6 +251,16 @@ def interpret(
     except Exception as exc:
         # A refused call is a limit of the service, not a fault in the question,
         # and a reader in front of an audience should be told which in words.
+        if isinstance(exc, OSError):
+            # No network, or the model did not answer in time. Said plainly:
+            # "URLError: nodename nor servname provided" on a projector reads as
+            # the product breaking, when only the question box needs the network.
+            return Intent(
+                question,
+                problem="the question box needs the internet to read a new question, and the "
+                        "model could not be reached. Every finding, figure and page works "
+                        "without it, and a finding opens from the inbox",
+            )
         if "429" in str(exc):
             return Intent(
                 question,

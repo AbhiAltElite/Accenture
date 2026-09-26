@@ -17,8 +17,9 @@ this has recurred, and who owns the gap.
 It sits on top of existing BI rather than replacing it.
 
 **The rule the whole design serves:** the quantitative layer is deterministic.
-The language model reads unstructured text, ranks competing hypotheses and
-writes the narrative. It never calculates, and it never decides what is true. A
+The language model interprets the question, reads unstructured text in the
+writer's own words (every quote checked against its source) and writes the
+narrative. Causes are ranked and tested by statistics. It never calculates, and it never decides what is true. A
 polished false diagnosis is worse than an explicit UNKNOWN.
 
 ---
@@ -117,9 +118,9 @@ returned as untestable rather than as answers.
 
 **Make refusal a first-class output.** `UNKNOWN`, `CANNOT_VERIFY`,
 `not_foreseeable` and `coverage_unknown` are designed states with their own
-rendering, not error paths. The engine abstains on 88.2% of the cases whose
-correct answer is an abstention — 15 of 17, the same figure as the results
-table, which `make bench` prints.
+rendering, not error paths. The engine abstains on every case whose correct
+answer is an abstention, 17 of 17, and every abstention it makes is right: the
+same figures as the results table, which `make bench` prints.
 
 **Keep the human in the lead, structurally rather than as a slogan.** Nothing
 in this engine executes. A decision card is a draft addressed to a named role
@@ -583,18 +584,20 @@ cached by content.
 ## Measured results
 
 160 labelled cases with planted causes, planted correlation traps, planted noise
-and planted unanswerable cases (`make bench`).
+and planted unanswerable cases (`make bench`). Measured 26 Sep 2026, after B-070:
+the decoys now run only where they could be caught, and the engine checks that a
+cause pushes the way the finding moved.
 
 | | | What it means for the business |
 |---|---|---|
-| **Top-1 among movements worth explaining** | **64.4%** (56 of 87) | On about two incidents in three, the analyst starts from the right cause rather than spending two days finding it |
-| Top-1 over the whole population | 38.9% | Includes the cases correctly declined, so refusals are not hidden to flatter the rate |
+| **Top-1 among movements worth explaining** | **75.9%** (66 of 87) | On about three incidents in four, the analyst starts from the right cause rather than spending two days finding it |
+| Top-1 over the whole population | 45.8% (66 of 144) | Includes the cases correctly declined, so refusals are not hidden to flatter the rate |
 | **False alarms on noise-only cases** | **0.0%** | No morning lost chasing a cause that isn't there; alerts stay worth reading |
-| Planted correlation traps rejected | 87.5% | The costliest error, fixing an innocent thing such as rolling back a good release, is caught 7 times in 8 |
-| **Cases needing an abstention that got one** | **88.2%** (2 missed of 17) | When the honest answer is "not yet known", that is what the reader gets |
-| Abstentions that were right | 85.7% | It does not refuse its way to safety |
-| Expected calibration error | 0.069 raw, **0.042 calibrated** on held out | "80% confident" is right about 8 times in 10, so a manager can decide how much to rely on it |
-| Latency p50 / p95 | 0.07s / 0.18s (Apple M4, 16 GB; `make bench` prints yours) | Fast enough to use in the meeting where the question is asked |
+| Planted correlation traps rejected | 92.2% (47 of 51) | The costliest error, fixing an innocent thing such as rolling back a good release, is caught more than 9 times in 10 |
+| **Cases needing an abstention that got one** | **100%** (17 of 17) | When the honest answer is "not yet known", that is what the reader gets |
+| Abstentions that were right | 100% | It does not refuse its way to safety |
+| Expected calibration error | 0.116 raw, **0.023 calibrated** on held out | "80% confident" is right about 8 times in 10, so a manager can decide how much to rely on it. The calibrated figure is the one the app shows |
+| Latency p50 / p95 | 0.03s / 0.17s (Apple M4, 16 GB; `make bench` prints yours) | Fast enough to use in the meeting where the question is asked |
 
 The first two rows belong together. The engine explains movements that clear
 both a statistical and a rupee materiality test and declines the rest, so top-1
@@ -617,6 +620,17 @@ the finding thrown away. Pricing that overlap into the score took expected
 calibration error from 0.117 to 0.069 raw, and 0.099 to 0.042 on the held-out
 half, with every other rate above unchanged. A confidence score that is right
 about how uncertain it is was the point of having one.
+
+**And the latest moved because the benchmark was unfair to the engine, and the
+engine had two real gaps (B-070).** 41 of 64 decoys ran in a "quiet" region that
+had its own real fall in the same days, where no test can tell a decoy from a
+cause; they now run only where they could be caught. Separately, a cause present
+in two regions that moved one passed exposure consistency, and nothing checked
+that a cause pushed the way the finding moved. With both fixed, top-1 rose from
+38.9% to 45.8% (64.4% to 75.9% among material movements), traps rejected from
+87.5% to 92.2%, and abstentions from 85.7% right and 88.2% taken to 100% and
+100%. The true cause is verified at all 47.9% of the time (was 48.6%: one
+nationwide case is now correctly unknown). No demo finding changed.
 
 502 tests, `make audit` runs 33 executable security, logic and design checks.
 The suite forces the deterministic backend: a test whose result depends on what
@@ -743,9 +757,9 @@ parameters. A stale `uvicorn` from before those landed is the most likely cause.
 **`make audit` reports ten failures.** They are all the same missing file. Run
 `make gen`.
 
-**Why is top-1 only 38.9%?** Because it is measured over every case including
+**Why is top-1 only 45.8%?** Because it is measured over every case including
 those the engine correctly declines. Among movements that clear materiality it
-is **64.4%**, and `make bench` prints both lines so neither has to be taken on
+is **75.9%**, and `make bench` prints both lines so neither has to be taken on
 trust. Lowering a threshold to raise the headline is trap T-14 in `BUGS.md`.
 
 **Can I run it on my own data?** Not yet. Contracts are hand-authored; inferring
@@ -829,8 +843,14 @@ flat at roughly 1.7 requests per second however many readers arrive, and latency
 grows linearly with concurrency: the work is serialised behind one process and
 one warehouse connection. **So the honest capacity figure for this build is
 about two diagnoses per second, and adding readers adds queue, not throughput.**
-The route out is ordinary — multiple workers, a connection per worker, and the
-in-process series cache moved behind them — and none of it is built.
+**Since 26 Sep the route out is built for a server** (B-077). Measured again on
+the redesigned engine, with 8 readers on a mix of findings, inbox and overview:
+one process serves 5.3 a second (typical wait 1.7 s), two serve 7.7, and four
+serve 13.7 (typical wait 0.55 s, p95 1.2 s), with no failures. Several workers
+needed the audit chain and the feedback log made safe across processes first,
+and both are tested with real separate processes (`tests/test_workers.py`). The
+container runs `WHYCHAIN_WORKERS` of them; each holds about 0.8 GB, so the
+desktop app stays at one.
 
 **The honest summary.** Scaling to another business is demonstrated and costs
 configuration. Scaling with data is measured, and the wall is a per-query window

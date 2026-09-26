@@ -41,6 +41,9 @@ tr.fail td{background:var(--bad-soft)} tr.warn td{background:var(--warn-soft)}
 </main>
 <script>
 'use strict';
+// Every page the checks open is behind the sign-in, which the checks are not
+// testing: they sit in a demo seat for the run, as a presenter would.
+try{ if(!localStorage.getItem('whychain-session')) localStorage.setItem('whychain-session', 'uat'); }catch{}
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const frame = document.getElementById('f');
 const results = [];
@@ -262,7 +265,7 @@ async function navigation(){
    number cannot pass by formatting it consistently. */
 const MON_U = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const dtU = x => { const [y,m,d] = String(x).slice(0,10).split('-').map(Number); return `${d} ${MON_U[m-1]} ${y}`; };
-const inrU = (n, sign=false) => { const a = Math.abs(n), sg = sign ? (n < 0 ? '−' : '+') : '';
+const inrU = (n, sign=false) => { const a = Math.abs(n), sg = sign && Math.round(a) ? (n < 0 ? '−' : '+') : '';
   return a >= 1e7 ? `${sg}₹${(a/1e7).toFixed(2)} cr` : `${sg}₹${Math.round(a).toLocaleString('en-IN')}`; };
 const pctU = x => `${(Math.abs(x)*100).toFixed(1)}%`;
 const qsU = o => new URLSearchParams(Object.entries(o).filter(([,v]) => v !== null && v !== undefined && v !== '')).toString();
@@ -297,7 +300,7 @@ async function valueSweep(){
     const days = money.reduce((a, f) => a + (f.days || 1), 0);
     if(!itext.includes(inrU(sum(money)))) ip.push(`revenue shortfall ${inrU(sum(money))} not shown`);
     if(!itext.includes(`over ${days} flagged days`)) ip.push(`${days} flagged days not shown`);
-    if(disputed.length && !itext.includes(`${inrU(sum(disputed))} more the ledger disputes`)) ip.push(`disputed ${inrU(sum(disputed))} not shown beside the total`);
+    if(disputed.length && !itext.includes(`${inrU(sum(disputed))} more, disputed by the finance ledger`)) ip.push(`disputed ${inrU(sum(disputed))} not shown beside the total`);
     if(rated.length && !itext.includes(`${inrU(sum(rated))} more at contract rates`)) ip.push(`${inrU(sum(rated))} at contract rates not shown beside the total`);
     if(!itext.includes(`of ${tri.total} detected`)) ip.push(`${tri.total} detected not shown`);
     record(`Values · ${ind}`, `Findings list: ${tri.findings.length} amounts, directions and the totals`, ip.length ? 'fail' : 'pass', ip.join('; ') || 'Every amount, percentage and total equals the engine.', inb.ms);

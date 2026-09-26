@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Starting WhyChain</title>
+<style>
+/* Shown the moment WhyChain is opened, while the engine starts, so the window is
+   never blank. It watches the engine and switches to WhyChain when it answers.
+   Opened from disk by app/launch.py; everything it needs is in this file or in
+   ../ui, so it works with no network. */
+@font-face{font-family:"Jakarta";src:url(../ui/fonts/plus-jakarta-sans-latin.woff2) format("woff2");font-weight:200 800}
+@font-face{font-family:"Inter";src:url(../ui/fonts/inter-latin.woff2) format("woff2");font-weight:100 900}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{display:grid;place-items:center;background:radial-gradient(900px 600px at 70% 15%,rgba(161,0,255,.18),transparent 70%),#0b0b10;
+  color:#f4f4f8;font-family:"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{width:min(560px,86vw);text-align:center}
+.mark{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:44px}
+.mark img{width:56px;height:56px}
+.mark b{font-family:"Jakarta",sans-serif;font-weight:800;font-size:44px;letter-spacing:-.03em}
+.mark b span{color:#c46bff}
+h1{font-family:"Jakarta",sans-serif;font-weight:700;font-size:24px;letter-spacing:-.01em}
+p{color:#b8b8c8;font-size:16px;line-height:1.55;margin-top:10px}
+.bar{margin:30px 0 12px;height:8px;border-radius:999px;background:#23232e;overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#7500c0,#a100ff,#c46bff)}
+.meta{display:flex;justify-content:space-between;font-size:14px;color:#9a9ab0;font-variant-numeric:tabular-nums}
+.warn{margin-top:26px;padding:14px 18px;border:1px solid #5a4020;background:#221a0e;border-radius:10px;color:#f0c890;font-size:14.5px;line-height:1.5;text-align:left;display:none}
+.warn code{font-family:ui-monospace,Menlo,monospace;font-size:13px;word-break:break-all;color:#f4f4f8}
+</style>
+</head>
+<body>
+<main>
+  <div class="mark"><img src="../ui/mark.svg" alt=""><b>Why<span>Chain</span></b></div>
+  <h1 id="title">Starting WhyChain</h1>
+  <p id="sub">Loading the engine and the data for three industries.</p>
+  <div class="bar" role="progressbar" aria-label="Starting" aria-valuemin="0" aria-valuemax="100"><i id="fill"></i></div>
+  <div class="meta"><span id="pct">0%</span><span id="left">Estimating…</span></div>
+  <div class="warn" id="warn"></div>
+</main>
+<script>
+'use strict';
+const q = new URLSearchParams(location.search);
+const port = q.get('port') || '8765';
+const target = `http://127.0.0.1:${port}/`;
+const began = performance.now();
+// How long this machine took last time, so the estimate is its own, not a guess.
+let eta = 20;
+try { eta = Math.max(5, Number(localStorage.getItem('whychain-start-seconds')) || 20); } catch { /* private */ }
+let ready = false;
+
+const $ = id => document.getElementById(id);
+function draw(){
+  if(ready) return;
+  const spent = (performance.now() - began) / 1000;
+  const frac = Math.min(spent / eta, 0.95);
+  $('fill').style.width = `${frac * 100}%`;
+  $('pct').textContent = `${Math.round(frac * 100)}%`;
+  document.querySelector('.bar').setAttribute('aria-valuenow', Math.round(frac * 100));
+  if(spent < eta){
+    $('left').textContent = `About ${Math.max(1, Math.ceil(eta - spent))} s left`;
+  } else if(spent < 120){
+    $('left').textContent = 'A little longer than usual';
+    $('sub').textContent = 'Still starting. The first start after the computer restarts takes longest.';
+  } else {
+    $('left').textContent = 'Not answering yet';
+    const w = $('warn');
+    w.style.display = 'block';
+    w.innerHTML = 'WhyChain has not answered in two minutes. Close this window and open WhyChain again; '
+      + 'nothing is lost. If it happens twice, the reason is in <code>' + (q.get('log') || 'data/app/engine.log')
+      + '</code>.';
+  }
+}
+// The engine answers when its own logo can be fetched. An image rather than a
+// fetch, because a page opened from disk may not read a local server's reply,
+// but it may always show its picture.
+function probe(){
+  if(ready) return;
+  const img = new Image();
+  img.onload = () => {
+    if(ready) return;
+    ready = true;
+    const took = (performance.now() - began) / 1000;
+    try { localStorage.setItem('whychain-start-seconds', String(Math.round(took * 1.15 + 1))); } catch { /* private */ }
+    $('fill').style.width = '100%';
+    $('pct').textContent = '100%';
+    $('left').textContent = 'Ready';
+    $('title').textContent = 'Opening WhyChain';
+    setTimeout(() => location.replace(target), 250);
+  };
+  img.src = `${target}static/mark.svg?probe=${Date.now()}`;
+}
+setInterval(draw, 200);
+setInterval(probe, 600);
+probe(); draw();
+</script>
+</body>
+</html>

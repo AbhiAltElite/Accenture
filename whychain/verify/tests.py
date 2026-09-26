@@ -224,8 +224,18 @@ def verify(
     panel: pd.DataFrame,
     all_regions: tuple[str, ...],
     baseline_days: int = 14,
+    movement: float | None = None,
 ) -> Verification:
-    """Run every applicable test and decide the candidate's state."""
+    """Run every applicable test and decide the candidate's state.
+
+    `movement` is the direction of the finding being explained, against what a
+    normal day would have been (negative for "short of expected"). With it, a
+    candidate whose exposed regions did better than the comparison cannot be the
+    cause of a fall, however large the gap (B-070). It must be the expected-based
+    direction, not the raw change on the fortnight before: a seasonal ramp can
+    make a real fall look like a rise, and the raw sign then rejects its true
+    cause. None skips the test, as before.
+    """
     daily = _daily_by_region(narrow_to(panel, candidate))
     exposed = tuple(candidate.exposed_regions)
     control = tuple(r for r in all_regions if r not in exposed)
@@ -311,6 +321,17 @@ def verify(
                     did,
                 )
             )
+            # The test above asks whether the gap is large, not which way it
+            # points. A promotion whose regions held up better than the rest
+            # passed it as a cause of a fall (B-070).
+            if movement and did * movement < 0:
+                results.append(TestResult(
+                    "direction", Outcome.FAIL,
+                    f"where it was present the metric did {'better' if did > 0 else 'worse'} "
+                    f"than elsewhere ({did:+.1%}), so it cannot explain a "
+                    f"{'fall' if movement < 0 else 'rise'}",
+                    did,
+                ))
 
     # --- exposure consistency --------------------------------------------
     per_region = {
@@ -327,10 +348,14 @@ def verify(
         # overall effect, by at least the floor.
         responded = [r for r, v in usable.items() if v * direction >= EFFECT_FLOOR]
         share = len(responded) / len(usable)
+        # Half is not enough when half is one region: present in two, moved in
+        # one, is the coincidence this test exists to catch (B-070). A cause
+        # present in several places must have moved at least two of them.
+        consistent = share >= CONSISTENCY_FLOOR and len(responded) >= 2
         results.append(
             TestResult(
                 "exposure_consistency",
-                Outcome.PASS if share >= CONSISTENCY_FLOOR else Outcome.FAIL,
+                Outcome.PASS if consistent else Outcome.FAIL,
                 f"present in {len(usable)} regions, {len(responded)} moved "
                 f"({', '.join(f'{r} {v:+.1%}' for r, v in usable.items())})",
                 share,

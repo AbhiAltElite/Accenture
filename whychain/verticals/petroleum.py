@@ -26,7 +26,7 @@ from pathlib import Path
 from whychain.actions import DriverMap, RecoveryModel
 from whychain.corroborate import Corpus, Vocabulary
 from whychain.verify.candidates import PlanSpec
-from whychain.verticals.spec import PlanColumns, Vertical
+from whychain.verticals.spec import Ladder, PlanColumns, Vertical
 
 # Issue codes, in the same five roles retail uses: a pair for "the transaction
 # could not be completed", a pair for "the product did not arrive", then price,
@@ -146,6 +146,15 @@ PLAN = PlanSpec(
     noun="Turnaround",
 )
 
+LADDER = Ladder(
+    explains=("zonal_head", "Zonal Head, {region}"),
+    reviews=("director_marketing", "Director, Marketing"),
+    informed="State and divisional office heads, {region}",
+    reference="Reference operating model, drawn from published structures of Indian "
+              "oil marketing companies: head office, zonal, state and divisional offices.",
+)
+
+
 RECOVERY = RecoveryModel(
     # What each lever recovers of the loss its cause was measured to account
     # for. Lower across the board than retail's, because most of what moves this
@@ -197,6 +206,7 @@ PETROLEUM = Vertical(
     drivers=DRIVERS,
     plan=PLAN,
     recovery=RECOVERY,
+    ladder=LADDER,
     plan_columns=PlanColumns(
         levels=("logistics_spend", "planned_allocation"),
         index="import_parity_index",

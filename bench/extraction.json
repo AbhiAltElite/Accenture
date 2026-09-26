@@ -1,0 +1,1240 @@
+{
+  "at": "2026-09-26T07:55:09+00:00",
+  "tickets": 96,
+  "sets": {
+    "generator, in vocabulary": 21,
+    "generator, off vocabulary": 23,
+    "held out": 26,
+    "no problem": 26
+  },
+  "rules": {
+    "generator, in vocabulary": {
+      "n": 21,
+      "right": 21,
+      "misses": [],
+      "pct": 100.0
+    },
+    "held out": {
+      "n": 26,
+      "right": 3,
+      "misses": [
+        {
+          "id": "H09",
+          "text": "Android app crashes when I tap Pay",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H04",
+          "text": "bhai app pe order hi nahi ho raha, last step pe atak jaata hai",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H18",
+          "text": "been checking every day and it still says notify me",
+          "expected": [
+            "stockout"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H13",
+          "text": "your outlet near Andheri station was closed yesterday, water everywhere outside",
+          "expected": [
+            "delivery_delay"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H01",
+          "text": "paid three times, money gone from my account each time but no order placed",
+          "expected": [
+            "payment_failure",
+            "checkout_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H22",
+          "text": "same shampoo is 40 rupees less on the other platform",
+          "expected": [
+            "pricing"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H24",
+          "text": "coupon got removed at the last step and the total jumped",
+          "expected": [
+            "pricing"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H14",
+          "text": "it was supposed to come by Tuesday. it is Friday.",
+          "expected": [
+            "delivery_delay"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H08",
+          "text": "keeps saying session expired the moment I hit place order",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H12",
+          "text": "parcel still sitting at the hub, they say trucks can't move because of waterlogging",
+          "expected": [
+            "delivery_delay"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H25",
+          "text": "mrp went up again this month?? third time this year",
+          "expected": [
+            "pricing"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H06",
+          "text": "since updating the app I can browse but I can't buy anything",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H05",
+          "text": "OTP screen never comes up, stuck on loading forever",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H10",
+          "text": "website works fine, the app doesn't at the payment bit",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H19",
+          "text": "the 500g pack has vanished from the app",
+          "expected": [
+            "stockout"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H23",
+          "text": "charged me 312 but the listing said 289",
+          "expected": [
+            "pricing"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H03",
+          "text": "UPI goes through and then the app says something went wrong",
+          "expected": [
+            "payment_failure",
+            "checkout_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H07",
+          "text": "tried 4 different cards, all rejected, my bank says there is no problem at their end",
+          "expected": [
+            "payment_failure",
+            "checkout_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H02",
+          "text": "the confirm button does nothing on my samsung, tried 5 times",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H15",
+          "text": "rider cancelled on me, said the roads are blocked with the rains",
+          "expected": [
+            "delivery_delay"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H16",
+          "text": "pickup point did not open today, wasted a trip",
+          "expected": [
+            "delivery_delay"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H20",
+          "text": "store says the supplier hasn't sent anything this week",
+          "expected": [
+            "stockout"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "H21",
+          "text": "only the big sizes are there, the small ones have been gone for weeks",
+          "expected": [
+            "stockout"
+          ],
+          "read": [
+            "other"
+          ]
+        }
+      ],
+      "pct": 11.5
+    },
+    "no problem": {
+      "n": 26,
+      "right": 26,
+      "misses": [],
+      "pct": 100.0
+    },
+    "generator, off vocabulary": {
+      "n": 23,
+      "right": 0,
+      "misses": [
+        {
+          "id": "G032",
+          "text": "everything is waterlogged here, nothing is moving Placed it on the website instead.",
+          "expected": [
+            "delivery_delay"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G042",
+          "text": "Not sure if this is known but cost me more than it said it would.",
+          "expected": [
+            "pricing"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G037",
+          "text": "the whole section is bare Will try again tomorrow.",
+          "expected": [
+            "stockout"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G038",
+          "text": "The other lot are doing it for a lot less right now Screenshot attached.",
+          "expected": [
+            "pricing"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G039",
+          "text": "FYI saw a much better deal on a different app this morning",
+          "expected": [
+            "pricing"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G029",
+          "text": "Hi, nobody could get to the shop, whole road was under water Gave up and went elsewhere.",
+          "expected": [
+            "delivery_delay"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G028",
+          "text": "Hi, wont let me finish on my phone, works fine on the laptop Losing patience.",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G021",
+          "text": "Hi, the last screen just spins forever and nothing happens Placed it on the website instead.",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G026",
+          "text": "spinning wheel and then it throws me out, three attempts now Any update?.",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G031",
+          "text": "van never turned up, apparently they could not get through Any update?",
+          "expected": [
+            "delivery_delay"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G024",
+          "text": "goes round and round on the confirm screen, never finishes.",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G023",
+          "text": "Hi, the app freezes when I try to confirm, then logs me out.",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G043",
+          "text": "the deal I signed up for has quietly gone",
+          "expected": [
+            "pricing"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G027",
+          "text": "hi the little wheel spins and spins and then nothing Any update?",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G025",
+          "text": "Really frustrated. after the update it dies right at the end, every single time Any update?.",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G033",
+          "text": "Driver called to say he cannot reach us Losing patience.",
+          "expected": [
+            "delivery_delay"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G030",
+          "text": "Hi, the shutters were down all day, no one there Have been a customer for years.",
+          "expected": [
+            "delivery_delay"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G040",
+          "text": "Hello, why would I buy here when it is twenty rupees less elsewhere",
+          "expected": [
+            "pricing"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G041",
+          "text": "Please help. it was one number in the basket and another at the end Losing patience.",
+          "expected": [
+            "pricing"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G035",
+          "text": "Really frustrated. they keep saying it is coming but it never arrives Screenshot attached.",
+          "expected": [
+            "stockout"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G034",
+          "text": "FYI shelf has been empty for days, staff say they do not know when",
+          "expected": [
+            "stockout"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G022",
+          "text": "Not sure if this is known but it keeps kicking me back to the basket at the final step Please fix.",
+          "expected": [
+            "checkout_failure",
+            "payment_failure"
+          ],
+          "read": [
+            "other"
+          ]
+        },
+        {
+          "id": "G036",
+          "text": "Nothing left in the size I need, hasn't been for a while Losing patience.",
+          "expected": [
+            "stockout"
+          ],
+          "read": [
+            "other"
+          ]
+        }
+      ],
+      "pct": 0.0
+    }
+  },
+  "model_runs": [
+    {
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "calls": 4,
+      "cache_hits": 0,
+      "readings": 41,
+      "citations_dropped": 0,
+      "dropped": [],
+      "seconds": 181.2,
+      "score": {
+        "generator, in vocabulary": {
+          "n": 21,
+          "right": 12,
+          "misses": [
+            {
+              "id": "G010",
+              "text": "Really frustrated. teh store was closed because of the storm Any update?.",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": [
+                "other"
+              ]
+            },
+            {
+              "id": "G019",
+              "text": "Really frustrated. introductory offer seems to have ended without notice",
+              "expected": [
+                "pricing"
+              ],
+              "read": []
+            },
+            {
+              "id": "G018",
+              "text": "the price of this item changed between adding it and checking out Any update?.",
+              "expected": [
+                "pricing"
+              ],
+              "read": []
+            },
+            {
+              "id": "G012",
+              "text": "Cannot find the product in my area any more",
+              "expected": [
+                "stockout"
+              ],
+              "read": []
+            },
+            {
+              "id": "G016",
+              "text": "Hello, your price went up compared to the other app",
+              "expected": [
+                "pricing"
+              ],
+              "read": []
+            },
+            {
+              "id": "G007",
+              "text": "Hello, store was shut because of the rain, could not collect my order",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": [
+                "other"
+              ]
+            },
+            {
+              "id": "G001",
+              "text": "Really frustrated. teh payment step crashes every time on Android.",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "G006",
+              "text": "Hi, delivery delayed due to flooding in the area, no update for two days.",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": []
+            },
+            {
+              "id": "G008",
+              "text": "Third time now. shipment stuck, courier says roads are closed after heavy rainfall Have been a customer for years.",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": []
+            }
+          ],
+          "pct": 57.1
+        },
+        "held out": {
+          "n": 26,
+          "right": 14,
+          "misses": [
+            {
+              "id": "H13",
+              "text": "your outlet near Andheri station was closed yesterday, water everywhere outside",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": [
+                "other"
+              ]
+            },
+            {
+              "id": "H22",
+              "text": "same shampoo is 40 rupees less on the other platform",
+              "expected": [
+                "pricing"
+              ],
+              "read": []
+            },
+            {
+              "id": "H24",
+              "text": "coupon got removed at the last step and the total jumped",
+              "expected": [
+                "pricing"
+              ],
+              "read": []
+            },
+            {
+              "id": "H14",
+              "text": "it was supposed to come by Tuesday. it is Friday.",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": []
+            },
+            {
+              "id": "H08",
+              "text": "keeps saying session expired the moment I hit place order",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "H12",
+              "text": "parcel still sitting at the hub, they say trucks can't move because of waterlogging",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": []
+            },
+            {
+              "id": "H25",
+              "text": "mrp went up again this month?? third time this year",
+              "expected": [
+                "pricing"
+              ],
+              "read": []
+            },
+            {
+              "id": "H02",
+              "text": "the confirm button does nothing on my samsung, tried 5 times",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "H15",
+              "text": "rider cancelled on me, said the roads are blocked with the rains",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": []
+            },
+            {
+              "id": "H16",
+              "text": "pickup point did not open today, wasted a trip",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": []
+            },
+            {
+              "id": "H20",
+              "text": "store says the supplier hasn't sent anything this week",
+              "expected": [
+                "stockout"
+              ],
+              "read": []
+            },
+            {
+              "id": "H21",
+              "text": "only the big sizes are there, the small ones have been gone for weeks",
+              "expected": [
+                "stockout"
+              ],
+              "read": []
+            }
+          ],
+          "pct": 53.8
+        },
+        "no problem": {
+          "n": 26,
+          "right": 26,
+          "misses": [],
+          "pct": 100.0
+        },
+        "generator, off vocabulary": {
+          "n": 23,
+          "right": 6,
+          "misses": [
+            {
+              "id": "G032",
+              "text": "everything is waterlogged here, nothing is moving Placed it on the website instead.",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": []
+            },
+            {
+              "id": "G029",
+              "text": "Hi, nobody could get to the shop, whole road was under water Gave up and went elsewhere.",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": [
+                "other"
+              ]
+            },
+            {
+              "id": "G028",
+              "text": "Hi, wont let me finish on my phone, works fine on the laptop Losing patience.",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "G021",
+              "text": "Hi, the last screen just spins forever and nothing happens Placed it on the website instead.",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "G026",
+              "text": "spinning wheel and then it throws me out, three attempts now Any update?.",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "G031",
+              "text": "van never turned up, apparently they could not get through Any update?",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": []
+            },
+            {
+              "id": "G024",
+              "text": "goes round and round on the confirm screen, never finishes.",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "G023",
+              "text": "Hi, the app freezes when I try to confirm, then logs me out.",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "G043",
+              "text": "the deal I signed up for has quietly gone",
+              "expected": [
+                "pricing"
+              ],
+              "read": []
+            },
+            {
+              "id": "G027",
+              "text": "hi the little wheel spins and spins and then nothing Any update?",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": [
+                "other"
+              ]
+            },
+            {
+              "id": "G025",
+              "text": "Really frustrated. after the update it dies right at the end, every single time Any update?.",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": [
+                "other"
+              ]
+            },
+            {
+              "id": "G030",
+              "text": "Hi, the shutters were down all day, no one there Have been a customer for years.",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": [
+                "other"
+              ]
+            },
+            {
+              "id": "G041",
+              "text": "Please help. it was one number in the basket and another at the end Losing patience.",
+              "expected": [
+                "pricing"
+              ],
+              "read": [
+                "other"
+              ]
+            },
+            {
+              "id": "G035",
+              "text": "Really frustrated. they keep saying it is coming but it never arrives Screenshot attached.",
+              "expected": [
+                "stockout"
+              ],
+              "read": []
+            },
+            {
+              "id": "G034",
+              "text": "FYI shelf has been empty for days, staff say they do not know when",
+              "expected": [
+                "stockout"
+              ],
+              "read": []
+            },
+            {
+              "id": "G022",
+              "text": "Not sure if this is known but it keeps kicking me back to the basket at the final step Please fix.",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "G036",
+              "text": "Nothing left in the size I need, hasn't been for a while Losing patience.",
+              "expected": [
+                "stockout"
+              ],
+              "read": []
+            }
+          ],
+          "pct": 26.1
+        }
+      }
+    },
+    {
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "calls": 4,
+      "cache_hits": 0,
+      "readings": 57,
+      "citations_dropped": 0,
+      "dropped": [],
+      "seconds": 353.9,
+      "score": {
+        "generator, in vocabulary": {
+          "n": 21,
+          "right": 15,
+          "misses": [
+            {
+              "id": "G009",
+              "text": "Please help. my delivery was late again, apparently the roads are closed Screenshot attached.",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": []
+            },
+            {
+              "id": "G020",
+              "text": "the price went up overnight with no warning.",
+              "expected": [
+                "pricing"
+              ],
+              "read": []
+            },
+            {
+              "id": "G013",
+              "text": "hi order cancelled by the seller citing unavailability Ticket raised earlier too, no reply.",
+              "expected": [
+                "stockout"
+              ],
+              "read": []
+            },
+            {
+              "id": "G007",
+              "text": "Hello, store was shut because of the rain, could not collect my order",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": []
+            },
+            {
+              "id": "G005",
+              "text": "Hi, the payment page will not load on my phone Will try again tomorrow.",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "G004",
+              "text": "Really frustrated. checkout fails right at the end, card declined every time Placed it on the website instead.",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            }
+          ],
+          "pct": 71.4
+        },
+        "held out": {
+          "n": 26,
+          "right": 17,
+          "misses": [
+            {
+              "id": "H06",
+              "text": "since updating the app I can browse but I can't buy anything",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "H05",
+              "text": "OTP screen never comes up, stuck on loading forever",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "H10",
+              "text": "website works fine, the app doesn't at the payment bit",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "H19",
+              "text": "the 500g pack has vanished from the app",
+              "expected": [
+                "stockout"
+              ],
+              "read": []
+            },
+            {
+              "id": "H23",
+              "text": "charged me 312 but the listing said 289",
+              "expected": [
+                "pricing"
+              ],
+              "read": []
+            },
+            {
+              "id": "H03",
+              "text": "UPI goes through and then the app says something went wrong",
+              "expected": [
+                "payment_failure",
+                "checkout_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "H07",
+              "text": "tried 4 different cards, all rejected, my bank says there is no problem at their end",
+              "expected": [
+                "payment_failure",
+                "checkout_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "H17",
+              "text": "delivery partner told me the warehouse got flooded",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": []
+            },
+            {
+              "id": "H16",
+              "text": "pickup point did not open today, wasted a trip",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": [
+                "other"
+              ]
+            }
+          ],
+          "pct": 65.4
+        },
+        "no problem": {
+          "n": 26,
+          "right": 25,
+          "misses": [
+            {
+              "id": "G054",
+              "text": "Hello, the app logged me out for no reason Any update?",
+              "expected": [],
+              "read": [
+                "checkout_failure"
+              ]
+            }
+          ],
+          "pct": 96.2
+        },
+        "generator, off vocabulary": {
+          "n": 23,
+          "right": 16,
+          "misses": [
+            {
+              "id": "G027",
+              "text": "hi the little wheel spins and spins and then nothing Any update?",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "G025",
+              "text": "Really frustrated. after the update it dies right at the end, every single time Any update?.",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": []
+            },
+            {
+              "id": "G033",
+              "text": "Driver called to say he cannot reach us Losing patience.",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": []
+            },
+            {
+              "id": "G030",
+              "text": "Hi, the shutters were down all day, no one there Have been a customer for years.",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": []
+            },
+            {
+              "id": "G040",
+              "text": "Hello, why would I buy here when it is twenty rupees less elsewhere",
+              "expected": [
+                "pricing"
+              ],
+              "read": []
+            },
+            {
+              "id": "G041",
+              "text": "Please help. it was one number in the basket and another at the end Losing patience.",
+              "expected": [
+                "pricing"
+              ],
+              "read": []
+            },
+            {
+              "id": "G035",
+              "text": "Really frustrated. they keep saying it is coming but it never arrives Screenshot attached.",
+              "expected": [
+                "stockout"
+              ],
+              "read": [
+                "delivery_delay"
+              ]
+            }
+          ],
+          "pct": 69.6
+        }
+      }
+    },
+    {
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "calls": 4,
+      "cache_hits": 0,
+      "readings": 77,
+      "citations_dropped": 0,
+      "dropped": [],
+      "seconds": 454.0,
+      "score": {
+        "generator, in vocabulary": {
+          "n": 21,
+          "right": 20,
+          "misses": [
+            {
+              "id": "G010",
+              "text": "Really frustrated. teh store was closed because of the storm Any update?.",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": [
+                "other"
+              ]
+            }
+          ],
+          "pct": 95.2
+        },
+        "held out": {
+          "n": 26,
+          "right": 24,
+          "misses": [
+            {
+              "id": "H13",
+              "text": "your outlet near Andheri station was closed yesterday, water everywhere outside",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": [
+                "other"
+              ]
+            },
+            {
+              "id": "H24",
+              "text": "coupon got removed at the last step and the total jumped",
+              "expected": [
+                "pricing"
+              ],
+              "read": [
+                "checkout_failure"
+              ]
+            }
+          ],
+          "pct": 92.3
+        },
+        "no problem": {
+          "n": 26,
+          "right": 26,
+          "misses": [],
+          "pct": 100.0
+        },
+        "generator, off vocabulary": {
+          "n": 23,
+          "right": 18,
+          "misses": [
+            {
+              "id": "G032",
+              "text": "everything is waterlogged here, nothing is moving Placed it on the website instead.",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": []
+            },
+            {
+              "id": "G029",
+              "text": "Hi, nobody could get to the shop, whole road was under water Gave up and went elsewhere.",
+              "expected": [
+                "delivery_delay"
+              ],
+              "read": [
+                "other"
+              ]
+            },
+            {
+              "id": "G027",
+              "text": "hi the little wheel spins and spins and then nothing Any update?",
+              "expected": [
+                "checkout_failure",
+                "payment_failure"
+              ],
+              "read": [
+                "other"
+              ]
+            },
+            {
+              "id": "G041",
+              "text": "Please help. it was one number in the basket and another at the end Losing patience.",
+              "expected": [
+                "pricing"
+              ],
+              "read": [
+                "other"
+              ]
+            },
+            {
+              "id": "G035",
+              "text": "Really frustrated. they keep saying it is coming but it never arrives Screenshot attached.",
+              "expected": [
+                "stockout"
+              ],
+              "read": [
+                "delivery_delay"
+              ]
+            }
+          ],
+          "pct": 78.3
+        }
+      }
+    }
+  ]
+}
