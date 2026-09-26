@@ -3130,7 +3130,7 @@ def trackrecord() -> dict:
     exact = sum(1 for c in named if set(c.get("verified") or []) == {truth(c)})
     # The strict count, not the benchmark's per-case decoy rate: a decoy planted
     # for a neighbouring case in the same panel counts here too. The per-case
-    # rate (87.5%) is correct as defined and reads as more than it is.
+    # rate (92.2% since 26 Sep) is correct as defined and reads as more than it is.
     decoy_through = sum(1 for c in named if any(v.endswith("-decoy") for v in c.get("verified") or []))
     noise = [c for c in cases if c.get("expected") == "no_anomaly"]
     return {

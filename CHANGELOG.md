@@ -4,6 +4,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 
 ## [Unreleased]
 
+### 26 Sep 2026, before the finale: owners, hardening, and a fairer benchmark
+
+- **A demo seat for every owner** (B-083): 16 seats grouped by industry, so
+  petroleum and power decisions, change requests and sign-offs work on the demo;
+  "Act as the owner (demo)" on decision cards.
+- **Who answers for each finding**: explains (head of the region), reviews
+  (national head), acts (lever owners), signs (metric owner), from each
+  industry's reference ladder; on the page, the slide and the Teams card.
+- **A cause must push the way the finding moved** (B-070), against expected, not
+  against the raw fortnight; and a cause present in two regions must move both.
+- **Benchmark adopted, 26 Sep:** top-1 45.8% (was 38.9%), 75.9% among material
+  movements (64.4%), traps rejected 92.2% (87.5%), abstentions 100% right and
+  100% taken (85.7%, 88.2%), noise 0%, calibrated error 0.023 (0.042). Decoys run
+  only where they could be caught (41 of 64 could not).
+- **Hardening:** single sign-on believes a proxy only when it proves itself
+  (B-076); several workers safe (B-077) and counted together in `/api/metrics`
+  (B-082); one question, one fingerprint (B-079); the Teams card no longer asks
+  approval for a change already made (B-080); ticket reading measured
+  (`make eval-extraction`, B-078, B-081 open).
+
 ### Added, the model earns a third job and the economics the brief asks for
 
 - **`whychain/corroborate/query.py`, model-proposed complaint vocabulary.** An
