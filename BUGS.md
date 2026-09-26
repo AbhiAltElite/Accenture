@@ -50,6 +50,21 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-083 · No demo seat could act in petroleum or power
+**Found:** 2026-09-26, listing what the demo could not show · **Severity:** P1 for the demo · **Status:** fixed
+
+**Symptom:** the five demo seats were retail roles. Petroleum and power findings are signed by roles such as the supply manager, terminal manager, system operator and regulatory lead, and their decision cards belong to the logistics lead, trading head, fuel manager and station head. No seat held any of them, so outside retail nothing could be decided, no change request raised, and "Act as the owner" did nothing. Two retail owners (commercial director, supply planner) had no seat either.
+**Fix:** a seat for every role that signs or decides in a demo industry, 16 in all, each with its industries, its default view and a line on what it owns; the sign-in page groups them by industry and opens the seat in its industry and view. Decision cards owned by someone else offer "Act as the … (demo)", as signing did.
+**Verified:** every finding in all three inboxes signed by its owner's seat with every other seat refused (20 findings), every decision card decided by its owner with a wrong seat refused (8), change requests raised (6) and refused where the change was already made (2), Teams previews (8), 31 audit entries with the chain intact; `/uat` 120 of 121 (the one warning: no model key on the isolated test server).
+**Regression test:** `tests/test_owners_and_seats.py`.
+
+### B-082 · With several workers, /api/metrics reported one worker's share
+**Found:** 2026-09-26 · **Severity:** P2, production monitoring only · **Status:** fixed
+
+**Symptom:** counters lived in each worker's memory, so a scrape saw whichever worker answered: half the traffic with two, a different half each time.
+**Fix:** with more than one worker (`WHYCHAIN_WORKERS`), each writes a snapshot to `WHYCHAIN_METRICS_DIR` (default `data/app/metrics`) at start and then every second when counts change, and a scrape sums the live workers' snapshots; an exited worker drops out and its file is removed. One worker writes nothing. Measured with two real workers: 40 requests counted as 40 on every one of six scrapes, `whychain_workers 2`. The first version flushed only on the next request and undercounted a burst (27 of 40); the background flush fixed it.
+**Regression test:** three tests in `tests/test_workers.py`.
+
 ### B-081 · The model sometimes returns nothing for a whole batch of tickets
 **Found:** 2026-09-26, `make eval-extraction`, six live runs · **Severity:** P2, the evidence link weakens silently · **Status:** open, measured, not fixed before the finale
 
@@ -153,13 +168,29 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 **Lesson:** a figure that appears in more than one view needs one test asserting the views agree, not one test per view (T-37).
 
 ### B-070 · A decoy planted in one region verifies as a cause in another
-**Found:** 2026-09-26, breaking down the benchmark misses · **Severity:** P1 for the published decoy figure · **Status:** open, root cause not yet established
+**Found:** 2026-09-26, breaking down the benchmark misses · **Severity:** P1 for the published decoy figure · **Status:** generator and two-region gap fixed; direction check measured, awaiting a decision; published figures not yet changed
 
-**Symptom:** in `bench/report.json`, 13 cases are explained but not exactly right. In all of them the true cause was verified; a planted decoy passed too. In 6 of the 13 the decoy belongs to a different region from the case (`bench-02-north-0` verifies `bench-02-south-0-decoy`). These are part of the "14 planted decoys got through" on the track record.
-**Root cause:** not a scope defect; the first hypothesis (T-33) was wrong. `datagen/bulk.py` plants each decoy as a plan entry active in its own region **and two others**. Where one of those regions has its own real cause in the same window, the decoy lines up in place and time with a real fall and passes every statistical test there. The tests measure coincidence, and this is a perfect coincidence.
-**Evaluated, not shipped (26 Sep):** a check that reads each cause's note for whether it supports or disrupts the business, and sets aside one that points against the measured effect (model reads, code decides, keyword fallback). On the benchmark it looked like 87.5% to 100% decoy rejection, but only because it was reading the engine's own label, "Promotion X active", which the plan also puts on rivals' activity; it also set aside six true causes whose note and plan row share an id. Restricted to what a person wrote, it changed nothing on the benchmark (decoys have no documents) and nothing on any of the 36 findings across the three demo industries. A check that cannot be shown to help a real case does not go into the engine. Kept at its design, for when real notes can measure it.
-**Fix:** none yet. Any fix re-runs `make bench` and the demo answer key: it changes published figures.
-**Lesson:** a benchmark whose decoys carry no text cannot measure anything that reads text. Before building a reading step, check the benchmark can score it.
+**Symptom:** 17 benchmark cases verified a decoy, 8 of them the case's own; these make up the "14 planted decoys got through" on the track record.
+**Verified causes, three of them, found by reading each passing decoy's test results:**
+1. **The generator, mostly.** `datagen/bulk.py` promised to run each decoy "in two regions that saw nothing" and drew them at random. 41 of 64 decoys landed on a region with its own real fall, or a nationwide one, in the same days; 12 of the 15 decoys that got through were among them. There a decoy coincides with a real fall exactly and no test on the data can separate them: the benchmark was scoring the generator.
+2. **A two-region gap in exposure consistency.** It passed at half of the exposed regions moving, and half of two is one: a promotion present in two regions that moved one of them passed (North −11%, South −1.8%).
+3. **No direction check.** Difference-in-differences asked whether the gap was large, not which way it pointed: a decoy whose regions did 7% better than the comparison passed as a cause of a fall.
+**Fixed:** decoys now run only in regions with nothing real in the window (same random draw, so every case, date and effect is unchanged; 13 decoys with no quiet region anywhere are removed), and consistency needs at least two exposed regions to have moved. 0 of 69 demo views change.
+**Measured, not shipped:** the direction check, taken from the detector's flagged direction (short of expected), not the raw change on the fortnight before: a seasonal ramp made five real falls look like rises and the first version rejected their true causes. Patch in `_internal/proposals/b070-direction-check.patch`; wiring it into the app needs the diagnosis to carry the finding's expected-based direction.
+
+| | published | fair decoys + two-region (on this branch) | + direction check |
+|---|---|---|---|
+| true cause ranked first | 38.9% | 43.8% | 45.8% |
+| ... among material movements | 64.4% | 72.4% | 75.9% |
+| true cause verified at all | 48.6% | 48.6% | 47.9% (one nationwide case now correctly unknown) |
+| noise explained | 0% | 0% | 0% |
+| decoys rejected | 87.5% | 88.2% | 92.2% |
+| abstentions right / unanswerable abstained on | 85.7% / 88.2% | 95.0% / 94.1% | 100% / 100% |
+| calibration error after fitting | 0.042 | 0.015 | 0.023 |
+
+Reports in `_internal/proposals/`. **`bench/report.json` and `data/calibration.json` are the published run until the figures are agreed**; `make bench` then rewrites both.
+**Regression tests:** `test_present_in_two_moved_in_one_is_the_same_trap`, `test_a_cause_that_moved_both_its_regions_survives`, `test_a_decoy_runs_only_where_nothing_real_happened`, each verified to fail without its fix.
+**Lesson:** before blaming the engine for a benchmark miss, check the benchmark could have been passed. And a direction taken from raw change is not the direction a finding is about.
 
 ### B-069 · Closing the app window left an engine running for good
 **Found:** 2026-09-26, the Mac slowing down with four engines running · **Severity:** P1 on a demo laptop · **Status:** fixed

@@ -22,7 +22,13 @@ make app          # builds WhyChain.app: double-click, opens in its own window
 ```
 
 Sign-in at `/login`: a choice of demo seat (no password anywhere), or single
-sign-on in proxy mode. Design: `ui/theme.css` (fonts bundled in `ui/fonts`,
+sign-on in proxy mode. Seats are grouped by industry, one for every role that
+signs or decides in the demo (`whychain/identity.py` `SEATS`); a card owned by
+another role offers "Act as the … (demo)". Every finding carries
+`accountability`: who explains (the head of the region), reviews (the national
+head), acts (each lever owner) and signs (the metric owner), from each
+industry's reference ladder (`Vertical.ladder`), on the page, the slide and the
+Teams card. Design: `ui/theme.css` (fonts bundled in `ui/fonts`,
 OFL), light by default, and scaled up automatically from 1900px wide
 (external monitors and projectors; laptops are never zoomed, B-068). A finding
 page carries the chain, the variance bridge, the fishbone, the calendar and
@@ -40,7 +46,7 @@ headline figure opens its aggregated rows, the query that reproduces them
 `/workbench` is the analyst's full method page with the twelve `?demo=`
 scenarios.
 
-`make test` (670), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
+`make test` (686), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
 server), `make bench`, `make audit`, `make lint`, `make real-data`. `/uat` in
 any browser runs the acceptance checks against every scenario and persona.
 
