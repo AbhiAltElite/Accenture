@@ -4,6 +4,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 
 ## [Unreleased]
 
+### 28 Sep 2026: the question box, and the order of a finding
+
+- **The question box answers in a card** (B-091): its state (understood, one
+  question back, not answerable), the query as tags, what the model did and did
+  not do, and a dismiss button. Focusing the box no longer moves the page.
+- **Clear questions run again on Ultra** (B-090): the baseline is never asked
+  for, "revenue" means the revenue metric, a named period is used as it stands.
+  All 13 demo questions checked; the box's placeholder question is warmed.
+- **On a finding, what-if comes before what to do**: weigh the options, then
+  decide. The on-page links follow the page.
+
 ### 27 Sep 2026: a stronger model, with a backup behind it
 
 - **Nemotron 3 Ultra** is the model, with Super as an automatic backup
