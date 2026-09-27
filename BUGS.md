@@ -50,6 +50,14 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-088 · WHYCHAIN_LLM_TIMEOUT in .env was ignored
+**Found:** 2026-09-27, switching to a slower model (Nemotron 3 Ultra) · **Severity:** P1 for any slow model · **Status:** fixed
+
+**Symptom:** Ultra failed every batch with `TimeoutError` at 45 seconds, with `WHYCHAIN_LLM_TIMEOUT=180` in `.env`.
+**Root cause:** `hosted.py` read the variable into a module constant at import. `api/main.py` and `scripts/warm_ai.py` import the LLM package before calling `load_env()`, so the constant was always the default; only a variable exported in the shell took effect.
+**Fix:** `_timeout()` reads it on each call. Test: `test_the_timeout_is_read_when_the_call_is_made`, verified to fail on the old code.
+**Trap:** any setting read at module level is read before `.env` is loaded. Read configuration when it is used.
+
 ### B-087 · Internal names showed through to readers in 72 places
 **Found:** 2026-09-26, a browser sweep of 234 pages across all three industries · **Severity:** P2, polish visible to a jury · **Status:** fixed
 

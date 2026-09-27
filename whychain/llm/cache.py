@@ -94,7 +94,7 @@ class CachedModel:
         self, *, system: str, user: str, schema: dict, max_tokens: int = 4096
     ) -> Completion:
         key = key_for(
-            model=self.inner.name, backend=self.inner.backend,
+            model=getattr(self.inner, "route", self.inner.name), backend=self.inner.backend,
             system=system, user=user, schema=schema, max_tokens=max_tokens,
         )
         path = self.directory / f"{key}.json"

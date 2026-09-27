@@ -425,3 +425,95 @@ class TestTheHostedClient:
         with pytest.raises(ModelError):
             model.complete(system="s", user="u", schema={"type": "object"})
         assert len(calls) == 1
+
+
+class TestFallbackModels:
+    """Backup models, tried in order by the provider when the first fails.
+
+    A free model going quiet on stage used to drop every stage to the template
+    until it recovered. The list goes to OpenRouter as `models`, the receipt
+    names the model that actually answered, and every entry is held to the
+    free-only guard.
+    """
+
+    SUPER = "nvidia/nemotron-3-super-120b-a12b:free"
+    ULTRA = "nvidia/nemotron-3-ultra-550b-a55b:free"
+
+    @pytest.fixture
+    def sent(self, monkeypatch):
+        """Stand in for the network: record each body, answer as `answered_by`."""
+        import io
+
+        import whychain.llm.hosted as hosted
+        record: dict = {"bodies": [], "answered_by": None}
+
+        class Response(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def urlopen(request, timeout=None, context=None):
+            body = json.loads(request.data)
+            record["bodies"].append(body)
+            return Response(json.dumps({
+                "model": record["answered_by"] or body["model"],
+                "choices": [{"message": {"content": '{"ok": true}'}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 3, "completion_tokens": 2},
+            }).encode())
+
+        monkeypatch.setattr(hosted.urllib.request, "urlopen", urlopen)
+        return record
+
+    def _model(self, monkeypatch, fallbacks=""):
+        from whychain.llm.hosted import OpenAICompatibleModel
+        monkeypatch.setenv("WHYCHAIN_LLM_BACKEND", "openai")
+        monkeypatch.setenv("WHYCHAIN_LLM_BASE_URL", "https://openrouter.ai/api/v1")
+        monkeypatch.setenv("WHYCHAIN_LLM_MODEL", self.ULTRA)
+        monkeypatch.setenv("WHYCHAIN_LLM_FALLBACK_MODELS", fallbacks)
+        return OpenAICompatibleModel()
+
+    def test_the_backups_are_sent_in_order_after_the_model(self, monkeypatch, sent):
+        m = self._model(monkeypatch, f"{self.SUPER}, other/model:free")
+        m.complete(system="s", user="u", schema={})
+        assert sent["bodies"][0]["model"] == self.ULTRA
+        assert sent["bodies"][0]["models"] == [self.ULTRA, self.SUPER, "other/model:free"]
+
+    def test_no_backups_sends_the_request_unchanged(self, monkeypatch, sent):
+        m = self._model(monkeypatch)
+        m.complete(system="s", user="u", schema={})
+        assert "models" not in sent["bodies"][0]
+
+    def test_the_receipt_names_the_model_that_answered(self, monkeypatch, sent):
+        m = self._model(monkeypatch, self.SUPER)
+        sent["answered_by"] = self.SUPER
+        assert m.complete(system="s", user="u", schema={}).model == self.SUPER
+
+    def test_a_paid_backup_is_refused_under_the_free_only_guard(self, monkeypatch):
+        monkeypatch.setenv("WHYCHAIN_LLM_FREE_ONLY", "1")
+        m = self._model(monkeypatch, "openai/gpt-5")
+        assert not m.available and "gpt-5" in m.refusal
+
+    def test_no_backups_keeps_every_existing_cache_key(self, monkeypatch):
+        """Configuring none must not re-key the 356 answers already cached."""
+        assert self._model(monkeypatch).route == self.ULTRA
+
+    def test_the_backups_are_part_of_the_cache_key(self, monkeypatch, tmp_path, sent):
+        a = CachedModel(self._model(monkeypatch), directory=tmp_path)
+        a.complete(system="s", user="u", schema={})
+        b = CachedModel(self._model(monkeypatch, self.SUPER), directory=tmp_path)
+        b.complete(system="s", user="u", schema={})
+        assert b.hits == 0 and len(sent["bodies"]) == 2
+
+    def test_the_timeout_is_read_when_the_call_is_made(self, monkeypatch, sent):
+        """`.env` is loaded after this module is imported (B-088)."""
+        import whychain.llm.hosted as hosted
+        seen = []
+        real = hosted.urllib.request.urlopen
+        monkeypatch.setattr(hosted.urllib.request, "urlopen",
+                            lambda req, timeout=None, context=None: seen.append(timeout) or real(req))
+        m = self._model(monkeypatch)
+        monkeypatch.setenv("WHYCHAIN_LLM_TIMEOUT", "180")
+        m.complete(system="s", user="u", schema={})
+        assert seen == [180.0]

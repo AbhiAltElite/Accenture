@@ -38,7 +38,20 @@ from whychain.llm import Completion, ModelError, require_content
 # constant baked into the engine.
 DEFAULT_MODEL = "mistral-7b-instruct"
 
-TIMEOUT_SECONDS = float(os.environ.get("WHYCHAIN_LLM_TIMEOUT", 45.0))
+TIMEOUT_SECONDS = 45.0
+
+
+def _timeout() -> float:
+    """Read per call, not at import (B-088).
+
+    The app and `warm_ai.py` import this module before `load_env()` runs, so a
+    module-level read never saw `WHYCHAIN_LLM_TIMEOUT` from `.env`, and a slow
+    model given more time there was still cut off at 45 seconds.
+    """
+    try:
+        return float(os.environ.get("WHYCHAIN_LLM_TIMEOUT") or TIMEOUT_SECONDS)
+    except ValueError:
+        return TIMEOUT_SECONDS
 # Long enough for a capacity spike to clear, short enough that the deterministic
 # path is not held up twice over.
 RETRY_PAUSE_SECONDS = 2.0
@@ -147,6 +160,11 @@ class OpenAICompatibleModel:
     # including the run receipt's own error path -- despite the promise above.
     api_key: str | None = field(default=None, repr=False)
     backend: str = "openai-compatible"
+    # Models tried in order when `name` fails or is rate-limited, sent as
+    # OpenRouter's `models` list so the provider fails over inside one request.
+    # A free model going quiet for a minute on stage otherwise drops every
+    # stage to the template until it recovers.
+    fallbacks: tuple[str, ...] = ()
     # Why this backend is refusing to be used, if it is. Empty when usable.
     refusal: str = ""
 
@@ -164,7 +182,24 @@ class OpenAICompatibleModel:
         self.name = self.name or shared("WHYCHAIN_LLM_MODEL") or DEFAULT_MODEL
         self.base_url = (self.base_url or shared("WHYCHAIN_LLM_BASE_URL", "") or "").rstrip("/")
         self.api_key = self.api_key or os.environ.get("WHYCHAIN_LLM_API_KEY") or None
-        self.refusal = _free_only_refusal(str(self.name))
+        if not self.fallbacks:
+            listed = shared("WHYCHAIN_LLM_FALLBACK_MODELS", "") or ""
+            self.fallbacks = tuple(m.strip() for m in listed.split(",")
+                                   if m.strip() and m.strip() != self.name)
+        # Every model the request may reach is held to the guard, not only the
+        # first: a paid fallback would otherwise be billed the day the free one
+        # is busy.
+        self.refusal = next((r for r in map(_free_only_refusal, (str(self.name), *self.fallbacks))
+                             if r), "")
+
+    @property
+    def route(self) -> str:
+        """What the cache keys on: the model, and the fallbacks when there are any.
+
+        With no fallbacks this is the model name alone, so configuring none
+        leaves every existing cache entry valid.
+        """
+        return str(self.name) + ("|" + ",".join(self.fallbacks) if self.fallbacks else "")
 
     @property
     def available(self) -> bool:
@@ -188,6 +223,7 @@ class OpenAICompatibleModel:
         body = json.dumps(
             {
                 "model": self.name,
+                **({"models": [self.name, *self.fallbacks]} if self.fallbacks else {}),
                 "messages": [
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},
@@ -225,7 +261,7 @@ class OpenAICompatibleModel:
         for attempt in range(RETRY_ATTEMPTS):
             try:
                 with urllib.request.urlopen(
-                    request, timeout=TIMEOUT_SECONDS, context=_ssl_context()
+                    request, timeout=_timeout(), context=_ssl_context()
                 ) as response:
                     payload = json.loads(response.read())
                 if _transient_body_error(payload) and attempt < RETRY_ATTEMPTS - 1:
@@ -307,9 +343,12 @@ class OpenAICompatibleModel:
                 "ceiling before returning an object"
             )
 
+        # The model that answered, which after a failover is not the one asked
+        # for; the receipt names it.
+        answered = str(payload.get("model") or self.name)
         return Completion(
-            text=require_content(text, backend=self.backend, model=str(self.name)),
-            model=str(self.name),
+            text=require_content(text, backend=self.backend, model=answered),
+            model=answered,
             tokens_in=int(usage.get("prompt_tokens") or 0),
             tokens_out=int(usage.get("completion_tokens") or 0),
             backend=self.backend,
