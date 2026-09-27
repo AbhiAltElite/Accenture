@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -279,7 +280,7 @@ class ModelWriter:
         )
         payload = json.loads(completion.text or "{}")
         sentences = tuple(
-            Sentence(text=str(s["text"]), cites=tuple(str(c) for c in s["cites"]))
+            Sentence(text=_house_style(str(s["text"])), cites=tuple(str(c) for c in s["cites"]))
             for s in payload.get("sentences", [])[:MAX_SENTENCES]
         )
         return Written(
@@ -299,6 +300,16 @@ class ModelWriter:
                 "over the evidence table"
             ),
         )
+
+
+def _house_style(text: str) -> str:
+    """A dash between clauses becomes a comma, as the house style asks.
+
+    Applied to what the model wrote, after the cache, so it costs no re-warm
+    and cannot touch a figure: the minus sign is U+2212, not a dash. Customer
+    quotes never pass through here; they stay verbatim.
+    """
+    return re.sub(r"\s*[\u2014\u2013]\s*", ", ", text)
 
 
 def default_writer() -> Writer:

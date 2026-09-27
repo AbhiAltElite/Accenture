@@ -50,6 +50,14 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-089 · The smoke test's own cases were never warmed
+**Found:** 2026-09-27, the first smoke run after switching to Nemotron 3 Ultra · **Severity:** P1 on demo day, `make stage-check` fails · **Status:** fixed
+
+**Symptom:** `multi-factor` and `late-warning` failed with `TimeoutError` straight after `make warm-ai` had reported every case warm.
+**Root cause:** `warm_ai.py` warms what the console opens; `smoke.py` asks for other windows (13 to 16 Aug, 4 to 8 Mar). With the old model those had been cached by earlier smoke runs, so nothing showed it. A new model re-keys the cache, and an uncached Ultra diagnosis takes 60 to 180 seconds against the smoke test's 60.
+**Fix:** `warm_ai.py` reads `SCENARIOS` from `scripts/smoke.py` and adds its three-reader, all-regions and scoped windows, so `stage-check` warms what it then checks.
+**Trap:** a gate that passes because of leftovers from an earlier run is not a gate. After changing the model, run `make stage-check` end to end.
+
 ### B-088 · WHYCHAIN_LLM_TIMEOUT in .env was ignored
 **Found:** 2026-09-27, switching to a slower model (Nemotron 3 Ultra) · **Severity:** P1 for any slow model · **Status:** fixed
 

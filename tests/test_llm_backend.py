@@ -517,3 +517,11 @@ class TestFallbackModels:
         monkeypatch.setenv("WHYCHAIN_LLM_TIMEOUT", "180")
         m.complete(system="s", user="u", schema={})
         assert seen == [180.0]
+
+
+def test_a_model_dash_between_clauses_becomes_a_comma():
+    """House style: no em dashes reach a reader. The minus sign is left alone."""
+    from whychain.narrate.writer import _house_style
+    assert _house_style("no action — this cause has no lever") == "no action, this cause has no lever"
+    assert _house_style("moved −₹36,381 – a fall") == "moved −₹36,381, a fall"
+    assert _house_style("−13.4%") == "−13.4%"

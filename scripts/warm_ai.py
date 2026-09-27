@@ -121,17 +121,40 @@ def main() -> int:
                 seen.add(q)
                 CASES.append((f"inbox {industry} {f.get('region') or 'all'} {f['start']}", q))
 
+    # The smoke test's own requests, read from it so the two cannot drift.
+    # `make stage-check` runs it straight after this, at 60 seconds a request;
+    # a slower model answering them live failed the gate (B-089). Only
+    # windows that reach the model are listed: refusals return before it runs.
+    from scripts.smoke import SCENARIOS as SMOKE
+    # The three-reader window first, so it is warmed for every reader rather
+    # than skipped as a repeat of the multi-factor scenario's window.
+    smoke = [("smoke readers", "kpi=net_revenue&start=2026-08-13&end=2026-08-16&region=West")]
+    smoke += [(f"smoke {name}", f"kpi={kpi}&start={start}&end={end}&region={region}")
+              for name, kpi, region, start, end, _ in SMOKE]
+    smoke += [("smoke all regions", "kpi=net_revenue&start=2026-08-13&end=2026-08-16"),
+              ("smoke scoped", "kpi=net_revenue&start=2026-08-13&end=2026-08-16&entitled=South")]
+    for name, q in smoke:
+        if q not in seen:
+            seen.add(q)
+            CASES.append((name, q))
+
     failed: list[str] = []
     total = 0.0
     # Every reader, because the decision view asks for the prose in whichever
     # persona is selected, and opens as the finance director.
     runs = [(f"{n} · {p}", f"{q}&persona={p}") for n, q in CASES
-            for p in (PERSONAS if not n.startswith("inbox") else ("analyst",))]
+            for p in (PERSONAS if not n.startswith(("inbox", "smoke")) or n == "smoke readers"
+                      else ("analyst",))]
     for name, query in runs:
         began = time.perf_counter()
         response = client.get(f"/api/diagnose?{query}")
         elapsed = time.perf_counter() - began
         total += elapsed
+        # A rate declines the price/volume/mix bridge before any model runs:
+        # the designed answer, which the smoke test also counts as a pass.
+        if response.status_code == 422 and "decompos" in response.text:
+            print(f"  {name:14s} declined by design, nothing to warm")
+            continue
         if response.status_code != 200:
             failed.append(name)
             print(f"  {name:14s} FAILED  {response.status_code}: {response.text[:120]}")

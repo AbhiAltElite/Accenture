@@ -46,7 +46,7 @@ headline figure opens its aggregated rows, the query that reproduces them
 `/workbench` is the analyst's full method page with the twelve `?demo=`
 scenarios.
 
-`make test` (686), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
+`make test` (697), `make smoke` (gates a demo; `WHYCHAIN_BASE` picks the
 server), `make bench`, `make audit`, `make lint`, `make real-data`. `/uat` in
 any browser runs the acceptance checks against every scenario and persona.
 
@@ -101,6 +101,18 @@ tickets (`bench/tickets_heldout.json` was labelled and committed before any run)
 Six live runs on 26 Sep: where a batch answered, held-out tickets 88 to 92% right
 against 11.5% for the keyword rules, 0 false alarms in five of six runs; but the
 free model sometimes returns nothing for a whole batch (B-081, open).
+
+**Model, from 27 Sep: Nemotron 3 Ultra** (`nvidia/nemotron-3-ultra-550b-a55b:free`),
+with Super as the backup (`WHYCHAIN_LLM_FALLBACK_MODELS`, OpenRouter fails over
+inside the request) and `WHYCHAIN_LLM_TIMEOUT=180`. Measured live the same day on
+the 96 tickets: tickets in unfamiliar wording 91.3% against 74 to 78% for Super,
+held out 92.3% for both, no false alarms, no invented quotes; about 70 s a batch
+against 40 to 65 s. Its summaries use the whole brief (decision, owner, recovery,
+signal gap) where Super listed facts. Every other free model tried was busy
+upstream, returned broken JSON, or raised false alarms. Changing the model or the
+backup list re-keys the cache: run `make stage-check`, which now also warms the
+smoke test's cases (B-089). Switching back is the model line in `.env`; the old
+model's answers stay in the cache.
 
 ## Non-negotiables
 
