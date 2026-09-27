@@ -58,6 +58,20 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 **Fix:** three rules in `whychain/intent` SYSTEM (baseline never asked; revenue or sales means the one revenue metric; a named period is used as it stands). All 13 demo questions checked: nine run, four refused by design (no metric named, a forecast, a region outside access, an injection). The placeholder question is now warmed.
 **Trap:** a prompt tuned on one model is a claim about that model. After switching models, run every demo question and compare the outcome, not only that it answered.
 
+### B-093 · Explanations written with square-bracket citations were all rejected
+**Found:** 2026-09-28, building Explain this card · **Severity:** P2 · **Status:** fixed
+
+**Symptom:** the what-if card's explanation always fell back to the template, though the model's sentences were right.
+**Root cause:** Ultra cited facts in square brackets ("[f-whatif-price_move-also-1]"); the validator only recognises round-bracket citations, so the "-1" inside the id read as an invented figure and failed every sentence.
+**Fix:** citation tags of either shape are stripped before validation (the citations travel separately, in `cites`). Test: `test_square_bracket_citations_are_not_read_as_figures`.
+**Trap:** a validator that reads prose must be told what is markup. When a new model is adopted, look at its raw output before trusting a fallback rate.
+
+### B-092 · The board-pack slide's right column ran into its footer
+**Found:** 2026-09-28, reviewing the slide · **Severity:** P1, it prints · **Status:** fixed
+
+**Symptom:** the "Foreseeable" paragraph overprinted the footer line; the left column stood half empty.
+**Fix:** the same facts in fewer words: ruled-out causes named on the left under the verified ones; Decision, Recovery, Accountable and Early warning as short labelled lines on the right; a one-line footer. The end-to-end run checks every slide for the side column crossing the footer.
+
 ### B-091 · The question box's answer read as part of the page below it
 **Found:** 2026-09-28, review of the workbench · **Severity:** P2 · **Status:** fixed
 

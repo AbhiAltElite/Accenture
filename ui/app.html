@@ -381,6 +381,23 @@ table.t td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabul
 .cal-list li:last-child{border-bottom:0}
 .callout{border:1.5px solid color-mix(in srgb,var(--evidence) 40%,transparent);background:var(--evidence-soft);padding:14px 18px;border-radius:var(--r-md);font-size:15px;line-height:1.6;margin:8px 0 14px;max-width:80ch}
 
+/* explain this card */
+.panel.has-aix{position:relative}
+.has-aix > h2{padding-right:118px}
+/* the fishbone's Show/Hide sits at the end of its summary: keep it clear of Explain */
+.has-aix > .fbd > summary{padding-right:118px}
+.aix{position:absolute;top:18px;right:20px;z-index:2;display:inline-flex;align-items:center;gap:6px;
+  font:600 12.5px/1 var(--sans);padding:6px 11px;border-radius:var(--r-pill);border:1px solid var(--line-2);
+  background:var(--paper);color:var(--accent);cursor:pointer}
+.aix svg{width:14px;height:14px}
+.aix:hover,.aix[aria-expanded="true"]{background:var(--accent-soft);border-color:var(--accent)}
+.aix-out{margin:4px 0 16px;padding:14px 16px;border-radius:var(--r-md);background:var(--accent-soft);
+  border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);font-size:15px;line-height:1.6;color:var(--ink)}
+.aix-out p{margin:0 0 6px}
+.aix-out .aix-head{display:flex;align-items:center;gap:6px;color:var(--accent);font-size:12.5px;letter-spacing:.04em;text-transform:uppercase}
+.aix-out .aix-head svg{width:14px;height:14px}
+.aix-out .aix-foot{margin:8px 0 0;font-size:12.5px;color:var(--ink-3)}
+.aix-out .aix-busy{margin:0;color:var(--ink-3)}
 /* drawer and modal */
 .scrim{position:fixed;inset:0;background:rgba(8,14,12,.36);z-index:40}
 .drawer{position:fixed;top:0;right:0;bottom:0;width:min(500px,100%);background:var(--paper);border-left:1px solid var(--line-2);z-index:41;padding:28px;overflow-y:auto;box-shadow:-10px 0 30px rgba(0,0,0,.12);font-size:15px;line-height:1.6}
@@ -2001,7 +2018,7 @@ function fishboneHtml(ctx){
     : 'The operational record holds no hypothesis for this window on any bone. That is why the answer is unknown, and why the next check is to look further, not to guess.';
   // The analyst's working map. Open for the analyst; one click away for the
   // readers who act on the bridge instead.
-  return `<section class="panel" id="fishbone" style="margin-top:20px"><details class="fbd"${S.persona === 'analyst' ? ' open' : ''}>
+  return `<section class="panel" id="fishbone" style="margin-top:20px"><details class="fbd" open>
     <summary><h2>Cause and effect · every hypothesis, tested</h2></summary>
     <p class="chain-lede">${lede}</p>
     <div class="fishwrap"><svg class="fish" viewBox="0 0 ${W} ${H}" role="img" aria-label="Fishbone diagram: ${esc(effect)}. ${esc(entries.map(e => `${e.text}: ${e.state}`).join('; '))}">
@@ -2037,6 +2054,7 @@ function wireFinding(ctx){
   view.querySelectorAll('.whychain [data-jump]').forEach(b => b.onclick = () => jumpTo(b.dataset.jump));
   view.querySelectorAll('[data-fb]').forEach(b => b.onclick = () => feedback(ctx, b));
   wireWhatIf(ctx);
+  wireExplain(ctx);
   view.querySelectorAll('[data-decide]').forEach(b => b.onclick = () => decideModal(ctx, ...b.dataset.decide.split(':')));
   view.querySelectorAll('[data-actas-role]').forEach(b => b.onclick = async () => {
     const u = S.me.demo_users.find(x => x.role === b.dataset.actasRole); if(!u) return;
@@ -2373,6 +2391,44 @@ function wireWhatIf(ctx){
     clearTimeout(timer); timer = setTimeout(ask, 280);
   };
   box.querySelectorAll('[data-horizon]').forEach(b => b.onclick = () => { ctx.whatIf.horizon = Number(b.dataset.horizon); ask(); });
+}
+
+/* Explain this card. A small corner button on the cards a reader most often
+   stops at; the model says what the card shows and what it means, from that
+   card's figures only, and the same validator as the summary removes any
+   sentence whose figure the card does not carry. A card is constant for a
+   finding, so each explanation is written once and read from the cache. */
+const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6-5.6-1.9 5.6-1.9z"/><path d="M19 15l.9 2.1 2.1.9-2.1.9L19 21l-.9-2.1-2.1-.9 2.1-.9z" opacity=".7"/></svg>';
+function wireExplain(ctx){
+  ['bridge', 'fishbone', 'whatif', 'decide'].forEach(id => {
+    const sec = document.getElementById(id);
+    if(!sec || sec.querySelector(':scope > .aix')) return;
+    sec.classList.add('has-aix');
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'aix'; btn.setAttribute('aria-expanded', 'false');
+    btn.title = 'Explain this card'; btn.innerHTML = `${SPARK}<span>Explain</span>`;
+    sec.prepend(btn);
+    btn.onclick = async () => {
+      let box = sec.querySelector(':scope > .aix-out');
+      if(box){ box.remove(); btn.setAttribute('aria-expanded', 'false'); return; }
+      box = document.createElement('div'); box.className = 'aix-out'; box.setAttribute('role', 'status');
+      box.innerHTML = '<p class="aix-busy">Reading this card\u2026</p>';
+      const h = sec.querySelector(':scope > h2'), det = sec.querySelector(':scope > details');
+      // Under the card's heading; in the fishbone, under its summary, inside the card.
+      if(h) h.after(box); else if(det) det.querySelector(':scope > summary').after(box); else btn.after(box);
+      btn.setAttribute('aria-expanded', 'true');
+      const r = await api('/api/explain?' + qs({...ctx.base, card: id, persona: S.persona,
+        price_delta: ctx.whatIf ? ctx.whatIf.price : undefined,
+        horizon_days: ctx.whatIf ? ctx.whatIf.horizon : undefined}));
+      if(!box.isConnected) return;
+      if(!r.ok){ box.innerHTML = `<p class="aix-busy">${esc(detail(r))}</p>`; return; }
+      const d = r.data, n = d.accepted + d.rejected;
+      box.innerHTML = `<p class="aix-head">${SPARK}<b>What this card shows</b></p><p>${esc(d.text || 'Nothing to add for this card.')}</p>
+        <p class="aix-foot">${d.writer === 'model'
+          ? `Written by the model \u00b7 ${d.accepted} of ${n} sentences checked against this card\u2019s figures. It calculates nothing.`
+          : 'From a template, no model \u00b7 every figure is from this card.'}</p>`;
+    };
+  });
 }
 
 /* The seat menu: engine status, appearance and switching seat, under the

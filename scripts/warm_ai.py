@@ -198,6 +198,32 @@ def main() -> int:
                 f"{first.get('kpi_id')} · {first.get('region') or 'all regions'} · {first.get('start')} to {first.get('end')}")
             print(f"  {label_:70s} {said[:70]}")
 
+    # "Explain this card" on the retail findings a presenter can open: every
+    # card, for the two readers the demo signs in as, and the what-if at the
+    # page's opening price and at the +10% the demo moves it to. Each is written
+    # once and read from disk after, so a click on stage never waits.
+    print("\nWarming Explain this card.")
+    explained = 0
+    for name, q in CASES:
+        if not (name.startswith("inbox retail") or name.startswith("trap")):
+            continue
+        for card in ("bridge", "fishbone", "whatif", "decide"):
+            for persona in ("cfo", "analyst"):
+                for price in ((-0.05, 0.10) if card == "whatif" else (-0.05,)):
+                    r = client.get(f"/api/explain?{q}&card={card}&persona={persona}&price_delta={price}")
+                    if r.status_code == 422:
+                        continue          # a metric with no bridge has no cards to explain
+                    body = r.json() if r.status_code == 200 else {}
+                    if r.status_code != 200:
+                        failed.append(f"explain {card} {name}")
+                    elif body.get("model_calls"):
+                        # Written just now. Asked again it must come from disk.
+                        again = client.get(f"/api/explain?{q}&card={card}&persona={persona}&price_delta={price}").json()
+                        if again.get("model_calls"):
+                            cold.append(f"explain {card} {name}")
+                    explained += 1
+    print(f"  {explained} card explanations")
+
     print(f"\n{total:.1f}s total.")
     if failed or cold:
         if failed:
@@ -206,7 +232,7 @@ def main() -> int:
             print(f"NOT WARM, still reaching the model: {', '.join(cold)}")
         print("Those scenarios will wait on the model in front of an audience.")
         return 1
-    print(f"All {len(CASES)} cases warm, scenarios for {len(PERSONAS)} readers each, and {len(ASK_CASES)} questions. Re-running any is now instant.")
+    print(f"All {len(CASES)} cases warm, scenarios for {len(PERSONAS)} readers each, {len(ASK_CASES)} questions, and {explained} card explanations. Re-running any is now instant.")
     print("Re-run this after changing a prompt, a schema or the model: all")
     print("three are in the cache key, so a change to any is a different key.")
     return 0

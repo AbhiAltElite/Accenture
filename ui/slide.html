@@ -41,6 +41,10 @@ h2{font-size:.72em;letter-spacing:.09em;text-transform:uppercase;color:var(--ink
 .cause .b i{display:block;height:100%;background:var(--accent)}
 .side p{margin:0 0 .9em;font-size:.95em;line-height:1.45}
 .side b{font-weight:600}
+.side p{margin:0 0 .9em;line-height:1.4}
+.side p b{display:block;font-size:.72em;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:.15em}
+.ruled{margin:.2em 0 0;padding-left:1.1em}
+.ruled li{text-decoration:line-through;text-decoration-color:var(--bad,#c4122f);color:var(--ink-3);margin:.15em 0}
 .foot{display:grid;grid-template-columns:1fr auto;gap:2em;align-items:end;border-top:1px solid var(--line);padding-top:.7em;font-size:.8em;color:var(--ink-3)}
 .sig{text-align:right}
 .sig b{color:var(--ink);font-size:1.15em}
@@ -111,7 +115,7 @@ document.getElementById('print').onclick = () => window.print();
   const g = x.signal_gap || {};
   const ro = x.recovery_outlook;
   const signed = sig.ok && sig.data.signed;
-  const rejected = c.ok ? c.data.rejected.length : null;
+  const ruledOut = c.ok ? c.data.rejected.map(r => causeText(r.description)) : [];
   out.innerHTML = `<section class="slide">
     <div class="top"><span><img src="/static/mark.svg" alt=""><b>WhyChain</b> · ${esc({retail:'Retail', petroleum:'Petroleum', power:'Power'}[f.industry || 'retail'] || human(f.industry))} · ${esc(human(f.kpi))}, ${esc(scope)} · ${span(f.start, f.end)}</span><span class="pill ${verdict[0]}"><svg viewBox="0 0 24 24" aria-hidden="true">${{ok:'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/>', unk:'<circle cx="12" cy="12" r="9"/><path d="M9.7 9.5a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5v.4"/><path d="M12 16.6v.1"/>', bad:'<path d="M12 3.8 21 19.5H3z"/><path d="M12 10v4"/><path d="M12 16.9v.1"/>'}[verdict[0]] || ''}</svg>${esc(verdict[1])}</span></div>
     <h1>${esc(title)}</h1>
@@ -124,19 +128,21 @@ document.getElementById('print').onclick = () => window.print();
         </div>
         ${causes.length ? `<h2>Verified causes · ₹ a day against the fortnight before, overlapping</h2>
           ${causes.map(k => `<div class="cause"><span>${esc(causeText(k.cause))}</span><span class="w">${inr(k.contribution, true)}</span><span class="b"><i style="width:${Math.round(share(k)*100)}%"></i></span><span class="sh">${Math.round(share(k)*100)}% of the movement</span></div>`).join('')}` : ''}
+        ${ruledOut.length ? `<h2 style="margin-top:1em">Tested and ruled out</h2><ul class="ruled">${ruledOut.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
       </div>
       <div class="side">
-        ${rejected !== null ? `<p><b>Ruled out:</b> ${rejected} alternative${rejected===1?'':'s'} tested and rejected.</p>` : ''}
         ${x.decision ? (() => { const id = ((x.decisions || [])[0] || {}).approval ? x.decisions[0].approval.action_id : null; const done = id && decidedBy(id);
-          return `<p><b>Decision:</b> ${esc(actionText(x.decision.action))}. Owner: ${esc(human(x.decision.owner).toLowerCase().replace('ecommerce', 'e-commerce'))}. Expected recovery ${inr(x.decision.expected_recovery_inr_per_day)} a day. ${done ? `${esc(human(done.event.replace('decision_', '')))} by ${esc(done.actor.name)}, ${dt(done.at)}.` : (x.decisions[0] || {}).already_actioned ? `Already done on ${dt(x.decisions[0].already_actioned.on)}; awaiting the owner's confirmation that it worked.` : 'Awaiting approval; nothing executes.'}</p>`; })() : ''}
-        ${ro ? `<p><b>Recoverable:</b> ${inr(ro.recoverable_inr_per_day)} a day. Monitor only: ${inr(ro.not_actionable_inr_per_day)} a day.</p>` : ''}
-        ${x.accountability ? `<p><b>Accountable:</b> ${esc(x.accountability.explains.title)} explains${x.accountability.reviews ? `, ${esc(x.accountability.reviews.title)} reviews` : ''}, ${esc(x.accountability.signs.title.toLowerCase())} signs.</p>` : ''}
-        ${g.verdict === 'gap_found' ? `<p><b>Foreseeable:</b> ${g.actionable_count} public warnings, up to ${Math.round(g.best_lead_time_hours)} hours ahead. The planning process has no step that reads them. Owner of the gap: ${esc(human(g.owner_role).toLowerCase())}.</p>` : ''}
-        ${x.verdict === 'contradicted' ? `<p><b>Next step:</b> data engineering checks the extract before any commercial explanation.</p>` : ''}
+          const status = done ? `${esc(human(done.event.replace('decision_', '')))} by ${esc(done.actor.name)}, ${dt(done.at)}.`
+            : (x.decisions[0] || {}).already_actioned ? `Done ${dt(x.decisions[0].already_actioned.on)}; awaiting confirmation it worked.` : 'Awaiting approval; nothing executes.';
+          return `<p><b>Decision</b>${esc(actionText(x.decision.action))}. Owner: ${esc(human(x.decision.owner).toLowerCase().replace('ecommerce', 'e-commerce'))}. Recovers ${inr(x.decision.expected_recovery_inr_per_day)} a day. ${status}</p>`; })() : ''}
+        ${ro ? `<p><b>Recovery</b>${inr(ro.recoverable_inr_per_day)} a day recoverable${ro.not_actionable_inr_per_day >= 1 ? `; ${inr(ro.not_actionable_inr_per_day)} a day to monitor, with no lever` : ''}.</p>` : ''}
+        ${x.accountability ? `<p><b>Accountable</b>${esc(x.accountability.explains.title)} explains${x.accountability.reviews ? `; ${esc(x.accountability.reviews.title)} reviews` : ''}; ${esc(x.accountability.signs.title.toLowerCase())} signs.</p>` : ''}
+        ${g.verdict === 'gap_found' ? `<p><b>Early warning</b>${g.actionable_count} public warnings, up to ${Math.round(g.best_lead_time_hours)} hours ahead. No planning step reads them.</p>` : ''}
+        ${x.verdict === 'contradicted' ? `<p><b>Next step</b>Data engineering checks the extract before any commercial explanation.</p>` : ''}
       </div>
     </div>
     <div class="foot">
-      <span>Every figure resolves to the query, rows or document behind it. The model calculates no numbers; each one it writes is checked against the evidence. Run <span class="mono">${esc(String(x.run_id).replace(/^run-/, ''))}</span>.</span>
+      <span>Every figure traces to its query and rows. The model writes no numbers. Run <span class="mono">${esc(String(x.run_id).replace(/^run-/, ''))}</span>.</span>
       <span class="sig">${signed ? `Signed by <b>${esc(signed.actor.name)}</b><br>${dt(signed.at)}, ${esc(signed.at.slice(11,16))} UTC · evidence <span class="mono">${esc(signed.payload.evidence.slice(0,12))}</span>${sig.data.unchanged ? '' : '<br><span class="changed">Evidence has changed since signing</span>'}`
         : `<b>Not signed</b><br>Awaiting the ${esc(human((sig.ok && sig.data.accountable) || 'finance_director').toLowerCase())}`}</span>
     </div></section>`;

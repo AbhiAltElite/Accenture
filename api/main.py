@@ -1932,6 +1932,58 @@ def decomposition(
     }
 
 
+@app.get("/api/explain")
+def explain_card(
+    card: str = Query(..., description="bridge, fishbone, whatif or decide"),
+    kpi: str = Query("net_revenue"),
+    region: str | None = None,
+    channel: str | None = None,
+    device: str | None = None,
+    category: str | None = None,
+    event_start: date = Query(..., alias="start"),
+    event_end: date = Query(..., alias="end"),
+    persona: str = Query("analyst"),
+    entitled: str | None = Query(None, description="comma-separated regions"),
+    price_delta: float = Query(-0.05, ge=-0.5, le=0.5),
+    horizon_days: int = Query(14, ge=1, le=90),
+    backend: str | None = Query(None, description="none for the template only"),
+    industry: str | None = Query(None, description="which industry to read"),
+) -> dict:
+    """The model's explanation of one card on a finding, validated like the summary.
+
+    The finding is computed with the model off: its figures are identical either
+    way, and the model's only job here is the card's few sentences. Every
+    parameter is passed by name (B-040): an omitted one would arrive as a
+    FastAPI `Query` object and filter every row away.
+    """
+    from whychain.narrate.explain import CARDS, explain
+    if card not in CARDS:
+        raise HTTPException(422, f"no card called {card!r}; one of {', '.join(CARDS)}")
+    result = diagnose(
+        kpi=kpi, region=region, channel=channel, device=device, category=category,
+        event_start=event_start, event_end=event_end, baseline_days=14,
+        # The finance director's projection leaves out the cause list its page
+        # draws from elsewhere; the analyst's carries it, with the same figures.
+        # Area sales keeps its own, which withholds by design.
+        persona="analyst" if persona in ("cfo", "analyst") else persona,
+        entitled=entitled, price_delta=price_delta, horizon_days=horizon_days,
+        backend="none", llm_model=None, industry=industry,
+    )
+    cand = candidates(
+        kpi=kpi, region=region, channel=channel, device=device, category=category,
+        event_start=event_start, event_end=event_end, industry=industry, entitled=entitled,
+    ) if card == "fishbone" and persona == "analyst" else None
+    # Other readers' fishbone withholds what was ruled out ("the analyst view
+    # places them on their bones"); the explanation says what that card says.
+    withheld = card == "fishbone" and persona != "analyst"
+    known = {str(result.get("kpi_id") or ""), str(result.get("region") or "")}
+    known |= {str(d.get("owner_role") or "") for d in result.get("decisions") or []}
+    out = explain(card, result, cand, withheld=withheld,
+                  backend=None if backend == "none" else UNSET,
+                  known_entities=frozenset(k for k in known if k))
+    return out.as_dict()
+
+
 @app.get("/api/candidates")
 def candidates(
     kpi: str = Query("net_revenue"),
