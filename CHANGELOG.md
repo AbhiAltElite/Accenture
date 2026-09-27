@@ -4,6 +4,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 
 ## [Unreleased]
 
+### 27 Sep 2026: a stronger model, with a backup behind it
+
+- **Nemotron 3 Ultra** is the model, with Super as an automatic backup
+  (`WHYCHAIN_LLM_FALLBACK_MODELS`, sent to OpenRouter as the `models` list; the
+  receipt names the model that answered; the free-only guard covers every
+  entry; the list is part of the cache key, and none configured changes no key).
+  Measured live on 96 tickets: unfamiliar wording 91.3% (Super 74 to 78%), held
+  out 92.3% for both, no false alarms, no invented quotes.
+- **B-088:** `WHYCHAIN_LLM_TIMEOUT` in `.env` now takes effect (read per call).
+- **B-089:** `make warm-ai` warms the smoke test's own cases and counts a
+  designed decline as warm, so `make stage-check` passes after a model change.
+- Model prose: a dash between clauses becomes a comma, applied after the cache.
+- The model on/off panel is re-captured on Ultra.
+
 ### 26 Sep 2026, before the finale: owners, hardening, and a fairer benchmark
 
 - **A demo seat for every owner** (B-083): 16 seats grouped by industry, so
