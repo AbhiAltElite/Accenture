@@ -69,6 +69,8 @@ CASES: list[tuple[str, str]] = [
 # live call. Each opens a real finding or shows a designed refusal.
 ASK_CASES: list[tuple[str, str, str | None]] = [
     ("What happened to net revenue in West on 15 August 2026?", "retail", None),
+    # The example in the box's placeholder: the first thing anyone types.
+    ("Why did West revenue drop last week?", "retail", None),
     ("Why did revenue drop in West during the July floods?", "retail", None),
     ("Why did net revenue fall in North in June?", "retail", None),
     ("How did orders do in West last month?", "retail", None),

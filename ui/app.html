@@ -1397,8 +1397,8 @@ function explainedBody(ctx){
       <div class="stack">${setAsideHtml(d)}${ruled}${gapHtml(d)}${reconHtml(d)}</div>
     </div>
     ${fishboneHtml(ctx)}
-    ${decisionsHtml(ctx)}
     ${whatIfHtml(ctx)}
+    ${decisionsHtml(ctx)}
     ${fairHtml(ctx)}`;
 }
 /* What the team is judged on: the movement less the conditions beyond its
@@ -1467,8 +1467,8 @@ function unknownBody(ctx){
         ${reconHtml(d)}</div>
     </div>
     ${fishboneHtml(ctx)}
-    ${decisionsHtml(ctx)}
-    ${whatIfHtml(ctx)}`;
+    ${whatIfHtml(ctx)}
+    ${decisionsHtml(ctx)}`;
 }
 function contradictedBody(ctx){
   const d = ctx.diag.data, r = d.reconciliation || {};
@@ -2021,7 +2021,7 @@ function wireFinding(ctx){
   // Built from what was rendered, so a link never points at a section this
   // verdict does not have (a contradicted finding has no gap and no decisions).
   const first = {explained:'Causes', contradicted:'Why nothing is explained'}[ctx.diag.data.verdict] || 'What we checked';
-  const links = [['chain', 'The chain'], ['who', 'Who answers'], ['bridge', 'The bridge'], ['why', first], ['fishbone', 'Fishbone'], ['gap', 'Signal gap'], ['calendar', 'Calendar'], ['decide', 'Decisions'], ['whatif', 'What-if'], ['fair', 'Fair target']]
+  const links = [['chain', 'The chain'], ['who', 'Who answers'], ['bridge', 'The bridge'], ['why', first], ['gap', 'Signal gap'], ['fishbone', 'Fishbone'], ['whatif', 'What-if'], ['decide', 'Decisions'], ['fair', 'Fair target'], ['calendar', 'Calendar']]
     .filter(([id]) => document.getElementById(id));
   const nav = $('#onpage');
   if(nav){

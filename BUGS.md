@@ -50,6 +50,20 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 ## Defects
 
+### B-090 · With Ultra, clear demo questions were sent back as unclear
+**Found:** 2026-09-28, the question box after the switch to Nemotron 3 Ultra · **Severity:** P1 on stage · **Status:** fixed
+
+**Symptom:** "Why did net revenue fall in North in June?" asked "compared to which period?"; the box's own placeholder, "Why did West revenue drop last week?", asked which metric "revenue" meant; "during the July floods" asked for exact dates. Super had run all three.
+**Root cause:** the larger model applied the prompt's "ask rather than guess" rule to things that are not the reader's to choose. The baseline is the engine's expected line, "revenue" has one metric to mean, and a named period is a period.
+**Fix:** three rules in `whychain/intent` SYSTEM (baseline never asked; revenue or sales means the one revenue metric; a named period is used as it stands). All 13 demo questions checked: nine run, four refused by design (no metric named, a forecast, a region outside access, an injection). The placeholder question is now warmed.
+**Trap:** a prompt tuned on one model is a claim about that model. After switching models, run every demo question and compare the outcome, not only that it answered.
+
+### B-091 · The question box's answer read as part of the page below it
+**Found:** 2026-09-28, review of the workbench · **Severity:** P2 · **Status:** fixed
+
+**Symptom:** focusing the box pushed the page down to show a hint; the model's reading was loose text with a rule beside it, above the overview, with no way to dismiss it; the "model is re-reading" note appeared above the box, reading as the answer to the question just asked.
+**Fix:** the reading is a card (state pill, the question, the sentence understood, the query as tags, what the model did and did not do, a dismiss button) for every state; the hint lives in that footer, so focus moves nothing; the re-reading note sits beside the narrative it is about.
+
 ### B-089 · The smoke test's own cases were never warmed
 **Found:** 2026-09-27, the first smoke run after switching to Nemotron 3 Ultra · **Severity:** P1 on demo day, `make stage-check` fails · **Status:** fixed
 

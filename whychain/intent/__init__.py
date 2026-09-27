@@ -73,7 +73,14 @@ metrics available. Do not guess.
 `reading`. That is a default, not a guess, and it does not need clarification.
 3. If a question could reasonably mean two different metrics, ask rather than \
 choose.
-4. Never invent a metric or a region that is not in the lists given.\
+4. Never invent a metric or a region that is not in the lists given.
+5. A fall, a drop or a rise is always measured against the engine's own \
+expected line. Never ask what to compare against: the baseline is not the \
+reader's to choose.
+6. "Revenue" or "sales" means the metric whose id contains "revenue", when \
+exactly one does. Do not ask which metric in that case.
+7. A named period is used as it stands: "last week", "in July" or "during the \
+July floods" means that whole week or month. Do not ask for exact dates.\
 """
 
 

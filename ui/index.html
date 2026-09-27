@@ -507,13 +507,30 @@ table.watch td.n{text-align:right;white-space:nowrap}
   line-height:var(--lh-snug);max-width:60ch;
   max-height:0;overflow:hidden;opacity:0;
   transition:max-height .18s ease,opacity .18s ease,margin .18s ease}
-.ask:focus-within .askhint,.ask.open .askhint{max-height:8em;opacity:1;
-  margin-top:var(--sp-2)}
+
 @media (prefers-reduced-motion:reduce){.askhint{transition:none}}
-.askread{margin:var(--sp-3) 0 0;padding:var(--sp-3);border-left:2px solid var(--line)}
-.askread p{margin:0 0 var(--sp-2)}
-.askread p:last-child{margin-bottom:0}
-.askread .q{font-size:var(--t-xs);color:var(--ink-3)}
+/* The model's reading of a question, as a card: what state it is in (a pill),
+   the sentence it understood, the query it will run as tags, and a way to
+   dismiss it. It was loose text under the box that read as part of the page
+   below it and stayed after the page had moved on. */
+.askcard{margin:var(--sp-3) 0 0;padding:var(--sp-3) var(--sp-4);background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--r-md,10px);box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.askcard .top{display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-2)}
+.askcard .pill{font-size:var(--t-2xs);font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:2px 8px;border-radius:999px;white-space:nowrap}
+.askcard .pill.ok{background:var(--ok-soft);color:var(--ok)}
+.askcard .pill.warn{background:var(--warn-soft);color:var(--warn)}
+.askcard .pill.unk{background:var(--unk-soft);color:var(--unk)}
+.askcard .top small{font-size:var(--t-xs);color:var(--ink-3)}
+.askcard .x{margin-left:auto;border:none;background:none;padding:0 2px;color:var(--ink-3);
+  font-size:18px;line-height:1;cursor:pointer}
+.askcard .x:hover{color:var(--ink)}
+.askcard .said{margin:0;font-size:var(--t-sm);color:var(--ink);line-height:var(--lh-snug)}
+.askcard .said.lead{font-weight:600}
+.askcard .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:var(--sp-2)}
+.askcard .chips span{font-size:var(--t-xs);border:1px solid var(--line);border-radius:999px;padding:2px 10px}
+.askcard .chips b{font-weight:600;color:var(--ink-3);margin-right:4px}
+.askcard .foot{margin:var(--sp-2) 0 0;font-size:var(--t-xs);color:var(--ink-3);line-height:var(--lh-snug)}
 .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 #refining{grid-column:1/-1;margin:0 0 var(--sp-4);padding:var(--sp-2) var(--sp-3);
   border-left:2px solid var(--line);color:var(--ink-3);font-size:var(--t-xs);
@@ -2514,7 +2531,10 @@ async function refineWithModel(params){
   note.textContent =
     'The model is re-reading the tickets and rewriting the narrative. '
     + 'The figures above are final and will not change.';
-  $('#main').prepend(note);
+  // Beside the narrative it is about, not above the question box: prepended
+  // to the grid it read as the answer to whatever had just been asked.
+  const story = document.getElementById('story');
+  if(story && !document.getElementById('diagnosis').hidden) story.before(note); else $('#main').prepend(note);
   try{
     const res = await fetch('/api/diagnose?' + params);
     // A slower request that has been superseded must not overwrite a newer one.
@@ -2592,8 +2612,19 @@ async function askQuestion(question){
   // had already been rendered -- the reader saw a correct interpretation and no
   // answer.
   const submit = document.getElementById('askgo');
+  // One card for every state. `pill` is [class, label]; the footer says what
+  // the model did and did not do, which used to appear on focus and pushed the
+  // whole page down before anything was asked.
+  const card = (pill, body, foot) => {
+    out.innerHTML = `<div class="askcard" role="status">
+      <div class="top"><span class="pill ${pill[0]}">${pill[1]}</span>
+        <small>${escapeHtml(question)}</small>
+        <button type="button" class="x" aria-label="Dismiss">×</button></div>
+      ${body}${foot ? `<p class="foot">${foot}</p>` : ''}</div>`;
+    out.querySelector('.x').onclick = () => { out.innerHTML = ''; };
+  };
   submit.disabled = true;
-  out.innerHTML = '<p class="askread q">Reading the question\u2026</p>';
+  card(['unk', 'Reading'], '<p class="said">Reading the question\u2026</p>');
   const p = new URLSearchParams({q: question});
   if(STATE.industry) p.set('industry', STATE.industry);
   if(STATE.entitled) p.set('entitled', STATE.entitled);
@@ -2603,7 +2634,7 @@ async function askQuestion(question){
     d = await res.json();
     if(!res.ok) throw new Error(d.detail || 'the question could not be read');
   }catch(e){
-    out.innerHTML = `<p class="askread q">${escapeHtml(String(e.message || e))}</p>`;
+    card(['unk', 'Not read'], `<p class="said">${escapeHtml(String(e.message || e))}</p>`);
     submit.disabled = false; return;
   }
   submit.disabled = false;
@@ -2617,28 +2648,24 @@ async function askQuestion(question){
     return x && !/[.?!]$/.test(x) ? x + '.' : x;
   };
   if(d.problem){
-    out.innerHTML = `<div class="askread"><p>${escapeHtml(said(d.problem))}</p>
-      <p class="q">Choose a metric and window from the rail instead.</p></div>`;
+    card(['unk', 'Not answerable'], `<p class="said">${escapeHtml(said(d.problem))}</p>`,
+      'Choose a metric and window from the rail instead.');
     return;
   }
   if(d.clarification){
-    out.innerHTML = `<div class="askread">
-      <p><strong>${escapeHtml(said(d.clarification))}</strong></p>
-      <p class="q">${escapeHtml(said(d.reading))}</p>
-      <p class="q">Nothing was run. When a question is unclear, or asks for
-        something outside your access, the engine asks rather than choosing for you.</p></div>`;
+    card(['warn', 'One question back'], `<p class="said lead">${escapeHtml(said(d.clarification))}</p>
+      <p class="foot" style="margin-top:6px">${escapeHtml(said(d.reading))}</p>`,
+      'Nothing was run. When a question is unclear, or asks for something outside your access, the engine asks rather than choosing for you.');
     return;
   }
 
-  const rejected = (d.rejected || []).length
-    ? `<p class="q">${(d.rejected).map(escapeHtml).join('. ')}.</p>` : '';
-  out.innerHTML = `<div class="askread">
-    <p>${escapeHtml(said(d.reading))}</p>
-    <p class="q">Running <strong>${escapeHtml(title(d.kpi_id))}</strong>
-      ${d.region ? '· ' + escapeHtml(d.region) : '· all regions'}
-      · ${escapeHtml(d.start)} to ${escapeHtml(d.end)}
-      · read by ${escapeHtml(d.model)}, ${d.tokens_in + d.tokens_out} tokens.
-      Everything after this point is deterministic.</p>${rejected}</div>`;
+  const rejected = (d.rejected || []).length ? ' ' + (d.rejected).map(escapeHtml).join('. ') + '.' : '';
+  const running = `<p class="said">${escapeHtml(said(d.reading))}</p>
+    <div class="chips"><span><b>Metric</b>${escapeHtml(title(d.kpi_id))}</span>
+      <span><b>Region</b>${d.region ? escapeHtml(d.region) : 'All regions'}</span>
+      <span><b>Window</b>${escapeHtml(d.start)} to ${escapeHtml(d.end)}</span></div>`;
+  const how = `Read by ${escapeHtml(d.model)}, ${d.tokens_in + d.tokens_out} tokens. The model only read the question; everything after this is deterministic.${rejected}`;
+  card(['ok', 'Understood'], running, how);
 
   // A question names a window ("in June"), and the finding is a day inside
   // it. Opening on the window's last day answered about 30 June when the fall
@@ -2656,7 +2683,7 @@ async function askQuestion(question){
     const falls = inWin.filter(a => a.delta < 0), pool = falls.length ? falls : inWin;
     if(pool.length){
       day = pool.reduce((w, a) => Math.abs(a.delta) > Math.abs(w.delta) ? a : w).day;
-      out.insertAdjacentHTML('beforeend', `<p class="q askread" style="margin-top:0">The largest flagged ${falls.length ? 'fall' : 'move'} in that window is on ${escapeHtml(String(day).slice(0, 10))}; opening it.</p>`);
+      out.querySelector('.foot').insertAdjacentHTML('beforebegin', `<p class="foot"><b>Opening the largest flagged ${falls.length ? 'fall' : 'move'} in that window, ${escapeHtml(String(day).slice(0, 10))}.</b></p>`);
     }
   }catch(e){ /* the window's end still opens the metric */ }
 
