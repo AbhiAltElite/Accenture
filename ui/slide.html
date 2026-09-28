@@ -135,8 +135,8 @@ document.getElementById('print').onclick = () => window.print();
           const status = done ? `${esc(human(done.event.replace('decision_', '')))} by ${esc(done.actor.name)}, ${dt(done.at)}.`
             : (x.decisions[0] || {}).already_actioned ? `Done ${dt(x.decisions[0].already_actioned.on)}; awaiting confirmation it worked.` : 'Awaiting approval; nothing executes.';
           if(x.decision.controllable === false) return `<p><b>Decision</b>No lever for this cause; monitor for it.</p>`;
-          return `<p><b>Decision</b>${esc(actionText(x.decision.action))}. Owner: ${esc(human(x.decision.owner).toLowerCase().replace('ecommerce', 'e-commerce'))}. Recovers ${inr(x.decision.expected_recovery_inr_per_day)} a day. ${status}</p>`; })() : ''}
-        ${ro ? `<p><b>Recovery</b>${inr(ro.recoverable_inr_per_day)} a day recoverable${ro.not_actionable_inr_per_day >= 1 ? `; ${inr(ro.not_actionable_inr_per_day)} a day to monitor, with no lever` : ''}.</p>` : ''}
+          return `<p><b>Decision</b>${esc(actionText(x.decision.action))}. Owner: ${esc(human(x.decision.owner).toLowerCase().replace('ecommerce', 'e-commerce'))}. Recovers ${inr(x.decision.expected_recovery_inr_per_day)} a day, measured alone. ${status}</p>`; })() : ''}
+        ${ro ? `<p><b>Recovery${ro.overlap_adjusted ? ', overlap shared out' : ''}</b>${inr(ro.recoverable_inr_per_day)} a day recoverable${ro.not_actionable_inr_per_day >= 1 ? `; ${inr(ro.not_actionable_inr_per_day)} a day to monitor, with no lever` : ''}.</p>` : ''}
         ${x.accountability ? `<p><b>Accountable</b>${esc(x.accountability.explains.title)} explains${x.accountability.reviews ? `; ${esc(x.accountability.reviews.title)} reviews` : ''}; ${esc(x.accountability.signs.title.toLowerCase())} signs.</p>` : ''}
         ${g.verdict === 'gap_found' ? `<p><b>Early warning</b>${g.actionable_count} public warnings, up to ${Math.round(g.best_lead_time_hours)} hours ahead. No planning step reads them.</p>` : ''}
         ${x.verdict === 'contradicted' ? `<p><b>Next step</b>Data engineering checks the extract before any commercial explanation.</p>` : ''}

@@ -4,6 +4,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 
 ## [Unreleased]
 
+### 28 Sep 2026, later: Explain this card, and every figure says what it compares
+
+- **Explain** on five cards of a finding (the chain, the bridge, the fishbone,
+  what-if and the decision): a small corner button; the model says in at most
+  three plain sentences what that card shows. It is given only the figures the
+  card itself displays (B-094), every sentence goes through the same validator
+  as the narrative, a sentence with a figure not on the card is dropped, and a
+  template answers if the model fails. The footer says how many sentences were
+  checked. It respects the reader: the finance director's fishbone withholds
+  what was ruled out, and so does its explanation.
+- **Cached, so it answers at once on stage.** The what-if slider keeps 1% steps;
+  the explanation is written for the nearest 5% step, all of which are warmed,
+  and says so when the two differ. `make warm-ai` now also warms 286 card
+  explanations.
+- **Each headline figure names what it compares against**: "Worst day, 15 Aug:
+  short of expected" (₹52,952), "The 3 flagged days averaged ₹41,224 short a
+  day", and "Average day vs the fortnight before" (−₹36,381), "the figure the
+  causes below explain". The same on the board-pack slide. The bridge shows each
+  cause's scaled bar and, under it, the cause measured alone.
+- The fishbone opens expanded. The Explain button sits on the card's title line.
+- **B-093:** Ultra's square-bracket citations were read as invented figures, so
+  every what-if explanation fell back to the template. **B-094:** explanations
+  quoted figures their card does not show; narratives showed "[f-movement]" tags.
+- Slide: a cause with no lever reads "No lever for this cause; monitor for it";
+  a contradicted finding labels its causes "Candidate causes, pending the data
+  check". Workbench prose no longer shows raw identifiers.
+- The validator treats a hyphen and a minus sign before a figure as the same.
+
 ### 28 Sep 2026: the question box, and the order of a finding
 
 - **The question box answers in a card** (B-091): its state (understood, one

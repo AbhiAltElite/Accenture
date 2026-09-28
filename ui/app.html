@@ -1909,7 +1909,7 @@ function waterfallHtml(ctx){
     ? `${inr(w.start.value)} a day in the fortnight before, ${inr(w.end.value)} in this window: ${inr(moved, {sign: true})} a day. ${causes.length === 1 ? 'One tested cause accounts' : `${causes.length} tested causes account`} for ${inr(causes.reduce((a, s) => a + s.value, 0), {sign: true})}${rest ? `, and ${inr(rest.value, {sign: true})} is ${w.withheld ? 'not shown to you or not explained' : 'not explained by anything tested'}` : ''}.`
     : `${inr(w.start.value)} a day in the fortnight before, ${inr(w.end.value)} in this window. ${w.withheld ? 'The causes of this movement are outside what you may see, or untested.' : 'No tested cause accounts for any of it, which is why the answer is unknown.'}`;
   const notes = [
-    w.scaled_for_overlap && `Measured one at a time, the causes add to ${Math.round(w.overlap * 100)}% of the movement, because they touch some of the same sales. Each is scaled by the same factor so the bridge adds up; hover a bar for its measured figure.`,
+    w.scaled_for_overlap && `Measured one at a time, the causes add to ${Math.round(w.overlap * 100)}% of the movement, because they touch some of the same sales. Each is scaled by the same factor so the bridge adds up; the figure measured alone is under each bar.`,
     floor > 0 && `The axis starts at ${inr(floor)}, not zero, so the steps are visible; the first and last bars are cut where marked.`,
   ].filter(Boolean);
   return `<section class="panel" id="bridge" style="margin-top:20px"><h2>The bridge · ₹ a day, the fortnight before to this window</h2>
