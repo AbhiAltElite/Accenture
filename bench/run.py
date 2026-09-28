@@ -169,7 +169,10 @@ def run_case(
         + from_promotions(plan, case.window_start, case.window_end),
         case.window_start, case.window_end, case.region,
     )
-    verifications = [verify(c, panel, regions) for c in candidates]
+    # Only material drops reach here, flagged against expected, so every cause
+    # is tested as a candidate for a fall: the direction the app takes from the
+    # same decomposition, never the raw change on the fortnight before.
+    verifications = [verify(c, panel, regions, movement=-1.0) for c in candidates]
 
     supporting = 0
     for c, v in zip(candidates, verifications, strict=True):

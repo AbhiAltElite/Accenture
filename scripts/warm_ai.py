@@ -69,6 +69,8 @@ CASES: list[tuple[str, str]] = [
 # live call. Each opens a real finding or shows a designed refusal.
 ASK_CASES: list[tuple[str, str, str | None]] = [
     ("What happened to net revenue in West on 15 August 2026?", "retail", None),
+    # The example in the box's placeholder: the first thing anyone types.
+    ("Why did West revenue drop last week?", "retail", None),
     ("Why did revenue drop in West during the July floods?", "retail", None),
     ("Why did net revenue fall in North in June?", "retail", None),
     ("How did orders do in West last month?", "retail", None),
@@ -121,17 +123,40 @@ def main() -> int:
                 seen.add(q)
                 CASES.append((f"inbox {industry} {f.get('region') or 'all'} {f['start']}", q))
 
+    # The smoke test's own requests, read from it so the two cannot drift.
+    # `make stage-check` runs it straight after this, at 60 seconds a request;
+    # a slower model answering them live failed the gate (B-089). Only
+    # windows that reach the model are listed: refusals return before it runs.
+    from scripts.smoke import SCENARIOS as SMOKE
+    # The three-reader window first, so it is warmed for every reader rather
+    # than skipped as a repeat of the multi-factor scenario's window.
+    smoke = [("smoke readers", "kpi=net_revenue&start=2026-08-13&end=2026-08-16&region=West")]
+    smoke += [(f"smoke {name}", f"kpi={kpi}&start={start}&end={end}&region={region}")
+              for name, kpi, region, start, end, _ in SMOKE]
+    smoke += [("smoke all regions", "kpi=net_revenue&start=2026-08-13&end=2026-08-16"),
+              ("smoke scoped", "kpi=net_revenue&start=2026-08-13&end=2026-08-16&entitled=South")]
+    for name, q in smoke:
+        if q not in seen:
+            seen.add(q)
+            CASES.append((name, q))
+
     failed: list[str] = []
     total = 0.0
     # Every reader, because the decision view asks for the prose in whichever
     # persona is selected, and opens as the finance director.
     runs = [(f"{n} · {p}", f"{q}&persona={p}") for n, q in CASES
-            for p in (PERSONAS if not n.startswith("inbox") else ("analyst",))]
+            for p in (PERSONAS if not n.startswith(("inbox", "smoke")) or n == "smoke readers"
+                      else ("analyst",))]
     for name, query in runs:
         began = time.perf_counter()
         response = client.get(f"/api/diagnose?{query}")
         elapsed = time.perf_counter() - began
         total += elapsed
+        # A rate declines the price/volume/mix bridge before any model runs:
+        # the designed answer, which the smoke test also counts as a pass.
+        if response.status_code == 422 and "decompos" in response.text:
+            print(f"  {name:14s} declined by design, nothing to warm")
+            continue
         if response.status_code != 200:
             failed.append(name)
             print(f"  {name:14s} FAILED  {response.status_code}: {response.text[:120]}")
@@ -173,6 +198,34 @@ def main() -> int:
                 f"{first.get('kpi_id')} · {first.get('region') or 'all regions'} · {first.get('start')} to {first.get('end')}")
             print(f"  {label_:70s} {said[:70]}")
 
+    # "Explain this card" on the retail findings a presenter can open: every
+    # card, for the two readers the demo signs in as, and the what-if at the
+    # page's opening price and at the +10% the demo moves it to. Each is written
+    # once and read from disk after, so a click on stage never waits.
+    print("\nWarming Explain this card.")
+    explained = 0
+    for name, q in CASES:
+        if not (name.startswith("inbox retail") or name.startswith("trap")):
+            continue
+        for card in ("chain", "bridge", "fishbone", "whatif", "decide"):
+            for persona in ("cfo", "analyst"):
+                # Every position of the slider (steps of 5%), so any a presenter
+                # lands on explains at once.
+                for price in ([x / 100 for x in range(-20, 25, 5)] if card == "whatif" else (-0.05,)):
+                    r = client.get(f"/api/explain?{q}&card={card}&persona={persona}&price_delta={price}")
+                    if r.status_code == 422:
+                        continue          # a metric with no bridge has no cards to explain
+                    body = r.json() if r.status_code == 200 else {}
+                    if r.status_code != 200:
+                        failed.append(f"explain {card} {name}")
+                    elif body.get("model_calls"):
+                        # Written just now. Asked again it must come from disk.
+                        again = client.get(f"/api/explain?{q}&card={card}&persona={persona}&price_delta={price}").json()
+                        if again.get("model_calls"):
+                            cold.append(f"explain {card} {name}")
+                    explained += 1
+    print(f"  {explained} card explanations")
+
     print(f"\n{total:.1f}s total.")
     if failed or cold:
         if failed:
@@ -181,7 +234,7 @@ def main() -> int:
             print(f"NOT WARM, still reaching the model: {', '.join(cold)}")
         print("Those scenarios will wait on the model in front of an audience.")
         return 1
-    print(f"All {len(CASES)} cases warm, scenarios for {len(PERSONAS)} readers each, and {len(ASK_CASES)} questions. Re-running any is now instant.")
+    print(f"All {len(CASES)} cases warm, scenarios for {len(PERSONAS)} readers each, {len(ASK_CASES)} questions, and {explained} card explanations. Re-running any is now instant.")
     print("Re-run this after changing a prompt, a schema or the model: all")
     print("three are in the cache key, so a change to any is a different key.")
     return 0

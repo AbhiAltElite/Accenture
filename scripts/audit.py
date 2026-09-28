@@ -359,15 +359,34 @@ def _product_ui() -> str:
     test harness, not product, and scales its thumbnails on purpose.
     """
     return "\n".join(Path(f"ui/{p}").read_text(encoding="utf-8")
-                     for p in ("index.html", "app.html", "slide.html"))
+                     for p in ("index.html", "app.html", "slide.html", "login.html", "theme.css"))
+
+
+def _rules(css: str):
+    """(selector, body) for every CSS rule, nested at-rules flattened."""
+    import re
+    for m in re.finditer(r"([^{}]+)\{([^{}]*)\}", css):
+        yield m.group(1).strip(), m.group(2)
 
 
 @check("design", "No gradients, glass, glow or decorative blur")
 def _():
-    html = _product_ui()
-    for banned in ("linear-gradient", "radial-gradient", "backdrop-filter", "blur("):
-        assert banned not in html, f"found {banned}"
-    return "none present"
+    # Narrowed on 25 Sep, deliberately, for the redesign the team asked for:
+    # blur only behind a layer that sits over the page (a modal, the drawer's
+    # scrim, the search palette, the sticky bar), so the page under it recedes;
+    # gradients only in the brand (the mark, the reader's avatar, the sign-in
+    # panel). Anywhere else, on content, either is still decoration and fails.
+    overlays = ("modal", "scrim", "palette-scrim", "cmdbar")
+    brand = ("brandside", ".av", "who .av", "role .av")
+    found = []
+    for selector, body in _rules(_product_ui()):
+        blurred = "backdrop-filter" in body or "blur(" in body
+        if blurred and not any(o in selector for o in overlays):
+            found.append(f"blur on {selector[:40]}")
+        if "gradient(" in body and not any(b in selector for b in brand):
+            found.append(f"gradient on {selector[:40]}")
+    assert not found, "; ".join(found)
+    return "blur only behind overlays, gradients only in the brand"
 
 
 @check("design", "No emoji or AI marketing language")
@@ -400,13 +419,16 @@ def _():
     literals = re.findall(r"border-radius:\s*(\d+)px", html)
     assert not literals, f"radii set outside the token scale: {sorted(set(literals))}"
 
-    declared = re.findall(r"--r-\w+:\s*(\d+)px", html)
-    # Distinct values, not declarations: each page declares the same two, and
+    # The pill is a shape, not a size, and is declared once as --r-pill.
+    declared = re.findall(r"--r-(?!pill)\w+:\s*(\d+)px", html)
+    # Distinct values, not declarations: each page declares the same ones, and
     # the rule is about how many radii a reader sees, not how many files say so.
+    # Three sizes since the 25 Sep redesign (controls, cards, panels), up to
+    # 24px, which the team chose; still a scale, still only tokens.
     values = sorted({int(v) for v in declared})
     assert values, "no radius tokens declared"
-    assert len(values) <= 3, f"{len(values)} radius values; two is usually enough"
-    assert max(values) <= 8, f"oversized radius token: {max(values)}px"
+    assert len(values) <= 3, f"{len(values)} radius values; three is the scale"
+    assert max(values) <= 24, f"oversized radius token: {max(values)}px"
     used = len(re.findall(r"border-radius:var\(--r-", html))
     return f"{len(values)} tokens, {used} uses, max {max(values)}px"
 

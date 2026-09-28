@@ -1,4 +1,4 @@
-.PHONY: help run app package demo-reset real-data prepare setup gen gen-all demo test bench scale status audit guardrails smoke verify-ai capture-ai warm-ai readme-pdf docker docker-ai lint check-attribution ci clean
+.PHONY: help run app package demo-reset stage-check real-data prepare setup gen gen-all demo test bench scale status audit guardrails smoke eval-extraction verify-ai capture-ai warm-ai readme-pdf docker docker-ai lint check-attribution ci clean
 
 # `make` with no target lists the targets, so the entry point to this
 # repository is the same command whether or not you have read the README.
@@ -74,11 +74,20 @@ docker:            ## run the console in a container, deterministic path
 docker-ai:        ## same, with an open-weight model running alongside it
 	docker compose --profile ai up --build
 
+stage-check:      ## the morning of the demo, with the app running: AI warm, records clean, every path answers
+	$(MAKE) warm-ai
+	$(MAKE) demo-reset
+	$(MAKE) smoke
+	@echo "Stage check passed. Last step: open /uat in the browser and check it is all pass."
+
 smoke:            ## drive the running server the way a reader does
 	.venv/bin/python scripts/smoke.py
 
 warm-ai:          ## fill the model cache before a demo, so nothing waits on camera
 	PYTHONPATH=. .venv/bin/python scripts/warm_ai.py
+
+eval-extraction:  ## score the keyword rules and the model on labelled tickets (WHYCHAIN_LLM_CACHE=off for live)
+	PYTHONPATH=. .venv/bin/python scripts/eval_extraction.py
 
 verify-ai:        ## prove both model stages work before a demo depends on them
 	PYTHONPATH=. .venv/bin/python scripts/verify_ai.py

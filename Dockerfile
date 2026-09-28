@@ -51,4 +51,7 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=5 \
     CMD python -c "import urllib.request,sys; \
 sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health',timeout=2).status==200 else 1)"
 
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# WHYCHAIN_WORKERS processes serve at once (default 1). Safe with more than one:
+# the audit chain and the feedback log hold across processes (B-077). Each takes
+# about 0.8 GB, so size memory to match.
+CMD ["sh", "-c", "exec uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers ${WHYCHAIN_WORKERS:-1}"]

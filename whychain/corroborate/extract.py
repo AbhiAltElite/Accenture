@@ -138,12 +138,21 @@ RETAIL_VOCABULARY = Vocabulary(
 )
 
 
+def mentions(text: str, phrase: str) -> bool:
+    """Whether the text names the phrase as a word, plurals included.
+
+    A substring test read "suspended" as "spend" and put a courier's collapse on
+    the marketing budget (B-073); "approach" would have read as the app channel.
+    """
+    return re.search(r"(?<![a-z0-9])" + re.escape(phrase) + r"(?:s|es)?(?![a-z0-9])", text) is not None
+
+
 def _first_term(text: str, terms: dict[str, str]) -> str | None:
     """Longest match wins, so 'mobile app' beats 'app'."""
     lowered = text.lower()
     best: tuple[int, str] | None = None
     for phrase, value in terms.items():
-        if phrase in lowered and (best is None or len(phrase) > best[0]):
+        if mentions(lowered, phrase) and (best is None or len(phrase) > best[0]):
             best = (len(phrase), value)
     return best[1] if best else None
 

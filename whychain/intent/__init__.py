@@ -73,7 +73,14 @@ metrics available. Do not guess.
 `reading`. That is a default, not a guess, and it does not need clarification.
 3. If a question could reasonably mean two different metrics, ask rather than \
 choose.
-4. Never invent a metric or a region that is not in the lists given.\
+4. Never invent a metric or a region that is not in the lists given.
+5. A fall, a drop or a rise is always measured against the engine's own \
+expected line. Never ask what to compare against: the baseline is not the \
+reader's to choose.
+6. "Revenue" or "sales" means the metric whose id contains "revenue", when \
+exactly one does. Do not ask which metric in that case.
+7. A named period is used as it stands: "last week", "in July" or "during the \
+July floods" means that whole week or month. Do not ask for exact dates.\
 """
 
 
@@ -251,6 +258,16 @@ def interpret(
     except Exception as exc:
         # A refused call is a limit of the service, not a fault in the question,
         # and a reader in front of an audience should be told which in words.
+        if isinstance(exc, OSError):
+            # No network, or the model did not answer in time. Said plainly:
+            # "URLError: nodename nor servname provided" on a projector reads as
+            # the product breaking, when only the question box needs the network.
+            return Intent(
+                question,
+                problem="the question box needs the internet to read a new question, and the "
+                        "model could not be reached. Every finding, figure and page works "
+                        "without it, and a finding opens from the inbox",
+            )
         if "429" in str(exc):
             return Intent(
                 question,

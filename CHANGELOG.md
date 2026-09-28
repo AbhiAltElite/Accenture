@@ -4,6 +4,86 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 
 ## [Unreleased]
 
+### 28 Sep 2026, evening: the deck's figures, re-measured
+
+- **Ticket reading on Ultra, three live runs** committed to `bench/extraction.json`:
+  held out 96.2, 92.3, 96.2% (keyword rules 11.5%), no false alarms, no empty batch.
+- **Benchmark re-run** (`make bench`): identical to 26 Sep, now dated 28 Sep.
+- `/uat` reads the observed figure, not its dated label.
+
+### 28 Sep 2026, later: Explain this card, and every figure says what it compares
+
+- **Explain** on five cards of a finding (the chain, the bridge, the fishbone,
+  what-if and the decision): a small corner button; the model says in at most
+  three plain sentences what that card shows. It is given only the figures the
+  card itself displays (B-094), every sentence goes through the same validator
+  as the narrative, a sentence with a figure not on the card is dropped, and a
+  template answers if the model fails. The footer says how many sentences were
+  checked. It respects the reader: the finance director's fishbone withholds
+  what was ruled out, and so does its explanation.
+- **Cached, so it answers at once on stage.** The what-if slider keeps 1% steps;
+  the explanation is written for the nearest 5% step, all of which are warmed,
+  and says so when the two differ. `make warm-ai` now also warms 286 card
+  explanations.
+- **Each headline figure names what it compares against**: "Worst day, 15 Aug:
+  short of expected" (₹52,952), "The 3 flagged days averaged ₹41,224 short a
+  day", and "Average day vs the fortnight before" (−₹36,381), "the figure the
+  causes below explain". The same on the board-pack slide. The bridge shows each
+  cause's scaled bar and, under it, the cause measured alone.
+- The fishbone opens expanded. The Explain button sits on the card's title line.
+- **B-093:** Ultra's square-bracket citations were read as invented figures, so
+  every what-if explanation fell back to the template. **B-094:** explanations
+  quoted figures their card does not show; narratives showed "[f-movement]" tags.
+- Slide: a cause with no lever reads "No lever for this cause; monitor for it";
+  a contradicted finding labels its causes "Candidate causes, pending the data
+  check". Workbench prose no longer shows raw identifiers.
+- The validator treats a hyphen and a minus sign before a figure as the same.
+
+### 28 Sep 2026: the question box, and the order of a finding
+
+- **The question box answers in a card** (B-091): its state (understood, one
+  question back, not answerable), the query as tags, what the model did and did
+  not do, and a dismiss button. Focusing the box no longer moves the page.
+- **Clear questions run again on Ultra** (B-090): the baseline is never asked
+  for, "revenue" means the revenue metric, a named period is used as it stands.
+  All 13 demo questions checked; the box's placeholder question is warmed.
+- **On a finding, what-if comes before what to do**: weigh the options, then
+  decide. The on-page links follow the page.
+
+### 27 Sep 2026: a stronger model, with a backup behind it
+
+- **Nemotron 3 Ultra** is the model, with Super as an automatic backup
+  (`WHYCHAIN_LLM_FALLBACK_MODELS`, sent to OpenRouter as the `models` list; the
+  receipt names the model that answered; the free-only guard covers every
+  entry; the list is part of the cache key, and none configured changes no key).
+  Measured live on 96 tickets: unfamiliar wording 91.3% (Super 74 to 78%), held
+  out 92.3% for both, no false alarms, no invented quotes.
+- **B-088:** `WHYCHAIN_LLM_TIMEOUT` in `.env` now takes effect (read per call).
+- **B-089:** `make warm-ai` warms the smoke test's own cases and counts a
+  designed decline as warm, so `make stage-check` passes after a model change.
+- Model prose: a dash between clauses becomes a comma, applied after the cache.
+- The model on/off panel is re-captured on Ultra.
+
+### 26 Sep 2026, before the finale: owners, hardening, and a fairer benchmark
+
+- **A demo seat for every owner** (B-083): 16 seats grouped by industry, so
+  petroleum and power decisions, change requests and sign-offs work on the demo;
+  "Act as the owner (demo)" on decision cards.
+- **Who answers for each finding**: explains (head of the region), reviews
+  (national head), acts (lever owners), signs (metric owner), from each
+  industry's reference ladder; on the page, the slide and the Teams card.
+- **A cause must push the way the finding moved** (B-070), against expected, not
+  against the raw fortnight; and a cause present in two regions must move both.
+- **Benchmark adopted, 26 Sep:** top-1 45.8% (was 38.9%), 75.9% among material
+  movements (64.4%), traps rejected 92.2% (87.5%), abstentions 100% right and
+  100% taken (85.7%, 88.2%), noise 0%, calibrated error 0.023 (0.042). Decoys run
+  only where they could be caught (41 of 64 could not).
+- **Hardening:** single sign-on believes a proxy only when it proves itself
+  (B-076); several workers safe (B-077) and counted together in `/api/metrics`
+  (B-082); one question, one fingerprint (B-079); the Teams card no longer asks
+  approval for a change already made (B-080); ticket reading measured
+  (`make eval-extraction`, B-078, B-081 open).
+
 ### Added, the model earns a third job and the economics the brief asks for
 
 - **`whychain/corroborate/query.py`, model-proposed complaint vocabulary.** An

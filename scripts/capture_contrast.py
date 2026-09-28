@@ -68,14 +68,14 @@ CASES = {
         "kpi": "net_realisation",
         "region": "West",
         "start": "2026-08-13",
-        "end": "2026-08-16",
+        "end": "2026-08-15",
     },
     "retail": {
         "industry": "retail",
         "kpi": "net_revenue",
         "region": "West",
         "start": "2026-08-13",
-        "end": "2026-08-16",
+        "end": "2026-08-15",
     },
 }
 # Retail by default, because it is the case the console opens on and a panel
@@ -104,6 +104,11 @@ def _diagnose(backend: str) -> dict:
     return diagnose(
         kpi=CASE["kpi"],
         region=CASE["region"],
+        # Every parameter named, B-040: left out, each arrives as its FastAPI
+        # Query default, which is truthy, and the slice filter found no rows.
+        channel=None,
+        device=None,
+        category=None,
         event_start=date.fromisoformat(CASE["start"]),
         event_end=date.fromisoformat(CASE["end"]),
         baseline_days=14,
@@ -160,6 +165,9 @@ def _summarise(result: dict) -> dict:
             for r in (validation.get("rejected") or [])
         ],
         "model_calls": totals.get("model_calls", 0),
+        # Answers served from the cache are the model's answers too. Counted
+        # apart, a warmed run reported "0 calls" beside the model's own prose.
+        "cache_hits": totals.get("cache_hits", 0),
         "tokens": (totals.get("tokens_in") or 0) + (totals.get("tokens_out") or 0),
         "seconds": totals.get("seconds"),
         # The half that must not move: the movement, what explains it, how

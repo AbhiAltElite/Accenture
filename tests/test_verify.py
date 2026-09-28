@@ -65,6 +65,34 @@ class TestNegativeControl:
             "if DiD rejected this unaided, the consistency test would be redundant"
         )
 
+    def test_present_in_two_moved_in_one_is_the_same_trap(self):
+        """B-070: one of two regions is half, and half used to pass."""
+        p = panel({"West": (*WINDOW, -0.25)})
+        v = verify(candidate(("West", "East")), p, REGIONS)
+        assert v.state is ClaimState.REJECTED, f"trap survived: {v.reason}"
+        assert "exposure_consistency" in {r.name for r in v.failed()}
+
+    def test_a_cause_that_moved_both_its_regions_survives(self):
+        p = panel({"West": (*WINDOW, -0.25), "East": (*WINDOW, -0.22)})
+        v = verify(candidate(("West", "East")), p, REGIONS)
+        assert v.state is ClaimState.VERIFIED, v.reason
+
+    def test_a_cause_that_held_up_better_cannot_explain_a_fall(self):
+        """B-070: the gap was large, but it pointed the wrong way."""
+        p = panel({"West": (*WINDOW, +0.20)})
+        v = verify(candidate(("West",)), p, REGIONS, movement=-1.0)
+        assert v.state is ClaimState.REJECTED
+        assert "direction" in {r.name for r in v.failed()}
+        # The same candidate explains a rise, and without a direction the test
+        # does not run at all.
+        assert verify(candidate(("West",)), p, REGIONS, movement=+1.0).state is ClaimState.VERIFIED
+        assert verify(candidate(("West",)), p, REGIONS).state is ClaimState.VERIFIED
+
+    def test_a_cause_of_a_fall_passes_the_direction_test(self):
+        p = panel({"West": (*WINDOW, -0.25)})
+        v = verify(candidate(("West",)), p, REGIONS, movement=-1.0)
+        assert v.state is ClaimState.VERIFIED, v.reason
+
     def test_a_genuinely_regional_cause_survives(self):
         p = panel({"West": (*WINDOW, -0.25)})
         v = verify(candidate(("West",)), p, REGIONS)

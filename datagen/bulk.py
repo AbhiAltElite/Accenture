@@ -15,7 +15,7 @@ contamination.
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 
 from datagen.catalog import REGIONS
@@ -276,8 +276,50 @@ def build_cases(
                     )
                 )
 
+        _clear_decoys(panel)
         out.append(panel)
     return out
+
+
+def _clear_decoys(panel: BenchPanel) -> None:
+    """Move each decoy's other regions to ones where nothing real happened.
+
+    A decoy is caught by running where it should have moved the metric and did
+    not. Drawn at random, 41 of 64 decoys landed in a "quiet" region that had
+    its own real fall, or a nationwide one, in the same days (B-070); there the
+    decoy lines up with a real fall exactly, and no test on this data can tell
+    them apart. That measured the generator, not the engine.
+
+    The random draw above is kept, so every case, date and effect is the same as
+    before; only a decoy's other regions change. A drawn region that was quiet
+    stays; one that was not is replaced by a quiet one, in region order. A decoy
+    with no quiet region anywhere cannot be contradicted by any data, so it is
+    removed and its case scored as the single cause it then is.
+    """
+    real = [e for e in panel.events if not e.is_decoy and e.effect != 0.0]
+
+    def quiet(region: str, decoy: PlantedEvent) -> bool:
+        return not any(e.start <= decoy.end and decoy.start <= e.end
+                       and e.target.region in (region, None) for e in real)
+
+    dropped: set[str] = set()
+    for i, event in enumerate(panel.events):
+        if not event.is_decoy:
+            continue
+        home = event.target.region
+        kept = [r for r in event.also_in if quiet(r, event)]
+        spare = [r for r in REGIONS if r != home and r not in event.also_in and quiet(r, event)]
+        chosen = (kept + spare)[: len(event.also_in)]
+        if not chosen:
+            dropped.add(event.event_id)
+        else:
+            panel.events[i] = replace(event, also_in=tuple(chosen))
+    if dropped:
+        panel.events = [e for e in panel.events if e.event_id not in dropped]
+        panel.cases = [
+            replace(c, decoys=(), tags=("single_cause",)) if set(c.decoys) & dropped else c
+            for c in panel.cases
+        ]
 
 
 def as_scenarios(panel: BenchPanel) -> tuple[Scenario, ...]:

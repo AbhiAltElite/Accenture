@@ -138,3 +138,44 @@ def test_every_entry_prefers_the_bundled_python():
     assert "runtime/python/bin/python3" in (ROOT / "app" / "build_mac_app.sh").read_text()
     launch = _load("launch")
     assert "runtime" in str(launch.BUNDLED_PY)
+
+
+def test_closing_the_window_stops_the_engine_a_second_launch_started(tmp_path, monkeypatch):
+    """A launch made while the window was open, after the code changed, swapped
+    the engine; closing the window stopped only the first, and the second ran on
+    with nothing that knew of it (B-069)."""
+    launch = _load("launch")
+    monkeypatch.setattr(launch, "STATE", tmp_path / "engine.json")
+    running = {111, 222}
+    monkeypatch.setattr(launch, "alive", lambda p: p in running)
+    monkeypatch.setattr(launch, "stop", lambda p: running.discard(p))
+    launch.STATE.write_text(json.dumps({"pid": 222, "port": 8766}))
+    launch.close_engines(111)
+    assert running == set()
+    assert not launch.STATE.exists()
+
+
+def test_an_image_never_carries_the_model_key():
+    """`.env` was gitignored but not dockerignored, so any image built from the
+    folder carried the key (B-072)."""
+    ignored = {line.strip() for line in (ROOT / ".dockerignore").read_text().splitlines()}
+    assert {".env", "data/audit/", "data/archive/"} <= ignored
+
+
+def test_the_window_opens_at_once_on_a_loading_page():
+    """A cold start showed nothing for the seconds the engine took, and read as
+    frozen. The window now opens on app/loading.html, which follows the engine
+    and switches over when it answers."""
+    launch = (ROOT / "app" / "launch.py").read_text()
+    assert "loading.html" in launch and "start_engine(wait=browser is None)" in launch
+    page = (ROOT / "app" / "loading.html").read_text()
+    assert "location.replace(target)" in page and "left" in page
+    assert "../ui/mark.svg" in page and "https://" not in page, "must render offline"
+
+
+def test_a_first_install_draws_its_progress():
+    launch = _load("launch")
+    assert launch.Steps(3).total == 3
+    text = (ROOT / "app" / "launch.py").read_text()
+    for step in ('STEPS.run(1,', 'STEPS.run(2,', 'STEPS.run(3,'):
+        assert step in text

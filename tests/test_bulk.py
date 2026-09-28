@@ -194,3 +194,27 @@ class TestThePopulationIsBalanced:
                     f"{region} has events {min(gaps)} days apart, inside the "
                     f"{clearance} each one needs for a clean baseline"
                 )
+
+
+def test_a_decoy_runs_only_where_nothing_real_happened():
+    """B-070: drawn at random, 41 of 64 decoys sat on a real fall elsewhere.
+
+    A decoy is caught by running where it should have moved the metric and did
+    not. Where its other regions had their own real fall in the same days, no
+    test could tell it from a cause, and the benchmark scored the generator.
+    """
+    panels = build_cases()
+    decoys = 0
+    for p in panels:
+        real = [e for e in p.events if not e.is_decoy and e.effect != 0.0]
+        ids = {e.event_id for e in p.events}
+        for d in (e for e in p.events if e.is_decoy):
+            decoys += 1
+            assert d.also_in, f"{d.event_id} runs nowhere it could be contradicted"
+            for region in d.also_in:
+                clash = [e.event_id for e in real if e.start <= d.end and d.start <= e.end
+                         and e.target.region in (region, None)]
+                assert not clash, f"{d.event_id} in {region} coincides with {clash}"
+        for c in p.cases:
+            assert set(c.decoys) <= ids, f"{c.case_id} names a decoy that was removed"
+    assert decoys >= 45, "most decoys should survive the move to quiet regions"

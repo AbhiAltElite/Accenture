@@ -9,3 +9,16 @@ _internal/
 data/warehouse/
 data/feedback/
 data/calibration.json
+# Secrets and records never go into an image. `.env` holds the model key: an
+# image pushed to a registry or deployed to a cloud would have carried it (B-072).
+# A deployment sets the key as its platform's secret instead.
+.env
+.env.*
+data/audit/
+data/archive/
+data/app/
+# Build outputs of the desktop packages: large, and nothing the server reads.
+dist/
+build/
+runtime/
+wheels/

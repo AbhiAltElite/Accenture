@@ -139,6 +139,22 @@ class TestTheCitationIsVerifiedNotTrusted:
         extractor = ModelExtractor(backend=backend)
         assert extractor.extract([quarantine("t-1", TICKET)]) == []
 
+    def test_the_header_label_copied_into_the_id_still_matches(self):
+        # B-078: the passage header reads "id: t-1" and the model returns it
+        # whole. Measured, that dropped 21 of 77 correct readings in one run.
+        def read(doc_id, quote):
+            backend = FakeModel({"extractions": [{
+                "doc_id": doc_id, "issue": "checkout_failure", "quote": quote,
+                "channel": None, "device": None, "category": None}]})
+            return ModelExtractor(backend=backend).extract(
+                [quarantine("t-1", TICKET), quarantine("t-2", "delivery arrived on time")])
+        quote = "The card page just spins on my phone"
+        for written in ("id: t-1", "ID:t-1", " t-1 "):
+            got = read(written, quote)
+            assert [e.doc_id for e in got] == ["t-1"], written
+        # The label never moves a reading onto a ticket that does not say it.
+        assert read("id: t-2", quote) == []
+
 
 class TestTheWriterUsesWhateverBackend:
     def test_sentences_come_back_with_their_cost(self):
@@ -409,3 +425,103 @@ class TestTheHostedClient:
         with pytest.raises(ModelError):
             model.complete(system="s", user="u", schema={"type": "object"})
         assert len(calls) == 1
+
+
+class TestFallbackModels:
+    """Backup models, tried in order by the provider when the first fails.
+
+    A free model going quiet on stage used to drop every stage to the template
+    until it recovered. The list goes to OpenRouter as `models`, the receipt
+    names the model that actually answered, and every entry is held to the
+    free-only guard.
+    """
+
+    SUPER = "nvidia/nemotron-3-super-120b-a12b:free"
+    ULTRA = "nvidia/nemotron-3-ultra-550b-a55b:free"
+
+    @pytest.fixture
+    def sent(self, monkeypatch):
+        """Stand in for the network: record each body, answer as `answered_by`."""
+        import io
+
+        import whychain.llm.hosted as hosted
+        record: dict = {"bodies": [], "answered_by": None}
+
+        class Response(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def urlopen(request, timeout=None, context=None):
+            body = json.loads(request.data)
+            record["bodies"].append(body)
+            return Response(json.dumps({
+                "model": record["answered_by"] or body["model"],
+                "choices": [{"message": {"content": '{"ok": true}'}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 3, "completion_tokens": 2},
+            }).encode())
+
+        monkeypatch.setattr(hosted.urllib.request, "urlopen", urlopen)
+        return record
+
+    def _model(self, monkeypatch, fallbacks=""):
+        from whychain.llm.hosted import OpenAICompatibleModel
+        monkeypatch.setenv("WHYCHAIN_LLM_BACKEND", "openai")
+        monkeypatch.setenv("WHYCHAIN_LLM_BASE_URL", "https://openrouter.ai/api/v1")
+        monkeypatch.setenv("WHYCHAIN_LLM_MODEL", self.ULTRA)
+        monkeypatch.setenv("WHYCHAIN_LLM_FALLBACK_MODELS", fallbacks)
+        return OpenAICompatibleModel()
+
+    def test_the_backups_are_sent_in_order_after_the_model(self, monkeypatch, sent):
+        m = self._model(monkeypatch, f"{self.SUPER}, other/model:free")
+        m.complete(system="s", user="u", schema={})
+        assert sent["bodies"][0]["model"] == self.ULTRA
+        assert sent["bodies"][0]["models"] == [self.ULTRA, self.SUPER, "other/model:free"]
+
+    def test_no_backups_sends_the_request_unchanged(self, monkeypatch, sent):
+        m = self._model(monkeypatch)
+        m.complete(system="s", user="u", schema={})
+        assert "models" not in sent["bodies"][0]
+
+    def test_the_receipt_names_the_model_that_answered(self, monkeypatch, sent):
+        m = self._model(monkeypatch, self.SUPER)
+        sent["answered_by"] = self.SUPER
+        assert m.complete(system="s", user="u", schema={}).model == self.SUPER
+
+    def test_a_paid_backup_is_refused_under_the_free_only_guard(self, monkeypatch):
+        monkeypatch.setenv("WHYCHAIN_LLM_FREE_ONLY", "1")
+        m = self._model(monkeypatch, "openai/gpt-5")
+        assert not m.available and "gpt-5" in m.refusal
+
+    def test_no_backups_keeps_every_existing_cache_key(self, monkeypatch):
+        """Configuring none must not re-key the 356 answers already cached."""
+        assert self._model(monkeypatch).route == self.ULTRA
+
+    def test_the_backups_are_part_of_the_cache_key(self, monkeypatch, tmp_path, sent):
+        a = CachedModel(self._model(monkeypatch), directory=tmp_path)
+        a.complete(system="s", user="u", schema={})
+        b = CachedModel(self._model(monkeypatch, self.SUPER), directory=tmp_path)
+        b.complete(system="s", user="u", schema={})
+        assert b.hits == 0 and len(sent["bodies"]) == 2
+
+    def test_the_timeout_is_read_when_the_call_is_made(self, monkeypatch, sent):
+        """`.env` is loaded after this module is imported (B-088)."""
+        import whychain.llm.hosted as hosted
+        seen = []
+        real = hosted.urllib.request.urlopen
+        monkeypatch.setattr(hosted.urllib.request, "urlopen",
+                            lambda req, timeout=None, context=None: seen.append(timeout) or real(req))
+        m = self._model(monkeypatch)
+        monkeypatch.setenv("WHYCHAIN_LLM_TIMEOUT", "180")
+        m.complete(system="s", user="u", schema={})
+        assert seen == [180.0]
+
+
+def test_a_model_dash_between_clauses_becomes_a_comma():
+    """House style: no em dashes reach a reader. The minus sign is left alone."""
+    from whychain.narrate.writer import _house_style
+    assert _house_style("no action — this cause has no lever") == "no action, this cause has no lever"
+    assert _house_style("moved −₹36,381 – a fall") == "moved −₹36,381, a fall"
+    assert _house_style("−13.4%") == "−13.4%"
