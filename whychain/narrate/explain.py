@@ -144,8 +144,9 @@ def _chain_facts(result: dict, cand: dict, view: dict | None, worst: dict | None
                           "carries this share of the movement, exactly",
                           f"{round(100 * abs(float(top.get('share') or 0)))}%"))
     else:
-        out.append(_shown("f-chain-located", "Located: price, volume and mix add back exactly to "
-                          "the total", "adds back exactly"))
+        out.append(_shown("f-chain-located", "Located: the change splits into how much was sold, "
+                          "at what price, and which products, and the parts add "
+                          "up exactly to the whole", "parts add up exactly"))
     if result.get("verdict") == "unknown":
         out.append(_shown("f-chain-caused", "Caused: no cause explains enough of the movement, so "
                           "the chain breaks here and nothing after it is attempted; the next check "
