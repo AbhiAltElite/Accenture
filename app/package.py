@@ -83,7 +83,9 @@ If a first run is interrupted, just start it again: it repairs itself.
 CHECK IT BEFORE A DEMO
   From this folder:  python app/launch.py --check   (python3 on macOS/Linux)
   It should end with "... checks pass on this computer. Ready."
-  Without an API key in .env it says AI is off; everything else still runs.
+  Without an API key in .env, the demo's AI answers still show: they are
+  cached. A new question typed into the workbench needs a key in .env
+  (WHYCHAIN_LLM_API_KEY); everything else runs without one.
 
 IF SOMETHING GOES WRONG
   The reason is shown on screen. The full logs are in data/app/:
