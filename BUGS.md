@@ -58,6 +58,14 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 **Fix:** three rules in `whychain/intent` SYSTEM (baseline never asked; revenue or sales means the one revenue metric; a named period is used as it stands). All 13 demo questions checked: nine run, four refused by design (no metric named, a forecast, a region outside access, an injection). The placeholder question is now warmed.
 **Trap:** a prompt tuned on one model is a claim about that model. After switching models, run every demo question and compare the outcome, not only that it answered.
 
+### B-095 · Clicking Explain on the fishbone again added another explanation each time
+**Found:** 2026-09-28, by the user on the demo laptop · **Severity:** P1, visible on stage · **Status:** fixed
+
+**Symptom:** five identical "What this card shows" boxes stacked on the fishbone after five clicks; the other four cards toggled open and closed.
+**Root cause:** the button looked for its box only as a direct child of the card (`:scope > .aix-out`). The fishbone's box sits inside its `<details>`, under the summary, so the lookup never found it and every click made a new one. The end-to-end run clicked each Explain once, so it never saw a second click.
+**Fix:** the lookup searches the whole card. Checked on all five cards: one box, none, one.
+**Trap:** a toggle is tested by pressing it twice. When an element is placed in a different spot for one variant, every lookup for it must follow.
+
 ### B-094 · An explanation quoted figures its card does not show
 **Found:** 2026-09-28, end-to-end run · **Severity:** P1, the jury sees it · **Status:** fixed
 

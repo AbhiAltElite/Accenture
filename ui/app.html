@@ -2422,7 +2422,9 @@ function wireExplain(ctx){
     btn.title = 'Explain this card'; btn.innerHTML = `${SPARK}<span>Explain</span>`;
     sec.prepend(btn);
     btn.onclick = async () => {
-      let box = sec.querySelector(':scope > .aix-out');
+      // Anywhere in the card: the fishbone's sits inside its details, not directly
+      // under the card, and looking only there added a new box on every click (B-095).
+      let box = sec.querySelector('.aix-out');
       if(box){ box.remove(); btn.setAttribute('aria-expanded', 'false'); return; }
       box = document.createElement('div'); box.className = 'aix-out'; box.setAttribute('role', 'status');
       box.innerHTML = '<p class="aix-busy">Reading this card\u2026</p>';
