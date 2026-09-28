@@ -198,7 +198,8 @@ async function queryRows(){
     const box = pg.doc.getElementById('rowsbody'), text = box ? box.innerText : '';
     if(!/Reproduced/.test(text)) problems.push(`not reproduced: "${text.slice(0, 120)}"`);
     const here = box && box.querySelector('tr.here td.n');
-    const observed = (pg.doc.querySelectorAll('.facts > div')[1] || {}).textContent || '';
+    // The figure, not its label: the label names the day ("Observed, 15 Aug").
+    const observed = (pg.doc.querySelector('.facts > div:nth-child(2) b') || {}).textContent || '';
     if(!here) problems.push('the figure on the page is not marked in the rows');
     else if(num(here.textContent) !== num(observed)) problems.push(`the marked row ${here.textContent} is not the observed figure`);
     if(box && !box.querySelector('.trend')) problems.push('no against-expected marks in the rows');
