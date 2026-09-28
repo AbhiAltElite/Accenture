@@ -1272,7 +1272,7 @@ function flaggedMean(ctx){
   const days = ser.anomalies.filter(a => a.day >= f.start && a.day <= f.end && Math.sign(a.delta) === Math.sign(worst.delta));
   if(days.length < 2) return '';
   const mean = days.reduce((a,x) => a + Math.abs(x.delta), 0) / days.length;
-  return `<small class="cap">On the worst day. Across all ${days.length} flagged days: ${inr(mean)} a day</small>`;
+  return `<small class="cap">The ${days.length} flagged days averaged ${inr(mean)} ${worst.delta < 0 ? 'short' : 'above'} a day</small>`;
 }
 /* The model-written prose arrives second. Every figure is already on the page
    and stays put; only the paragraph changes. */
@@ -1313,12 +1313,12 @@ function findingView(ctx){
   const band = conf && typeof conf === 'object' ? conf.band : (d.headline && d.headline.confidence) || conf;
   const recon = d.reconciliation;
   const facts = [
-    worst && `<div><span>${worst.delta < 0 ? 'Short of expected' : 'Above expected'}</span><b class="lead num"><button type="button" class="ev" data-ev="movement" title="The rows behind this figure, and the query that produces them">${inr(Math.abs(worst.delta))}</button></b><small class="cap">${trend(worst.delta < 0 ? 'down' : 'up', (ctx.ser && ctx.ser.favourable) || 'up', `${pct(worst.pct)} ${worst.delta < 0 ? 'below' : 'above'} expected`)}</small>${flaggedMean(ctx)}</div>`,
-    worst && `<div><span>Observed</span><b class="num">${inr(worst.observed)}</b></div>`,
-    worst && `<div><span>Expected</span><b class="num">${inr(worst.expected)}</b></div>`,
+    worst && `<div><span>Worst day, ${dt(worst.day).replace(/ \d{4}$/, "")}: ${worst.delta < 0 ? 'short of expected' : 'above expected'}</span><b class="lead num"><button type="button" class="ev" data-ev="movement" title="The rows behind this figure, and the query that produces them">${inr(Math.abs(worst.delta))}</button></b><small class="cap">${trend(worst.delta < 0 ? 'down' : 'up', (ctx.ser && ctx.ser.favourable) || 'up', `${pct(worst.pct)} ${worst.delta < 0 ? 'below' : 'above'} expected`)}</small>${flaggedMean(ctx)}</div>`,
+    worst && `<div><span>Observed, ${dt(worst.day).replace(/ \d{4}$/, "")}</span><b class="num">${inr(worst.observed)}</b></div>`,
+    worst && `<div><span>Expected, ${dt(worst.day).replace(/ \d{4}$/, "")}</span><b class="num">${inr(worst.expected)}</b></div>`,
     // The calibrated probability belongs to a reported answer. On a refusal it
     // reads as a contradiction ("Unknown, 0.62"), so only the band is shown.
-    d.movement && isFinite(d.movement.total_change) && `<div><span>Across the window</span><b class="num">${inr(d.movement.total_change, {sign:true})}</b><small class="cap">A day, against the fortnight before</small></div>`,
+    d.movement && isFinite(d.movement.total_change) && `<div><span>Average day vs the fortnight before</span><b class="num">${inr(d.movement.total_change, {sign:true})}</b><small class="cap">The figure the causes below explain</small></div>`,
     band && `<div><span>Confidence</span><b>${esc(human(band))}${d.verdict === 'explained' && prob !== null && prob !== undefined ? `, <span class="num">${confidence(prob)}</span>` : ''}</b></div>`,
     recon && recon.state && `<div title="The finance ledger posts the same revenue independently, standing in for the ERP. The two are compared before anything is explained."><span>Finance ledger</span><b>${esc({agreed:'Agrees', contradicted:'Disagrees', not_reconciled:'Cannot compare'}[recon.state] || human(recon.state))}${recon.worst_residual !== undefined && recon.state !== 'not_reconciled' ? `, ${recon.state === 'agreed' ? 'within' : 'by up to'} ${pct(recon.worst_residual)}` : ''}</b></div>`,
   ].filter(Boolean).join('');
