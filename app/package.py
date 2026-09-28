@@ -3,7 +3,8 @@
     make package                         code, data, demo cache and the .env key
     make package ARGS="--wheels win"     plus Windows wheels, for a PC with no internet
                                          (also: mac, linux; several at once)
-    make package ARGS="--no-key"         safe to share: no API key, AI stays off
+    make package ARGS="--no-key"         safe to share: no API key; the cached AI answers
+                                         still show, a new question needs a key
     make package-offline                 one zip per machine type with Python and every
                                          dependency inside: unzip, double-click, no internet
 
@@ -254,6 +255,24 @@ def _add_runtime(z: zipfile.ZipFile, target: str) -> int:
     return count
 
 
+def settings_without_secrets(text: str) -> str:
+    """The .env with every key, token and secret line removed.
+
+    Leaving the whole file out switched the cached AI off as well: the cache is
+    keyed on the model and backend, so without those settings nothing matched
+    and a shared zip showed templates where the demo shows the model's words.
+    The settings are not secret; only the credentials are.
+    """
+    secret = ("KEY", "TOKEN", "SECRET", "PASSWORD")
+    keep = []
+    for line in text.splitlines():
+        name = line.split("=", 1)[0].strip().lstrip("export ").strip().upper()
+        if "=" in line and not line.lstrip().startswith("#") and any(w in name for w in secret):
+            continue
+        keep.append(line)
+    return "\n".join(keep) + "\n"
+
+
 def build(out: Path, target: str | None, names: list[str], key: bool,
           wheels: Path | None) -> int:
     env = ROOT / ".env"
@@ -265,6 +284,8 @@ def build(out: Path, target: str | None, names: list[str], key: bool,
             _add_file(z, ROOT / name, f"WhyChain/{name}")
         if env.exists() and key:
             z.write(env, "WhyChain/.env")
+        elif env.exists():
+            z.writestr("WhyChain/.env", settings_without_secrets(env.read_text(encoding="utf-8")))
         # Entry points at the top of the folder, where a reader looks first.
         if target in (None, "win"):
             _script(z, "WhyChain/Start WhyChain.bat",
