@@ -58,6 +58,14 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 **Fix:** three rules in `whychain/intent` SYSTEM (baseline never asked; revenue or sales means the one revenue metric; a named period is used as it stands). All 13 demo questions checked: nine run, four refused by design (no metric named, a forecast, a region outside access, an injection). The placeholder question is now warmed.
 **Trap:** a prompt tuned on one model is a claim about that model. After switching models, run every demo question and compare the outcome, not only that it answered.
 
+### B-094 · An explanation quoted figures its card does not show
+**Found:** 2026-09-28, end-to-end run · **Severity:** P1, the jury sees it · **Status:** fixed
+
+**Symptom:** "Explain" on the bridge said "fell 25.3%", a figure the bridge never shows; on the what-if card it quoted the elasticity (−1.40), the margin (32%) and current revenue, all folded under a closed "Assumptions"; on the decide card it gave cause amounts the card does not carry; on North's contradicted chain it gave a located share (97%) after the chain had broken at Confirmed. Separately, retail West March and the petroleum and power narratives showed "[f-movement, f-movement-pct]" to the reader.
+**Root cause:** each card's brief was built from what the finding knows, not from what the card shows. The validator proves a figure is true, not that the reader can see it. The tags: Ultra cites in square brackets and only the round form was removed from the narrative.
+**Fix:** each brief now carries only what its card displays (`whychain/narrate/explain.py`): the bridge has no percentage; the what-if keeps its effects and, only where revenue and profit move opposite ways, the change in units the card prints; the decide card names causes without amounts; the chain stops at a broken link. `ModelWriter` strips both citation shapes before the text is cached or shown. The end-to-end run compares every numeral in each explanation against the card's own text.
+**Trap:** true is not the same as visible. An explanation of a card is checked against the card, not against the finding.
+
 ### B-093 · Explanations written with square-bracket citations were all rejected
 **Found:** 2026-09-28, building Explain this card · **Severity:** P2 · **Status:** fixed
 

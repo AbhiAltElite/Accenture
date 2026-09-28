@@ -126,7 +126,7 @@ document.getElementById('print').onclick = () => window.print();
           <div><span>Observed</span><b>${an ? inr(an.observed) : '–'}</b></div>
           <div><span>Confidence</span><b style="font-family:var(--sans)">${esc(human((x.headline && x.headline.confidence) || '–'))}</b></div>
         </div>
-        ${causes.length ? `<h2>Verified causes · ₹ a day against the fortnight before, overlapping</h2>
+        ${causes.length ? `<h2>${x.verdict === 'contradicted' ? 'Candidate causes, pending the data check' : 'Verified causes'} · ₹ a day against the fortnight before, overlapping</h2>
           ${causes.map(k => `<div class="cause"><span>${esc(causeText(k.cause))}</span><span class="w">${inr(k.contribution, true)}</span><span class="b"><i style="width:${Math.round(share(k)*100)}%"></i></span><span class="sh">${Math.round(share(k)*100)}% of the movement</span></div>`).join('')}` : ''}
         ${ruledOut.length ? `<h2 style="margin-top:1em">Tested and ruled out</h2><ul class="ruled">${ruledOut.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
       </div>
@@ -134,6 +134,7 @@ document.getElementById('print').onclick = () => window.print();
         ${x.decision ? (() => { const id = ((x.decisions || [])[0] || {}).approval ? x.decisions[0].approval.action_id : null; const done = id && decidedBy(id);
           const status = done ? `${esc(human(done.event.replace('decision_', '')))} by ${esc(done.actor.name)}, ${dt(done.at)}.`
             : (x.decisions[0] || {}).already_actioned ? `Done ${dt(x.decisions[0].already_actioned.on)}; awaiting confirmation it worked.` : 'Awaiting approval; nothing executes.';
+          if(x.decision.controllable === false) return `<p><b>Decision</b>No lever for this cause; monitor for it.</p>`;
           return `<p><b>Decision</b>${esc(actionText(x.decision.action))}. Owner: ${esc(human(x.decision.owner).toLowerCase().replace('ecommerce', 'e-commerce'))}. Recovers ${inr(x.decision.expected_recovery_inr_per_day)} a day. ${status}</p>`; })() : ''}
         ${ro ? `<p><b>Recovery</b>${inr(ro.recoverable_inr_per_day)} a day recoverable${ro.not_actionable_inr_per_day >= 1 ? `; ${inr(ro.not_actionable_inr_per_day)} a day to monitor, with no lever` : ''}.</p>` : ''}
         ${x.accountability ? `<p><b>Accountable</b>${esc(x.accountability.explains.title)} explains${x.accountability.reviews ? `; ${esc(x.accountability.reviews.title)} reviews` : ''}; ${esc(x.accountability.signs.title.toLowerCase())} signs.</p>` : ''}

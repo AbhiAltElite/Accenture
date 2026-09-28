@@ -280,7 +280,7 @@ class ModelWriter:
         )
         payload = json.loads(completion.text or "{}")
         sentences = tuple(
-            Sentence(text=_house_style(str(s["text"])), cites=tuple(str(c) for c in s["cites"]))
+            Sentence(text=_untag(_house_style(str(s["text"]))), cites=tuple(str(c) for c in s["cites"]))
             for s in payload.get("sentences", [])[:MAX_SENTENCES]
         )
         return Written(
@@ -300,6 +300,16 @@ class ModelWriter:
                 "over the evidence table"
             ),
         )
+
+
+def _untag(text: str) -> str:
+    """Citation tags out of the prose, round or square.
+
+    Ultra writes "[f-movement, f-movement-pct]"; the page removed only the round
+    form, so readers saw the tags, and the digits in an id like "f-cause-1"
+    could read as an invented figure. The citations travel in `cites`.
+    """
+    return re.sub(r"\s*[\(\[](?:f-[\w-]+(?:,\s*)?)+[\)\]]", "", text).strip()
 
 
 def _house_style(text: str) -> str:

@@ -2949,7 +2949,7 @@ function reconciliationBlock(){
     <p>${escapeHtml(prose(r.reason))}</p>
     ${rows ? `<table class="watch"><thead><tr>
         <th>Business date</th><th class="n">${escapeHtml(title(STATE.kpi))}</th>
-        <th class="n">${escapeHtml(r.source || 'second system')}</th>
+        <th class="n">${escapeHtml(title(r.source || 'second system'))}</th>
         <th class="n">Gap</th>
       </tr></thead><tbody>${rows}</tbody></table>` : ''}
   </div>`;
@@ -2980,7 +2980,7 @@ function unknownStory(d){
     const reason = typeof why === 'string' ? why : (why && why.detail) || '';
     return `<p>The movement is real and detection stands. A causal diagnosis is
       not available for this metric.</p>
-      ${reason ? `<p class="q">${escapeHtml(reason)}</p>` : ''}
+      ${reason ? `<p class="q">${escapeHtml(prose(reason))}</p>` : ''}
       <p class="q">The chart, the movements and source freshness below are
       unaffected.</p>`;
   }
@@ -2992,7 +2992,7 @@ function unknownStory(d){
     <p class="q">${a.ruled_out.length} candidate${a.ruled_out.length===1?' was':'s were'}
     considered and <button class="claim" data-panel="ruledout">ruled out</button>.
     ${a.blocking.length ? a.blocking.join('; ') + '. ' : ''}
-    The next thing worth checking: ${a.next_check}.</p>
+    The next thing worth checking: ${escapeHtml(prose(a.next_check))}.</p>
     ${a.question ? `<p class="q"><strong>Clarification would help.</strong> ${a.question}</p>` : ''}`;
 }
 

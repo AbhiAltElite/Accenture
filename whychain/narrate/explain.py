@@ -22,7 +22,7 @@ from whychain.evidence import Unit
 from whychain.llm import MAX_TOKENS, UNSET, ChatModel, Task, model_for
 from whychain.narrate.brief import Brief, Fact, _fact, _plain, build_brief
 from whychain.narrate.validate import Sentence, ValidationResult, validate
-from whychain.narrate.writer import SENTENCE_SCHEMA, _house_style
+from whychain.narrate.writer import SENTENCE_SCHEMA, _house_style, _untag
 
 CARDS = ("chain", "bridge", "fishbone", "whatif", "decide")
 
@@ -96,10 +96,6 @@ class Explanation:
         }
 
 
-def _untag(text: str) -> str:
-    return re.sub(r"\s*[\(\[](?:f-[\w-]+(?:,\s*)?)+[\)\]]", "", text).strip()
-
-
 def _readable(description: str | None) -> str:
     """A candidate as a reader says it: the record's own ids made into words.
 
@@ -139,7 +135,9 @@ def _chain_facts(result: dict, cand: dict, view: dict | None, worst: dict | None
                           f"within {100 * abs(float(rec.get('worst_residual') or 0)):.1f}%"))
     elif rec.get("state") == "contradicted":
         out.append(_shown("f-chain-confirmed", "Confirmed: the finance ledger disagrees, so the "
-                          "data is checked before any cause", "ledger disagrees"))
+                          "chain breaks here and nothing after it is attempted; the data is "
+                          "checked first", "ledger disagrees", state="broken"))
+        return out
     top = ((view.get("ranking") or {}).get("exact") or [None])[0]
     if top:
         out.append(_shown("f-chain-located", f"Located: {_plain(top.get('label')).replace(' · ', ': ')} "
@@ -148,6 +146,11 @@ def _chain_facts(result: dict, cand: dict, view: dict | None, worst: dict | None
     else:
         out.append(_shown("f-chain-located", "Located: price, volume and mix add back exactly to "
                           "the total", "adds back exactly"))
+    if result.get("verdict") == "unknown":
+        out.append(_shown("f-chain-caused", "Caused: no cause explains enough of the movement, so "
+                          "the chain breaks here and nothing after it is attempted; the next check "
+                          "is named instead", "no cause", state="broken"))
+        return out
     n = len(result.get("verified") or [])
     tested = "each passed every test"
     if view.get("verified") is not None and cand:
@@ -186,7 +189,7 @@ def card_brief(card: str, result: dict, candidates: dict | None = None,
     keep: list[Fact] = []
 
     if card == "bridge":
-        keep += [f for f in base.facts if f.id in ("f-movement", "f-movement-pct")]
+        keep += [f for f in base.facts if f.id == "f-movement"]
         over = next((f for f in base.facts if f.id == "f-overlap"), None)
         if over:
             # "Gross attribution over the movement" came back as "combined
@@ -243,16 +246,24 @@ def card_brief(card: str, result: dict, candidates: dict | None = None,
                 keep.append(_fact(f"f-whatif-{sid}-also-{j}",
                                   f"{sc.get('question')} Effect on {other.get('name')}, per day",
                                   other.get("inr_per_day"), Unit.INR, "scenario"))
-            for j, a in enumerate(sc.get("assumptions") or [], 1):
-                keep.append(_shown(f"f-whatif-{sid}-assume-{j}",
-                                   f"assumption for {sid}: {a.get('name')} ({a.get('basis')})",
-                                   str(a.get("value"))))
+            # The rest of the assumptions sit in a closed "Assumptions" section,
+            # and an explanation must not quote what the reader cannot see. The
+            # change in units is on the card only where revenue and profit move
+            # opposite ways (`whyOpposite` in the page), so only then here.
+            rev = next((o for o in sc.get("alongside") or [] if o.get("name") == "revenue"), None)
+            vol = next((a for a in sc.get("assumptions") or [] if a.get("name") == "volume change"), None)
+            per = sc.get("effect_inr_per_day") or 0
+            if rev and vol and per and (rev.get("inr_per_day") or 0) * per < 0:
+                keep.append(_shown(f"f-whatif-{sid}-units", "units sold change by this much, "
+                                   "so revenue and gross profit move opposite ways",
+                                   str(vol.get("value")).replace("-", "\u2212")))
 
     elif card == "chain":
         keep += _chain_facts(result, candidates or {}, view, worst)
 
     else:  # decide
-        keep += [f for f in base.facts if f.kind in ("decision", "cause")]
+        keep += [f for f in base.facts if f.kind == "decision"]
+        keep += [_shown(f.id, f.claim, "a verified cause") for f in base.facts if f.kind == "cause"]
 
     return Brief(run_id=base.run_id, kpi=base.kpi, region=base.region, window=base.window,
                  verdict=base.verdict, facts=tuple(keep), entities=base.entities)
