@@ -149,6 +149,7 @@ Two sections. **Traps** are failure modes identified in advance, read before wri
 
 **Symptom:** the free hosted model reads 25 tickets per call. In three of six live runs a whole batch came back as a valid answer with no readings: 17 and 12 problem tickets lost in one run, 20 in another. Where batches did answer, readings were mostly right: held-out tickets 88 to 92%, customer wording the keyword rules miss 70 to 83%, and 0 false alarms on ordinary tickets in five of six runs (one in the sixth). Replaying a failing batch three times, it answered fully each time, so it is intermittent, from the service, not the tickets.
 **Why not fixed now:** the fix is to re-ask a batch that returns nothing, which must go around the answer cache (a cached empty answer would otherwise be served again). That changes the model path three days before the finale, when the demo runs from cached answers that are complete. The demo is not affected; a live diagnosis on the free tier can be.
+**28 Sep:** three live runs on Ultra returned every batch (held out 96.2, 92.3, 96.2%). Still open: the retry is not built, so an empty batch remains possible.
 **Fix, when made:** retry an empty batch once, uncached; count and show "batches that returned nothing" in the run receipt, so a reader sees the gap instead of a thinner evidence list.
 
 ### B-080 · The Teams card asked for approval of a change already made

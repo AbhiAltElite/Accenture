@@ -101,9 +101,11 @@ desktop app runs one process.
 `make eval-extraction` scores the keyword rules and the model on 96 labelled
 tickets (`bench/tickets_heldout.json` was labelled and committed before any run);
 `WHYCHAIN_LLM_CACHE=off` for a live reading. Results in `bench/extraction.json`.
-Six live runs on 26 Sep: where a batch answered, held-out tickets 88 to 92% right
-against 11.5% for the keyword rules, 0 false alarms in five of six runs; but the
-free model sometimes returns nothing for a whole batch (B-081, open).
+Committed now (`bench/extraction.json`): three live Ultra runs on 28 Sep, held-out
+tickets 96.2, 92.3 and 96.2% (mean 95%) against 11.5% for the keyword rules,
+unfamiliar wording 83 to 91%, no false alarms, no invented quotes, no empty batch.
+The deck quotes "95%, mean of 3 live runs, 92 to 96%". Earlier Super runs on 26 Sep
+lost whole batches (B-081, open: the retry is not built).
 
 **Model, from 27 Sep: Nemotron 3 Ultra** (`nvidia/nemotron-3-ultra-550b-a55b:free`),
 with Super as the backup (`WHYCHAIN_LLM_FALLBACK_MODELS`, OpenRouter fails over

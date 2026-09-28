@@ -4,6 +4,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Newest first.
 
 ## [Unreleased]
 
+### 28 Sep 2026, evening: the deck's figures, re-measured
+
+- **Ticket reading on Ultra, three live runs** committed to `bench/extraction.json`:
+  held out 96.2, 92.3, 96.2% (keyword rules 11.5%), no false alarms, no empty batch.
+- **Benchmark re-run** (`make bench`): identical to 26 Sep, now dated 28 Sep.
+- `/uat` reads the observed figure, not its dated label.
+
 ### 28 Sep 2026, later: Explain this card, and every figure says what it compares
 
 - **Explain** on five cards of a finding (the chain, the bridge, the fishbone,
