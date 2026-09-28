@@ -3,7 +3,7 @@
 
 [![CI](https://github.com/AbhiAltElite/Accenture/actions/workflows/ci.yml/badge.svg)](https://github.com/AbhiAltElite/Accenture/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-628-informational)](tests/)
+[![Tests](https://img.shields.io/badge/tests-705-informational)](tests/)
 [![Audit checks](https://img.shields.io/badge/audit-33%2F33-informational)](docs/SECURITY-LOGIC-CHECKLIST.md)
 
 An evidence-backed diagnosis engine for business metric movements.
@@ -375,6 +375,15 @@ Still called a workflow rather than a learning loop: **nothing here retrains
 anything, and four of the five targets remain a proposal a human acts on.** What
 changed is that the fifth is no longer a promise.
 
+**Explain this card.** Five cards on a finding (the chain, the bridge, the
+fishbone, what-if and the decision) carry a small **Explain** button. The model
+says in at most three plain sentences what that card shows, from that card's
+figures only; every sentence goes through the same validator as the narrative,
+and the footer says how many were checked. It honours the reader's view: the
+finance director's fishbone withholds what was ruled out, and so does its
+explanation. Answers are cached, the what-if at 5% steps of the slider, so it
+answers at once in a meeting; a template answers if the model does not.
+
 **A run receipt.** Per-stage latency, model calls, cache hits, tokens, the
 deterministic share of wall time, and a rupee figure carrying its own basis —
 a reference rate, which is not what a self-hosted or free-tier run actually
@@ -382,7 +391,7 @@ costs.
 
 ## Where AI is used, and where it is not
 
-Four uses, and one pattern: **the model handles what is language; deterministic
+Five uses, and one pattern: **the model handles what is language; deterministic
 code checks the proposal against the source and can reject it.** It never
 touches a number.
 
@@ -402,6 +411,7 @@ touches a number.
 | Signal gap | set difference over the feed | the finding must not come from a model |
 | External context on a cause | window/region overlap over the feed | a published warning is a fact with a publisher, not an inference |
 | **Writing the narrative** | **language model** | prose is what models are for |
+| **Explaining a card** | **language model** | a reader asks "what am I looking at?"; the model is given only the figures that card shows, and a sentence quoting any other figure is dropped |
 | **Proposing the next check** | **language model** | the useful next step depends on the shape of a particular failure, which is what a three-way branch cannot reach |
 | Validation | deterministic checks | the model must not mark its own work |
 

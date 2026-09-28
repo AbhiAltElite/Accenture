@@ -71,14 +71,19 @@ make test                        # everything
 
 # Understanding what you are looking at
 
-The console opens on **net revenue, West region, last 90 days**; the case the
-demo is built around.
+`/` opens on the **findings inbox**, largest first, each with who answers for it.
+The case the demo is built around is **net revenue, West, 13 to 15 Aug 2026**.
+`/workbench` is the analyst's method page (all regions until a scope is chosen).
 
 ### The headline
-Names the largest material fall in the window. It should read close to
-*"net revenue fell 14.9% on 2026-08-15"*. That is a real detection, not a
-scripted string: a bug was planted in the data on 12 August and the engine found
-it without being told.
+Open the West finding. It should read *"Net revenue in West fell ₹52,952 short
+of expected on 15 Aug 2026. Two tested causes explain it."* (17.2% below
+expected). That is a real detection, not a scripted string: a bug was planted in
+the data on 12 August and the engine found it without being told. Under it, each
+figure names its comparison: the worst day against expected, the flagged days'
+average, and the average day against the fortnight before (−₹36,381, the figure
+the causes explain). Five cards carry an **Explain** button: the model describes
+that card from its own figures, checked.
 
 ### The chart
 Three things are drawn:
