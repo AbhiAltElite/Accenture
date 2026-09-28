@@ -122,8 +122,8 @@ document.getElementById('print').onclick = () => window.print();
     <div class="body">
       <div>
         <div class="facts">
-          <div><span>${an && an.delta < 0 ? 'Short of expected' : 'Against expected'}</span><b>${an ? inr(Math.abs(an.delta)) : '–'}</b></div>
-          <div><span>Observed</span><b>${an ? inr(an.observed) : '–'}</b></div>
+          <div><span>${an ? `Worst day, ${dt(an.day).replace(/ \d{4}$/, '')}: ` : ''}${an && an.delta < 0 ? 'short of expected' : 'against expected'}</span><b>${an ? inr(Math.abs(an.delta)) : '–'}</b></div>
+          <div><span>Observed that day</span><b>${an ? inr(an.observed) : '–'}</b></div>
           <div><span>Confidence</span><b style="font-family:var(--sans)">${esc(human((x.headline && x.headline.confidence) || '–'))}</b></div>
         </div>
         ${causes.length ? `<h2>${x.verdict === 'contradicted' ? 'Candidate causes, pending the data check' : 'Verified causes'} · ₹ a day against the fortnight before, overlapping</h2>
