@@ -115,6 +115,7 @@ a{color:var(--accent)}
 .wf .bad rect{fill:var(--bad)}
 .wf .good rect{fill:var(--ok)}
 .wf .rest rect{fill:var(--unk-soft);stroke:var(--unk);stroke-width:1.5;stroke-dasharray:4 3}
+.wf .wf-m{fill:var(--ink-3);font-size:11.5px}
 .wf .wf-v{fill:var(--ink);font-size:13px;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .wf .wf-l{fill:var(--ink-3);font-size:13px}
 .wf [data-ev]{cursor:pointer}
@@ -1891,6 +1892,8 @@ function waterfallHtml(ctx){
     g += `<g class="wf-bar ${tone(b)}"${b.kind === 'cause' ? clickable(b.id) : ''}><title>${esc(tip)}</title>
       <rect x="${x}" y="${yt}" width="${bw}" height="${h}"/>
       <text class="wf-v" x="${x + bw / 2}" y="${(b.kind === 'cause' || b.kind === 'rest') && b.value < 0 ? yb + 16 : yt - 8}" text-anchor="middle">${esc(label)}</text>
+      ${b.kind === 'cause' && b.measured !== null && b.measured !== undefined && Math.abs(b.measured - b.value) >= 1
+        ? `<text class="wf-m" x="${x + bw / 2}" y="${b.value < 0 ? yb + 32 : yt - 24}" text-anchor="middle">measured alone ${esc(inr(b.measured, {sign: true}))}</text>` : ''}
       ${lines(b.label).map((t, k) => `<text class="wf-l" x="${x + bw / 2}" y="${base + 22 + k * 15}" text-anchor="middle">${esc(t)}</text>`).join('')}
     </g>`;
     // The connector: where this bar ended is where the next one starts.
@@ -2016,11 +2019,16 @@ function fishboneHtml(ctx){
     : entries.length
     ? `${entries.length} hypothes${entries.length === 1 ? 'is' : 'es'} in the record for this window: ${tally}.`
     : 'The operational record holds no hypothesis for this window on any bone. That is why the answer is unknown, and why the next check is to look further, not to guess.';
+  // The box shows the average day against the fortnight before; each bone shows
+  // a cause measured on its own. Two verified causes then add up to more than
+  // the box, and a reader who sees that unexplained assumes an error.
+  const overlapNote = count('verified') > 1
+    ? ' The box is the average day against the fortnight before. Each cause is measured on its own, and they overlap, so together they add up to more than the box.' : '';
   // The analyst's working map. Open for the analyst; one click away for the
   // readers who act on the bridge instead.
   return `<section class="panel" id="fishbone" style="margin-top:20px"><details class="fbd" open>
     <summary><h2>Cause and effect · every hypothesis, tested</h2></summary>
-    <p class="chain-lede">${lede}</p>
+    <p class="chain-lede">${lede}${overlapNote}</p>
     <div class="fishwrap"><svg class="fish" viewBox="0 0 ${W} ${H}" role="img" aria-label="Fishbone diagram: ${esc(effect)}. ${esc(entries.map(e => `${e.text}: ${e.state}`).join('; '))}">
       <path class="fb-tail" d="M${x0} ${spine} l-14 -22 M${x0} ${spine} l-14 22"/>
       <line class="fb-spine" x1="${x0}" y1="${spine}" x2="${headX}" y2="${spine}"/>
@@ -2028,7 +2036,7 @@ function fishboneHtml(ctx){
       <path class="fb-head" d="M${headX} ${spine - 58} H ${W - 70} Q ${W - 6} ${spine} ${W - 70} ${spine + 58} H ${headX} Z"/>
       <text class="fb-h1" x="${headX + 14}" y="${spine - 18}">${esc(clip(effect))}</text>
       <text class="fb-h2" x="${headX + 14}" y="${spine + 6}">${esc(amount)}</text>
-      <text class="fb-h3" x="${headX + 14}" y="${spine + 28}">${esc({explained: 'Explained', unknown: 'Unknown: not enough', contradicted: 'Data disputed'}[d.verdict] || d.verdict)}</text>
+      <text class="fb-h3" x="${headX + 14}" y="${spine + 28}">${d.verdict === 'explained' ? 'vs the fortnight before' : esc({unknown: 'Unknown: not enough', contradicted: 'Data disputed'}[d.verdict] || d.verdict)}</text>
     </svg></div>
     <p class="small muted fishkey"><span class="fb-k verified">✓ Verified</span><span class="fb-k untestable">◌ Could not be tested yet</span><span class="fb-k rejected">✕ Rejected by a test</span><span class="fb-k aside">– Set aside before testing</span></p>
   </details></section>`;

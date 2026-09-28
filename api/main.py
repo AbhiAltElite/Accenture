@@ -1976,9 +1976,25 @@ def explain_card(
     # Other readers' fishbone withholds what was ruled out ("the analyst view
     # places them on their bones"); the explanation says what that card says.
     withheld = card == "fishbone" and persona != "analyst"
+    view = worst = None
+    if card == "chain":
+        # The chain card is drawn from this reader's own projection and the
+        # worst flagged day, so its explanation is too.
+        view = result if persona in ("analyst",) else diagnose(
+            kpi=kpi, region=region, channel=channel, device=device, category=category,
+            event_start=event_start, event_end=event_end, baseline_days=14, persona=persona,
+            entitled=entitled, price_delta=price_delta, horizon_days=horizon_days,
+            backend="none", llm_model=None, industry=industry,
+        )
+        ser = series(kpi=kpi, region=region, channel=channel, device=device, category=category,
+                     frm=event_start, to=event_end, industry=industry, entitled=entitled)
+        days = [a for a in ser.get("anomalies") or []
+                if str(event_start) <= str(a.get("day"))[:10] <= str(event_end)]
+        pool = [a for a in days if a.get("delta", 0) < 0] or days
+        worst = max(pool, key=lambda a: abs(a.get("delta", 0))) if pool else None
     known = {str(result.get("kpi_id") or ""), str(result.get("region") or "")}
     known |= {str(d.get("owner_role") or "") for d in result.get("decisions") or []}
-    out = explain(card, result, cand, withheld=withheld,
+    out = explain(card, result, cand, withheld=withheld, view=view, worst=worst,
                   backend=None if backend == "none" else UNSET,
                   known_entities=frozenset(k for k in known if k))
     return out.as_dict()

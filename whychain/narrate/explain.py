@@ -56,8 +56,9 @@ words. Say what it means for the decision, not how it was computed.
 # What each card is, in a line the model is given with the facts.
 CARD_PURPOSE = {
     "chain": "The chain: the eight links from a movement to a signature. Every link has "
-             "to hold; where one breaks, nothing after it is attempted. Explain what each "
-             "link means here, briefly, and what is still open.",
+             "to hold; where one breaks, nothing after it is attempted. Walk the links in "
+             "order, one short clause each. For the decision and the signature say who does "
+             "it, never whether it has happened yet: that changes after this is written.",
     "bridge": "The bridge: how the daily figure got from the fortnight before to "
               "this window, step by step, one step per verified cause.",
     "fishbone": "The fishbone: every explanation that was considered, and whether "
@@ -117,39 +118,53 @@ def _shown(fact_id: str, claim: str, display: str, state: str | None = None) -> 
                 kind="assumption", state=state)
 
 
-def _chain_facts(result: dict, cand: dict) -> list[Fact]:
-    """The links that are fixed for a finding, and the two that people complete.
+def _chain_facts(result: dict, cand: dict, view: dict | None, worst: dict | None) -> list[Fact]:
+    """The chain as this reader's card draws it (`chainLinks` in ui/app.html).
 
-    Decided and Signed change as people act, so they are given by what they
-    require rather than by their state now: an explanation written once must not
-    contradict the page after a click.
+    `result` is the full diagnosis; `view` is this reader's projection, which is
+    what the card is drawn from, so a link the card withholds is withheld here
+    too. Decided and Signed change as people act, so they are given by what
+    they require: an explanation written once must not contradict the page
+    after a click.
     """
-    mv, rec = result.get("movement") or {}, result.get("reconciliation") or {}
-    out = [_fact("f-chain-moved", "Moved: the daily figure against the fortnight before, "
-                 "far outside its normal range", mv.get("total_change"), Unit.INR, "chain")]
+    view = view or result
+    rec = view.get("reconciliation") or {}
+    out: list[Fact] = []
+    if worst:
+        out.append(_fact("f-chain-moved", "Moved: on the worst day the figure came in this much "
+                         "short of what was expected, far outside the normal range",
+                         abs(float(worst["delta"])), Unit.INR, "chain"))
     if rec.get("state") == "agreed":
         out.append(_shown("f-chain-confirmed", "Confirmed: the finance ledger agrees with the figure",
-                          f"within {round(100 * float(rec.get('worst_residual') or 0), 1)}%"))
+                          f"within {100 * abs(float(rec.get('worst_residual') or 0)):.1f}%"))
     elif rec.get("state") == "contradicted":
         out.append(_shown("f-chain-confirmed", "Confirmed: the finance ledger disagrees, so the "
                           "data is checked before any cause", "ledger disagrees"))
-    top = ((result.get("ranking") or {}).get("exact") or [None])[0]
+    top = ((view.get("ranking") or {}).get("exact") or [None])[0]
     if top:
-        out.append(_fact("f-chain-located", f"Located: {_plain(top.get('label'))} carries this share "
-                         "of the movement, exactly", 100 * float(top.get("share") or 0), Unit.PCT, "chain"))
+        out.append(_shown("f-chain-located", f"Located: {_plain(top.get('label')).replace(' · ', ': ')} "
+                          "carries this share of the movement, exactly",
+                          f"{round(100 * abs(float(top.get('share') or 0)))}%"))
+    else:
+        out.append(_shown("f-chain-located", "Located: price, volume and mix add back exactly to "
+                          "the total", "adds back exactly"))
     n = len(result.get("verified") or [])
-    rej, unt = len(cand.get("rejected") or []), len(cand.get("cannot_verify") or [])
-    out.append(_shown("f-chain-caused", f"Caused: verified causes, each passing every test; "
-                      f"{rej} other explanations ruled out and {unt} not yet testable",
-                      f"{n} verified"))
-    docs = sum(int(v.get("supporting_documents") or 0) for v in result.get("verified") or [])
-    if docs:
+    tested = "each passed every test"
+    if view.get("verified") is not None and cand:
+        tested += (f"; {len(cand.get('rejected') or [])} other explanations ruled out, "
+                   f"{len(cand.get('cannot_verify') or [])} not yet testable")
+    out.append(_shown("f-chain-caused", f"Caused: causes verified, {tested}", f"{n} verified"))
+    if view.get("verified"):
+        docs = sum(int(v.get("supporting_documents") or 0) for v in view.get("verified") or [])
         out.append(_shown("f-chain-evidence", "Evidence: customer tickets and notes quoted word "
                           "for word", f"{docs} documents"))
+    else:
+        out.append(_shown("f-chain-evidence", "Evidence: the customer tickets behind the causes "
+                          "are shown in the analyst view, not in this one", "in the analyst view"))
     lever = next((d for d in result.get("decisions") or [] if d.get("controllable")), None)
     if lever:
-        out.append(_shown("f-chain-lever", f"Lever: {lever.get('lever', 'an action')}, owned by the "
-                          f"{str(lever.get('owner', '')).replace('_', ' ')}", "has an owner"))
+        out.append(_shown("f-chain-lever", f"Lever: {str(lever.get('lever', 'an action')).replace('_', ' ')}, "
+                          f"owned by the {str(lever.get('owner', '')).replace('_', ' ')}", "has an owner"))
     out.append(_shown("f-chain-decided", "Decided: the lever's owner decides; nothing executes "
                       "until they do", "owner decides"))
     out.append(_shown("f-chain-signed", "Signed: the finance director signs by name; if the "
@@ -158,7 +173,8 @@ def _chain_facts(result: dict, cand: dict) -> list[Fact]:
 
 
 def card_brief(card: str, result: dict, candidates: dict | None = None,
-               withheld: bool = False) -> Brief:
+               withheld: bool = False, view: dict | None = None,
+               worst: dict | None = None) -> Brief:
     """The facts one card displays, and nothing else it does not.
 
     Built from the same result the page renders, so the explanation cannot
@@ -175,7 +191,8 @@ def card_brief(card: str, result: dict, candidates: dict | None = None,
         if over:
             # "Gross attribution over the movement" came back as "combined
             # attribution exceeds the total movement", which no reader follows.
-            keep.append(Fact(id=over.id, value=over.value, unit=over.unit, display=over.display,
+            keep.append(Fact(id=over.id, value=over.value, unit=over.unit,
+                             display=f"{round(100 * float(over.value or 0))}%" if over.value else over.display,
                              kind=over.kind, state=over.state,
                              claim="measured one at a time, the causes add up to this share of "
                                    "the fall, more than all of it, because some lost sales were "
@@ -232,7 +249,7 @@ def card_brief(card: str, result: dict, candidates: dict | None = None,
                                    str(a.get("value"))))
 
     elif card == "chain":
-        keep += _chain_facts(result, candidates or {})
+        keep += _chain_facts(result, candidates or {}, view, worst)
 
     else:  # decide
         keep += [f for f in base.facts if f.kind in ("decision", "cause")]
@@ -281,11 +298,11 @@ def _template(card: str, brief: Brief) -> tuple[Sentence, ...]:
 
 
 def explain(card: str, result: dict, candidates: dict | None = None, *,
-            withheld: bool = False,
+            withheld: bool = False, view: dict | None = None, worst: dict | None = None,
             backend: ChatModel | None = UNSET,
             known_entities: frozenset[str] = frozenset()) -> Explanation:
     """Explain one card. A model failure falls back to the template, never to an error."""
-    brief = card_brief(card, result, candidates, withheld)
+    brief = card_brief(card, result, candidates, withheld, view, worst)
     model = model_for(Task.NARRATE) if backend is UNSET else backend
     calls = hits = 0
     sentences: tuple[Sentence, ...] = ()
