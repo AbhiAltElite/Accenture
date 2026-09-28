@@ -46,7 +46,7 @@ from whychain.narrate.brief import Brief
 # validator with a false positive is a validator someone switches off, and this
 # one would have quietly dropped model-written sentences for their punctuation.
 _NUMERAL = re.compile(
-    r"[+-]?₹?\s?\d+(?:,\d+)*(?:\.\d+)?\s*(?:percentage points?|%|hours?)?",
+    r"[+\-\u2212]?₹?\s?\d+(?:,\d+)*(?:\.\d+)?\s*(?:percentage points?|%|hours?)?",
     re.IGNORECASE,
 )
 
@@ -125,7 +125,9 @@ class ValidationResult:
 
 def _normalise(numeral: str) -> str:
     """Compare numbers the way a reader reads them, not byte for byte."""
-    text = numeral.strip().lower().replace(",", "").replace(" ", "")
+    # The engine writes a minus sign (U+2212) and a model often types a hyphen:
+    # the same number, and it must not read as an invented one.
+    text = numeral.strip().lower().replace(",", "").replace(" ", "").replace("\u2212", "-")
     text = text.replace("percentagepoints", "pp").replace("percentagepoint", "pp")
     text = text.replace("hours", "h").replace("hour", "h")
     return text.lstrip("+")
@@ -181,7 +183,7 @@ def check_numerals(sentence: Sentence, brief: Brief) -> Rejection | None:
         if norm in _ALLOWED_BARE or norm.lstrip("₹") in allowed or norm in allowed:
             continue
         # Quoted verbatim from the evidence rather than computed from it.
-        if numeral.strip().lower() in quoted:
+        if numeral.strip().lower().replace("\u2212", "-") in quoted.replace("\u2212", "-"):
             continue
         return Rejection(
             sentence.text,

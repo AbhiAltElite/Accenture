@@ -207,9 +207,11 @@ def main() -> int:
     for name, q in CASES:
         if not (name.startswith("inbox retail") or name.startswith("trap")):
             continue
-        for card in ("bridge", "fishbone", "whatif", "decide"):
+        for card in ("chain", "bridge", "fishbone", "whatif", "decide"):
             for persona in ("cfo", "analyst"):
-                for price in ((-0.05, 0.10) if card == "whatif" else (-0.05,)):
+                # Every position of the slider (steps of 5%), so any a presenter
+                # lands on explains at once.
+                for price in ([x / 100 for x in range(-20, 25, 5)] if card == "whatif" else (-0.05,)):
                     r = client.get(f"/api/explain?{q}&card={card}&persona={persona}&price_delta={price}")
                     if r.status_code == 422:
                         continue          # a metric with no bridge has no cards to explain

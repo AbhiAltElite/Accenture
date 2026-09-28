@@ -107,3 +107,12 @@ def test_a_reader_whose_card_withholds_the_ruled_out_is_not_told_them(west):
     facts = card_brief("fishbone", diag, None, withheld=True).facts
     assert not any(f.state == "rejected" for f in facts)
     assert any(f.id == "f-withheld" for f in facts)
+
+
+def test_a_hyphen_for_a_minus_sign_is_the_same_number(west):
+    """The engine writes a minus sign; a model types a hyphen. Not an invented figure."""
+    _, diag, _ = west
+    f = next(x for x in card_brief("bridge", diag).facts if x.display.startswith("\u2212"))
+    out = explain("bridge", diag, backend=Fake([{"text": f"It fell by {f.display.replace(chr(0x2212), '-')} a day.",
+                                                  "cites": [f.id]}]))
+    assert out.writer == "model" and len(out.sentences) == 1

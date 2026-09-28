@@ -24,7 +24,7 @@ from whychain.narrate.brief import Brief, Fact, _fact, _plain, build_brief
 from whychain.narrate.validate import Sentence, ValidationResult, validate
 from whychain.narrate.writer import SENTENCE_SCHEMA, _house_style
 
-CARDS = ("bridge", "fishbone", "whatif", "decide")
+CARDS = ("chain", "bridge", "fishbone", "whatif", "decide")
 
 MAX_EXPLAIN_SENTENCES = 3
 
@@ -46,11 +46,18 @@ When a sentence names a cause (a release number, the weather), it also cites \
 that cause's fact, so what it names can be checked.
 4. Facts whose state is `rejected` were tested and ruled out: say so, never \
 state them as causes. Facts whose state is `untested` could not be tested yet.
-5. Plain words, no jargon, the register of a note to a director.\
+5. Everyday words a busy director reads in ten seconds. No jargon: never write \
+"attribution", "baseline", "variance", "slice", "scenario", "decomposition" or \
+"elasticity" (say "how much sales react to price"). Each sentence under twenty \
+words. Say what it means for the decision, not how it was computed.
+6. A cause's figure is that cause's own part of the fall, never the whole fall.\
 """
 
 # What each card is, in a line the model is given with the facts.
 CARD_PURPOSE = {
+    "chain": "The chain: the eight links from a movement to a signature. Every link has "
+             "to hold; where one breaks, nothing after it is attempted. Explain what each "
+             "link means here, briefly, and what is still open.",
     "bridge": "The bridge: how the daily figure got from the fortnight before to "
               "this window, step by step, one step per verified cause.",
     "fishbone": "The fishbone: every explanation that was considered, and whether "
@@ -110,6 +117,46 @@ def _shown(fact_id: str, claim: str, display: str, state: str | None = None) -> 
                 kind="assumption", state=state)
 
 
+def _chain_facts(result: dict, cand: dict) -> list[Fact]:
+    """The links that are fixed for a finding, and the two that people complete.
+
+    Decided and Signed change as people act, so they are given by what they
+    require rather than by their state now: an explanation written once must not
+    contradict the page after a click.
+    """
+    mv, rec = result.get("movement") or {}, result.get("reconciliation") or {}
+    out = [_fact("f-chain-moved", "Moved: the daily figure against the fortnight before, "
+                 "far outside its normal range", mv.get("total_change"), Unit.INR, "chain")]
+    if rec.get("state") == "agreed":
+        out.append(_shown("f-chain-confirmed", "Confirmed: the finance ledger agrees with the figure",
+                          f"within {round(100 * float(rec.get('worst_residual') or 0), 1)}%"))
+    elif rec.get("state") == "contradicted":
+        out.append(_shown("f-chain-confirmed", "Confirmed: the finance ledger disagrees, so the "
+                          "data is checked before any cause", "ledger disagrees"))
+    top = ((result.get("ranking") or {}).get("exact") or [None])[0]
+    if top:
+        out.append(_fact("f-chain-located", f"Located: {_plain(top.get('label'))} carries this share "
+                         "of the movement, exactly", 100 * float(top.get("share") or 0), Unit.PCT, "chain"))
+    n = len(result.get("verified") or [])
+    rej, unt = len(cand.get("rejected") or []), len(cand.get("cannot_verify") or [])
+    out.append(_shown("f-chain-caused", f"Caused: verified causes, each passing every test; "
+                      f"{rej} other explanations ruled out and {unt} not yet testable",
+                      f"{n} verified"))
+    docs = sum(int(v.get("supporting_documents") or 0) for v in result.get("verified") or [])
+    if docs:
+        out.append(_shown("f-chain-evidence", "Evidence: customer tickets and notes quoted word "
+                          "for word", f"{docs} documents"))
+    lever = next((d for d in result.get("decisions") or [] if d.get("controllable")), None)
+    if lever:
+        out.append(_shown("f-chain-lever", f"Lever: {lever.get('lever', 'an action')}, owned by the "
+                          f"{str(lever.get('owner', '')).replace('_', ' ')}", "has an owner"))
+    out.append(_shown("f-chain-decided", "Decided: the lever's owner decides; nothing executes "
+                      "until they do", "owner decides"))
+    out.append(_shown("f-chain-signed", "Signed: the finance director signs by name; if the "
+                      "evidence changes it must be signed again", "signed by name"))
+    return out
+
+
 def card_brief(card: str, result: dict, candidates: dict | None = None,
                withheld: bool = False) -> Brief:
     """The facts one card displays, and nothing else it does not.
@@ -123,7 +170,16 @@ def card_brief(card: str, result: dict, candidates: dict | None = None,
     keep: list[Fact] = []
 
     if card == "bridge":
-        keep += [f for f in base.facts if f.id in ("f-movement", "f-movement-pct", "f-overlap")]
+        keep += [f for f in base.facts if f.id in ("f-movement", "f-movement-pct")]
+        over = next((f for f in base.facts if f.id == "f-overlap"), None)
+        if over:
+            # "Gross attribution over the movement" came back as "combined
+            # attribution exceeds the total movement", which no reader follows.
+            keep.append(Fact(id=over.id, value=over.value, unit=over.unit, display=over.display,
+                             kind=over.kind, state=over.state,
+                             claim="measured one at a time, the causes add up to this share of "
+                                   "the fall, more than all of it, because some lost sales were "
+                                   "hit by both; the bridge scales them so they add up exactly"))
         wf = result.get("waterfall") or {}
         if wf.get("start"):
             keep.append(_fact("f-bridge-before", f"the daily figure, {wf['start'].get('label', 'before')}",
@@ -131,7 +187,7 @@ def card_brief(card: str, result: dict, candidates: dict | None = None,
         for i, step in enumerate(wf.get("steps") or [], 1):
             keep.append(_fact(f"f-bridge-step-{i}",
                               f"bridge step for {_plain(step.get('label'))}"
-                              + (", scaled so the steps add up despite the overlap"
+                              + (", scaled so the steps add up to the fall"
                                  if wf.get("scaled_for_overlap") else ""),
                               step.get("value"), Unit.INR, "bridge"))
         if wf.get("end"):
@@ -157,7 +213,10 @@ def card_brief(card: str, result: dict, candidates: dict | None = None,
 
     elif card == "whatif":
         for sc in result.get("scenarios") or []:
-            if not sc.get("available"):
+            # A projection over the horizon changes with the horizon buttons;
+            # leaving it out keeps one explanation per price position, each
+            # of which is warmed.
+            if not sc.get("available") or sc.get("horizon_days"):
                 continue
             sid = sc.get("scenario_id")
             keep.append(_fact(f"f-whatif-{sid}", f"{sc.get('question')} Effect on "
@@ -171,6 +230,9 @@ def card_brief(card: str, result: dict, candidates: dict | None = None,
                 keep.append(_shown(f"f-whatif-{sid}-assume-{j}",
                                    f"assumption for {sid}: {a.get('name')} ({a.get('basis')})",
                                    str(a.get("value"))))
+
+    elif card == "chain":
+        keep += _chain_facts(result, candidates or {})
 
     else:  # decide
         keep += [f for f in base.facts if f.kind in ("decision", "cause")]
@@ -207,6 +269,9 @@ def _template(card: str, brief: Brief) -> tuple[Sentence, ...]:
         if first:
             out.append(Sentence(f"This is a projection, not a measurement: {first.display} a day "
                                 "under the stated assumptions.", (first.id,)))
+    elif card == "chain" and "f-chain-moved" in f:
+        out.append(Sentence("Each link must hold before the next is tried, from the movement "
+                            "to a signature by name.", ("f-chain-moved", "f-chain-signed")))
     elif card == "decide":
         first = next((x for x in brief.facts if x.kind == "decision"), None)
         if first:

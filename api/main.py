@@ -1934,7 +1934,7 @@ def decomposition(
 
 @app.get("/api/explain")
 def explain_card(
-    card: str = Query(..., description="bridge, fishbone, whatif or decide"),
+    card: str = Query(..., description="chain, bridge, fishbone, whatif or decide"),
     kpi: str = Query("net_revenue"),
     region: str | None = None,
     channel: str | None = None,
@@ -1972,7 +1972,7 @@ def explain_card(
     cand = candidates(
         kpi=kpi, region=region, channel=channel, device=device, category=category,
         event_start=event_start, event_end=event_end, industry=industry, entitled=entitled,
-    ) if card == "fishbone" and persona == "analyst" else None
+    ) if (card == "fishbone" and persona == "analyst") or card == "chain" else None
     # Other readers' fishbone withholds what was ruled out ("the analyst view
     # places them on their bones"); the explanation says what that card says.
     withheld = card == "fishbone" and persona != "analyst"

@@ -386,7 +386,7 @@ table.t td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabul
 .has-aix > h2{padding-right:118px}
 /* the fishbone's Show/Hide sits at the end of its summary: keep it clear of Explain */
 .has-aix > .fbd > summary{padding-right:118px}
-.aix{position:absolute;top:18px;right:20px;z-index:2;display:inline-flex;align-items:center;gap:6px;
+.aix{position:absolute;top:27px;right:30px;z-index:2;display:inline-flex;align-items:center;gap:6px;
   font:600 12.5px/1 var(--sans);padding:6px 11px;border-radius:var(--r-pill);border:1px solid var(--line-2);
   background:var(--paper);color:var(--accent);cursor:pointer}
 .aix svg{width:14px;height:14px}
@@ -2383,6 +2383,11 @@ function wireWhatIf(ctx){
     if(!r.ok){ box.querySelectorAll('.wi').forEach(c => c.classList.remove('busy')); toast(detail(r)); return; }
     box.innerHTML = (r.data.scenarios || []).map(sc => whatIfCard(sc, ctx)).join('');
     wireWhatIf(ctx);
+    // An open explanation follows the slider; within the same 5% step it
+    // already says which step it was written for, so only a new step asks.
+    const sec = document.getElementById('whatif'), open = sec && sec.querySelector(':scope > .aix-out');
+    if(open && Number(sec.dataset.explainedAt) !== Math.round(ctx.whatIf.price * 20) / 20){
+      open.remove(); sec.querySelector(':scope > .aix').click(); }
   };
   const slider = document.getElementById('wi-price');
   if(slider) slider.oninput = () => {
@@ -2400,7 +2405,7 @@ function wireWhatIf(ctx){
    finding, so each explanation is written once and read from the cache. */
 const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6-5.6-1.9 5.6-1.9z"/><path d="M19 15l.9 2.1 2.1.9-2.1.9L19 21l-.9-2.1-2.1-.9 2.1-.9z" opacity=".7"/></svg>';
 function wireExplain(ctx){
-  ['bridge', 'fishbone', 'whatif', 'decide'].forEach(id => {
+  ['chain', 'bridge', 'fishbone', 'whatif', 'decide'].forEach(id => {
     const sec = document.getElementById(id);
     if(!sec || sec.querySelector(':scope > .aix')) return;
     sec.classList.add('has-aix');
@@ -2417,8 +2422,13 @@ function wireExplain(ctx){
       // Under the card's heading; in the fishbone, under its summary, inside the card.
       if(h) h.after(box); else if(det) det.querySelector(':scope > summary').after(box); else btn.after(box);
       btn.setAttribute('aria-expanded', 'true');
+      // The what-if is explained at the nearest 5% step, the positions written
+      // ahead, so it answers at once; the footer says when that is not the
+      // slider's own position.
+      const at = ctx.whatIf ? Math.round(ctx.whatIf.price * 20) / 20 : undefined;
+      sec.dataset.explainedAt = at;
       const r = await api('/api/explain?' + qs({...ctx.base, card: id, persona: S.persona,
-        price_delta: ctx.whatIf ? ctx.whatIf.price : undefined,
+        price_delta: at,
         horizon_days: ctx.whatIf ? ctx.whatIf.horizon : undefined}));
       if(!box.isConnected) return;
       if(!r.ok){ box.innerHTML = `<p class="aix-busy">${esc(detail(r))}</p>`; return; }
@@ -2426,7 +2436,8 @@ function wireExplain(ctx){
       box.innerHTML = `<p class="aix-head">${SPARK}<b>What this card shows</b></p><p>${esc(d.text || 'Nothing to add for this card.')}</p>
         <p class="aix-foot">${d.writer === 'model'
           ? `Written by the model \u00b7 ${d.accepted} of ${n} sentences checked against this card\u2019s figures. It calculates nothing.`
-          : 'From a template, no model \u00b7 every figure is from this card.'}</p>`;
+          : 'From a template, no model \u00b7 every figure is from this card.'}${id === 'whatif' && at !== undefined && Math.abs(at - ctx.whatIf.price) > 1e-9
+          ? ` Written for ${at > 0 ? '+' : at < 0 ? '\u2212' : ''}${Math.abs(Math.round(at * 100))}%, the nearest explained step; the card\u2019s figures are for ${ctx.whatIf.price > 0 ? '+' : ctx.whatIf.price < 0 ? '\u2212' : ''}${Math.abs(Math.round(ctx.whatIf.price * 100))}%.` : ''}</p>`;
     };
   });
 }
